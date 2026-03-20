@@ -7,7 +7,7 @@ export async function validate<T>(schema: ZodSchema<T>, data: unknown): Promise<
     return { data: parsed }
   } catch (e) {
     if (e instanceof ZodError) {
-      const messages = e.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ')
+      const messages = e.issues.map(err => `${err.path.join('.')}: ${err.message}`).join(', ')
       return { error: error(messages, 400) }
     }
     return { error: error('Invalid input', 400) }

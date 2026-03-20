@@ -68,6 +68,8 @@ export async function POST(req: Request) {
     position = newPos
   }
 
+  if (!position) return error('Failed to resolve position', 500)
+
   // Validate sell quantity
   if (txn.type === 'sell' && txn.quantity > position.quantity) {
     return error(`Cannot sell ${txn.quantity} — only ${position.quantity} held`, 400)
