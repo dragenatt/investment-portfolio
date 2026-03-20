@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
+import { RiskMetrics } from '@/components/analytics/risk-metrics'
+import { BenchmarkChart } from '@/components/analytics/benchmark-chart'
 import useSWR from 'swr'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => r.data)
@@ -49,14 +51,13 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
         </ErrorBoundary>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle className="text-sm font-medium">Metricas de Riesgo</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-8">
-            Las metricas de riesgo (volatilidad, Sharpe ratio, max drawdown) estaran disponibles cuando haya suficiente historial de precios.
-          </p>
-        </CardContent>
-      </Card>
+      <ErrorBoundary>
+        <RiskMetrics portfolioId={id} />
+      </ErrorBoundary>
+
+      <ErrorBoundary>
+        <BenchmarkChart portfolioId={id} />
+      </ErrorBoundary>
     </div>
   )
 }
