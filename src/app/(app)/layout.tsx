@@ -2,6 +2,7 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
 import { MobileNav } from '@/components/layout/mobile-nav'
 import { CurrencyProvider } from '@/providers/currency-provider'
+import { SymbolSearch } from '@/components/market/symbol-search'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -15,6 +16,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
         <MobileNav />
+        <SymbolSearch />
       </div>
     </CurrencyProvider>
   )
