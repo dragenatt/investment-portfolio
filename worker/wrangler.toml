@@ -1,0 +1,23 @@
+name = "price-engine"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[triggers]
+crons = [
+  "*/5 * * * *",
+  "*/30 * * * *",
+  "0 */12 * * *",
+  "0 22 * * 1-5"
+]
+
+[[kv_namespaces]]
+binding = "PRICE_CACHE"
+id = ""  # Fill after creating KV namespace
+
+[vars]
+SUPABASE_URL = ""
+
+# Secrets (set via wrangler secret put):
+# SUPABASE_SERVICE_ROLE_KEY
+# ALPHA_VANTAGE_API_KEY
+# BANXICO_TOKEN
