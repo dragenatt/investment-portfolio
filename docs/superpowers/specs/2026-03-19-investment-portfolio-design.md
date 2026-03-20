@@ -11,7 +11,7 @@ Multi-user investment portfolio platform with startup-quality UX. Users register
 Hybrid: Vercel + Cloudflare + Supabase.
 
 - **Vercel (Next.js 15)** — app frontend, auth, API routes for CRUD
-- **Cloudflare Workers** — price fetching, caching, heavy analytics calculations
+- **Cloudflare Workers** — price fetching, caching, alert evaluation
 - **Supabase** — PostgreSQL (source of truth), auth, realtime, storage
 
 ### Data Flow
@@ -62,8 +62,15 @@ positions (
   quantity NUMERIC NOT NULL,
   avg_cost NUMERIC NOT NULL,
   currency TEXT NOT NULL,
-  opened_at TIMESTAMPTZ DEFAULT now()
+  opened_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (portfolio_id, symbol)  -- one position per symbol per portfolio
 )
+
+-- Position recalculation strategy: weighted average cost
+-- On buy: avg_cost = ((old_qty * old_avg) + (new_qty * new_price)) / (old_qty + new_qty)
+-- On sell: quantity decreases, avg_cost unchanged. Sell quantity validated <= position quantity.
+-- On transaction delete: recompute avg_cost and quantity from all remaining transactions (full replay).
+-- On sell that closes position (qty reaches 0): position remains with quantity=0 for history.
 
 transactions (
   id UUID PK DEFAULT gen_random_uuid(),
@@ -97,8 +104,8 @@ alerts (
   id UUID PK DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users NOT NULL,
   symbol TEXT NOT NULL,
-  condition TEXT NOT NULL CHECK (condition IN ('above','below','pct_change')),
-  target_value NUMERIC NOT NULL,
+  condition TEXT NOT NULL CHECK (condition IN ('above','below','pct_change_daily')),
+  target_value NUMERIC NOT NULL,  -- for pct_change_daily: percentage vs previous close (e.g., 5.0 = 5%)
   is_active BOOLEAN DEFAULT true,
   triggered_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -107,7 +114,9 @@ alerts (
 -- Shared tables (not per-user)
 
 current_prices (
-  symbol TEXT PK,
+  symbol TEXT NOT NULL,
+  exchange TEXT NOT NULL DEFAULT 'US',  -- US, BMV, CRYPTO, FOREX, COMMODITY
+  PRIMARY KEY (symbol, exchange),
   price NUMERIC NOT NULL,
   change_pct NUMERIC,
   volume BIGINT,
@@ -119,14 +128,23 @@ current_prices (
 
 price_history (
   symbol TEXT NOT NULL,
+  exchange TEXT NOT NULL DEFAULT 'US',
   date DATE NOT NULL,
   open NUMERIC,
   high NUMERIC,
   low NUMERIC,
   close NUMERIC NOT NULL,
   volume BIGINT,
-  PRIMARY KEY (symbol, date)
+  PRIMARY KEY (symbol, exchange, date)
 )
+
+-- Indexes
+-- positions: idx_positions_portfolio_id ON positions(portfolio_id)
+-- transactions: idx_transactions_position_id ON transactions(position_id)
+-- current_prices: PK already covers (symbol, exchange)
+-- price_history: PK already covers (symbol, exchange, date)
+-- alerts: idx_alerts_user_id ON alerts(user_id), idx_alerts_symbol ON alerts(symbol, is_active)
+-- watchlist_items: idx_watchlist_items_watchlist_id ON watchlist_items(watchlist_id)
 
 failed_fetches (
   id UUID PK DEFAULT gen_random_uuid(),
@@ -142,7 +160,11 @@ failed_fetches (
 ## Pages and Navigation
 
 ```
-/ → Landing page (marketing, CTA)
+/ → Landing page
+  - Hero: headline + CTA "Crea tu cuenta gratis"
+  - 3 feature cards (multi-asset, analytics, real-time)
+  - Screenshot/mockup of dashboard
+  - Footer with links
 /login
 /register
 
@@ -160,17 +182,17 @@ failed_fetches (
   /portfolio/[id]/analytics → Advanced analytics
     - Performance vs benchmarks
     - Distribution by sector/geography/type
-    - Risk metrics (volatility, Sharpe, drawdown)
-    - Correlations between positions
+    - Risk metrics (basic volatility, simple Sharpe, max drawdown — computed via SQL in API route)
+    - Correlations between positions (basic Pearson from price_history — computed via SQL in API route)
   /portfolio/new → Create portfolio
 
 /market
   - Asset search with autocomplete
   /market/[symbol] → Asset detail
     - Price, chart, volume
-    - Fundamentals (if available)
+    - Basic info from Yahoo Finance search results (name, exchange, type, market cap if available)
     - "Add to portfolio" / "Add to watchlist" buttons
-  - Trending / Most watched
+  - Most held (derived from aggregated position counts across users, anonymized)
 
 /watchlist → Custom watchlists with live prices
 
@@ -194,9 +216,14 @@ price-engine worker:
   Cron 0 */12 → fetchBanxico()
   Cron 0 22 weekdays → buildHistory() + compressOld()
 
+Symbol tier discovery (on each cron trigger):
+  1. Query Supabase: SELECT DISTINCT symbol FROM positions p JOIN portfolios pf ON p.portfolio_id=pf.id WHERE p.quantity > 0 → hot_symbols
+  2. Query Supabase: SELECT DISTINCT symbol FROM watchlist_items WHERE symbol NOT IN (hot_symbols) → warm_symbols
+  3. Results cached in KV for 10 min to avoid repeated queries
+
 Symbol tiers:
-  Hot  (5 min)  → symbols in open positions
-  Warm (30 min) → symbols in watchlists
+  Hot  (5 min)  → symbols in open positions (quantity > 0)
+  Warm (30 min) → symbols in watchlists (not already hot)
   Cold (1x/day) → everything else
 
 Exchange-aware scheduling:
@@ -211,7 +238,12 @@ Shared modules:
   FallbackChain → Yahoo → AlphaVantage → skip
   MarketCalendar → knows which markets are open
 
-Failed fetches → dead_letter table → retry next cycle
+Failed fetches → failed_fetches table → retry next cycle
+
+Alert evaluation:
+  On each price update, check active alerts for that symbol.
+  If condition met → mark triggered_at, notify via Supabase Realtime channel.
+  Runs inside price-engine worker after writing new prices.
 ```
 
 ### API Sources
@@ -262,8 +294,8 @@ Reduces external API calls by 90%+.
 /api/analytics
   GET    /[pid]/performance?range=1Y → historical performance
   GET    /[pid]/allocation           → distribution by type/sector/geo
-  GET    /[pid]/risk                 → proxy to Cloudflare Worker
-  GET    /[pid]/benchmark?vs=SPY,IPC → proxy to Cloudflare Worker
+  GET    /[pid]/risk                 → computed in Next.js API route (basic: volatility, simple Sharpe using CETES 28-day rate as risk-free rate from Banxico data, max drawdown from price_history SQL queries)
+  GET    /[pid]/benchmark?vs=SPY,IPC → computed in Next.js API route (compare portfolio returns vs index returns from price_history)
 
 /api/alerts
   GET    /                → user's alerts
@@ -276,10 +308,7 @@ Reduces external API calls by 90%+.
   PATCH  /profile         → update profile
   PATCH  /preferences     → base currency, theme, language
 
-/api/export (phase 2)
-  GET    /[pid]/csv       → export positions to CSV
-  GET    /[pid]/pdf       → PDF report (via Worker)
-  GET    /[pid]/tax?year  → tax report
+-- /api/export deferred to Phase 2 (see Deferred section)
 ```
 
 Rate limiting per endpoint:
@@ -342,7 +371,7 @@ Every API route validates input with Zod schemas. Example:
 ```typescript
 const TransactionSchema = z.object({
   portfolio_id: z.string().uuid(),
-  symbol: z.string().max(20).regex(/^[A-Z0-9.-]+$/),
+  symbol: z.string().max(20).regex(/^[A-Z0-9.:-]+$/),  // colon for exchange prefix e.g. BMV:AC
   type: z.enum(['buy', 'sell', 'dividend', 'split']),
   quantity: z.number().positive().max(999_999_999),
   price: z.number().positive().max(999_999_999),
@@ -354,11 +383,20 @@ const TransactionSchema = z.object({
 ```
 
 ### 4. Rate Limiting
-KV-based counter per user per endpoint. Limits defined per route (see API Routes section).
+Upstash Redis (free tier, Vercel-native integration) for rate limiting on Next.js API routes. Counter per user per endpoint with sliding window. Limits defined per route (see API Routes section).
 
 ### 5. Supabase RLS
-Every user-owned table: `WHERE user_id = auth.uid()` (or joined through parent).
-Price tables: `SELECT` for authenticated, `INSERT/UPDATE` for service_role only.
+Explicit policies per table:
+- `profiles`: `WHERE user_id = auth.uid()`
+- `portfolios`: `WHERE user_id = auth.uid()`
+- `watchlists`: `WHERE user_id = auth.uid()`
+- `alerts`: `WHERE user_id = auth.uid()`
+- `positions`: `WHERE portfolio_id IN (SELECT id FROM portfolios WHERE user_id = auth.uid())`
+- `transactions`: `WHERE position_id IN (SELECT id FROM positions WHERE portfolio_id IN (SELECT id FROM portfolios WHERE user_id = auth.uid()))`
+- `watchlist_items`: `WHERE watchlist_id IN (SELECT id FROM watchlists WHERE user_id = auth.uid())`
+- `current_prices`: `SELECT` for any authenticated user, `INSERT/UPDATE` for service_role only
+- `price_history`: `SELECT` for any authenticated user, `INSERT/UPDATE` for service_role only
+- `failed_fetches`: service_role only (all operations)
 
 ### 6. Service Role Isolation
 Workers use `SUPABASE_SERVICE_ROLE_KEY` — only writes to price tables, never user tables.
@@ -376,11 +414,11 @@ API keys rotated every 90 days. Stored in Vercel env vars and Cloudflare Worker 
 ## Deferred to Phase 2+
 
 - WebSockets / Supabase Realtime for live price push
-- Analytics Worker for heavy calculations (Sharpe, Monte Carlo)
+- Dedicated Analytics Worker for heavy calculations (Monte Carlo, advanced correlations, factor analysis)
+- Export & reporting (PDF, CSV, tax reports) via /api/export endpoints
 - PWA + push notifications
-- Export & reporting (PDF, CSV, tax reports)
 - OAuth (Google/GitHub) + 2FA
-- Email verification + password recovery
+- Email verification + password recovery (Note: Supabase provides built-in password reset emails — enable in Phase 1.5 as a quick win before full Phase 2)
 
 ## Tech Stack Summary
 
@@ -389,7 +427,7 @@ API keys rotated every 90 days. Stored in Vercel env vars and Cloudflare Worker 
 | Frontend | Next.js 15, React 19, Tailwind CSS, shadcn/ui |
 | Charts | Recharts |
 | Data fetching | SWR |
-| Auth | Supabase Auth |
+| Auth | Supabase Auth (email/password in Phase 1) |
 | Database | Supabase PostgreSQL |
 | Realtime | Supabase Realtime (phase 2) |
 | Price engine | Cloudflare Worker |
