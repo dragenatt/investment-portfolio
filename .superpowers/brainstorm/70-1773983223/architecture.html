@@ -1,0 +1,139 @@
+<h2>Arquitectura Híbrida: Vercel + Cloudflare + Supabase</h2>
+<p class="subtitle">¿Este diagrama refleja lo que tienes en mente?</p>
+
+<div class="mockup">
+  <div class="mockup-header">Diagrama de Arquitectura</div>
+  <div class="mockup-body" style="padding:24px;background:#0f172a;">
+
+    <!-- User Layer -->
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="display:inline-block;background:#1e293b;border:2px solid #60a5fa;border-radius:12px;padding:12px 32px;">
+        <div style="color:#60a5fa;font-size:10px;font-weight:bold;letter-spacing:1px;">USUARIOS</div>
+        <div style="color:#e2e8f0;font-size:14px;margin-top:4px;">Browser / Mobile</div>
+      </div>
+      <div style="color:#475569;font-size:20px;">↓</div>
+    </div>
+
+    <!-- Vercel Layer -->
+    <div style="background:#1e293b;border:2px solid #4ade80;border-radius:12px;padding:16px;margin-bottom:12px;">
+      <div style="color:#4ade80;font-size:11px;font-weight:bold;letter-spacing:1px;margin-bottom:12px;">▲ VERCEL — Next.js 15 App</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;flex:1;min-width:120px;">
+          <div style="color:#94a3b8;font-size:9px;">FRONTEND</div>
+          <div style="color:#e2e8f0;font-size:11px;margin-top:2px;">React Server Components</div>
+          <div style="color:#64748b;font-size:9px;margin-top:2px;">Dashboard, Portfolio, Analytics</div>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;flex:1;min-width:120px;">
+          <div style="color:#94a3b8;font-size:9px;">AUTH</div>
+          <div style="color:#e2e8f0;font-size:11px;margin-top:2px;">Supabase Auth + Middleware</div>
+          <div style="color:#64748b;font-size:9px;margin-top:2px;">Login, Register, Sessions</div>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:8px 12px;flex:1;min-width:120px;">
+          <div style="color:#94a3b8;font-size:9px;">API ROUTES</div>
+          <div style="color:#e2e8f0;font-size:11px;margin-top:2px;">Portfolio CRUD</div>
+          <div style="color:#64748b;font-size:9px;margin-top:2px;">Transacciones, Watchlists</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrows -->
+    <div style="display:flex;justify-content:space-around;color:#475569;font-size:16px;margin:4px 0;">
+      <span>↓ ↑</span>
+      <span>↓ ↑</span>
+    </div>
+
+    <!-- Middle Layer: Cloudflare + Supabase -->
+    <div style="display:flex;gap:12px;margin-bottom:12px;">
+
+      <!-- Cloudflare -->
+      <div style="background:#1e293b;border:2px solid #f59e0b;border-radius:12px;padding:16px;flex:1;">
+        <div style="color:#f59e0b;font-size:11px;font-weight:bold;letter-spacing:1px;margin-bottom:12px;">⚡ CLOUDFLARE WORKERS</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;">
+            <div style="color:#fbbf24;font-size:10px;">Price Fetcher Worker</div>
+            <div style="color:#64748b;font-size:9px;">Yahoo + Alpha Vantage + CoinGecko</div>
+          </div>
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;">
+            <div style="color:#fbbf24;font-size:10px;">Banxico Worker</div>
+            <div style="color:#64748b;font-size:9px;">CETES, tipo de cambio, bonos</div>
+          </div>
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;">
+            <div style="color:#fbbf24;font-size:10px;">Cron Scheduler</div>
+            <div style="color:#64748b;font-size:9px;">Actualización cada 5 min (mercado abierto)</div>
+          </div>
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;">
+            <div style="color:#fbbf24;font-size:10px;">KV Cache</div>
+            <div style="color:#64748b;font-size:9px;">Precios cacheados, rate limit buffer</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Supabase -->
+      <div style="background:#1e293b;border:2px solid #a78bfa;border-radius:12px;padding:16px;flex:1;">
+        <div style="color:#a78bfa;font-size:11px;font-weight:bold;letter-spacing:1px;margin-bottom:12px;">🗄️ SUPABASE</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;">
+            <div style="color:#c4b5fd;font-size:10px;">PostgreSQL</div>
+            <div style="color:#64748b;font-size:9px;">Users, portfolios, transactions, prices</div>
+          </div>
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;">
+            <div style="color:#c4b5fd;font-size:10px;">Auth</div>
+            <div style="color:#64748b;font-size:9px;">JWT, sessions, RLS policies</div>
+          </div>
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;">
+            <div style="color:#c4b5fd;font-size:10px;">Realtime</div>
+            <div style="color:#64748b;font-size:9px;">Subscriptions a cambios de precio</div>
+          </div>
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 10px;">
+            <div style="color:#c4b5fd;font-size:10px;">Storage</div>
+            <div style="color:#64748b;font-size:9px;">Avatars, reportes exportados</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- External APIs -->
+    <div style="color:#475569;font-size:16px;text-align:center;margin:4px 0;">↓ ↑</div>
+    <div style="background:#1e293b;border:2px solid #ef4444;border-radius:12px;padding:16px;">
+      <div style="color:#ef4444;font-size:11px;font-weight:bold;letter-spacing:1px;margin-bottom:12px;">🌐 APIs EXTERNAS</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 12px;">
+          <span style="color:#fca5a5;font-size:10px;">Yahoo Finance</span>
+          <span style="color:#64748b;font-size:9px;"> — Stocks, ETFs, Forex</span>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 12px;">
+          <span style="color:#fca5a5;font-size:10px;">Alpha Vantage</span>
+          <span style="color:#64748b;font-size:9px;"> — Fallback + Fundamentals</span>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 12px;">
+          <span style="color:#fca5a5;font-size:10px;">CoinGecko</span>
+          <span style="color:#64748b;font-size:9px;"> — Crypto</span>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px 12px;">
+          <span style="color:#fca5a5;font-size:10px;">Banxico API</span>
+          <span style="color:#64748b;font-size:9px;"> — CETES, Bonos, MXN</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div style="margin-top:20px;">
+  <div class="options">
+    <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+      <div class="letter">✓</div>
+      <div class="content">
+        <h3>Se ve bien, adelante</h3>
+        <p>La arquitectura refleja lo que quiero</p>
+      </div>
+    </div>
+    <div class="option" data-choice="changes" onclick="toggleSelect(this)">
+      <div class="letter">✎</div>
+      <div class="content">
+        <h3>Quiero cambios</h3>
+        <p>Tengo ajustes o dudas sobre la arquitectura</p>
+      </div>
+    </div>
+  </div>
+</div>

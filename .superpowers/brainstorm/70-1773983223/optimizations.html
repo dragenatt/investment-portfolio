@@ -1,0 +1,112 @@
+<h2>Optimizaciones Posibles</h2>
+<p class="subtitle">Selecciona las que quieras incluir en el diseño</p>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="websockets" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>WebSockets para precios en vivo</h3>
+      <p>En vez de polling cada 5 min, usar Supabase Realtime + Cloudflare Durable Objects para push instantáneo de precios. El dashboard se actualiza sin refrescar la página — como Bloomberg Terminal.</p>
+      <div style="margin-top:8px;display:flex;gap:12px;">
+        <span style="color:#4ade80;font-size:12px;">✓ UX profesional</span>
+        <span style="color:#4ade80;font-size:12px;">✓ Menos requests</span>
+        <span style="color:#f59e0b;font-size:12px;">⚠ Más complejo</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="edge-cache" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>Cache inteligente por capas</h3>
+      <p>3 niveles: Cloudflare KV (5s TTL para precios activos) → Supabase (histórico) → API externa (solo si miss). Reduce llamadas a APIs externas un 90%+, evita rate limits, y la app responde en &lt;50ms.</p>
+      <div style="margin-top:8px;display:flex;gap:12px;">
+        <span style="color:#4ade80;font-size:12px;">✓ Ultra rápido</span>
+        <span style="color:#4ade80;font-size:12px;">✓ Ahorra API calls</span>
+        <span style="color:#4ade80;font-size:12px;">✓ Fácil de implementar</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="optimistic-ui" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>Optimistic UI + SWR</h3>
+      <p>Cuando el usuario agrega una transacción, la UI se actualiza instantáneamente antes de que el servidor confirme. SWR (stale-while-revalidate) mantiene datos frescos sin loading spinners. Se siente como una app nativa.</p>
+      <div style="margin-top:8px;display:flex;gap:12px;">
+        <span style="color:#4ade80;font-size:12px;">✓ UX instantánea</span>
+        <span style="color:#4ade80;font-size:12px;">✓ Zero loading states</span>
+        <span style="color:#4ade80;font-size:12px;">✓ Pattern estándar</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="rls" onclick="toggleSelect(this)">
+    <div class="letter">4</div>
+    <div class="content">
+      <h3>Row Level Security + Edge Middleware</h3>
+      <p>Supabase RLS garantiza que cada usuario SOLO ve sus datos a nivel de base de datos (no solo a nivel de API). Next.js Middleware valida el JWT antes de que llegue a cualquier ruta. Seguridad en profundidad.</p>
+      <div style="margin-top:8px;display:flex;gap:12px;">
+        <span style="color:#4ade80;font-size:12px;">✓ Seguridad real</span>
+        <span style="color:#4ade80;font-size:12px;">✓ Zero trust</span>
+        <span style="color:#4ade80;font-size:12px;">✓ Supabase lo hace fácil</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="analytics-worker" onclick="toggleSelect(this)">
+    <div class="letter">5</div>
+    <div class="content">
+      <h3>Worker dedicado para analytics pesados</h3>
+      <p>Cálculos como Sharpe ratio, correlaciones, y Monte Carlo simulations corren en un Cloudflare Worker separado, no en el browser ni en Vercel. Resultados se cachean en KV. El dashboard carga rápido y los analytics llegan async.</p>
+      <div style="margin-top:8px;display:flex;gap:12px;">
+        <span style="color:#4ade80;font-size:12px;">✓ No bloquea UI</span>
+        <span style="color:#4ade80;font-size:12px;">✓ Cálculos complejos</span>
+        <span style="color:#f59e0b;font-size:12px;">⚠ Worker CPU limits</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="pwa" onclick="toggleSelect(this)">
+    <div class="letter">6</div>
+    <div class="content">
+      <h3>PWA + Notificaciones Push</h3>
+      <p>Service worker para offline support — ver tu portafolio sin internet. Push notifications cuando un activo sube/baja X%, cuando se ejecuta una alerta, o resumen diario de tu portafolio. Se instala como app en el teléfono.</p>
+      <div style="margin-top:8px;display:flex;gap:12px;">
+        <span style="color:#4ade80;font-size:12px;">✓ App móvil gratis</span>
+        <span style="color:#4ade80;font-size:12px;">✓ Alertas de precio</span>
+        <span style="color:#f59e0b;font-size:12px;">⚠ iOS limitado</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="dark-light" onclick="toggleSelect(this)">
+    <div class="letter">7</div>
+    <div class="content">
+      <h3>Dark/Light mode + Themes personalizables</h3>
+      <p>Toggle dark/light con transiciones suaves. Los colores de las gráficas se adaptan al tema. Opcionalmente el usuario puede customizar colores de su dashboard. Respeta la preferencia del sistema.</p>
+      <div style="margin-top:8px;display:flex;gap:12px;">
+        <span style="color:#4ade80;font-size:12px;">✓ Profesional</span>
+        <span style="color:#4ade80;font-size:12px;">✓ Fácil con Tailwind</span>
+        <span style="color:#4ade80;font-size:12px;">✓ UX moderna</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="export" onclick="toggleSelect(this)">
+    <div class="letter">8</div>
+    <div class="content">
+      <h3>Export & Reporting</h3>
+      <p>Exportar portafolio a PDF (reporte profesional), CSV/Excel para análisis propio, y reportes fiscales (SAT-friendly para México). Generados en Cloudflare Worker para no bloquear la UI.</p>
+      <div style="margin-top:8px;display:flex;gap:12px;">
+        <span style="color:#4ade80;font-size:12px;">✓ Valor real</span>
+        <span style="color:#4ade80;font-size:12px;">✓ Diferenciador</span>
+        <span style="color:#f59e0b;font-size:12px;">⚠ PDF complejo</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Haz click en todas las que quieras incluir. Puedes seleccionar múltiples.</p>
