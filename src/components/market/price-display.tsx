@@ -27,7 +27,7 @@ export function PriceDisplay({ price, change, changePct, currency = 'USD', size 
       <span className={sizes[size].price}>
         {currency === 'USD' ? '$' : currency === 'EUR' ? '\u20AC' : '$'}{formatNumber(price)}
       </span>
-      {change !== undefined && changePct !== undefined && (
+      {change != null && changePct != null && (
         <span className={cn(sizes[size].change, colorClass, 'flex items-center gap-0.5')}>
           {isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
           {formatPercent(changePct)}

@@ -35,11 +35,13 @@ function QuoteCard({ symbol, name }: { symbol: string; name: string }) {
             <span className="text-xs text-muted-foreground">--</span>
           ) : quote ? (
             <div className="text-right">
-              <p className="font-mono font-medium">${quote.price?.toFixed(2)}</p>
-              <p className={`text-xs flex items-center gap-1 ${quote.changePct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {quote.changePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                {quote.changePct >= 0 ? '+' : ''}{quote.changePct?.toFixed(2)}%
-              </p>
+              <p className="font-mono font-medium">{quote.price != null ? `$${quote.price.toFixed(2)}` : '--'}</p>
+              {quote.changePct != null && (
+                <p className={`text-xs flex items-center gap-1 ${quote.changePct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {quote.changePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {quote.changePct >= 0 ? '+' : ''}{quote.changePct.toFixed(2)}%
+                </p>
+              )}
             </div>
           ) : null}
         </div>

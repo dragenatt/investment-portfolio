@@ -25,11 +25,13 @@ function WatchlistItemRow({ watchlistId, item }: { watchlistId: string; item: { 
             <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
           ) : quote ? (
             <div className="flex items-center gap-2">
-              <span className="font-mono text-sm">${quote.price?.toFixed(2)}</span>
-              <span className={`text-xs flex items-center gap-0.5 ${quote.changePct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {quote.changePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                {quote.changePct >= 0 ? '+' : ''}{quote.changePct?.toFixed(2)}%
-              </span>
+              <span className="font-mono text-sm">{quote.price != null ? `$${quote.price.toFixed(2)}` : '--'}</span>
+              {quote.changePct != null && (
+                <span className={`text-xs flex items-center gap-0.5 ${quote.changePct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {quote.changePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {quote.changePct >= 0 ? '+' : ''}{quote.changePct.toFixed(2)}%
+                </span>
+              )}
             </div>
           ) : null}
         </div>
