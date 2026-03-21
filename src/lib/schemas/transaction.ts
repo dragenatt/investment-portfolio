@@ -12,3 +12,13 @@ export const CreateTransactionSchema = z.object({
   executed_at: z.string().datetime(),
   notes: z.string().max(500).optional(),
 })
+
+export const UpdateTransactionSchema = z.object({
+  type: z.enum(['buy', 'sell', 'dividend', 'split']).optional(),
+  quantity: z.number().positive().max(999_999_999).optional(),
+  price: z.number().positive().max(999_999_999).optional(),
+  fees: z.number().min(0).optional(),
+  currency: z.enum(['MXN', 'USD', 'EUR']).optional(),
+  executed_at: z.string().datetime().optional(),
+  notes: z.string().max(500).optional(),
+})
