@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { convertCurrency, formatCurrency } from '@/lib/utils/currency'
+import { useRates } from '@/lib/hooks/use-rates'
 
 type CurrencyContextType = {
   currency: string
@@ -13,21 +14,21 @@ type CurrencyContextType = {
 
 const CurrencyContext = createContext<CurrencyContextType | null>(null)
 
-// Default rates — updated by Banxico worker
-const DEFAULT_RATES: Record<string, number> = { USD: 1, MXN: 17.5, EUR: 0.92 }
+const FALLBACK_RATES: Record<string, number> = { USD: 1, MXN: 17.5, EUR: 0.92 }
 
 export function CurrencyProvider({ children, initialCurrency = 'MXN' }: { children: ReactNode; initialCurrency?: string }) {
   const [currency, setCurrency] = useState(initialCurrency)
-  const [rates] = useState(DEFAULT_RATES)
+  const { data: rates } = useRates()
+  const activeRates = rates ?? FALLBACK_RATES
 
-  const convert = (amount: number, from: string) => convertCurrency(amount, from, currency, rates)
+  const convert = (amount: number, from: string) => convertCurrency(amount, from, currency, activeRates)
   const format = (amount: number, from?: string) => {
     const converted = from ? convert(amount, from) : amount
     return formatCurrency(converted, currency)
   }
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, format, convert, rates }}>
+    <CurrencyContext.Provider value={{ currency, setCurrency, format, convert, rates: activeRates }}>
       {children}
     </CurrencyContext.Provider>
   )
