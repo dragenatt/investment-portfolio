@@ -1,0 +1,130 @@
+import { createServerSupabase } from '@/lib/supabase/server'
+import { success, error } from '@/lib/api/response'
+import { getHistory } from '@/lib/services/market'
+import { computeDailyPositions, buildDailyTimeline } from '@/lib/services/portfolio-history'
+
+const RANGE_MAP: Record<string, string> = {
+  '1': '1d',
+  '7': '5d',
+  '30': '1mo',
+  '90': '3mo',
+  '365': '1y',
+  'max': 'max',
+}
+
+export async function GET(req: Request) {
+  const supabase = await createServerSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return error('Unauthorized', 401)
+
+  const url = new URL(req.url)
+  const range = url.searchParams.get('range') || '30'
+
+  const { data: portfolios } = await supabase
+    .from('portfolios')
+    .select('id')
+    .is('deleted_at', null)
+
+  if (!portfolios || portfolios.length === 0) return success([])
+
+  const portfolioIds = portfolios.map(p => p.id)
+
+  const { data: transactions } = await supabase
+    .from('transactions')
+    .select('executed_at, type, quantity, price, position:positions!inner(portfolio_id, symbol)')
+    .in('position.portfolio_id', portfolioIds)
+    .order('executed_at', { ascending: true })
+
+  if (!transactions || transactions.length === 0) return success([])
+
+  const flatTxns = transactions.map((t: Record<string, unknown>) => {
+    const position = t.position as { symbol: string }
+    return {
+      executed_at: t.executed_at as string,
+      type: t.type as 'buy' | 'sell' | 'dividend' | 'split',
+      symbol: position.symbol,
+      quantity: t.quantity as number,
+      price: t.price as number,
+    }
+  })
+
+  const snapshots = computeDailyPositions(flatTxns)
+  if (snapshots.length === 0) return success([])
+
+  const symbols = [...new Set(flatTxns.map(t => t.symbol))]
+  const yahooRange = RANGE_MAP[range] || '1mo'
+
+  const historicalPrices: Record<string, Record<string, number>> = {}
+
+  // Check cache in price_history table
+  const rangeDays = range === 'max' ? 3650 : (parseInt(range) || 30)
+  const cutoffDate = new Date()
+  cutoffDate.setDate(cutoffDate.getDate() - rangeDays)
+  const cutoffStr = cutoffDate.toISOString().slice(0, 10)
+
+  for (const symbol of symbols) {
+    const { data: cached } = await supabase
+      .from('price_history')
+      .select('date, close')
+      .eq('symbol', symbol)
+      .gte('date', cutoffStr)
+      .order('date', { ascending: true })
+
+    if (cached && cached.length > 0) {
+      const priceMap: Record<string, number> = {}
+      for (const row of cached) {
+        priceMap[row.date] = row.close
+      }
+      historicalPrices[symbol] = priceMap
+    }
+  }
+
+  // Fetch from Yahoo for uncached symbols
+  const uncachedSymbols = symbols.filter(s => !historicalPrices[s] || Object.keys(historicalPrices[s]).length === 0)
+
+  const chunks: string[][] = []
+  for (let i = 0; i < uncachedSymbols.length; i += 5) {
+    chunks.push(uncachedSymbols.slice(i, i + 5))
+  }
+
+  for (const chunk of chunks) {
+    const results = await Promise.all(
+      chunk.map(async (symbol) => {
+        const history = await getHistory(symbol, yahooRange)
+        const priceMap: Record<string, number> = {}
+        const rowsToCache: Array<{ symbol: string; exchange: string; date: string; open: number; high: number; low: number; close: number; volume: number }> = []
+        for (const point of history) {
+          const date = new Date(point.date).toISOString().slice(0, 10)
+          if (point.close != null) {
+            priceMap[date] = point.close
+            rowsToCache.push({
+              symbol,
+              exchange: 'yahoo',
+              date,
+              open: point.open ?? 0,
+              high: point.high ?? 0,
+              low: point.low ?? 0,
+              close: point.close,
+              volume: point.volume ?? 0,
+            })
+          }
+        }
+
+        if (rowsToCache.length > 0) {
+          await supabase.from('price_history').upsert(rowsToCache, { onConflict: 'symbol,exchange,date' }).select()
+        }
+
+        return { symbol, priceMap }
+      })
+    )
+    for (const { symbol, priceMap } of results) {
+      historicalPrices[symbol] = priceMap
+    }
+  }
+
+  const today = new Date().toISOString().slice(0, 10)
+  const timeline = buildDailyTimeline(snapshots, historicalPrices, today)
+  const filtered = timeline.filter(t => t.date >= cutoffStr)
+
+  return success(filtered)
+}
