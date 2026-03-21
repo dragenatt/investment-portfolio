@@ -5,8 +5,10 @@ import { useMarketSearch, useQuote } from '@/lib/hooks/use-market'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
-import { Plus, X, Search, TrendingUp, TrendingDown, Loader2 } from 'lucide-react'
+import { Plus, X, Search, TrendingUp, TrendingDown, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useSWRConfig } from 'swr'
 import { toast } from 'sonner'
@@ -60,6 +62,11 @@ export default function WatchlistPage() {
   const [addingTo, setAddingTo] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const { data: searchResults, isLoading: searching } = useMarketSearch(searchQuery)
+  const [sortBy, setSortBy] = useState<Record<string, string>>({})
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [deletingWl, setDeletingWl] = useState<{ id: string; name: string } | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   async function handleCreate() {
     if (!newName) return
@@ -89,6 +96,31 @@ export default function WatchlistPage() {
     setSearchQuery('')
   }
 
+  async function handleRename(watchlistId: string) {
+    const trimmed = renameValue.trim()
+    if (!trimmed) { setRenamingId(null); return }
+    const res = await fetch(`/api/watchlist/${watchlistId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: trimmed }),
+    })
+    const data = await res.json()
+    if (data.error) toast.error(data.error)
+    else { toast.success('Nombre actualizado'); mutate('/api/watchlist') }
+    setRenamingId(null)
+  }
+
+  async function handleDeleteWatchlist() {
+    if (!deletingWl) return
+    setDeleteLoading(true)
+    const res = await fetch(`/api/watchlist/${deletingWl.id}`, { method: 'DELETE' })
+    const data = await res.json()
+    if (data.error) toast.error(data.error)
+    else { toast.success('Watchlist eliminada'); mutate('/api/watchlist') }
+    setDeletingWl(null)
+    setDeleteLoading(false)
+  }
+
   if (isLoading) return <div className="space-y-4">{[1, 2].map(i => <SkeletonCard key={i} />)}</div>
 
   return (
@@ -108,10 +140,45 @@ export default function WatchlistPage() {
       {watchlists?.map((wl: { id: string; name: string; watchlist_items: Array<{ id: string; symbol: string; asset_type: string }> }) => (
         <Card key={wl.id}>
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">{wl.name}</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => setAddingTo(addingTo === wl.id ? null : wl.id)}>
-              <Plus className="h-3 w-3 mr-1" /> Agregar
-            </Button>
+            <div className="flex items-center gap-2">
+              {renamingId === wl.id ? (
+                <Input
+                  className="h-8 w-48"
+                  value={renameValue}
+                  onChange={e => setRenameValue(e.target.value)}
+                  onBlur={() => handleRename(wl.id)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleRename(wl.id)
+                    if (e.key === 'Escape') setRenamingId(null)
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <>
+                  <CardTitle className="text-lg">{wl.name}</CardTitle>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setRenamingId(wl.id); setRenameValue(wl.name) }}>
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={sortBy[wl.id] || 'default'} onValueChange={v => { if (v) setSortBy(s => ({ ...s, [wl.id]: v })) }}>
+                <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Ordenar" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Por defecto</SelectItem>
+                  <SelectItem value="name">Nombre</SelectItem>
+                  <SelectItem value="price">Precio (pronto)</SelectItem>
+                  <SelectItem value="change">Cambio % (pronto)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" onClick={() => setAddingTo(addingTo === wl.id ? null : wl.id)}>
+                <Plus className="h-3 w-3 mr-1" /> Agregar
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => setDeletingWl({ id: wl.id, name: wl.name })}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {addingTo === wl.id && (
@@ -143,7 +210,11 @@ export default function WatchlistPage() {
               <p className="text-sm text-muted-foreground">Sin activos. Haz click en &quot;Agregar&quot; para buscar y agregar activos.</p>
             ) : (
               <div className="divide-y">
-                {wl.watchlist_items?.map(item => (
+                {[...(wl.watchlist_items || [])].sort((a, b) => {
+                  const sort = sortBy[wl.id]
+                  if (sort === 'name') return a.symbol.localeCompare(b.symbol)
+                  return 0
+                }).map(item => (
                   <WatchlistItemRow key={item.id} watchlistId={wl.id} item={item} />
                 ))}
               </div>
@@ -151,6 +222,23 @@ export default function WatchlistPage() {
           </CardContent>
         </Card>
       ))}
+
+      <Dialog open={!!deletingWl} onOpenChange={(open) => { if (!open) setDeletingWl(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar watchlist</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Eliminar watchlist &quot;{deletingWl?.name}&quot; y todos sus activos? Esta accion no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingWl(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDeleteWatchlist} disabled={deleteLoading}>
+              {deleteLoading ? 'Eliminando...' : 'Eliminar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
