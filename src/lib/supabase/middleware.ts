@@ -30,21 +30,13 @@ export async function updateSession(request: NextRequest) {
   // Public routes that don't require auth
   const publicPaths = ['/', '/login', '/register']
   const isPublicPath = publicPaths.some(p => request.nextUrl.pathname === p)
-  const isApiAuth = request.nextUrl.pathname.startsWith('/api/auth')
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
 
-  if (!user && !isPublicPath && !isApiAuth) {
+  // API routes handle their own auth — don't redirect them
+  if (!user && !isPublicPath && !isApiRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
-  }
-
-  // CSRF check for mutations
-  if (user && ['POST', 'PATCH', 'PUT', 'DELETE'].includes(request.method)) {
-    const origin = request.headers.get('origin')
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL
-    if (origin && appUrl && origin !== appUrl) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
   }
 
   return supabaseResponse

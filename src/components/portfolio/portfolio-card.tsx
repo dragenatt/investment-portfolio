@@ -9,7 +9,7 @@ type Props = {
   id: string
   name: string
   description?: string
-  positions: Array<{ quantity: number; avg_cost: number; asset_type: string }>
+  positions: Array<{ quantity: number; avg_cost: number; asset_type: string; currency?: string }>
 }
 
 export function PortfolioCard({ id, name, description, positions }: Props) {
@@ -28,7 +28,7 @@ export function PortfolioCard({ id, name, description, positions }: Props) {
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-bold font-mono">{format(totalValue, 'USD')}</p>
+          <p className="text-2xl font-bold font-mono">{format(totalValue)}</p>
         </CardContent>
       </Card>
     </Link>

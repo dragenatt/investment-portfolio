@@ -12,10 +12,10 @@ crons = [
 
 [[kv_namespaces]]
 binding = "PRICE_CACHE"
-id = ""  # Fill after creating KV namespace
+id = "87b00ff379c84fc48d899444e564e309"
 
 [vars]
-SUPABASE_URL = ""
+SUPABASE_URL = "https://mabmqxztvakaijtrncyl.supabase.co"
 
 # Secrets (set via wrangler secret put):
 # SUPABASE_SERVICE_ROLE_KEY

@@ -132,7 +132,7 @@ export function TransactionModal({ portfolioId }: Props) {
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Cantidad</Label>
               <Input type="number" step="any" value={quantity} onChange={e => setQuantity(e.target.value)} required min="0.0001" />
@@ -141,9 +141,22 @@ export function TransactionModal({ portfolioId }: Props) {
               <Label>Precio</Label>
               <Input type="number" step="any" value={price} onChange={e => setPrice(e.target.value)} required min="0.01" />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Comision</Label>
               <Input type="number" step="any" value={fees} onChange={e => setFees(e.target.value)} min="0" />
+            </div>
+            <div className="space-y-2">
+              <Label>Moneda</Label>
+              <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MXN">MXN</SelectItem>
+                  <SelectItem value="USD">USD</SelectItem>
+                  <SelectItem value="EUR">EUR</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

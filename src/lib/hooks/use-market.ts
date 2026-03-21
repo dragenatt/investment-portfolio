@@ -1,6 +1,11 @@
 import useSWR from 'swr'
 
-const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => r.data)
+const fetcher = async (url: string) => {
+  const res = await fetch(url)
+  const json = await res.json()
+  if (json.error) throw new Error(json.error)
+  return json.data
+}
 
 export function useMarketSearch(query: string) {
   return useSWR(

@@ -26,21 +26,25 @@ export default function SettingsPage() {
   }, [profile])
 
   async function saveProfile() {
-    await fetch('/api/user/profile', {
+    const res = await fetch('/api/user/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ display_name: displayName }),
     })
+    const data = await res.json()
+    if (data.error) { toast.error(data.error); return }
     toast.success('Perfil actualizado')
     mutate()
   }
 
   async function savePreferences() {
-    await fetch('/api/user/preferences', {
+    const res = await fetch('/api/user/preferences', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ base_currency: baseCurrency, theme }),
     })
+    const data = await res.json()
+    if (data.error) { toast.error(data.error); return }
     toast.success('Preferencias guardadas')
     mutate()
   }

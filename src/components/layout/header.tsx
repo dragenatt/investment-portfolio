@@ -23,7 +23,7 @@ export function Header() {
 
   return (
     <header className="flex items-center justify-between px-4 h-14 border-b bg-background">
-      <Button variant="outline" size="sm" className="gap-2 text-muted-foreground" onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}>
+      <Button variant="outline" size="sm" className="gap-2 text-muted-foreground" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}>
         <Search className="h-4 w-4" />
         <span className="hidden sm:inline">Buscar...</span>
         <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 text-xs text-muted-foreground">⌘K</kbd>

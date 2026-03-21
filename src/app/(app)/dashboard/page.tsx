@@ -9,9 +9,11 @@ import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { useMemo } from 'react'
+import { useCurrency } from '@/lib/hooks/use-currency'
 
 export default function DashboardPage() {
   const { data: portfolios, isLoading } = usePortfolios()
+  const { currency } = useCurrency()
 
   const stats = useMemo(() => {
     if (!portfolios) return null
@@ -62,7 +64,7 @@ export default function DashboardPage() {
           totalReturn={stats?.totalReturn ?? 0}
           totalReturnPct={stats?.totalReturnPct ?? 0}
           positionCount={stats?.positionCount ?? 0}
-          currency="USD"
+          currency={currency}
         />
       </ErrorBoundary>
 
