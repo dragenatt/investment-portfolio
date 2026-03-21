@@ -11,7 +11,7 @@ import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { Button } from '@/components/ui/button'
 import { use, useMemo } from 'react'
 import Link from 'next/link'
-import { BarChart3 } from 'lucide-react'
+import { BarChart3, List } from 'lucide-react'
 
 export default function PortfolioDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -63,6 +63,9 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           {portfolio.description && <p className="text-muted-foreground">{portfolio.description}</p>}
         </div>
         <div className="flex gap-2">
+          <Link href={`/portfolio/${id}/transactions`}>
+            <Button variant="outline" size="sm"><List className="h-4 w-4 mr-1" /> Transacciones</Button>
+          </Link>
           <Link href={`/portfolio/${id}/analytics`}>
             <Button variant="outline" size="sm"><BarChart3 className="h-4 w-4 mr-1" /> Analytics</Button>
           </Link>
