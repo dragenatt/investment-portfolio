@@ -9,15 +9,16 @@ import { PriceChart } from '@/components/market/price-chart'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Plus, Eye } from 'lucide-react'
+import { Plus, Eye, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSWRConfig } from 'swr'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 
 export default function SymbolDetailPage({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = use(params)
   const decodedSymbol = decodeURIComponent(symbol)
-  const { data: quote, isLoading } = useQuote(decodedSymbol)
+  const { data: quote, isLoading, error } = useQuote(decodedSymbol)
   const { data: portfolios } = usePortfolios()
   const { data: watchlists } = useWatchlists()
   const { mutate } = useSWRConfig()
@@ -35,6 +36,19 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
   }
 
   if (isLoading) return <SkeletonCard />
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <AlertCircle className="h-10 w-10 text-destructive" />
+        <p className="text-lg font-medium">No se pudo cargar {decodedSymbol}</p>
+        <p className="text-sm text-muted-foreground">{error.message}</p>
+        <Button variant="outline" onClick={() => mutate(`/api/market/${encodeURIComponent(decodedSymbol)}`)}>
+          Reintentar
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

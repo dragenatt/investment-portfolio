@@ -1,6 +1,7 @@
 'use client'
 
 import { usePortfolio } from '@/lib/hooks/use-portfolios'
+import { useLivePrices } from '@/lib/hooks/use-live-prices'
 import { PositionsTable } from '@/components/portfolio/positions-table'
 import { TransactionModal } from '@/components/portfolio/transaction-modal'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
@@ -16,16 +17,32 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
   const { id } = use(params)
   const { data: portfolio, isLoading } = usePortfolio(id)
 
-  const allocation = useMemo(() => {
+  const symbols = useMemo(() => {
     if (!portfolio?.positions) return []
+    return portfolio.positions.filter((p: { quantity: number }) => p.quantity > 0).map((p: { symbol: string }) => p.symbol)
+  }, [portfolio])
+
+  const { data: livePrices } = useLivePrices(symbols)
+
+  const positionsWithPrices = useMemo(() => {
+    if (!portfolio?.positions) return []
+    return portfolio.positions.map((pos: { symbol: string; quantity: number; avg_cost: number; [key: string]: unknown }) => ({
+      ...pos,
+      currentPrice: livePrices?.[pos.symbol]?.price ?? pos.avg_cost,
+      changePct: livePrices?.[pos.symbol]?.changePct ?? 0,
+    }))
+  }, [portfolio, livePrices])
+
+  const allocation = useMemo(() => {
+    if (!positionsWithPrices.length) return []
     const map: Record<string, number> = {}
-    for (const pos of portfolio.positions) {
+    for (const pos of positionsWithPrices) {
       if (pos.quantity > 0) {
-        map[pos.asset_type] = (map[pos.asset_type] || 0) + pos.quantity * pos.avg_cost
+        map[pos.asset_type] = (map[pos.asset_type] || 0) + pos.quantity * pos.currentPrice
       }
     }
     return Object.entries(map).map(([name, value]) => ({ name, value }))
-  }, [portfolio])
+  }, [positionsWithPrices])
 
   if (isLoading) {
     return (
@@ -56,7 +73,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <ErrorBoundary>
-            <PositionsTable positions={portfolio.positions || []} />
+            <PositionsTable positions={positionsWithPrices} />
           </ErrorBoundary>
         </div>
         <ErrorBoundary>

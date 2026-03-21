@@ -15,6 +15,8 @@ type Position = {
   quantity: number
   avg_cost: number
   currency: string
+  currentPrice?: number
+  changePct?: number
 }
 
 type SortKey = 'symbol' | 'quantity' | 'avg_cost' | 'value'
@@ -30,7 +32,7 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
         case 'symbol': return p.symbol
         case 'quantity': return p.quantity
         case 'avg_cost': return p.avg_cost
-        case 'value': return p.quantity * p.avg_cost
+        case 'value': return p.quantity * (p.currentPrice ?? p.avg_cost)
       }
     }
     const va = getValue(a)
@@ -62,7 +64,9 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
               <TableHead>Tipo</TableHead>
               <TableHead className="text-right"><SortHeader k="quantity">Cantidad</SortHeader></TableHead>
               <TableHead className="text-right"><SortHeader k="avg_cost">Costo Prom.</SortHeader></TableHead>
+              <TableHead className="text-right">Precio Actual</TableHead>
               <TableHead className="text-right"><SortHeader k="value">Valor</SortHeader></TableHead>
+              <TableHead className="text-right">Ganancia</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -72,7 +76,11 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
                 <TableCell><Badge variant="outline" className="text-xs">{pos.asset_type}</Badge></TableCell>
                 <TableCell className="text-right font-mono">{formatNumber(pos.quantity, 4)}</TableCell>
                 <TableCell className="text-right font-mono">{format(pos.avg_cost, pos.currency)}</TableCell>
-                <TableCell className="text-right font-mono font-medium">{format(pos.quantity * pos.avg_cost, pos.currency)}</TableCell>
+                <TableCell className="text-right font-mono">{format(pos.currentPrice ?? pos.avg_cost, pos.currency)}</TableCell>
+                <TableCell className="text-right font-mono font-medium">{format(pos.quantity * (pos.currentPrice ?? pos.avg_cost), pos.currency)}</TableCell>
+                <TableCell className={`text-right font-mono text-sm ${((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? '+' : ''}{formatNumber(((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) / pos.avg_cost * 100)}%
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -89,8 +97,11 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
                 <Badge variant="outline" className="text-xs mt-1">{pos.asset_type}</Badge>
               </div>
               <div className="text-right">
-                <p className="font-mono font-medium">{format(pos.quantity * pos.avg_cost, pos.currency)}</p>
-                <p className="text-xs text-muted-foreground">{formatNumber(pos.quantity, 4)} @ {format(pos.avg_cost, pos.currency)}</p>
+                <p className="font-mono font-medium">{format(pos.quantity * (pos.currentPrice ?? pos.avg_cost), pos.currency)}</p>
+                <p className="text-xs text-muted-foreground">{formatNumber(pos.quantity, 4)} @ {format(pos.currentPrice ?? pos.avg_cost, pos.currency)}</p>
+                <p className={`text-xs font-mono ${((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? '+' : ''}{formatNumber(((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) / pos.avg_cost * 100)}%
+                </p>
               </div>
             </div>
           </div>
