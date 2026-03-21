@@ -9,12 +9,15 @@ import { TopMovers } from '@/components/dashboard/top-movers'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
 
 export default function DashboardPage() {
   const { data: portfolios, isLoading } = usePortfolios()
   const { currency } = useCurrency()
+  const [chartRange, setChartRange] = useState('30')
+  const { data: chartData, isLoading: chartLoading } = usePortfolioHistory(chartRange)
 
   const allSymbols = useMemo(() => {
     if (!portfolios) return []
@@ -97,7 +100,11 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <ErrorBoundary>
-            <PortfolioChart data={[]} />
+            <PortfolioChart
+              data={chartData ?? []}
+              isLoading={chartLoading}
+              onPeriodChange={setChartRange}
+            />
           </ErrorBoundary>
         </div>
         <ErrorBoundary>
