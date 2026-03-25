@@ -59,7 +59,7 @@ function QuoteCard({ symbol, name }: { symbol: string; name: string }) {
       <div className="p-4 bg-card rounded-2xl border-border border shadow-sm hover:shadow-md transition-shadow">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+            <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
               {symbol[0]}
             </div>
             <div>

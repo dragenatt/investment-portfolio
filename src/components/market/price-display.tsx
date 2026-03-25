@@ -14,7 +14,7 @@ type Props = {
 
 export function PriceDisplay({ price, change, changePct, currency = 'USD', size = 'md' }: Props) {
   const isPositive = (change ?? 0) >= 0
-  const colorClass = isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+  const colorClass = isPositive ? 'text-gain' : 'text-loss'
 
   const sizes = {
     sm: { price: 'text-sm font-mono', change: 'text-xs' },

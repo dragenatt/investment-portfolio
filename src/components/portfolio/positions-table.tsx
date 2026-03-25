@@ -78,8 +78,8 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
                 <TableCell className="text-right font-mono">{format(pos.avg_cost, pos.currency)}</TableCell>
                 <TableCell className="text-right font-mono">{format(pos.currentPrice ?? pos.avg_cost, pos.currency)}</TableCell>
                 <TableCell className="text-right font-mono font-medium">{format(pos.quantity * (pos.currentPrice ?? pos.avg_cost), pos.currency)}</TableCell>
-                <TableCell className={`text-right font-mono text-sm ${((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? '+' : ''}{formatNumber(((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) / pos.avg_cost * 100)}%
+                <TableCell className={`text-right font-mono text-sm ${((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? 'text-gain' : 'text-loss'}`}>
+                  {((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? '+' : ''}{formatNumber(((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) / (pos.avg_cost || 1) * 100)}%
                 </TableCell>
               </TableRow>
             ))}
@@ -90,7 +90,7 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
       {/* Mobile cards */}
       <div className="md:hidden space-y-3">
         {sorted.map(pos => (
-          <div key={pos.id} className="border rounded-lg p-3">
+          <div key={pos.id} className="border border-border rounded-2xl p-3">
             <div className="flex justify-between items-start">
               <div>
                 <p className="font-medium font-mono">{pos.symbol}</p>
@@ -99,8 +99,8 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
               <div className="text-right">
                 <p className="font-mono font-medium">{format(pos.quantity * (pos.currentPrice ?? pos.avg_cost), pos.currency)}</p>
                 <p className="text-xs text-muted-foreground">{formatNumber(pos.quantity, 4)} @ {format(pos.currentPrice ?? pos.avg_cost, pos.currency)}</p>
-                <p className={`text-xs font-mono ${((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? '+' : ''}{formatNumber(((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) / pos.avg_cost * 100)}%
+                <p className={`text-xs font-mono ${((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? 'text-gain' : 'text-loss'}`}>
+                  {((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? '+' : ''}{formatNumber(((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) / (pos.avg_cost || 1) * 100)}%
                 </p>
               </div>
             </div>
