@@ -32,21 +32,29 @@ export async function GET() {
 
   const [indexQuotes, sectorQuotes] = await Promise.all([
     Promise.all(INDICES.map(async (idx) => {
-      const q = await getQuote(idx.symbol)
-      return {
-        ...idx,
-        price: q?.price ?? 0,
-        change: q?.change ?? 0,
-        changePct: q?.changePct ?? 0,
+      try {
+        const q = await getQuote(idx.symbol)
+        return {
+          ...idx,
+          price: q?.price ?? 0,
+          change: q?.change ?? 0,
+          changePct: q?.changePct ?? 0,
+        }
+      } catch {
+        return { ...idx, price: 0, change: 0, changePct: 0 }
       }
     })),
     Promise.all(SECTORS.map(async (sec) => {
-      const q = await getQuote(sec.symbol)
-      return {
-        ...sec,
-        price: q?.price ?? 0,
-        change: q?.change ?? 0,
-        changePct: q?.changePct ?? 0,
+      try {
+        const q = await getQuote(sec.symbol)
+        return {
+          ...sec,
+          price: q?.price ?? 0,
+          change: q?.change ?? 0,
+          changePct: q?.changePct ?? 0,
+        }
+      } catch {
+        return { ...sec, price: 0, change: 0, changePct: 0 }
       }
     })),
   ])

@@ -9,8 +9,8 @@ type SectorData = {
 }
 
 export function SectorPerformance({ sectors }: { sectors: SectorData[] }) {
-  const sorted = [...sectors].sort((a, b) => b.changePct - a.changePct)
-  const maxAbs = Math.max(...sorted.map(s => Math.abs(s.changePct)), 0.01)
+  const sorted = [...sectors].sort((a, b) => (b.changePct ?? 0) - (a.changePct ?? 0))
+  const maxAbs = Math.max(...sorted.map(s => Math.abs(s.changePct ?? 0)), 0.01)
 
   return (
     <Card className="rounded-2xl border-border shadow-sm">
@@ -19,8 +19,9 @@ export function SectorPerformance({ sectors }: { sectors: SectorData[] }) {
       </CardHeader>
       <CardContent className="space-y-2">
         {sorted.map(sector => {
-          const isPositive = sector.changePct >= 0
-          const width = (Math.abs(sector.changePct) / maxAbs) * 100
+          const pct = sector.changePct ?? 0
+          const isPositive = pct >= 0
+          const width = (Math.abs(pct) / maxAbs) * 100
 
           return (
             <div key={sector.symbol} className="flex items-center gap-2">
@@ -32,7 +33,7 @@ export function SectorPerformance({ sectors }: { sectors: SectorData[] }) {
                 />
               </div>
               <span className={`text-xs font-mono w-16 text-right ${isPositive ? 'text-gain' : 'text-loss'}`}>
-                {isPositive ? '+' : ''}{sector.changePct.toFixed(2)}%
+                {isPositive ? '+' : ''}{(sector.changePct ?? 0).toFixed(2)}%
               </span>
             </div>
           )

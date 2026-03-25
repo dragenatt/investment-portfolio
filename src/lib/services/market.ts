@@ -27,12 +27,16 @@ export async function getQuote(symbol: string) {
   if (!result) return null
 
   const meta = result.meta
+  const price = meta.regularMarketPrice ?? null
+  const previousClose = meta.previousClose ?? null
+  const change = (price != null && previousClose != null) ? price - previousClose : null
+  const changePct = (change != null && previousClose && previousClose !== 0) ? (change / previousClose) * 100 : null
   return {
     symbol: meta.symbol,
-    price: meta.regularMarketPrice,
-    previousClose: meta.previousClose,
-    change: meta.regularMarketPrice - meta.previousClose,
-    changePct: ((meta.regularMarketPrice - meta.previousClose) / meta.previousClose) * 100,
+    price,
+    previousClose,
+    change,
+    changePct,
     currency: meta.currency,
     exchange: meta.exchangeName,
     marketState: meta.marketState,
