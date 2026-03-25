@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { useMarketSearch, useQuote } from '@/lib/hooks/use-market'
+import { useMarketOverview } from '@/lib/hooks/use-market-overview'
+import { SectorPerformance } from '@/components/market/sector-performance'
 import { Badge } from '@/components/ui/badge'
 import { Search, TrendingUp, TrendingDown, Loader2 } from 'lucide-react'
 import Link from 'next/link'
@@ -91,6 +93,7 @@ function QuoteCard({ symbol, name }: { symbol: string; name: string }) {
 export default function MarketPage() {
   const [query, setQuery] = useState('')
   const { data: results, isLoading, error } = useMarketSearch(query)
+  const { data: overview } = useMarketOverview()
 
   return (
     <div className="space-y-6">
@@ -144,10 +147,14 @@ export default function MarketPage() {
         <>
           <h2 className="text-lg font-semibold">Indices</h2>
           <div className="flex overflow-x-auto gap-3 pb-2">
-            {INDEX_SYMBOLS.map(s => (
-              <IndexCard key={s.symbol} symbol={s.symbol} name={s.name} />
+            {(overview?.indices ?? INDEX_SYMBOLS.map(s => ({ ...s, price: 0, change: 0, changePct: 0 }))).map((idx: { symbol: string; name: string; price: number; changePct: number }) => (
+              <IndexCard key={idx.symbol} symbol={idx.symbol} name={idx.name} />
             ))}
           </div>
+
+          {overview?.sectors && (
+            <SectorPerformance sectors={overview.sectors} />
+          )}
 
           <h2 className="text-lg font-semibold">Acciones populares</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

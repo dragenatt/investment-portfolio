@@ -6,8 +6,13 @@ import { usePortfolios } from '@/lib/hooks/use-portfolios'
 import { useWatchlists } from '@/lib/hooks/use-watchlist'
 import { PriceDisplay } from '@/components/market/price-display'
 import { PriceChart } from '@/components/market/price-chart'
+import { FundamentalsGrid } from '@/components/market/fundamentals-grid'
+import { CompanyInfo } from '@/components/market/company-info'
+import { EventsTimeline } from '@/components/market/events-timeline'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
+import { useFundamentals } from '@/lib/hooks/use-fundamentals'
+import { useEvents } from '@/lib/hooks/use-events'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Plus, Eye, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -19,6 +24,8 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
   const { symbol } = use(params)
   const decodedSymbol = decodeURIComponent(symbol)
   const { data: quote, isLoading, error } = useQuote(decodedSymbol)
+  const { data: fundamentals } = useFundamentals(decodedSymbol)
+  const { data: events } = useEvents(decodedSymbol)
   const { data: portfolios } = usePortfolios()
   const { data: watchlists } = useWatchlists()
   const { mutate } = useSWRConfig()
@@ -101,6 +108,46 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
       <ErrorBoundary>
         <PriceChart symbol={decodedSymbol} />
       </ErrorBoundary>
+
+      {fundamentals && !fundamentals._partial && (
+        <ErrorBoundary>
+          <FundamentalsGrid
+            marketCap={fundamentals.market_cap}
+            peRatio={fundamentals.pe_ratio ? Number(fundamentals.pe_ratio) : null}
+            eps={fundamentals.eps ? Number(fundamentals.eps) : null}
+            dividendYield={fundamentals.dividend_yield ? Number(fundamentals.dividend_yield) : null}
+            week52High={fundamentals.week52_high ? Number(fundamentals.week52_high) : null}
+            week52Low={fundamentals.week52_low ? Number(fundamentals.week52_low) : null}
+            currentPrice={quote?.price}
+            analystRating={fundamentals.analyst_rating}
+            analystTarget={fundamentals.analyst_target_price ? Number(fundamentals.analyst_target_price) : null}
+          />
+        </ErrorBoundary>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {fundamentals && fundamentals.description && (
+          <div className="lg:col-span-2">
+            <ErrorBoundary>
+              <CompanyInfo
+                name={fundamentals.name || decodedSymbol}
+                description={fundamentals.description}
+                ceo={fundamentals.ceo}
+                employees={fundamentals.employees}
+                hq={fundamentals.hq}
+                website={fundamentals.website}
+                sector={fundamentals.sector}
+                industry={fundamentals.industry}
+              />
+            </ErrorBoundary>
+          </div>
+        )}
+        <div className={fundamentals?.description ? 'lg:col-span-1' : 'lg:col-span-3'}>
+          <ErrorBoundary>
+            <EventsTimeline events={events ?? []} />
+          </ErrorBoundary>
+        </div>
+      </div>
     </div>
   )
 }
