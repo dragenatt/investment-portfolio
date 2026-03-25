@@ -3,13 +3,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 
-const COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#a78bfa', '#06b6d4']
+const COLORS = ['#D97706', '#4D7C0F', '#B45309', '#78716C', '#C2410C', '#92400E']
 
 type AllocationData = { name: string; value: number }
 
 export function AllocationDonut({ data }: { data: AllocationData[] }) {
   return (
-    <Card>
+    <Card className="rounded-2xl border-border shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium">Distribucion</CardTitle>
       </CardHeader>

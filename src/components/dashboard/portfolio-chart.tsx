@@ -33,7 +33,7 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
   }
 
   return (
-    <Card>
+    <Card className="rounded-2xl border-border shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium">Rendimiento</CardTitle>
         <Tabs value={period} onValueChange={handlePeriodChange}>
@@ -58,8 +58,8 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1} />
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#D97706" stopOpacity={0.1} />
+                  <stop offset="95%" stopColor="#D97706" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis
@@ -77,7 +77,7 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
                 labelFormatter={(d) => new Date(String(d)).toLocaleDateString('es-MX')}
                 formatter={(value) => [`$${Number(value).toFixed(2)}`, 'Valor']}
               />
-              <Area type="monotone" dataKey="value" stroke="#2563eb" fill="url(#colorValue)" strokeWidth={2} />
+              <Area type="monotone" dataKey="value" stroke="#D97706" fill="url(#colorValue)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         )}
