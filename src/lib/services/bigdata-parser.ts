@@ -42,7 +42,7 @@ export function parseCompanyTearsheet(markdown: string): ParsedCompanyData {
   const name = nameMatch ? nameMatch[1].trim() : ''
 
   // Extract description
-  const descMatch = markdown.match(/### Description\n(.+?)(\n\n|$)/s)
+  const descMatch = markdown.match(/### Description\n([\s\S]+?)(\n\n|$)/)
   const description = descMatch ? descMatch[1].trim() : ''
 
   // Extract P/E from Financial Ratios table
