@@ -51,30 +51,30 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-lg">
-      <h1 className="text-2xl font-bold">Ajustes</h1>
+      <h1 className="text-3xl font-bold">Ajustes</h1>
 
-      <Card>
-        <CardHeader><CardTitle>Perfil</CardTitle></CardHeader>
+      <Card className="rounded-2xl border-border shadow-sm">
+        <CardHeader><CardTitle className="text-xl">Perfil</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Nombre</Label>
-            <Input value={displayName} onChange={e => setDisplayName(e.target.value)} />
+            <Input className="rounded-xl" value={displayName} onChange={e => setDisplayName(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label>Email</Label>
-            <Input value={profile?.email || ''} disabled />
+            <Input className="rounded-xl" value={profile?.email || ''} disabled />
           </div>
-          <Button onClick={saveProfile}>Guardar perfil</Button>
+          <Button className="rounded-xl" onClick={saveProfile}>Guardar perfil</Button>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>Preferencias</CardTitle></CardHeader>
+      <Card className="rounded-2xl border-border shadow-sm">
+        <CardHeader><CardTitle className="text-xl">Preferencias</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Moneda base</Label>
             <Select value={baseCurrency} onValueChange={(v) => v && setBaseCurrency(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="MXN">MXN</SelectItem>
                 <SelectItem value="USD">USD</SelectItem>
@@ -85,7 +85,7 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <Label>Tema</Label>
             <Select value={theme} onValueChange={(v) => v && setTheme(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="light">Claro</SelectItem>
                 <SelectItem value="dark">Oscuro</SelectItem>
@@ -93,7 +93,7 @@ export default function SettingsPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={savePreferences}>Guardar preferencias</Button>
+          <Button className="rounded-xl" onClick={savePreferences}>Guardar preferencias</Button>
         </CardContent>
       </Card>
     </div>
