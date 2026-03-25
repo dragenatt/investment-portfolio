@@ -39,11 +39,11 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
+      <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-2xl">
         <AlertCircle className="h-10 w-10 text-destructive" />
         <p className="text-lg font-medium">No se pudo cargar {decodedSymbol}</p>
         <p className="text-sm text-muted-foreground">{error.message}</p>
-        <Button variant="outline" onClick={() => mutate(`/api/market/${encodeURIComponent(decodedSymbol)}`)}>
+        <Button className="rounded-xl" variant="outline" onClick={() => mutate(`/api/market/${encodeURIComponent(decodedSymbol)}`)}>
           Reintentar
         </Button>
       </div>
@@ -53,7 +53,12 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold font-mono">{decodedSymbol}</h1>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <span className="text-primary font-bold">{decodedSymbol[0]}</span>
+          </div>
+          <h1 className="text-3xl font-bold font-mono">{decodedSymbol}</h1>
+        </div>
         {quote && (
           <PriceDisplay
             price={quote.price}
@@ -66,7 +71,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
 
         <div className="flex gap-2 mt-4">
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-3 gap-1">
+            <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-3 gap-1">
               <Plus className="h-4 w-4" /> Agregar a Portafolio
             </DropdownMenuTrigger>
             <DropdownMenuContent>
@@ -79,7 +84,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
           </DropdownMenu>
 
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 gap-1">
+            <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-xl text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 gap-1">
               <Eye className="h-4 w-4" /> Agregar a Watchlist
             </DropdownMenuTrigger>
             <DropdownMenuContent>
