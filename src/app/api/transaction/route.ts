@@ -11,13 +11,32 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url)
   const pid = url.searchParams.get('pid')
-  if (!pid) return error('portfolio_id (pid) required', 400)
+  const limitParam = url.searchParams.get('limit')
+  const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined
 
-  const { data, error: dbError } = await supabase
+  let query = supabase
     .from('transactions')
     .select('*, position:positions!inner(portfolio_id, symbol)')
-    .eq('position.portfolio_id', pid)
     .order('executed_at', { ascending: false })
+
+  if (pid) {
+    query = query.eq('position.portfolio_id', pid)
+  } else {
+    // No pid — fetch across all portfolios owned by the user
+    const { data: portfolios, error: portErr } = await supabase
+      .from('portfolios')
+      .select('id')
+    if (portErr) return error(portErr.message, 500)
+    const ids = (portfolios ?? []).map((p: { id: string }) => p.id)
+    if (ids.length === 0) return success([])
+    query = query.in('position.portfolio_id', ids)
+  }
+
+  if (limit !== undefined) {
+    query = query.limit(limit)
+  }
+
+  const { data, error: dbError } = await query
 
   if (dbError) return error(dbError.message, 500)
   return success(data)
