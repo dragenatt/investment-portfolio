@@ -1,6 +1,17 @@
+/**
+ * Market data service with multi-source fallback
+ *
+ * Priority: Twelve Data (if API key set) → Yahoo Finance (always available)
+ * Each function tries the primary source first, falls back automatically.
+ */
+
+import * as twelveData from './twelve-data'
+
+// ─── Yahoo Finance (fallback) ────────────────────────────────────────────
+
 const YAHOO_BASE = 'https://query1.finance.yahoo.com/v1/finance'
 
-export async function searchSymbols(query: string) {
+async function yahooSearch(query: string) {
   const res = await fetch(
     `${YAHOO_BASE}/search?q=${encodeURIComponent(query)}&quotesCount=10&lang=en-US`,
     { next: { revalidate: 60 } }
@@ -8,15 +19,15 @@ export async function searchSymbols(query: string) {
   if (!res.ok) return []
   const data = await res.json()
   return (data.quotes || []).map((q: Record<string, unknown>) => ({
-    symbol: q.symbol,
-    name: q.shortname || q.longname,
-    type: q.quoteType,
-    exchange: q.exchange,
-    exchDisp: q.exchDisp,
+    symbol: q.symbol as string,
+    name: (q.shortname || q.longname) as string,
+    type: q.quoteType as string,
+    exchange: q.exchange as string,
+    exchDisp: q.exchDisp as string,
   }))
 }
 
-export async function getQuote(symbol: string) {
+async function yahooQuote(symbol: string) {
   const res = await fetch(
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`,
     { next: { revalidate: 30 } }
@@ -43,7 +54,7 @@ export async function getQuote(symbol: string) {
   }
 }
 
-export async function getHistory(symbol: string, range: string = '1mo') {
+async function yahooHistory(symbol: string, range: string = '1mo') {
   const intervalMap: Record<string, string> = {
     '1d': '5m', '5d': '15m', '1mo': '1d', '3mo': '1d',
     '6mo': '1d', '1y': '1wk', '5y': '1mo', 'max': '1mo',
@@ -70,4 +81,48 @@ export async function getHistory(symbol: string, range: string = '1mo') {
     close: quotes.close?.[i],
     volume: quotes.volume?.[i],
   })).filter((p: { close: number | null }) => p.close !== null)
+}
+
+// ─── Public API (with automatic fallback) ────────────────────────────────
+
+export async function searchSymbols(query: string) {
+  // Try Twelve Data first (doesn't need API key for search)
+  try {
+    const results = await twelveData.searchSymbols(query)
+    if (results.length > 0) return results
+  } catch { /* fall through */ }
+
+  // Fallback to Yahoo
+  return yahooSearch(query)
+}
+
+export async function getQuote(symbol: string) {
+  // Try Twelve Data if available
+  if (await twelveData.isAvailable()) {
+    try {
+      const quote = await twelveData.getQuote(symbol)
+      if (quote?.price != null) return quote
+    } catch { /* fall through */ }
+  }
+
+  // Fallback to Yahoo
+  return yahooQuote(symbol)
+}
+
+export async function getHistory(symbol: string, range: string = '1mo') {
+  // Try Twelve Data if available
+  if (await twelveData.isAvailable()) {
+    try {
+      const history = await twelveData.getHistory(symbol, range)
+      if (history.length > 0) return history
+    } catch { /* fall through */ }
+  }
+
+  // Fallback to Yahoo
+  return yahooHistory(symbol, range)
+}
+
+/** Returns which data source is currently active */
+export async function getActiveSource(): Promise<'twelve-data' | 'yahoo'> {
+  return (await twelveData.isAvailable()) ? 'twelve-data' : 'yahoo'
 }
