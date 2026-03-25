@@ -29,7 +29,7 @@ function WatchlistItemRow({ watchlistId, item }: { watchlistId: string; item: { 
             <div className="flex items-center gap-2">
               <span className="font-mono text-sm">{quote.price != null ? `$${quote.price.toFixed(2)}` : '--'}</span>
               {quote.changePct != null && (
-                <span className={`text-xs flex items-center gap-0.5 ${quote.changePct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`text-xs flex items-center gap-0.5 ${quote.changePct >= 0 ? 'text-gain' : 'text-loss'}`}>
                   {quote.changePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                   {quote.changePct >= 0 ? '+' : ''}{quote.changePct.toFixed(2)}%
                 </span>
@@ -126,10 +126,10 @@ export default function WatchlistPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Watchlists</h1>
+        <h1 className="text-3xl font-bold">Watchlists</h1>
         <div className="flex gap-2">
-          <Input className="w-48" placeholder="Nueva watchlist..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreate()} />
-          <Button size="sm" onClick={handleCreate} disabled={creating}><Plus className="h-4 w-4" /></Button>
+          <Input className="w-48 rounded-xl border-border" placeholder="Nueva watchlist..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreate()} />
+          <Button className="rounded-xl" size="sm" onClick={handleCreate} disabled={creating}><Plus className="h-4 w-4" /></Button>
         </div>
       </div>
 
@@ -138,12 +138,12 @@ export default function WatchlistPage() {
       )}
 
       {watchlists?.map((wl: { id: string; name: string; watchlist_items: Array<{ id: string; symbol: string; asset_type: string }> }) => (
-        <Card key={wl.id}>
+        <Card key={wl.id} className="rounded-2xl border-border shadow-sm">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
               {renamingId === wl.id ? (
                 <Input
-                  className="h-8 w-48"
+                  className="h-8 w-48 rounded-xl border-border"
                   value={renameValue}
                   onChange={e => setRenameValue(e.target.value)}
                   onBlur={() => handleRename(wl.id)}
@@ -164,7 +164,7 @@ export default function WatchlistPage() {
             </div>
             <div className="flex items-center gap-2">
               <Select value={sortBy[wl.id] || 'default'} onValueChange={v => { if (v) setSortBy(s => ({ ...s, [wl.id]: v })) }}>
-                <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Ordenar" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-32 text-xs rounded-xl"><SelectValue placeholder="Ordenar" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="default">Por defecto</SelectItem>
                   <SelectItem value="name">Nombre</SelectItem>
@@ -172,7 +172,7 @@ export default function WatchlistPage() {
                   <SelectItem value="change">Cambio % (pronto)</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" onClick={() => setAddingTo(addingTo === wl.id ? null : wl.id)}>
+              <Button className="rounded-xl" variant="outline" size="sm" onClick={() => setAddingTo(addingTo === wl.id ? null : wl.id)}>
                 <Plus className="h-3 w-3 mr-1" /> Agregar
               </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => setDeletingWl({ id: wl.id, name: wl.name })}>
@@ -186,7 +186,7 @@ export default function WatchlistPage() {
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    className="pl-8"
+                    className="pl-8 rounded-xl border-border"
                     placeholder="Buscar accion (ej: AAPL, TSLA)..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
@@ -195,7 +195,7 @@ export default function WatchlistPage() {
                 </div>
                 {searching && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Buscando...</div>}
                 {searchResults?.map((r: { symbol: string; name: string }) => (
-                  <div key={r.symbol} className="flex items-center justify-between p-2 border rounded hover:bg-muted cursor-pointer" onClick={() => addSymbol(wl.id, r.symbol)}>
+                  <div key={r.symbol} className="flex items-center justify-between p-2 rounded-xl border-border border hover:bg-muted cursor-pointer" onClick={() => addSymbol(wl.id, r.symbol)}>
                     <div>
                       <span className="font-mono font-medium text-sm">{r.symbol}</span>
                       <span className="text-xs text-muted-foreground ml-2">{r.name}</span>
@@ -232,8 +232,8 @@ export default function WatchlistPage() {
             Eliminar watchlist &quot;{deletingWl?.name}&quot; y todos sus activos? Esta accion no se puede deshacer.
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletingWl(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleDeleteWatchlist} disabled={deleteLoading}>
+            <Button className="rounded-xl" variant="outline" onClick={() => setDeletingWl(null)}>Cancelar</Button>
+            <Button className="rounded-xl" variant="destructive" onClick={handleDeleteWatchlist} disabled={deleteLoading}>
               {deleteLoading ? 'Eliminando...' : 'Eliminar'}
             </Button>
           </DialogFooter>
