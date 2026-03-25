@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, CardContent } from '@/components/ui/card'
-import { DollarSign, TrendingUp, TrendingDown, BarChart3, Trophy } from 'lucide-react'
+import { DollarSign, TrendingUp, TrendingDown, BarChart3, Trophy, Minus } from 'lucide-react'
 import { useCurrency } from '@/lib/hooks/use-currency'
 
 type Props = {
@@ -30,17 +30,17 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
       label: 'Hoy',
       value: todayReturn != null ? `${todayReturn >= 0 ? '+' : ''}${format(Math.abs(todayReturn), 'USD')}` : '--',
       sub: todayReturnPct != null ? `${todayReturnPct >= 0 ? '+' : ''}${todayReturnPct.toFixed(2)}%` : '--',
-      icon: todayReturn != null && todayReturn >= 0 ? TrendingUp : TrendingDown,
-      color: todayReturn != null && todayReturn >= 0 ? 'text-[var(--gain)]' : 'text-[var(--loss)]',
-      bgColor: todayReturn != null && todayReturn >= 0 ? 'bg-[var(--gain)]/10' : 'bg-[var(--loss)]/10',
+      icon: todayReturn == null ? Minus : todayReturn >= 0 ? TrendingUp : TrendingDown,
+      color: todayReturn == null ? 'text-muted-foreground' : todayReturn >= 0 ? 'text-gain' : 'text-loss',
+      bgColor: todayReturn == null ? 'bg-muted' : todayReturn >= 0 ? 'bg-gain/10' : 'bg-loss/10',
     },
     {
       label: 'Ganancia Total',
       value: `${totalReturn >= 0 ? '+' : ''}${format(Math.abs(totalReturn), 'USD')}`,
       sub: `${totalReturn >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`,
       icon: BarChart3,
-      color: totalReturn >= 0 ? 'text-[var(--gain)]' : 'text-[var(--loss)]',
-      bgColor: totalReturn >= 0 ? 'bg-[var(--gain)]/10' : 'bg-[var(--loss)]/10',
+      color: totalReturn >= 0 ? 'text-gain' : 'text-loss',
+      bgColor: totalReturn >= 0 ? 'bg-gain/10' : 'bg-loss/10',
     },
     {
       label: 'Mejor Posicion',

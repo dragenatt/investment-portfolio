@@ -66,10 +66,12 @@ export default function DashboardPage() {
     const totalReturnPct = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0
 
     const allocation = Object.entries(allocationMap).map(([name, value]) => ({ name, value }))
-    const topMovers = movers.sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, 5)
+    const sortedMovers = [...movers].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
+    const topMovers = sortedMovers.slice(0, 5)
 
-    const bestPosition = topMovers.length > 0
-      ? { symbol: topMovers[0].symbol, changePct: topMovers[0].changePct }
+    const bestGainer = [...movers].sort((a, b) => b.changePct - a.changePct)[0]
+    const bestPosition = bestGainer && bestGainer.changePct !== 0
+      ? { symbol: bestGainer.symbol, changePct: bestGainer.changePct }
       : undefined
 
     return { totalValue, totalReturn, totalReturnPct, positionCount, allocation, topMovers, bestPosition }
