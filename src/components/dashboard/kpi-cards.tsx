@@ -1,60 +1,73 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { DollarSign, TrendingUp, TrendingDown, BarChart3, Trophy } from 'lucide-react'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { formatPercent } from '@/lib/utils/numbers'
-import { TrendingUp, DollarSign, Briefcase } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 type Props = {
   totalValue: number
   totalReturn: number
   totalReturnPct: number
   positionCount: number
-  currency: string
+  bestPosition?: { symbol: string; changePct: number }
+  todayReturn?: number
+  todayReturnPct?: number
 }
 
-export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCount, currency }: Props) {
+export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCount, bestPosition, todayReturn, todayReturnPct }: Props) {
   const { format } = useCurrency()
-  const isPositive = totalReturn >= 0
+
+  const cards = [
+    {
+      label: 'Valor Total',
+      value: format(totalValue, 'USD'),
+      sub: `${positionCount} posiciones`,
+      icon: DollarSign,
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
+    },
+    {
+      label: 'Hoy',
+      value: todayReturn != null ? `${todayReturn >= 0 ? '+' : ''}${format(Math.abs(todayReturn), 'USD')}` : '--',
+      sub: todayReturnPct != null ? `${todayReturnPct >= 0 ? '+' : ''}${todayReturnPct.toFixed(2)}%` : '--',
+      icon: todayReturn != null && todayReturn >= 0 ? TrendingUp : TrendingDown,
+      color: todayReturn != null && todayReturn >= 0 ? 'text-[var(--gain)]' : 'text-[var(--loss)]',
+      bgColor: todayReturn != null && todayReturn >= 0 ? 'bg-[var(--gain)]/10' : 'bg-[var(--loss)]/10',
+    },
+    {
+      label: 'Ganancia Total',
+      value: `${totalReturn >= 0 ? '+' : ''}${format(Math.abs(totalReturn), 'USD')}`,
+      sub: `${totalReturn >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`,
+      icon: BarChart3,
+      color: totalReturn >= 0 ? 'text-[var(--gain)]' : 'text-[var(--loss)]',
+      bgColor: totalReturn >= 0 ? 'bg-[var(--gain)]/10' : 'bg-[var(--loss)]/10',
+    },
+    {
+      label: 'Mejor Posicion',
+      value: bestPosition?.symbol || '--',
+      sub: bestPosition ? `${bestPosition.changePct >= 0 ? '+' : ''}${bestPosition.changePct.toFixed(2)}%` : '--',
+      icon: Trophy,
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
+    },
+  ]
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Valor Total</CardTitle>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold font-mono">{format(totalValue, currency)}</div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Rendimiento Total</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className={cn('text-2xl font-bold font-mono', isPositive ? 'text-green-600' : 'text-red-600')}>
-            {format(totalReturn, currency)}
-          </div>
-          <p className={cn('text-xs', isPositive ? 'text-green-600' : 'text-red-600')}>
-            {formatPercent(totalReturnPct)}
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Posiciones</CardTitle>
-          <Briefcase className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold font-mono">{positionCount}</div>
-          <p className="text-xs text-muted-foreground">activos en portafolio</p>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {cards.map(card => (
+        <Card key={card.label} className="rounded-2xl border-border shadow-sm hover:-translate-y-0.5 transition-transform">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
+              <div className={`p-1.5 rounded-lg ${card.bgColor}`}>
+                <card.icon className={`h-3.5 w-3.5 ${card.color}`} />
+              </div>
+            </div>
+            <p className="text-xl font-bold font-mono">{card.value}</p>
+            <p className={`text-xs mt-1 ${card.color}`}>{card.sub}</p>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }
