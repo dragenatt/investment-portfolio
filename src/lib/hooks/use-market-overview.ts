@@ -1,0 +1,14 @@
+import useSWR from 'swr'
+
+const fetcher = async (url: string) => {
+  const res = await fetch(url)
+  const json = await res.json()
+  if (json.error) throw new Error(json.error)
+  return json.data
+}
+
+export function useMarketOverview() {
+  return useSWR('/api/market/overview', fetcher, {
+    refreshInterval: 60_000,
+  })
+}
