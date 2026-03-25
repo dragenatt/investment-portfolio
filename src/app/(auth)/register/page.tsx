@@ -13,6 +13,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
@@ -34,7 +35,7 @@ export default function RegisterPage() {
     }
 
     if (!data.session) {
-      setError('Te enviamos un email de confirmación. Revisa tu bandeja de entrada.')
+      setSuccess('Te enviamos un email de confirmación. Revisa tu bandeja de entrada (incluyendo spam).')
       setLoading(false)
       return
     }
@@ -64,6 +65,11 @@ export default function RegisterPage() {
               <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
+            {success && (
+              <div className="rounded-lg bg-green-50 border border-green-200 p-3">
+                <p className="text-sm text-green-800">{success}</p>
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
             </Button>
