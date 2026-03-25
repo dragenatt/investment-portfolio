@@ -58,7 +58,7 @@ export default function DashboardPage() {
             movers.push({
               symbol: pos.symbol,
               name: pos.symbol,
-              price: liveData.price,
+              price: liveData.price ?? 0,
               change,
               changePct,
               currency: pos.currency || 'USD',

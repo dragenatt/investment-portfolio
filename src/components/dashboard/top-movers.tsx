@@ -19,7 +19,6 @@ export function TopMovers({ movers }: { movers: Mover[] }) {
           <div key={m.symbol} className="flex items-center justify-between">
             <div>
               <p className="font-medium text-sm">{m.symbol}</p>
-              <p className="text-xs text-muted-foreground truncate max-w-[120px]">{m.name}</p>
             </div>
             <PriceDisplay price={m.price} change={m.change} changePct={m.changePct} currency={m.currency} size="sm" />
           </div>

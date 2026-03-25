@@ -43,7 +43,12 @@ function WatchlistItemRow({ watchlistId, item }: { watchlistId: string; item: { 
         size="icon"
         className="h-6 w-6 ml-2"
         onClick={async () => {
-          await fetch(`/api/watchlist/${watchlistId}/${encodeURIComponent(item.symbol)}`, { method: 'DELETE' })
+          const res = await fetch(`/api/watchlist/${watchlistId}/${encodeURIComponent(item.symbol)}`, { method: 'DELETE' })
+          const data = await res.json()
+          if (data.error) {
+            toast.error('Error al eliminar')
+            return
+          }
           mutate('/api/watchlist')
           toast.success('Eliminado de watchlist')
         }}
@@ -55,7 +60,7 @@ function WatchlistItemRow({ watchlistId, item }: { watchlistId: string; item: { 
 }
 
 export default function WatchlistPage() {
-  const { data: watchlists, isLoading } = useWatchlists()
+  const { data: watchlists, isLoading, error } = useWatchlists()
   const { mutate } = useSWRConfig()
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -123,6 +128,8 @@ export default function WatchlistPage() {
 
   if (isLoading) return <div className="space-y-4">{[1, 2].map(i => <SkeletonCard key={i} />)}</div>
 
+  if (error) return <p className="text-destructive text-center py-8">Error al cargar watchlists. Intenta recargar la página.</p>
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -168,8 +175,8 @@ export default function WatchlistPage() {
                 <SelectContent>
                   <SelectItem value="default">Por defecto</SelectItem>
                   <SelectItem value="name">Nombre</SelectItem>
-                  <SelectItem value="price">Precio (pronto)</SelectItem>
-                  <SelectItem value="change">Cambio % (pronto)</SelectItem>
+                  <SelectItem value="price" disabled>Precio (pronto)</SelectItem>
+                  <SelectItem value="change" disabled>Cambio % (pronto)</SelectItem>
                 </SelectContent>
               </Select>
               <Button className="rounded-xl" variant="outline" size="sm" onClick={() => setAddingTo(addingTo === wl.id ? null : wl.id)}>

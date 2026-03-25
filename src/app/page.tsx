@@ -60,9 +60,9 @@ export default function LandingPage() {
               Empezar gratis
             </Button>
           </Link>
-          <Link href="/market">
+          <Link href="/register">
             <Button size="lg" variant="outline" className="text-lg px-8 py-6 rounded-xl border-border hover:bg-secondary">
-              Ver mercados
+              Comenzar
             </Button>
           </Link>
         </div>

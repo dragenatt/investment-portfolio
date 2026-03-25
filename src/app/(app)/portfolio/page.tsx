@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { useMemo } from 'react'
 
 export default function PortfolioListPage() {
-  const { data: portfolios, isLoading } = usePortfolios()
+  const { data: portfolios, isLoading, error } = usePortfolios()
 
   const allSymbols = useMemo(() => {
     if (!portfolios) return []
@@ -24,6 +24,8 @@ export default function PortfolioListPage() {
   }, [portfolios])
 
   const { data: livePrices } = useLivePrices(allSymbols)
+
+  if (error) return <p className="text-destructive text-center py-8">Error al cargar portafolios. Intenta recargar la página.</p>
 
   return (
     <div className="space-y-6">

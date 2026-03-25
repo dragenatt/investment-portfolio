@@ -4,6 +4,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
+  // API routes handle their own auth — skip session check entirely
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return supabaseResponse
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -27,15 +32,21 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Public routes that don't require auth
   const publicPaths = ['/', '/login', '/register']
   const isPublicPath = publicPaths.some(p => request.nextUrl.pathname === p)
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
 
-  // API routes handle their own auth — don't redirect them
-  if (!user && !isPublicPath && !isApiRoute) {
+  // Redirect authenticated users away from login/register
+  if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
+
+  // Redirect unauthenticated users to login
+  if (!user && !isPublicPath) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    url.searchParams.set('next', request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
 

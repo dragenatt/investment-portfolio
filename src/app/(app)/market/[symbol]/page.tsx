@@ -83,7 +83,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               {portfolios?.map((p: { id: string; name: string }) => (
-                <DropdownMenuItem key={p.id} onClick={() => router.push(`/portfolio/${p.id}`)}>
+                <DropdownMenuItem key={p.id} onClick={() => router.push(`/portfolio/${p.id}/transactions?add=${encodeURIComponent(decodedSymbol)}`)}>
                   {p.name}
                 </DropdownMenuItem>
               ))}

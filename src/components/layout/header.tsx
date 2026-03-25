@@ -10,11 +10,24 @@ import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
 
 export function Header() {
   const router = useRouter()
   const supabase = createClient()
   const { currency, setCurrency } = useCurrency()
+  const [initials, setInitials] = useState('U')
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.user_metadata?.display_name) {
+        const name = user.user_metadata.display_name as string
+        setInitials(name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2))
+      } else if (user?.email) {
+        setInitials(user.email[0].toUpperCase())
+      }
+    })
+  }, [supabase])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -53,7 +66,7 @@ export function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-xl text-sm font-medium transition-colors hover:bg-secondary h-9 w-9">
             <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary/10 text-primary text-sm">U</AvatarFallback>
+              <AvatarFallback className="bg-primary/10 text-primary text-sm">{initials}</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

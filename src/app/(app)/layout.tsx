@@ -4,8 +4,14 @@ import { MobileNav } from '@/components/layout/mobile-nav'
 import { CurrencyProvider } from '@/providers/currency-provider'
 import { SymbolSearch } from '@/components/market/symbol-search'
 import { Breadcrumbs } from '@/components/shared/breadcrumbs'
+import { createServerSupabase } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createServerSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
   return (
     <CurrencyProvider>
       <div className="flex h-screen overflow-hidden">

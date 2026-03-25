@@ -22,9 +22,11 @@ type Alert = {
 }
 
 export default function AlertsPage() {
-  const { data: alerts, isLoading } = useSWR<Alert[]>('/api/alerts', fetcher, {
+  const { data: alerts, isLoading, error } = useSWR<Alert[]>('/api/alerts', fetcher, {
     refreshInterval: 30_000,
   })
+
+  if (error) return <p className="text-destructive text-center py-8">Error al cargar alertas. Intenta recargar la página.</p>
 
   return (
     <div className="space-y-6">
@@ -62,7 +64,7 @@ export default function AlertsPage() {
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <span className="font-bold">{alert.symbol}</span>
                   <span className="text-muted-foreground">
-                    {alert.condition === 'above' ? 'sube a' : alert.condition === 'below' ? 'baja a' : 'cambia'} ${alert.target_value.toFixed(2)}
+                    {alert.condition === 'above' ? 'sube a' : alert.condition === 'below' ? 'baja a' : 'cambia'} ${alert.target_value?.toFixed(2) ?? '--'}
                   </span>
                   <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${alert.is_active ? 'bg-gain/10 text-gain' : 'bg-muted text-muted-foreground'}`}>
                     {alert.is_active ? 'Activa' : 'Inactiva'}

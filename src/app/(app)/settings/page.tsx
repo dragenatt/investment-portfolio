@@ -10,7 +10,10 @@ import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import useSWR from 'swr'
 
-const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => r.data)
+const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => {
+  if (r.error) throw new Error(r.error)
+  return r.data
+})
 
 export default function SettingsPage() {
   const { data: profile, mutate } = useSWR('/api/user/profile', fetcher)

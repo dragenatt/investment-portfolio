@@ -9,7 +9,7 @@ const fetcher = async (url: string) => {
 
 export function useMarketSearch(query: string) {
   return useSWR(
-    query.length >= 1 ? `/api/market/search?q=${encodeURIComponent(query)}` : null,
+    query.length >= 2 ? `/api/market/search?q=${encodeURIComponent(query)}` : null,
     fetcher,
     { dedupingInterval: 300 }
   )
