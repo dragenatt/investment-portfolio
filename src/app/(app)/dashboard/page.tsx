@@ -2,6 +2,7 @@
 
 import { usePortfolios } from '@/lib/hooks/use-portfolios'
 import { useLivePrices } from '@/lib/hooks/use-live-prices'
+import { useCurrency } from '@/lib/hooks/use-currency'
 import { KpiCards } from '@/components/dashboard/kpi-cards'
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   const { data: portfolios, isLoading } = usePortfolios()
   const [chartRange, setChartRange] = useState('30')
   const { data: chartData, isLoading: chartLoading } = usePortfolioHistory(chartRange)
+  const { convert, currency: displayCurrency } = useCurrency()
 
   const allSymbols = useMemo(() => {
     if (!portfolios) return []
@@ -45,23 +47,40 @@ export default function DashboardPage() {
       for (const pos of portfolio.positions || []) {
         if (pos.quantity > 0) {
           const liveData = livePrices?.[pos.symbol]
+          // Currency of the live price from Yahoo (e.g. USD for US stocks)
+          const priceCurrency = liveData?.currency || pos.currency || 'USD'
+          // Currency of the stored avg_cost
+          const costCurrency = pos.currency || 'USD'
+
+          // Convert live price to display currency, then compute value
           const livePrice = liveData?.price ?? pos.avg_cost
-          const value = pos.quantity * livePrice
+          const livePriceInDisplay = liveData
+            ? convert(livePrice, priceCurrency)
+            : convert(livePrice, costCurrency)
+          const value = pos.quantity * livePriceInDisplay
+
+          // Convert avg_cost to display currency, then compute cost
+          const avgCostInDisplay = convert(pos.avg_cost, costCurrency)
+          const cost = pos.quantity * avgCostInDisplay
+
           totalValue += value
-          totalCost += pos.quantity * pos.avg_cost
+          totalCost += cost
           positionCount++
           allocationMap[pos.asset_type] = (allocationMap[pos.asset_type] || 0) + value
+
           if (liveData) {
             const change = liveData.change ?? 0
             const changePct = liveData.changePct ?? 0
-            todayReturn += pos.quantity * change
+            // Convert today's change to display currency
+            const changeInDisplay = convert(change, priceCurrency)
+            todayReturn += pos.quantity * changeInDisplay
             movers.push({
               symbol: pos.symbol,
               name: pos.symbol,
-              price: liveData.price ?? 0,
-              change,
+              price: livePriceInDisplay,
+              change: changeInDisplay,
               changePct,
-              currency: pos.currency || 'USD',
+              currency: displayCurrency,
             })
           }
         }
@@ -85,7 +104,7 @@ export default function DashboardPage() {
     const hasPrices = movers.length > 0
 
     return { totalValue, totalReturn, totalReturnPct, positionCount, allocation, topMovers, bestPosition, todayReturn: hasPrices ? todayReturn : undefined, todayReturnPct: hasPrices ? todayReturnPct : undefined }
-  }, [portfolios, livePrices])
+  }, [portfolios, livePrices, convert, displayCurrency])
 
   if (isLoading) {
     return (

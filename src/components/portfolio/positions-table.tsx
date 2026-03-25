@@ -16,13 +16,15 @@ type Position = {
   avg_cost: number
   currency: string
   currentPrice?: number
+  /** Currency of the currentPrice (from Yahoo Finance) */
+  priceCurrency?: string
   changePct?: number
 }
 
 type SortKey = 'symbol' | 'quantity' | 'avg_cost' | 'value'
 
 export function PositionsTable({ positions }: { positions: Position[] }) {
-  const { format } = useCurrency()
+  const { format, convert } = useCurrency()
   const [sortKey, setSortKey] = useState<SortKey>('value')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -31,8 +33,12 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
       switch (sortKey) {
         case 'symbol': return p.symbol
         case 'quantity': return p.quantity
-        case 'avg_cost': return p.avg_cost
-        case 'value': return p.quantity * (p.currentPrice ?? p.avg_cost)
+        case 'avg_cost': return convert(p.avg_cost, p.currency)
+        case 'value': {
+          const price = p.currentPrice ?? p.avg_cost
+          const pCur = p.priceCurrency || p.currency
+          return p.quantity * convert(price, pCur)
+        }
       }
     }
     const va = getValue(a)
@@ -70,42 +76,65 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.map(pos => (
-              <TableRow key={pos.id}>
-                <TableCell className="font-medium font-mono">{pos.symbol}</TableCell>
-                <TableCell><Badge variant="outline" className="text-xs">{pos.asset_type}</Badge></TableCell>
-                <TableCell className="text-right font-mono">{formatNumber(pos.quantity, 4)}</TableCell>
-                <TableCell className="text-right font-mono">{format(pos.avg_cost, pos.currency)}</TableCell>
-                <TableCell className="text-right font-mono">{format(pos.currentPrice ?? pos.avg_cost, pos.currency)}</TableCell>
-                <TableCell className="text-right font-mono font-medium">{format(pos.quantity * (pos.currentPrice ?? pos.avg_cost), pos.currency)}</TableCell>
-                <TableCell className={`text-right font-mono text-sm ${((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? 'text-gain' : 'text-loss'}`}>
-                  {((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? '+' : ''}{formatNumber(((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) / (pos.avg_cost || 1) * 100)}%
-                </TableCell>
-              </TableRow>
-            ))}
+            {sorted.map(pos => {
+              const priceCur = pos.priceCurrency || pos.currency
+              const costCur = pos.currency
+              const currentPrice = pos.currentPrice ?? pos.avg_cost
+              // Convert both to display currency for comparison
+              const priceConverted = convert(currentPrice, priceCur)
+              const costConverted = convert(pos.avg_cost, costCur)
+              const value = pos.quantity * priceConverted
+              const gainPct = costConverted > 0 ? ((priceConverted - costConverted) / costConverted) * 100 : 0
+              const isGain = gainPct >= 0
+
+              return (
+                <TableRow key={pos.id}>
+                  <TableCell className="font-medium font-mono">{pos.symbol}</TableCell>
+                  <TableCell><Badge variant="outline" className="text-xs">{pos.asset_type}</Badge></TableCell>
+                  <TableCell className="text-right font-mono">{formatNumber(pos.quantity, 4)}</TableCell>
+                  <TableCell className="text-right font-mono">{format(pos.avg_cost, costCur)}</TableCell>
+                  <TableCell className="text-right font-mono">{format(currentPrice, priceCur)}</TableCell>
+                  <TableCell className="text-right font-mono font-medium">{format(value)}</TableCell>
+                  <TableCell className={`text-right font-mono text-sm ${isGain ? 'text-gain' : 'text-loss'}`}>
+                    {isGain ? '+' : ''}{formatNumber(gainPct)}%
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </div>
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-3">
-        {sorted.map(pos => (
-          <div key={pos.id} className="border border-border rounded-2xl p-3">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="font-medium font-mono">{pos.symbol}</p>
-                <Badge variant="outline" className="text-xs mt-1">{pos.asset_type}</Badge>
-              </div>
-              <div className="text-right">
-                <p className="font-mono font-medium">{format(pos.quantity * (pos.currentPrice ?? pos.avg_cost), pos.currency)}</p>
-                <p className="text-xs text-muted-foreground">{formatNumber(pos.quantity, 4)} @ {format(pos.currentPrice ?? pos.avg_cost, pos.currency)}</p>
-                <p className={`text-xs font-mono ${((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? 'text-gain' : 'text-loss'}`}>
-                  {((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) >= 0 ? '+' : ''}{formatNumber(((pos.currentPrice ?? pos.avg_cost) - pos.avg_cost) / (pos.avg_cost || 1) * 100)}%
-                </p>
+        {sorted.map(pos => {
+          const priceCur = pos.priceCurrency || pos.currency
+          const costCur = pos.currency
+          const currentPrice = pos.currentPrice ?? pos.avg_cost
+          const priceConverted = convert(currentPrice, priceCur)
+          const costConverted = convert(pos.avg_cost, costCur)
+          const value = pos.quantity * priceConverted
+          const gainPct = costConverted > 0 ? ((priceConverted - costConverted) / costConverted) * 100 : 0
+          const isGain = gainPct >= 0
+
+          return (
+            <div key={pos.id} className="border border-border rounded-2xl p-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-medium font-mono">{pos.symbol}</p>
+                  <Badge variant="outline" className="text-xs mt-1">{pos.asset_type}</Badge>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono font-medium">{format(value)}</p>
+                  <p className="text-xs text-muted-foreground">{formatNumber(pos.quantity, 4)} @ {format(currentPrice, priceCur)}</p>
+                  <p className={`text-xs font-mono ${isGain ? 'text-gain' : 'text-loss'}`}>
+                    {isGain ? '+' : ''}{formatNumber(gainPct)}%
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </>
   )

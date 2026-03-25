@@ -26,11 +26,16 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
 
   const positionsWithPrices = useMemo(() => {
     if (!portfolio?.positions) return []
-    return portfolio.positions.map((pos: { symbol: string; quantity: number; avg_cost: number; [key: string]: unknown }) => ({
-      ...pos,
-      currentPrice: livePrices?.[pos.symbol]?.price ?? pos.avg_cost,
-      changePct: livePrices?.[pos.symbol]?.changePct ?? 0,
-    }))
+    return portfolio.positions.map((pos: { symbol: string; quantity: number; avg_cost: number; currency?: string; [key: string]: unknown }) => {
+      const liveData = livePrices?.[pos.symbol]
+      return {
+        ...pos,
+        currentPrice: liveData?.price ?? pos.avg_cost,
+        // The currency the live price is denominated in (from Yahoo)
+        priceCurrency: liveData?.currency || pos.currency || 'USD',
+        changePct: liveData?.changePct ?? 0,
+      }
+    })
   }, [portfolio, livePrices])
 
   const allocation = useMemo(() => {

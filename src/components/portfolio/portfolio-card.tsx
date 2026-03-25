@@ -10,17 +10,19 @@ type Props = {
   name: string
   description?: string
   positions: Array<{ symbol: string; quantity: number; avg_cost: number; asset_type: string; currency?: string }>
-  livePrices?: Record<string, { price: number }> | null
+  livePrices?: Record<string, { price: number; currency?: string }> | null
 }
 
 export function PortfolioCard({ id, name, description, positions, livePrices }: Props) {
-  const { format } = useCurrency()
+  const { format, convert } = useCurrency()
   const activePositions = positions.filter(p => p.quantity > 0)
   const totalValue = activePositions.reduce((sum, p) => {
-    const price = livePrices?.[p.symbol]?.price ?? p.avg_cost
-    return sum + p.quantity * price
+    const liveData = livePrices?.[p.symbol]
+    const price = liveData?.price ?? p.avg_cost
+    const priceCur = liveData?.currency || p.currency || 'USD'
+    return sum + p.quantity * convert(price, priceCur)
   }, 0)
-  const totalCost = activePositions.reduce((sum, p) => sum + p.quantity * p.avg_cost, 0)
+  const totalCost = activePositions.reduce((sum, p) => sum + p.quantity * convert(p.avg_cost, p.currency || 'USD'), 0)
   const gainPct = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0
 
   return (
