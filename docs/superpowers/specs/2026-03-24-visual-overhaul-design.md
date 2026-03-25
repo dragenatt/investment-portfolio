@@ -11,43 +11,89 @@ Complete visual redesign of the investment portfolio platform, transitioning fro
 
 ## Phase 1: Visual Overhaul
 
-### 1.1 Color Palette
+### 1.1 Color Palette — shadcn/ui Token Migration
 
-Replace current OKLch dark theme variables with warm light palette as default.
+The app uses **shadcn/ui's token system** with OKLch values in `globals.css`. The `:root` block defines tokens like `--background`, `--foreground`, `--card`, `--primary`, etc., which are mapped to Tailwind utilities via the `@theme inline` block (e.g., `bg-background`, `text-foreground`, `bg-card`). All shadcn components consume these tokens.
+
+**Migration strategy:** Replace the OKLch values in `:root` with hex equivalents from the warm palette. Keep the same token names so all shadcn components automatically pick up the new colors. Add custom tokens for app-specific needs (gain/loss, chart, shimmer).
+
+**`:root` block replacement (light mode default):**
+
+| shadcn Token | New Value | Warm Palette Role |
+|---|---|---|
+| `--background` | `#FEFCF8` | Cream main background |
+| `--foreground` | `#1C1917` | Dark brown text |
+| `--card` | `#FFFDF7` | Warm white cards |
+| `--card-foreground` | `#1C1917` | Card text |
+| `--popover` | `#FFFDF7` | Popover background |
+| `--popover-foreground` | `#1C1917` | Popover text |
+| `--primary` | `#B45309` | Amber/gold accent (CTAs, highlights) |
+| `--primary-foreground` | `#FFFDF7` | Text on primary buttons |
+| `--secondary` | `#F5F0E8` | Beige secondary surfaces |
+| `--secondary-foreground` | `#1C1917` | Text on secondary |
+| `--muted` | `#F5F0E8` | Muted backgrounds |
+| `--muted-foreground` | `#78716C` | Secondary text |
+| `--accent` | `#F5F0E8` | Accent backgrounds |
+| `--accent-foreground` | `#1C1917` | Accent text |
+| `--destructive` | `#C2410C` | Warm terracotta for errors/losses |
+| `--border` | `#E8E0D0` | Sand borders |
+| `--input` | `#E8E0D0` | Input borders |
+| `--ring` | `#D97706` | Focus ring (amber) |
+| `--chart-1` | `#D97706` | Chart primary (amber) |
+| `--chart-2` | `#4D7C0F` | Chart secondary (olive green) |
+| `--chart-3` | `#B45309` | Chart tertiary |
+| `--chart-4` | `#78716C` | Chart quaternary |
+| `--chart-5` | `#C2410C` | Chart quinary |
+| `--radius` | `0.75rem` | Slightly larger radius (was 0.625rem) |
+| `--sidebar` | `#F5F0E8` | Sidebar background |
+| `--sidebar-foreground` | `#1C1917` | Sidebar text |
+| `--sidebar-primary` | `#B45309` | Sidebar active accent |
+| `--sidebar-primary-foreground` | `#FFFDF7` | Sidebar active text |
+| `--sidebar-accent` | `#FEFCF8` | Sidebar hover |
+| `--sidebar-accent-foreground` | `#1C1917` | Sidebar hover text |
+| `--sidebar-border` | `#E8E0D0` | Sidebar borders |
+| `--sidebar-ring` | `#D97706` | Sidebar focus ring |
+
+**Custom tokens (add after shadcn tokens in `:root`):**
 
 | Token | Value | Usage |
 |---|---|---|
-| `--bg-primary` | `#FEFCF8` | Main background |
-| `--bg-secondary` | `#F5F0E8` | Alternate sections, sidebars |
-| `--card-bg` | `#FFFDF7` | Card backgrounds |
-| `--card-border` | `#E8E0D0` | Card borders |
-| `--accent-primary` | `#B45309` | CTAs, highlights, active states |
-| `--accent-hover` | `#D97706` | Hover on accent elements |
-| `--gain` | `#4D7C0F` | Positive values (green olive) |
-| `--loss` | `#C2410C` | Negative values (warm terracotta) |
-| `--text-primary` | `#1C1917` | Main text (dark brown, not black) |
-| `--text-secondary` | `#78716C` | Secondary text |
-| `--gradient-hero-start` | `#FEFCF8` | Hero gradient start |
-| `--gradient-hero-end` | `#FEF3E2` | Hero gradient end |
+| `--gain` | `#4D7C0F` | Positive values (olive green) |
+| `--loss` | `#C2410C` | Negative values (terracotta) |
 | `--chart-line` | `#D97706` | Chart stroke color |
 | `--chart-fill-start` | `rgba(217,119,6,0.15)` | Chart gradient fill top |
 | `--chart-fill-end` | `rgba(217,119,6,0)` | Chart gradient fill bottom |
 | `--shimmer` | `#F5F0E8` | Skeleton loader pulse color |
+| `--gradient-hero-start` | `#FEFCF8` | Hero gradient start |
+| `--gradient-hero-end` | `#FEF3E2` | Hero gradient end |
 
-Dark mode (optional, warm variant):
+**`.dark` block replacement (warm dark variant):**
 
-| Token | Value |
+| shadcn Token | New Value |
 |---|---|
-| `--bg-primary` | `#1C1917` |
-| `--bg-secondary` | `#292524` |
-| `--card-bg` | `#292524` |
-| `--card-border` | `#44403C` |
-| `--text-primary` | `#FEFCF8` |
-| `--text-secondary` | `#A8A29E` |
+| `--background` | `#1C1917` |
+| `--foreground` | `#FEFCF8` |
+| `--card` | `#292524` |
+| `--card-foreground` | `#FEFCF8` |
+| `--popover` | `#292524` |
+| `--popover-foreground` | `#FEFCF8` |
+| `--primary` | `#D97706` |
+| `--primary-foreground` | `#1C1917` |
+| `--secondary` | `#292524` |
+| `--secondary-foreground` | `#FEFCF8` |
+| `--muted` | `#292524` |
+| `--muted-foreground` | `#A8A29E` |
+| `--accent` | `#292524` |
+| `--accent-foreground` | `#FEFCF8` |
+| `--destructive` | `#EF4444` |
+| `--border` | `#44403C` |
+| `--input` | `#44403C` |
+| `--ring` | `#D97706` |
 
 **Files affected:**
-- `src/app/globals.css` — replace all `@theme` color variables
-- All components using hardcoded colors (e.g., `#2563eb` in charts)
+- `src/app/globals.css` — replace OKLch values in `:root` and `.dark` blocks, add custom tokens
+- All components using hardcoded colors (e.g., `#2563eb` in charts) — replace with `var(--chart-line)` or Tailwind `text-primary`
+- Note: `@base-ui/react` is in dependencies but does not consume theme tokens (it's used for unstyled primitives). No action needed for it.
 
 ### 1.2 Typography & Spacing
 
@@ -101,7 +147,7 @@ Dark mode (optional, warm variant):
    - Left: Top movers (3 cards, sparkline + %)
    - Right: Actividad reciente (new) — last 5 transactions as mini-feed
      - Format: "Compraste 10 AAPL a $248.50" with relative timestamp
-     - Source: `/api/transaction?limit=5` (needs new param)
+     - Source: `/api/transaction?limit=5` — the current GET handler in `src/app/api/transaction/route.ts` does NOT support a `limit` param; this must be added as a backend task
      - Link: "Ver todas" → portfolio transactions page
 
 **New component:** `src/components/dashboard/recent-activity.tsx`
@@ -114,14 +160,18 @@ Dark mode (optional, warm variant):
 
 ### 1.5 Navigation Redesign
 
-**Sidebar** (`src/components/layout/sidebar.tsx` or equivalent):
-- Cleaner look: cream background, icons + labels
-- Active state: pill with beige background (`--bg-secondary`) + accent left border
+**Note:** There is no `src/components/layout/` directory currently. The sidebar is part of the app layout (likely in `src/app/(app)/layout.tsx`). Navigation components will be created fresh.
+
+**Sidebar** (restyle existing sidebar in app layout):
+- Cleaner look: cream background (`bg-sidebar`), icons + labels
+- Active state: pill with beige background + accent left border
 - Notification badge on Alerts icon (red dot with count)
+- 6 items: Dashboard, Mercados, Portfolio, Watchlists, Alertas, Settings
 
 **Mobile bottom tab bar** (new component: `src/components/layout/mobile-nav.tsx`):
 - Fixed bottom bar on screens < md
-- 5 tabs: Dashboard, Mercados, Portfolio, Watchlist, Mas (overflow)
+- 5 tabs: Dashboard, Mercados, Portfolio, Watchlists, Alertas
+- Settings accessible from a gear icon in the top navbar on mobile
 - Active tab: accent colored icon + label
 - Replaces hamburger menu on mobile
 
@@ -177,8 +227,7 @@ Dark mode (optional, warm variant):
 **Settings** (`src/app/(app)/settings/page.tsx`):
 - Profile section: name, email, avatar placeholder
 - Preferences: currency, theme (claro/oscuro calido), language
-- Import/Export section (Phase 3 implementation, UI placeholder now)
-- Connections section (future, UI placeholder)
+- Import/Export and Connections sections are **out of scope for Phase 1** — they will be added in Phase 3 when the features are built. No stub UI needed.
 
 ### 1.10 Skeleton Loaders
 
@@ -204,7 +253,44 @@ Use the connected BigData MCP tools to enrich market data:
 - `GET /api/market/[symbol]/events` — upcoming events from BigData calendar
 - `GET /api/market/overview` — market overview (indices, top movers from BigData)
 
-**Cache strategy:** Store BigData responses in Supabase `current_prices` or new `company_data` table with 24-hour TTL. BigData calls are more expensive than Yahoo, so aggressive caching.
+**Cache strategy:** Store BigData responses in new Supabase tables with TTL enforcement.
+
+**New table `company_data`:**
+
+| Column | Type | Description |
+|---|---|---|
+| `symbol` | `text` PK | Ticker symbol |
+| `name` | `text` | Company name |
+| `description` | `text` | Company description |
+| `sector` | `text` | Sector |
+| `industry` | `text` | Industry |
+| `market_cap` | `bigint` | Market capitalization |
+| `pe_ratio` | `numeric` | P/E ratio |
+| `eps` | `numeric` | Earnings per share |
+| `dividend_yield` | `numeric` | Dividend yield % |
+| `week52_high` | `numeric` | 52-week high |
+| `week52_low` | `numeric` | 52-week low |
+| `employees` | `integer` | Number of employees |
+| `ceo` | `text` | CEO name |
+| `hq` | `text` | Headquarters |
+| `competitors` | `jsonb` | Array of competitor symbols |
+| `raw_data` | `jsonb` | Full BigData response for future use |
+| `fetched_at` | `timestamptz` | When data was fetched |
+| `expires_at` | `timestamptz` | Cache expiry (fetched_at + 24 hours) |
+
+**New table `market_events`:**
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | `uuid` PK | Event ID |
+| `symbol` | `text` | Ticker symbol |
+| `event_type` | `text` | earnings, dividend, split, etc. |
+| `event_date` | `date` | Event date |
+| `description` | `text` | Event description |
+| `fetched_at` | `timestamptz` | When data was fetched |
+| `expires_at` | `timestamptz` | Cache expiry (fetched_at + 6 hours) |
+
+Both tables: RLS enabled, read access for authenticated users. TTL enforced by API checking `expires_at > now()` before serving cached data.
 
 ### 2.2 Enhanced Market Detail Page
 
@@ -245,39 +331,58 @@ Flow:
 
 ### 3.2 Alert System
 
-**New tables:**
-- `alerts` table already exists (id, user_id, symbol, condition, threshold, is_active, last_triggered_at)
+**Existing tables:**
+- `alerts` table exists with columns: id, user_id, symbol, condition, threshold, is_active, last_triggered_at. **Verify before implementation** — check actual schema matches these assumptions.
+
+**New table `alert_notifications`:**
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | `uuid` PK | Notification ID |
+| `alert_id` | `uuid` FK | Reference to alerts table |
+| `user_id` | `uuid` FK | User who owns the alert |
+| `symbol` | `text` | Ticker symbol |
+| `message` | `text` | Human-readable notification text |
+| `triggered_at` | `timestamptz` | When the alert fired |
+| `read_at` | `timestamptz` | Null until user reads it |
 
 **New components:**
 - `src/app/(app)/alerts/page.tsx` — alert management page
 - `src/components/alerts/create-alert-modal.tsx` — create/edit alert form
 - `src/components/layout/notification-bell.tsx` — navbar notification badge + dropdown
 
+**Existing API endpoints (verify contracts before use):**
+- `POST /api/alerts` — create alert
+- `GET /api/alerts` — list user's alerts
+- `PATCH /api/alerts/[id]` — exists, verify if toggle/edit is supported (note: actual handler uses PATCH, not PUT)
+
 **New API endpoints:**
-- `POST /api/alerts` — create alert (already exists)
-- `PUT /api/alerts/[id]` — toggle/edit alert
-- `GET /api/alerts/triggered` — recent triggered alerts for notification panel
+- `GET /api/alerts/triggered` — recent unread notifications from `alert_notifications` table
 
 **Notification delivery:**
-- In-app: Poll `/api/alerts/triggered` every 60s with SWR, show badge count
-- Email: Supabase Edge Function triggered by cron — checks active alerts against current prices, sends email via Supabase Auth email service
+- In-app: Poll `/api/alerts/triggered` every 60s with SWR, show badge count on bell icon
+- Email: Supabase Edge Function triggered by cron
 
-**Cron job:** Use Scheduled Tasks MCP or Supabase Edge Function cron to run price checks every 5 minutes:
-1. Fetch all active alerts
-2. Batch fetch current prices for alert symbols
-3. Compare against thresholds
-4. Update `last_triggered_at` and insert notification record
-5. Send email if configured
+**Cron job: Supabase Edge Function** (chosen over Scheduled Tasks MCP because it runs server-side without depending on any local machine, is deployable via Supabase CLI, and integrates natively with the existing Supabase auth/database):
+1. Runs every 5 minutes via `pg_cron` or Supabase Edge Function scheduled invocation
+2. Fetch all active alerts from `alerts` table
+3. Batch fetch current prices for alert symbols via Yahoo Finance
+4. Compare against thresholds
+5. Insert into `alert_notifications` for matching alerts
+6. Update `last_triggered_at` on the alert
+7. Send email via Supabase Auth email if user has email notifications enabled
 
 ### 3.3 Export
 
-- **Excel export:** Client-side using a lightweight library (e.g., `xlsx` or manual CSV generation)
-- **PDF export:** Use `@react-pdf/renderer` or server-side HTML-to-PDF
+- **CSV export:** Native JavaScript — generate CSV string client-side, trigger download via Blob URL. No dependency.
+- **Excel export:** Use `xlsx` package (~200KB) for .xlsx generation client-side.
+- **PDF export:** Use `@react-pdf/renderer` for client-side PDF generation — chosen over server-side because it avoids headless browser complexity on Vercel, works offline, and the data is already available in the client.
+- **New dependency:** `xlsx` (Phase 3 only), `@react-pdf/renderer` (Phase 3 only)
 - Exportable: portfolio summary, transaction history, performance report
 
 **New components:**
-- Export buttons on portfolio detail and transactions pages
-- Format selector: CSV, Excel, PDF
+- `src/components/shared/export-menu.tsx` — dropdown with format options (CSV, Excel, PDF)
+- Used on: portfolio detail page, transactions page
 
 ---
 
@@ -289,7 +394,7 @@ No changes — SWR continues to handle all server state. No need for Redux/Zusta
 ### New Dependencies (minimal)
 - Phase 1: None — everything uses existing deps (`@number-flow/react`, `recharts`, `lucide-react`, `tailwind`)
 - Phase 3 import: None — client-side CSV parsing with native JS
-- Phase 3 export: `xlsx` package for Excel generation (~200KB)
+- Phase 3 export: `xlsx` package for Excel generation (~200KB), `@react-pdf/renderer` for PDF generation
 
 ### API Caching Strategy
 - Yahoo Finance quotes: 30s (current, keep)
@@ -324,16 +429,25 @@ Every component must work on 375px+ width. Specific adaptations:
 
 ## Implementation Order
 
-1. **Theme + globals** — CSS variables, typography, spacing (affects everything)
-2. **Navigation** — sidebar + mobile nav + breadcrumbs (structural)
-3. **Landing page** — first impression
-4. **Dashboard** — main page users see daily
-5. **Market pages** — listing + detail polish
+### Phase 1: Visual Overhaul
+1. **Theme + globals** — CSS variables (shadcn token migration), typography, spacing
+2. **Navigation** — sidebar restyle + new mobile bottom nav + breadcrumbs
+3. **Landing page** — full rewrite with hero, features, footer
+4. **Dashboard** — KPI cards + chart + donut + recent activity (includes adding `limit` param to transaction API)
+5. **Market pages** — listing redesign + detail polish
 6. **Portfolio pages** — list + detail + transactions polish
-7. **Watchlist** — polish existing
-8. **Settings** — polish + placeholders for import/export
+7. **Watchlist** — polish existing with sparklines, compact/expanded
+8. **Settings** — profile + preferences polish
 9. **Skeleton loaders** — warm shimmer across all pages
-10. **BigData integration** — API endpoints + market detail enrichment
-11. **Alert system** — full implementation
-12. **GBM+ importer** — CSV parser + import flow
-13. **Export** — Excel/CSV/PDF generation
+
+### Phase 2: Data Enrichment
+10. **Database migrations** — create `company_data` and `market_events` tables
+11. **BigData API endpoints** — fundamentals, events, overview
+12. **Market detail enrichment** — wire BigData data into market detail page
+
+### Phase 3: Automation & Features
+13. **Alert system** — notifications table, edge function cron, bell UI, alerts page
+14. **GBM+ importer** — CSV parser + import flow
+15. **Export** — CSV/Excel/PDF generation
+
+Each phase is independently deployable. Copy for landing page is final as written (Spanish).
