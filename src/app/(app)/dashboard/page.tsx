@@ -6,16 +6,15 @@ import { KpiCards } from '@/components/dashboard/kpi-cards'
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
 import { TopMovers } from '@/components/dashboard/top-movers'
+import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { useMemo, useState } from 'react'
-import { useCurrency } from '@/lib/hooks/use-currency'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
 
 export default function DashboardPage() {
   const { data: portfolios, isLoading } = usePortfolios()
-  const { currency } = useCurrency()
   const [chartRange, setChartRange] = useState('30')
   const { data: chartData, isLoading: chartLoading } = usePortfolioHistory(chartRange)
 
@@ -69,14 +68,18 @@ export default function DashboardPage() {
     const allocation = Object.entries(allocationMap).map(([name, value]) => ({ name, value }))
     const topMovers = movers.sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, 5)
 
-    return { totalValue, totalReturn, totalReturnPct, positionCount, allocation, topMovers }
+    const bestPosition = topMovers.length > 0
+      ? { symbol: topMovers[0].symbol, changePct: topMovers[0].changePct }
+      : undefined
+
+    return { totalValue, totalReturn, totalReturnPct, positionCount, allocation, topMovers, bestPosition }
   }, [portfolios, livePrices])
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
         </div>
         <SkeletonChart />
       </div>
@@ -85,7 +88,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <h1 className="text-3xl font-bold">Dashboard</h1>
 
       <ErrorBoundary>
         <KpiCards
@@ -93,11 +96,13 @@ export default function DashboardPage() {
           totalReturn={stats?.totalReturn ?? 0}
           totalReturnPct={stats?.totalReturnPct ?? 0}
           positionCount={stats?.positionCount ?? 0}
-          currency={currency}
+          bestPosition={stats?.bestPosition}
+          todayReturn={undefined}
+          todayReturnPct={undefined}
         />
       </ErrorBoundary>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <ErrorBoundary>
             <PortfolioChart
@@ -107,14 +112,21 @@ export default function DashboardPage() {
             />
           </ErrorBoundary>
         </div>
-        <ErrorBoundary>
-          <AllocationDonut data={stats?.allocation ?? []} />
-        </ErrorBoundary>
+        <div className="lg:col-span-1">
+          <ErrorBoundary>
+            <AllocationDonut data={stats?.allocation ?? []} />
+          </ErrorBoundary>
+        </div>
       </div>
 
-      <ErrorBoundary>
-        <TopMovers movers={stats?.topMovers ?? []} />
-      </ErrorBoundary>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ErrorBoundary>
+          <TopMovers movers={stats?.topMovers ?? []} />
+        </ErrorBoundary>
+        <ErrorBoundary>
+          <RecentActivity />
+        </ErrorBoundary>
+      </div>
     </div>
   )
 }
