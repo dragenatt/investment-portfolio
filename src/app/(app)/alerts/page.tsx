@@ -15,9 +15,9 @@ const fetcher = async (url: string) => {
 type Alert = {
   id: string
   symbol: string
-  condition: 'above' | 'below'
-  target_price: number
-  active: boolean
+  condition: 'above' | 'below' | 'pct_change_daily'
+  target_value: number
+  is_active: boolean
   created_at: string
 }
 
@@ -62,10 +62,10 @@ export default function AlertsPage() {
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <span className="font-bold">{alert.symbol}</span>
                   <span className="text-muted-foreground">
-                    {alert.condition === 'above' ? 'sube a' : 'baja a'} ${alert.target_price.toFixed(2)}
+                    {alert.condition === 'above' ? 'sube a' : alert.condition === 'below' ? 'baja a' : 'cambia'} ${alert.target_value.toFixed(2)}
                   </span>
-                  <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${alert.active ? 'bg-gain/10 text-gain' : 'bg-muted text-muted-foreground'}`}>
-                    {alert.active ? 'Activa' : 'Inactiva'}
+                  <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${alert.is_active ? 'bg-gain/10 text-gain' : 'bg-muted text-muted-foreground'}`}>
+                    {alert.is_active ? 'Activa' : 'Inactiva'}
                   </span>
                 </CardTitle>
               </CardHeader>

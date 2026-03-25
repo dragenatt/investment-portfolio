@@ -37,7 +37,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
     {
       label: 'Ganancia Total',
       value: `${totalReturn >= 0 ? '+' : ''}${format(Math.abs(totalReturn), 'USD')}`,
-      sub: `${totalReturn >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`,
+      sub: `${totalReturn >= 0 ? '+' : ''}${(totalReturnPct ?? 0).toFixed(2)}%`,
       icon: BarChart3,
       color: totalReturn >= 0 ? 'text-gain' : 'text-loss',
       bgColor: totalReturn >= 0 ? 'bg-gain/10' : 'bg-loss/10',
@@ -45,7 +45,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
     {
       label: 'Mejor Posicion',
       value: bestPosition?.symbol || '--',
-      sub: bestPosition ? `${bestPosition.changePct >= 0 ? '+' : ''}${bestPosition.changePct.toFixed(2)}%` : '--',
+      sub: bestPosition ? `${(bestPosition.changePct ?? 0) >= 0 ? '+' : ''}${(bestPosition.changePct ?? 0).toFixed(2)}%` : '--',
       icon: Trophy,
       color: 'text-primary',
       bgColor: 'bg-primary/10',

@@ -54,7 +54,7 @@ export default function DashboardPage() {
               symbol: pos.symbol,
               name: pos.symbol,
               price: livePrices[pos.symbol].price,
-              changePct: livePrices[pos.symbol].changePct,
+              changePct: livePrices[pos.symbol].changePct ?? 0,
               currency: pos.currency || 'USD',
             })
           }
