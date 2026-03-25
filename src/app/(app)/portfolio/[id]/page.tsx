@@ -59,15 +59,15 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{portfolio.name}</h1>
+          <h1 className="text-3xl font-bold">{portfolio.name}</h1>
           {portfolio.description && <p className="text-muted-foreground">{portfolio.description}</p>}
         </div>
         <div className="flex gap-2">
           <Link href={`/portfolio/${id}/transactions`}>
-            <Button variant="outline" size="sm"><List className="h-4 w-4 mr-1" /> Transacciones</Button>
+            <Button className="rounded-xl" variant="outline" size="sm"><List className="h-4 w-4 mr-1" /> Transacciones</Button>
           </Link>
           <Link href={`/portfolio/${id}/analytics`}>
-            <Button variant="outline" size="sm"><BarChart3 className="h-4 w-4 mr-1" /> Analytics</Button>
+            <Button className="rounded-xl" variant="outline" size="sm"><BarChart3 className="h-4 w-4 mr-1" /> Analytics</Button>
           </Link>
           <TransactionModal portfolioId={id} />
         </div>

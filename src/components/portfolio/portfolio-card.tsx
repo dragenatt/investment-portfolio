@@ -25,7 +25,7 @@ export function PortfolioCard({ id, name, description, positions, livePrices }: 
 
   return (
     <Link href={`/portfolio/${id}`}>
-      <Card className="hover:border-primary/50 transition-colors cursor-pointer">
+      <Card className="rounded-2xl border-border shadow-sm hover:-translate-y-0.5 transition-transform cursor-pointer">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">{name}</CardTitle>
@@ -36,7 +36,7 @@ export function PortfolioCard({ id, name, description, positions, livePrices }: 
         <CardContent>
           <p className="text-2xl font-bold font-mono">{format(totalValue)}</p>
           {totalCost > 0 && (
-            <p className={`text-sm font-mono ${gainPct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <p className={`text-sm font-mono ${gainPct >= 0 ? 'text-gain' : 'text-loss'}`}>
               {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
             </p>
           )}

@@ -28,9 +28,9 @@ export default function PortfolioListPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Portafolios</h1>
+        <h1 className="text-3xl font-bold">Portafolios</h1>
         <Link href="/portfolio/new">
-          <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Nuevo Portafolio</Button>
+          <Button className="rounded-xl bg-primary text-primary-foreground" size="sm"><Plus className="h-4 w-4 mr-1" /> Nuevo Portafolio</Button>
         </Link>
       </div>
 
@@ -42,7 +42,7 @@ export default function PortfolioListPage() {
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-4">No tienes portafolios aun</p>
           <Link href="/portfolio/new">
-            <Button>Crear mi primer portafolio</Button>
+            <Button className="rounded-xl">Crear mi primer portafolio</Button>
           </Link>
         </div>
       ) : (
