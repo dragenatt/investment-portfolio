@@ -52,13 +52,15 @@ export function computeDailyPositions(transactions: HistoryTransaction[]): Daily
 export function buildDailyTimeline(
   snapshots: DailySnapshot[],
   historicalPrices: Record<string, Record<string, number>>,
-  endDate: string
+  endDate: string,
+  transactionPrices?: Record<string, number>
 ): Array<{ date: string; value: number }> {
   if (snapshots.length === 0) return []
 
   const startDate = snapshots[0].date
   const timeline: Array<{ date: string; value: number }> = []
   let currentPositions: Record<string, number> = {}
+  const lastGoodPrice: Record<string, number> = {}
 
   const start = new Date(startDate)
   const end = new Date(endDate)
@@ -78,7 +80,14 @@ export function buildDailyTimeline(
     for (const [symbol, quantity] of Object.entries(currentPositions)) {
       if (quantity <= 0) continue
       const symbolPrices = historicalPrices[symbol] || {}
-      const price = symbolPrices[dateStr] ?? findLastKnownPrice(symbolPrices, dateStr)
+      let price = symbolPrices[dateStr] ?? findLastKnownPrice(symbolPrices, dateStr)
+      if (!price && lastGoodPrice[symbol]) {
+        price = lastGoodPrice[symbol]
+      }
+      if (!price && transactionPrices?.[symbol]) {
+        price = transactionPrices[symbol]
+      }
+      if (price) lastGoodPrice[symbol] = price
       value += quantity * (price || 0)
     }
 

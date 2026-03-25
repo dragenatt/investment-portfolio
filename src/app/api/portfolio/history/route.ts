@@ -122,8 +122,14 @@ export async function GET(req: Request) {
     }
   }
 
+  // Build fallback prices from last transaction price per symbol
+  const transactionPrices: Record<string, number> = {}
+  for (const txn of flatTxns) {
+    if (txn.price > 0) transactionPrices[txn.symbol] = txn.price
+  }
+
   const today = new Date().toISOString().slice(0, 10)
-  const timeline = buildDailyTimeline(snapshots, historicalPrices, today)
+  const timeline = buildDailyTimeline(snapshots, historicalPrices, today, transactionPrices)
   const filtered = timeline.filter(t => t.date >= cutoffStr)
 
   return success(filtered)

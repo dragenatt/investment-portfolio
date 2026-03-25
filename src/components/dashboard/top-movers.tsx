@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PriceDisplay } from '@/components/market/price-display'
 
-type Mover = { symbol: string; name: string; price: number; changePct: number; currency: string }
+type Mover = { symbol: string; name: string; price: number; change: number; changePct: number; currency: string }
 
 export function TopMovers({ movers }: { movers: Mover[] }) {
   return (
@@ -21,7 +21,7 @@ export function TopMovers({ movers }: { movers: Mover[] }) {
               <p className="font-medium text-sm">{m.symbol}</p>
               <p className="text-xs text-muted-foreground truncate max-w-[120px]">{m.name}</p>
             </div>
-            <PriceDisplay price={m.price} changePct={m.changePct} currency={m.currency} size="sm" />
+            <PriceDisplay price={m.price} change={m.change} changePct={m.changePct} currency={m.currency} size="sm" />
           </div>
         ))}
       </CardContent>

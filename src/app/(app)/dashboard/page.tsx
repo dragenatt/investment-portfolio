@@ -38,23 +38,29 @@ export default function DashboardPage() {
     let totalCost = 0
     let positionCount = 0
     const allocationMap: Record<string, number> = {}
-    const movers: Array<{ symbol: string; name: string; price: number; changePct: number; currency: string }> = []
+    const movers: Array<{ symbol: string; name: string; price: number; change: number; changePct: number; currency: string }> = []
+    let todayReturn = 0
 
     for (const portfolio of portfolios) {
       for (const pos of portfolio.positions || []) {
         if (pos.quantity > 0) {
-          const livePrice = livePrices?.[pos.symbol]?.price ?? pos.avg_cost
+          const liveData = livePrices?.[pos.symbol]
+          const livePrice = liveData?.price ?? pos.avg_cost
           const value = pos.quantity * livePrice
           totalValue += value
           totalCost += pos.quantity * pos.avg_cost
           positionCount++
           allocationMap[pos.asset_type] = (allocationMap[pos.asset_type] || 0) + value
-          if (livePrices?.[pos.symbol]) {
+          if (liveData) {
+            const change = liveData.change ?? 0
+            const changePct = liveData.changePct ?? 0
+            todayReturn += pos.quantity * change
             movers.push({
               symbol: pos.symbol,
               name: pos.symbol,
-              price: livePrices[pos.symbol].price,
-              changePct: livePrices[pos.symbol].changePct ?? 0,
+              price: liveData.price,
+              change,
+              changePct,
               currency: pos.currency || 'USD',
             })
           }
@@ -64,6 +70,8 @@ export default function DashboardPage() {
 
     const totalReturn = totalValue - totalCost
     const totalReturnPct = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0
+    const yesterdayValue = totalValue - todayReturn
+    const todayReturnPct = yesterdayValue > 0 ? (todayReturn / yesterdayValue) * 100 : 0
 
     const allocation = Object.entries(allocationMap).map(([name, value]) => ({ name, value }))
     const sortedMovers = [...movers].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
@@ -74,7 +82,9 @@ export default function DashboardPage() {
       ? { symbol: bestGainer.symbol, changePct: bestGainer.changePct }
       : undefined
 
-    return { totalValue, totalReturn, totalReturnPct, positionCount, allocation, topMovers, bestPosition }
+    const hasPrices = movers.length > 0
+
+    return { totalValue, totalReturn, totalReturnPct, positionCount, allocation, topMovers, bestPosition, todayReturn: hasPrices ? todayReturn : undefined, todayReturnPct: hasPrices ? todayReturnPct : undefined }
   }, [portfolios, livePrices])
 
   if (isLoading) {
@@ -99,8 +109,8 @@ export default function DashboardPage() {
           totalReturnPct={stats?.totalReturnPct ?? 0}
           positionCount={stats?.positionCount ?? 0}
           bestPosition={stats?.bestPosition}
-          todayReturn={undefined}
-          todayReturnPct={undefined}
+          todayReturn={stats?.todayReturn}
+          todayReturnPct={stats?.todayReturnPct}
         />
       </ErrorBoundary>
 

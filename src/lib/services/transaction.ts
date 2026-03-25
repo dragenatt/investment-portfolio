@@ -15,7 +15,7 @@ export function recalculatePosition(transactions: TransactionInput[]): {
   for (const txn of transactions) {
     switch (txn.type) {
       case 'buy':
-        totalCost = (quantity * (quantity > 0 ? totalCost / quantity : 0)) + (txn.quantity * txn.price)
+        totalCost = (quantity * (quantity > 0 ? totalCost / quantity : 0)) + (txn.quantity * txn.price) + txn.fees
         quantity += txn.quantity
         break
       case 'sell': {
