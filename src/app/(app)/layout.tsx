@@ -15,8 +15,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <CurrencyProvider>
         <AppShell>
           {children}
+          <SymbolSearch />
         </AppShell>
-        <SymbolSearch />
       </CurrencyProvider>
     </SWRConfigProvider>
   )
