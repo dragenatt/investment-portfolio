@@ -36,8 +36,8 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
+        <div className="grid grid-cols-3 gap-3">
+          {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
         </div>
         <SkeletonChart />
       </div>
@@ -46,8 +46,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Dashboard</h1>
-
+      {/* Hero section: KPI + Chart integrated */}
       <ErrorBoundary>
         <KpiCards
           totalValue={stats.totalValue}
@@ -57,34 +56,35 @@ export default function DashboardPage() {
           bestPosition={stats.bestPosition}
           todayReturn={stats.todayReturn}
           todayReturnPct={stats.todayReturnPct}
+          totalCost={stats.totalCost}
+        />
+      </ErrorBoundary>
+
+      <ErrorBoundary>
+        <PortfolioChart
+          data={chartData ?? []}
+          isLoading={chartLoading}
+          onPeriodChange={setChartRange}
         />
       </ErrorBoundary>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <ErrorBoundary>
-            <PortfolioChart
-              data={chartData ?? []}
-              isLoading={chartLoading}
-              onPeriodChange={setChartRange}
-            />
-          </ErrorBoundary>
-        </div>
-        <div className="lg:col-span-1">
+          {/* Allocation donut now gets full width of 2/3 */}
           <ErrorBoundary>
             <AllocationDonut data={stats.allocation} />
           </ErrorBoundary>
         </div>
+        <div className="lg:col-span-1">
+          <ErrorBoundary>
+            <TopMovers movers={stats.topMovers} />
+          </ErrorBoundary>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ErrorBoundary>
-          <TopMovers movers={stats.topMovers} />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <RecentActivity />
-        </ErrorBoundary>
-      </div>
+      <ErrorBoundary>
+        <RecentActivity />
+      </ErrorBoundary>
     </div>
   )
 }

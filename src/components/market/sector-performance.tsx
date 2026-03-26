@@ -1,6 +1,6 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
 
 type SectorData = {
   name: string
@@ -13,32 +13,43 @@ export function SectorPerformance({ sectors }: { sectors: SectorData[] }) {
   const maxAbs = Math.max(...sorted.map(s => Math.abs(s.changePct ?? 0)), 0.01)
 
   return (
-    <Card className="rounded-2xl border-border shadow-sm">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">Rendimiento por Sector (1D)</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {sorted.map(sector => {
-          const pct = sector.changePct ?? 0
-          const isPositive = pct >= 0
-          const width = (Math.abs(pct) / maxAbs) * 100
+    <div className="space-y-2">
+      {sorted.map(sector => {
+        const pct = sector.changePct ?? 0
+        const isPositive = pct >= 0
+        const width = (Math.abs(pct) / maxAbs) * 100
 
-          return (
-            <div key={sector.symbol} className="flex items-center gap-2">
-              <span className="text-xs w-28 truncate text-muted-foreground">{sector.name}</span>
-              <div className="flex-1 h-5 bg-muted/50 rounded-md overflow-hidden relative">
+        return (
+          <Link
+            key={sector.symbol}
+            href={`/market/${encodeURIComponent(sector.symbol)}`}
+            className="group block"
+          >
+            <div className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-muted/60">
+              <span className="text-xs font-medium w-32 truncate text-muted-foreground group-hover:text-foreground transition-colors">
+                {sector.name}
+              </span>
+              <div className="flex-1 h-6 bg-muted/40 rounded-md overflow-hidden relative">
                 <div
-                  className={`h-full rounded-md transition-all ${isPositive ? 'bg-gain/20' : 'bg-loss/20'}`}
-                  style={{ width: `${Math.max(2, width)}%` }}
+                  className={`h-full rounded-md transition-all duration-500 ${
+                    isPositive
+                      ? 'bg-gain/25 group-hover:bg-gain/35'
+                      : 'bg-loss/25 group-hover:bg-loss/35'
+                  }`}
+                  style={{ width: `${Math.max(3, width)}%` }}
                 />
               </div>
-              <span className={`text-xs font-mono w-16 text-right ${isPositive ? 'text-gain' : 'text-loss'}`}>
+              <span
+                className={`text-xs font-mono font-semibold w-18 text-right ${
+                  isPositive ? 'text-gain' : 'text-loss'
+                }`}
+              >
                 {isPositive ? '+' : ''}{(sector.changePct ?? 0).toFixed(2)}%
               </span>
             </div>
-          )
-        })}
-      </CardContent>
-    </Card>
+          </Link>
+        )
+      })}
+    </div>
   )
 }

@@ -146,3 +146,17 @@
     @apply font-sans;
   }
 }
+
+/* Ticker bar infinite scroll animation */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-ticker-scroll {
+  animation: ticker-scroll 30s linear infinite;
+}
+
+.animate-ticker-scroll:hover {
+  animation-play-state: paused;
+}

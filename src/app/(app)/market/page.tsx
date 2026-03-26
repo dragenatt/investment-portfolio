@@ -2,168 +2,414 @@
 
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { useMarketSearch, useQuote } from '@/lib/hooks/use-market'
+import { useMarketSearch } from '@/lib/hooks/use-market'
 import { useMarketOverview } from '@/lib/hooks/use-market-overview'
 import { SectorPerformance } from '@/components/market/sector-performance'
 import { Badge } from '@/components/ui/badge'
-import { Search, TrendingUp, TrendingDown, Loader2 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Search, TrendingUp, TrendingDown, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import Link from 'next/link'
 
-const POPULAR_SYMBOLS = [
-  { symbol: 'AAPL', name: 'Apple Inc.' },
-  { symbol: 'MSFT', name: 'Microsoft Corp.' },
-  { symbol: 'GOOGL', name: 'Alphabet Inc.' },
-  { symbol: 'AMZN', name: 'Amazon.com Inc.' },
-  { symbol: 'TSLA', name: 'Tesla Inc.' },
-  { symbol: 'NVDA', name: 'NVIDIA Corp.' },
-  { symbol: 'META', name: 'Meta Platforms Inc.' },
-  { symbol: 'NFLX', name: 'Netflix Inc.' },
-]
+// ─── Types ──────────────────────────────────────────────────────────────────
 
-const INDEX_SYMBOLS = [
-  { symbol: '^GSPC', name: 'S&P 500' },
-  { symbol: '^MXX', name: 'IPC Mexico' },
-  { symbol: '^IXIC', name: 'NASDAQ' },
-]
+type IndexData = {
+  symbol: string
+  name: string
+  region: string
+  price: number
+  change: number
+  changePct: number
+}
 
-function IndexCard({ symbol, name }: { symbol: string; name: string }) {
-  const { data: quote, isLoading, error } = useQuote(symbol)
+type MoverData = {
+  symbol: string
+  name: string
+  price: number
+  change: number
+  changePct: number
+}
+
+type SearchResult = {
+  symbol: string
+  name: string
+  type: string
+  exchDisp: string
+}
+
+// ─── Ticker Bar ─────────────────────────────────────────────────────────────
+
+function TickerBar({ indices }: { indices: IndexData[] }) {
+  if (!indices || indices.length === 0) return null
+
+  // Duplicate items for seamless infinite scroll
+  const items = [...indices, ...indices]
 
   return (
-    <Link href={`/market/${encodeURIComponent(symbol)}`}>
-      <div className="min-w-[200px] p-4 bg-card rounded-2xl border-border border shadow-sm hover:shadow-md transition-shadow">
-        <p className="text-sm font-medium text-muted-foreground">{name}</p>
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mt-1" />
-        ) : error ? (
-          <span className="text-xs text-muted-foreground">--</span>
-        ) : quote ? (
-          <>
-            <p className="font-mono font-bold text-lg">{quote.price != null ? `$${quote.price.toFixed(2)}` : '--'}</p>
-            {quote.changePct != null && (
-              <p className={`text-xs flex items-center gap-1 ${quote.changePct >= 0 ? 'text-gain' : 'text-loss'}`}>
-                {quote.changePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                {quote.changePct >= 0 ? '+' : ''}{quote.changePct.toFixed(2)}%
-              </p>
-            )}
-          </>
-        ) : null}
+    <div className="w-full overflow-hidden bg-muted/30 border-b border-border">
+      <div className="flex animate-ticker-scroll whitespace-nowrap">
+        {items.map((idx, i) => {
+          const isPositive = idx.changePct >= 0
+          return (
+            <Link
+              key={`${idx.symbol}-${i}`}
+              href={`/market/${encodeURIComponent(idx.symbol)}`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm hover:bg-muted/50 transition-colors shrink-0"
+            >
+              <span className="font-medium text-foreground">{idx.name}</span>
+              <span className="font-mono text-muted-foreground">
+                {idx.price > 0 ? idx.price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
+              </span>
+              <span
+                className={`font-mono text-xs font-semibold ${
+                  isPositive ? 'text-gain' : 'text-loss'
+                }`}
+              >
+                {isPositive ? '+' : ''}{idx.changePct.toFixed(2)}%
+              </span>
+            </Link>
+          )
+        })}
       </div>
+    </div>
+  )
+}
+
+// ─── Index Card ─────────────────────────────────────────────────────────────
+
+function IndexCard({ index }: { index: IndexData }) {
+  const isPositive = index.changePct >= 0
+
+  return (
+    <Link href={`/market/${encodeURIComponent(index.symbol)}`}>
+      <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+        <CardContent className="p-4">
+          <p className="text-sm font-medium text-muted-foreground mb-1">{index.name}</p>
+          <p className="font-mono font-bold text-xl">
+            {index.price > 0
+              ? index.price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              : '--'}
+          </p>
+          <div className="flex items-center gap-1.5 mt-1">
+            <span
+              className={`inline-flex items-center gap-0.5 text-xs font-semibold font-mono px-2 py-0.5 rounded-full ${
+                isPositive
+                  ? 'bg-gain/10 text-gain'
+                  : 'bg-loss/10 text-loss'
+              }`}
+            >
+              {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {isPositive ? '+' : ''}{index.changePct.toFixed(2)}%
+            </span>
+            <span className={`text-xs font-mono ${isPositive ? 'text-gain' : 'text-loss'}`}>
+              {isPositive ? '+' : ''}{index.change.toFixed(2)}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
     </Link>
   )
 }
 
-function QuoteCard({ symbol, name }: { symbol: string; name: string }) {
-  const { data: quote, isLoading, error } = useQuote(symbol)
+// ─── Mover Row ──────────────────────────────────────────────────────────────
+
+function MoverRow({ stock, type }: { stock: MoverData; type: 'gainer' | 'loser' }) {
+  const isPositive = type === 'gainer'
 
   return (
-    <Link href={`/market/${encodeURIComponent(symbol)}`}>
-      <div className="p-4 bg-card rounded-2xl border-border border shadow-sm hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
-              {symbol[0]}
-            </div>
-            <div>
-              <span className="font-mono font-bold">{symbol}</span>
-              <p className="text-xs text-muted-foreground truncate max-w-[140px]">{name}</p>
-            </div>
+    <Link href={`/market/${encodeURIComponent(stock.symbol)}`}>
+      <div className="flex items-center justify-between py-3 px-3 rounded-lg hover:bg-muted/50 transition-colors group">
+        <div className="flex items-center gap-3">
+          <div
+            className={`h-9 w-9 rounded-lg flex items-center justify-center text-xs font-bold ${
+              isPositive
+                ? 'bg-gain/10 text-gain'
+                : 'bg-loss/10 text-loss'
+            }`}
+          >
+            {stock.symbol.slice(0, 2)}
           </div>
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : error ? (
-            <span className="text-xs text-muted-foreground">--</span>
-          ) : quote ? (
-            <div className="text-right">
-              <p className="font-mono font-medium">{quote.price != null ? `$${quote.price.toFixed(2)}` : '--'}</p>
-              {quote.changePct != null && (
-                <p className={`text-xs flex items-center gap-1 ${quote.changePct >= 0 ? 'text-gain' : 'text-loss'}`}>
-                  {quote.changePct >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {quote.changePct >= 0 ? '+' : ''}{quote.changePct.toFixed(2)}%
-                </p>
-              )}
-            </div>
-          ) : null}
+          <div>
+            <p className="font-mono font-semibold text-sm group-hover:text-foreground">{stock.symbol}</p>
+            <p className="text-xs text-muted-foreground truncate max-w-[120px]">{stock.name}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="font-mono text-sm font-medium">
+            ${stock.price > 0 ? stock.price.toFixed(2) : '--'}
+          </p>
+          <div className="flex items-center justify-end gap-0.5">
+            {isPositive ? (
+              <ArrowUpRight className="h-3 w-3 text-gain" />
+            ) : (
+              <ArrowDownRight className="h-3 w-3 text-loss" />
+            )}
+            <span
+              className={`text-xs font-mono font-semibold ${
+                isPositive ? 'text-gain' : 'text-loss'
+              }`}
+            >
+              {isPositive ? '+' : ''}{stock.changePct.toFixed(2)}%
+            </span>
+          </div>
         </div>
       </div>
     </Link>
   )
 }
+
+// ─── Loading Skeletons ──────────────────────────────────────────────────────
+
+function TickerSkeleton() {
+  return (
+    <div className="w-full bg-muted/30 border-b border-border py-2.5 px-4">
+      <div className="flex gap-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-5 w-36 shrink-0" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function IndexCardSkeleton() {
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-2">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-7 w-28" />
+        <Skeleton className="h-5 w-20" />
+      </CardContent>
+    </Card>
+  )
+}
+
+function MoverRowSkeleton() {
+  return (
+    <div className="flex items-center justify-between py-3 px-3">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-9 w-9 rounded-lg" />
+        <div className="space-y-1">
+          <Skeleton className="h-4 w-14" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+      </div>
+      <div className="space-y-1 flex flex-col items-end">
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-3 w-12" />
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function MarketPage() {
   const [query, setQuery] = useState('')
-  const { data: results, isLoading, error } = useMarketSearch(query)
-  const { data: overview } = useMarketOverview()
+  const { data: results, isLoading: searchLoading, error: searchError } = useMarketSearch(query)
+  const { data: overview, isLoading: overviewLoading } = useMarketOverview()
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Mercado</h1>
+    <div className="space-y-0">
+      {/* ── Ticker Bar ── */}
+      {overviewLoading ? (
+        <TickerSkeleton />
+      ) : overview?.indices ? (
+        <TickerBar indices={overview.indices} />
+      ) : null}
 
-      <div className="relative max-w-lg">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          className="pl-9 rounded-xl border-border"
-          placeholder="Buscar acciones, ETFs, crypto..."
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-        />
-      </div>
-
-      {error && (
-        <p className="text-sm text-red-500">Error al buscar: {error.message}</p>
-      )}
-
-      {isLoading && (
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Buscando...</span>
+      <div className="space-y-8 px-1 pt-6">
+        {/* ── Title + Search ── */}
+        <div className="space-y-4">
+          <h1 className="text-3xl font-bold">Mercado</h1>
+          <div className="relative max-w-2xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              className="pl-12 h-12 text-base rounded-2xl border-border bg-muted/30 focus:bg-background transition-colors"
+              placeholder="Buscar acciones, ETFs, crypto..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
+            <kbd className="absolute right-4 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground">
+              Ctrl+K
+            </kbd>
+          </div>
         </div>
-      )}
 
-      {results && results.length > 0 && (
-        <div className="space-y-2">
-          {results.map((r: { symbol: string; name: string; type: string; exchDisp: string }) => (
-            <Link key={r.symbol} href={`/market/${encodeURIComponent(r.symbol)}`}>
-              <div className="flex items-center justify-between p-3 rounded-xl border-border border hover:bg-muted transition-colors">
-                <div>
-                  <span className="font-mono font-medium">{r.symbol}</span>
-                  <p className="text-sm text-muted-foreground">{r.name}</p>
+        {/* ── Search Results ── */}
+        {searchError && (
+          <p className="text-sm text-red-500">Error al buscar: {searchError.message}</p>
+        )}
+
+        {searchLoading && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Buscando...</span>
+          </div>
+        )}
+
+        {results && results.length > 0 && (
+          <div className="space-y-2">
+            {results.map((r: SearchResult) => (
+              <Link key={r.symbol} href={`/market/${encodeURIComponent(r.symbol)}`}>
+                <div className="flex items-center justify-between p-3 rounded-xl border-border border hover:bg-muted transition-colors">
+                  <div>
+                    <span className="font-mono font-medium">{r.symbol}</span>
+                    <p className="text-sm text-muted-foreground">{r.name}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Badge variant="outline">{r.type}</Badge>
+                    <Badge variant="secondary">{r.exchDisp}</Badge>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Badge variant="outline">{r.type}</Badge>
-                  <Badge variant="secondary">{r.exchDisp}</Badge>
-                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {query && results?.length === 0 && !searchLoading && (
+          <p className="text-muted-foreground text-center py-8">
+            No se encontraron resultados para &quot;{query}&quot;
+          </p>
+        )}
+
+        {/* ── Market Content (hidden when searching) ── */}
+        {!query && (
+          <>
+            {/* ── Indices Section ── */}
+            <section>
+              <h2 className="text-lg font-semibold mb-3">Indices</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {overviewLoading
+                  ? Array.from({ length: 6 }).map((_, i) => <IndexCardSkeleton key={i} />)
+                  : overview?.indices?.map((idx: IndexData) => (
+                      <IndexCard key={idx.symbol} index={idx} />
+                    ))
+                }
               </div>
-            </Link>
-          ))}
-        </div>
-      )}
+            </section>
 
-      {query && results?.length === 0 && !isLoading && (
-        <p className="text-muted-foreground text-center py-8">No se encontraron resultados para &quot;{query}&quot;</p>
-      )}
+            {/* ── Top Movers: Gainers & Losers ── */}
+            <section>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Gainers */}
+                <Card>
+                  <CardHeader className="pb-1">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <TrendingUp className="h-4 w-4 text-gain" />
+                      Ganadores del Dia
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {overviewLoading ? (
+                      <div className="space-y-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <MoverRowSkeleton key={i} />
+                        ))}
+                      </div>
+                    ) : overview?.gainers && overview.gainers.length > 0 ? (
+                      <div className="divide-y divide-border/50">
+                        {overview.gainers.map((stock: MoverData) => (
+                          <MoverRow key={stock.symbol} stock={stock} type="gainer" />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-6 text-center">
+                        Sin datos disponibles
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
 
-      {!query && (
-        <>
-          <h2 className="text-lg font-semibold">Indices</h2>
-          <div className="flex overflow-x-auto gap-3 pb-2">
-            {(overview?.indices ?? INDEX_SYMBOLS.map(s => ({ ...s, price: 0, change: 0, changePct: 0 }))).map((idx: { symbol: string; name: string; price: number; changePct: number }) => (
-              <IndexCard key={idx.symbol} symbol={idx.symbol} name={idx.name} />
-            ))}
-          </div>
+                {/* Losers */}
+                <Card>
+                  <CardHeader className="pb-1">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <TrendingDown className="h-4 w-4 text-loss" />
+                      Perdedores del Dia
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {overviewLoading ? (
+                      <div className="space-y-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <MoverRowSkeleton key={i} />
+                        ))}
+                      </div>
+                    ) : overview?.losers && overview.losers.length > 0 ? (
+                      <div className="divide-y divide-border/50">
+                        {overview.losers.map((stock: MoverData) => (
+                          <MoverRow key={stock.symbol} stock={stock} type="loser" />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-6 text-center">
+                        Sin datos disponibles
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
 
-          {overview?.sectors && (
-            <SectorPerformance sectors={overview.sectors} />
-          )}
+            {/* ── Most Popular ── */}
+            {overview?.popular && (
+              <section>
+                <h2 className="text-lg font-semibold mb-3">Mas Populares</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {overview.popular.map((stock: MoverData) => (
+                    <Link key={stock.symbol} href={`/market/${encodeURIComponent(stock.symbol)}`}>
+                      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                                {stock.symbol.slice(0, 2)}
+                              </div>
+                              <div>
+                                <p className="font-mono font-semibold text-sm">{stock.symbol}</p>
+                                <p className="text-xs text-muted-foreground truncate max-w-[120px]">
+                                  {stock.name}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-mono font-medium text-sm">
+                                ${stock.price > 0 ? stock.price.toFixed(2) : '--'}
+                              </p>
+                              {stock.changePct !== 0 && (
+                                <span
+                                  className={`text-xs font-mono font-semibold ${
+                                    stock.changePct >= 0 ? 'text-gain' : 'text-loss'
+                                  }`}
+                                >
+                                  {stock.changePct >= 0 ? '+' : ''}{stock.changePct.toFixed(2)}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
 
-          <h2 className="text-lg font-semibold">Acciones populares</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {POPULAR_SYMBOLS.map(s => (
-              <QuoteCard key={s.symbol} symbol={s.symbol} name={s.name} />
-            ))}
-          </div>
-        </>
-      )}
+            {/* ── Sector Performance ── */}
+            {overview?.sectors && (
+              <section>
+                <h2 className="text-lg font-semibold mb-3">Por Sector</h2>
+                <Card>
+                  <CardContent className="p-4">
+                    <SectorPerformance sectors={overview.sectors} />
+                  </CardContent>
+                </Card>
+              </section>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

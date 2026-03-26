@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { DollarSign, TrendingUp, TrendingDown, BarChart3, Trophy, Minus } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Eye, EyeOff, TrendingUp, TrendingDown, Wallet, CircleDollarSign, BarChart3 } from 'lucide-react'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
 import { PercentageChange } from '@/components/shared/percentage-change'
 
@@ -13,60 +15,124 @@ type Props = {
   bestPosition?: { symbol: string; changePct: number }
   todayReturn?: number
   todayReturnPct?: number
+  totalCost?: number
 }
 
-export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCount, bestPosition, todayReturn, todayReturnPct }: Props) {
-  const cards = [
-    {
-      label: 'Valor Total',
-      value: <FormattedAmount value={totalValue} />,
-      sub: <span>{positionCount} posiciones</span>,
-      icon: DollarSign,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10',
-    },
-    {
-      label: 'Hoy',
-      value: <FormattedAmount value={todayReturn} showSign />,
-      sub: <PercentageChange value={todayReturnPct} />,
-      icon: todayReturn == null ? Minus : todayReturn >= 0 ? TrendingUp : TrendingDown,
-      color: todayReturn == null ? 'text-muted-foreground' : todayReturn >= 0 ? 'text-gain' : 'text-loss',
-      bgColor: todayReturn == null ? 'bg-muted' : todayReturn >= 0 ? 'bg-gain/10' : 'bg-loss/10',
-    },
-    {
-      label: 'Ganancia Total',
-      value: <FormattedAmount value={totalReturn} showSign />,
-      sub: <PercentageChange value={totalReturnPct} />,
-      icon: BarChart3,
-      color: totalReturn >= 0 ? 'text-gain' : 'text-loss',
-      bgColor: totalReturn >= 0 ? 'bg-gain/10' : 'bg-loss/10',
-    },
-    {
-      label: 'Mejor Posicion',
-      value: <span>{bestPosition?.symbol || '--'}</span>,
-      sub: <PercentageChange value={bestPosition?.changePct} />,
-      icon: Trophy,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10',
-    },
-  ]
+function isMarketOpen(): boolean {
+  const now = new Date()
+  const day = now.getDay()
+  if (day === 0 || day === 6) return false
+  const hours = now.getHours()
+  const minutes = now.getMinutes()
+  const timeInMinutes = hours * 60 + minutes
+  // NYSE hours: 9:30 AM - 4:00 PM ET (approximate — we use local time as a heuristic)
+  return timeInMinutes >= 9 * 60 + 30 && timeInMinutes < 16 * 60
+}
+
+export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCount, bestPosition, todayReturn, todayReturnPct, totalCost }: Props) {
+  const [balanceVisible, setBalanceVisible] = useState(true)
+  const marketOpen = isMarketOpen()
+  const isPositive = totalReturn >= 0
+  const hiddenText = '\u2022\u2022\u2022\u2022\u2022\u2022'
+
+  const investedAmount = totalCost != null ? totalCost : totalValue - totalReturn
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map(card => (
-        <Card key={card.label} className="rounded-2xl border-border shadow-sm hover:-translate-y-0.5 transition-transform">
+    <div className="space-y-4">
+      {/* Hero section — Robinhood style */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm text-muted-foreground font-medium">Valor del portafolio</h2>
+          <button
+            onClick={() => setBalanceVisible(v => !v)}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label={balanceVisible ? 'Ocultar saldo' : 'Mostrar saldo'}
+          >
+            {balanceVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          </button>
+        </div>
+
+        <div className="flex items-baseline gap-3">
+          <span className="text-3xl font-bold tracking-tight">
+            {balanceVisible ? <FormattedAmount value={totalValue} /> : hiddenText}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            {isPositive ? (
+              <TrendingUp className="h-4 w-4 text-emerald-500" />
+            ) : (
+              <TrendingDown className="h-4 w-4 text-red-500" />
+            )}
+            <span className={`text-sm font-medium ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
+              {balanceVisible ? <FormattedAmount value={totalReturn} showSign /> : hiddenText}
+            </span>
+            <span className={`text-sm ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
+              ({balanceVisible ? <PercentageChange value={totalReturnPct} className="text-sm" /> : hiddenText})
+            </span>
+          </div>
+          <Badge
+            variant="outline"
+            className={`text-xs gap-1.5 ${marketOpen ? 'border-emerald-500/30' : 'border-muted-foreground/30'}`}
+          >
+            <span className={`inline-block h-1.5 w-1.5 rounded-full ${marketOpen ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`} />
+            {marketOpen ? 'Mercado abierto' : 'Mercado cerrado'}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Three metric cards */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="rounded-2xl border-border shadow-sm">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
-              <div className={`p-1.5 rounded-lg ${card.bgColor}`}>
-                <card.icon className={`h-3.5 w-3.5 ${card.color}`} />
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 rounded-lg bg-primary/10">
+                <Wallet className="h-3.5 w-3.5 text-primary" />
               </div>
+              <span className="text-xs text-muted-foreground font-medium">Valor Invertido</span>
             </div>
-            <p className="text-xl font-bold">{card.value}</p>
-            <p className={`text-xs mt-1 ${card.color}`}>{card.sub}</p>
+            <p className="text-lg font-bold">
+              {balanceVisible ? <FormattedAmount value={investedAmount} /> : hiddenText}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">{positionCount} posiciones</p>
           </CardContent>
         </Card>
-      ))}
+
+        <Card className="rounded-2xl border-border shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`p-1.5 rounded-lg ${todayReturn == null ? 'bg-muted' : (todayReturn ?? 0) >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+                <CircleDollarSign className={`h-3.5 w-3.5 ${todayReturn == null ? 'text-muted-foreground' : (todayReturn ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`} />
+              </div>
+              <span className="text-xs text-muted-foreground font-medium">Ganancia Hoy</span>
+            </div>
+            <p className="text-lg font-bold">
+              {balanceVisible ? <FormattedAmount value={todayReturn} showSign /> : hiddenText}
+            </p>
+            <p className="text-xs mt-1">
+              {balanceVisible ? <PercentageChange value={todayReturnPct} className="text-xs" /> : <span className="text-muted-foreground">{hiddenText}</span>}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-border shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`p-1.5 rounded-lg ${totalReturn >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+                <BarChart3 className={`h-3.5 w-3.5 ${totalReturn >= 0 ? 'text-emerald-500' : 'text-red-500'}`} />
+              </div>
+              <span className="text-xs text-muted-foreground font-medium">Ganancia Total</span>
+            </div>
+            <p className="text-lg font-bold">
+              {balanceVisible ? <FormattedAmount value={totalReturn} showSign /> : hiddenText}
+            </p>
+            <p className="text-xs mt-1">
+              {balanceVisible ? <PercentageChange value={totalReturnPct} className="text-xs" /> : <span className="text-muted-foreground">{hiddenText}</span>}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

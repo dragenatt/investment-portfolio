@@ -25,12 +25,30 @@ const SECTORS = [
   { symbol: 'XLC', name: 'Comunicaciones' },
 ]
 
+const POPULAR_SYMBOLS = [
+  { symbol: 'AAPL', name: 'Apple Inc.' },
+  { symbol: 'MSFT', name: 'Microsoft Corp.' },
+  { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+  { symbol: 'AMZN', name: 'Amazon.com Inc.' },
+  { symbol: 'TSLA', name: 'Tesla Inc.' },
+  { symbol: 'NVDA', name: 'NVIDIA Corp.' },
+  { symbol: 'META', name: 'Meta Platforms Inc.' },
+  { symbol: 'NFLX', name: 'Netflix Inc.' },
+  { symbol: 'AMD', name: 'AMD Inc.' },
+  { symbol: 'JPM', name: 'JPMorgan Chase' },
+  { symbol: 'V', name: 'Visa Inc.' },
+  { symbol: 'DIS', name: 'Walt Disney Co.' },
+  { symbol: 'BABA', name: 'Alibaba Group' },
+  { symbol: 'PYPL', name: 'PayPal Holdings' },
+  { symbol: 'INTC', name: 'Intel Corp.' },
+]
+
 export async function GET() {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const [indexQuotes, sectorQuotes] = await Promise.all([
+  const [indexQuotes, sectorQuotes, popularQuotes] = await Promise.all([
     Promise.all(INDICES.map(async (idx) => {
       try {
         const q = await getQuote(idx.symbol)
@@ -57,7 +75,31 @@ export async function GET() {
         return { ...sec, price: 0, change: 0, changePct: 0 }
       }
     })),
+    Promise.all(POPULAR_SYMBOLS.map(async (stock) => {
+      try {
+        const q = await getQuote(stock.symbol)
+        return {
+          ...stock,
+          price: q?.price ?? 0,
+          change: q?.change ?? 0,
+          changePct: q?.changePct ?? 0,
+        }
+      } catch {
+        return { ...stock, price: 0, change: 0, changePct: 0 }
+      }
+    })),
   ])
 
-  return success({ indices: indexQuotes, sectors: sectorQuotes })
+  // Sort popular quotes by changePct to extract gainers and losers
+  const sorted = [...popularQuotes].sort((a, b) => b.changePct - a.changePct)
+  const gainers = sorted.filter(s => s.changePct > 0).slice(0, 5)
+  const losers = sorted.filter(s => s.changePct < 0).sort((a, b) => a.changePct - b.changePct).slice(0, 5)
+
+  return success({
+    indices: indexQuotes,
+    sectors: sectorQuotes,
+    popular: popularQuotes,
+    gainers,
+    losers,
+  })
 }
