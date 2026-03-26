@@ -45,14 +45,14 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
         <div className="flex items-center gap-3">
           <h2
             className="text-xs font-extrabold uppercase tracking-widest"
-            style={{ color: 'var(--muted)', letterSpacing: '.08em' }}
+            style={{ color: 'var(--muted-foreground)', letterSpacing: '.08em' }}
           >
             Valor del portafolio
           </h2>
           <button
             onClick={() => setBalanceVisible(v => !v)}
             className="transition-colors"
-            style={{ color: 'var(--muted)' }}
+            style={{ color: 'var(--muted-foreground)' }}
             aria-label={balanceVisible ? 'Ocultar saldo' : 'Mostrar saldo'}
           >
             {balanceVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
@@ -61,12 +61,12 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
             variant="outline"
             className="text-xs gap-1.5 ml-auto"
             style={{
-              borderColor: marketOpen ? 'color-mix(in srgb, var(--good) 40%, transparent)' : 'color-mix(in srgb, var(--muted) 40%, transparent)',
+              borderColor: marketOpen ? 'color-mix(in srgb, var(--good) 40%, transparent)' : 'color-mix(in srgb, var(--muted-foreground) 40%, transparent)',
             }}
           >
             <span
               className={`inline-block h-1.5 w-1.5 rounded-full ${marketOpen ? 'animate-pulse' : ''}`}
-              style={{ backgroundColor: marketOpen ? 'var(--good)' : 'var(--muted)' }}
+              style={{ backgroundColor: marketOpen ? 'var(--good)' : 'var(--muted-foreground)' }}
             />
             {marketOpen ? 'Mercado abierto' : 'Mercado cerrado'}
           </Badge>
@@ -76,7 +76,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
           <span
             className="font-bold tracking-tight"
             style={{
-              fontFamily: 'var(--serif)',
+              fontFamily: 'var(--font-serif)',
               fontSize: 'clamp(28px, 3.3vw, 44px)',
               letterSpacing: '-0.03em',
             }}
@@ -118,12 +118,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
       <div className="grid grid-cols-3 gap-3">
         {/* Valor Invertido */}
         <Card
-          className="relative overflow-hidden"
-          style={{
-            borderRadius: '16px',
-            border: '1px solid var(--hair)',
-            background: 'var(--paper)',
-          }}
+          className="relative overflow-hidden premium-card"
         >
           {/* Decorative gradient blob */}
           <div
@@ -137,7 +132,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
               </div>
               <span
                 className="font-extrabold uppercase"
-                style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted)' }}
+                style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted-foreground)' }}
               >
                 Valor Invertido
               </span>
@@ -145,11 +140,11 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
             </div>
             <p
               className="font-bold"
-              style={{ fontFamily: 'var(--serif)', fontSize: '22px', letterSpacing: '-0.02em' }}
+              style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', letterSpacing: '-0.02em' }}
             >
               {balanceVisible ? <FormattedAmount value={investedAmount} /> : hiddenText}
             </p>
-            <p style={{ fontSize: '13px', fontWeight: 650, color: 'var(--muted)', marginTop: '4px' }}>
+            <p style={{ fontSize: '13px', fontWeight: 650, color: 'var(--muted-foreground)', marginTop: '4px' }}>
               {positionCount} posiciones
             </p>
           </CardContent>
@@ -157,16 +152,11 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
 
         {/* Ganancia Hoy */}
         <Card
-          className="relative overflow-hidden"
-          style={{
-            borderRadius: '16px',
-            border: '1px solid var(--hair)',
-            background: 'var(--paper)',
-          }}
+          className="relative overflow-hidden premium-card"
         >
           <div
             className="pointer-events-none absolute -top-6 -right-6 h-20 w-20 rounded-full opacity-30 blur-2xl"
-            style={{ background: todayReturn == null ? 'var(--muted)' : (todayReturn ?? 0) >= 0 ? 'var(--good)' : 'var(--bad)' }}
+            style={{ background: todayReturn == null ? 'var(--muted-foreground)' : (todayReturn ?? 0) >= 0 ? 'var(--good)' : 'var(--bad)' }}
           />
           <CardContent className="p-4 relative z-10">
             <div className="flex items-center gap-2 mb-2">
@@ -174,7 +164,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
                 className="p-1.5 rounded-lg"
                 style={{
                   backgroundColor: todayReturn == null
-                    ? 'color-mix(in srgb, var(--muted) 10%, transparent)'
+                    ? 'color-mix(in srgb, var(--muted-foreground) 10%, transparent)'
                     : (todayReturn ?? 0) >= 0
                       ? 'color-mix(in srgb, var(--good) 10%, transparent)'
                       : 'color-mix(in srgb, var(--bad) 10%, transparent)',
@@ -183,13 +173,13 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
                 <CircleDollarSign
                   className="h-3.5 w-3.5"
                   style={{
-                    color: todayReturn == null ? 'var(--muted)' : (todayReturn ?? 0) >= 0 ? 'var(--good)' : 'var(--bad)',
+                    color: todayReturn == null ? 'var(--muted-foreground)' : (todayReturn ?? 0) >= 0 ? 'var(--good)' : 'var(--bad)',
                   }}
                 />
               </div>
               <span
                 className="font-extrabold uppercase"
-                style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted)' }}
+                style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted-foreground)' }}
               >
                 Ganancia Hoy
               </span>
@@ -197,7 +187,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
             </div>
             <p
               className="font-bold"
-              style={{ fontFamily: 'var(--serif)', fontSize: '22px', letterSpacing: '-0.02em' }}
+              style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', letterSpacing: '-0.02em' }}
             >
               {balanceVisible ? <FormattedAmount value={todayReturn} showSign /> : hiddenText}
             </p>
@@ -218,7 +208,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
                   <PercentageChange value={todayReturnPct} className="text-xs" />
                 </span>
               ) : (
-                <span style={{ color: 'var(--muted)', fontSize: '13px' }}>{hiddenText}</span>
+                <span style={{ color: 'var(--muted-foreground)', fontSize: '13px' }}>{hiddenText}</span>
               )}
             </div>
           </CardContent>
@@ -226,12 +216,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
 
         {/* Ganancia Total */}
         <Card
-          className="relative overflow-hidden"
-          style={{
-            borderRadius: '16px',
-            border: '1px solid var(--hair)',
-            background: 'var(--paper)',
-          }}
+          className="relative overflow-hidden premium-card"
         >
           <div
             className="pointer-events-none absolute -top-6 -right-6 h-20 w-20 rounded-full opacity-30 blur-2xl"
@@ -254,7 +239,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
               </div>
               <span
                 className="font-extrabold uppercase"
-                style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted)' }}
+                style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted-foreground)' }}
               >
                 Ganancia Total
               </span>
@@ -262,7 +247,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
             </div>
             <p
               className="font-bold"
-              style={{ fontFamily: 'var(--serif)', fontSize: '22px', letterSpacing: '-0.02em' }}
+              style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', letterSpacing: '-0.02em' }}
             >
               {balanceVisible ? <FormattedAmount value={totalReturn} showSign /> : hiddenText}
             </p>
@@ -283,7 +268,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
                   <PercentageChange value={totalReturnPct} className="text-xs" />
                 </span>
               ) : (
-                <span style={{ color: 'var(--muted)', fontSize: '13px' }}>{hiddenText}</span>
+                <span style={{ color: 'var(--muted-foreground)', fontSize: '13px' }}>{hiddenText}</span>
               )}
             </div>
           </CardContent>

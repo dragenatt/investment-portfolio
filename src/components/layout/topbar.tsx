@@ -45,25 +45,20 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
   return (
     <header
-      className="sticky top-0 z-20 flex items-center justify-between px-4 lg:px-6 h-14 border-b border-border"
-      style={{
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        background: 'color-mix(in srgb, var(--background) 72%, transparent)',
-      }}
+      className="sticky top-0 z-20 flex items-center justify-between px-4 lg:px-6 h-14 border-b border-border bg-background/85 backdrop-blur-lg"
     >
       {/* Left: hamburger on mobile + search */}
       <div className="flex items-center gap-3 flex-1">
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-2 rounded-lg hover:bg-accent text-muted-foreground"
+          className="lg:hidden p-2 rounded-lg hover:bg-secondary text-muted-foreground"
         >
           <Menu className="h-5 w-5" />
         </button>
 
         <button
           onClick={openSearch}
-          className="flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-secondary/50 hover:bg-secondary text-muted-foreground text-sm transition-colors max-w-md w-full lg:w-96"
+          className="flex items-center gap-2 px-4 h-10 rounded-full border border-border bg-secondary hover:bg-secondary/80 text-muted-foreground text-sm transition-colors max-w-md w-full lg:w-96"
         >
           <Search className="h-4 w-4 shrink-0" />
           <span className="hidden sm:inline">Buscar activos, portafolios...</span>
@@ -112,7 +107,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-accent h-9 w-9">
-            <Avatar className="h-8 w-8">
+            <Avatar className="h-8 w-8 ring-2 ring-primary/30">
               <AvatarFallback className="bg-primary/10 text-primary text-sm">{initials}</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
 import { formatPercent } from '@/lib/utils/numbers'
 import { TrendingUp } from 'lucide-react'
+import { useTrade } from '@/lib/contexts/trade-context'
 
 type Mover = { symbol: string; name: string; price: number; change: number; changePct: number; currency: string }
 
@@ -21,15 +22,15 @@ function MiniSparkline({ positive }: { positive: boolean }) {
 }
 
 export function TopMovers({ movers }: { movers: Mover[] }) {
+  const { openTrade } = useTrade()
   return (
     <Card
-      className="overflow-hidden"
-      style={{ borderRadius: '16px', border: '1px solid var(--hair)', background: 'var(--paper)' }}
+      className="overflow-hidden premium-card"
     >
       <CardHeader className="pb-2">
         <CardTitle
           className="font-extrabold uppercase"
-          style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted)' }}
+          style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted-foreground)' }}
         >
           Mayores Movimientos
         </CardTitle>
@@ -41,7 +42,7 @@ export function TopMovers({ movers }: { movers: Mover[] }) {
               <TrendingUp className="h-5 w-5" style={{ color: 'var(--brand)' }} />
             </div>
             <p className="text-sm font-medium mb-1">Sin movimientos</p>
-            <p className="text-xs max-w-[200px]" style={{ color: 'var(--muted)' }}>
+            <p className="text-xs max-w-[200px]" style={{ color: 'var(--muted-foreground)' }}>
               Agrega posiciones a tu portafolio para ver los activos con mayor movimiento del día.
             </p>
           </div>
@@ -51,14 +52,13 @@ export function TopMovers({ movers }: { movers: Mover[] }) {
           return (
             <div
               key={m.symbol}
-              className="flex items-center justify-between py-2.5 px-1"
-              style={idx > 0 ? { borderTop: '1px solid var(--hair)' } : undefined}
+              className={`group flex items-center justify-between py-2.5 px-1${idx > 0 ? ' border-t border-border' : ''}`}
             >
               {/* Symbol + Name */}
               <div className="flex flex-col min-w-0">
                 <span className="text-sm font-semibold truncate">{m.symbol}</span>
                 {m.name && (
-                  <span className="text-xs truncate" style={{ color: 'var(--muted)', fontWeight: 650 }}>
+                  <span className="text-xs truncate" style={{ color: 'var(--muted-foreground)', fontWeight: 650 }}>
                     {m.name}
                   </span>
                 )}
@@ -82,6 +82,12 @@ export function TopMovers({ movers }: { movers: Mover[] }) {
                   {isPositive ? '+' : ''}{formatPercent(m.changePct)}
                 </span>
                 <MiniSparkline positive={isPositive} />
+                <button
+                  className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => openTrade({ symbol: m.symbol })}
+                >
+                  Comprar
+                </button>
               </div>
             </div>
           )

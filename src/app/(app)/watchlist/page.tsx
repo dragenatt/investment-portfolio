@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorDisplay } from '@/components/shared/error-display'
-import { Plus, Search, TrendingUp, TrendingDown, Loader2, Pencil, Trash2, Eye, ArrowUp, ArrowDown, ArrowUpDown, Check } from 'lucide-react'
+import { Plus, Search, TrendingUp, TrendingDown, Loader2, Pencil, Trash2, Eye, ArrowUp, ArrowDown, ArrowUpDown, Check, ShoppingCart } from 'lucide-react'
+import { useTrade } from '@/lib/contexts/trade-context'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useDebounce } from '@/lib/hooks/use-debounce'
 import { useSWRConfig } from 'swr'
@@ -55,6 +56,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 // --- Watchlist table with sortable columns & live prices ---
 function WatchlistTable({ watchlist, prices }: { watchlist: Watchlist; prices: PriceData | undefined }) {
   const { mutate } = useSWRConfig()
+  const { openTrade } = useTrade()
   const [sort, setSort] = useState<SortState>({ key: 'symbol', dir: 'asc' })
   const [deletingSymbol, setDeletingSymbol] = useState<string | null>(null)
 
@@ -108,6 +110,7 @@ function WatchlistTable({ watchlist, prices }: { watchlist: Watchlist; prices: P
               <SortIcon active={sort.key === 'changePct'} dir={sort.dir} />
             </button>
           </TableHead>
+          <TableHead className="w-20"></TableHead>
           <TableHead className="w-10"></TableHead>
         </TableRow>
       </TableHeader>
@@ -134,6 +137,14 @@ function WatchlistTable({ watchlist, prices }: { watchlist: Watchlist; prices: P
                     {isPositive ? '+' : ''}{pct.toFixed(2)}%
                   </span>
                 ) : <span className="text-muted-foreground text-xs">--</span>}
+              </TableCell>
+              <TableCell>
+                <button
+                  className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => openTrade({ symbol: item.symbol })}
+                >
+                  Comprar
+                </button>
               </TableCell>
               <TableCell>
                 <Button

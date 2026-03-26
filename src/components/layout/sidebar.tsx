@@ -69,7 +69,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 h-screen flex flex-col border-r border-border bg-sidebar',
+          'fixed top-0 left-0 z-50 h-screen flex flex-col border-r border-border bg-card',
           'transition-transform duration-300 ease-in-out',
           'lg:sticky lg:translate-x-0 lg:z-auto',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
@@ -91,7 +91,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             {/* Close button on mobile */}
             <button
               onClick={onMobileClose}
-              className="lg:hidden p-1.5 rounded-lg hover:bg-accent text-muted-foreground"
+              className="lg:hidden p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"
             >
               <X className="h-5 w-5" />
             </button>
@@ -108,15 +108,19 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center justify-between gap-3 px-3 py-3 rounded-xl border transition-all duration-200',
+                  'relative flex items-center justify-between gap-3 px-3 py-3 rounded-xl transition-all duration-200',
                   isActive
-                    ? 'bg-primary/10 border-primary/20 text-foreground'
-                    : 'border-transparent hover:bg-accent hover:border-border text-foreground/80'
+                    ? 'bg-primary/8 text-foreground'
+                    : 'hover:bg-secondary text-foreground/80'
                 )}
               >
+                {/* Active indicator bar */}
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
+                )}
                 <div className="flex items-center gap-3 min-w-0">
                   <Icon className={cn(
-                    'h-[18px] w-[18px] shrink-0',
+                    'h-5 w-5 shrink-0',
                     isActive ? 'text-primary' : 'text-muted-foreground'
                   )} />
                   <div className="min-w-0">
@@ -134,7 +138,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
         {/* Footer CTA */}
         <div className="p-3 border-t border-border mt-auto">
-          <div className="rounded-2xl border border-border p-4 bg-gradient-to-br from-primary/8 to-primary/4">
+          <div className="rounded-2xl border border-border p-4 bg-gradient-to-br from-primary/5 to-transparent">
             <h3 className="text-sm font-bold tracking-tight mb-1">Tu portafolio es el centro</h3>
             <p className="text-xs text-muted-foreground mb-3">
               P&L, asignacion, riesgo y acciones rapidas. Mercado y &quot;populares&quot; son contexto.

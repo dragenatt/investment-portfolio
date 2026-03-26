@@ -17,6 +17,7 @@ import { Plus, Eye, AlertCircle, ArrowUp, ArrowDown, TrendingUp, Briefcase, GitC
 import { toast } from 'sonner'
 import { useSWRConfig } from 'swr'
 import { useRouter } from 'next/navigation'
+import { useTrade } from '@/lib/contexts/trade-context'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -43,6 +44,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
   const { data: watchlists } = useWatchlists()
   const { mutate } = useSWRConfig()
   const router = useRouter()
+  const { openTrade } = useTrade()
   const [hoverPrice, setHoverPrice] = useState<number | null>(null)
 
   // ─── Find user positions for this symbol across all portfolios ────
@@ -239,7 +241,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             {portfolios?.map((p: { id: string; name: string }) => (
-              <DropdownMenuItem key={p.id} onClick={() => router.push(`/portfolio/${p.id}/transactions?add=${encodeURIComponent(decodedSymbol)}`)}>
+              <DropdownMenuItem key={p.id} onClick={() => openTrade({ symbol: decodedSymbol, portfolioId: p.id })}>
                 {p.name}
               </DropdownMenuItem>
             ))}

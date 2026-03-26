@@ -29,9 +29,9 @@ function CustomTooltip({ active, payload, label }: any) {
   return (
     <div
       className="rounded-lg backdrop-blur-sm px-3 py-2 shadow-lg"
-      style={{ border: '1px solid var(--hair)', background: 'var(--paper)' }}
+      style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
     >
-      <p className="text-xs" style={{ color: 'var(--muted)' }}>
+      <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
         {new Date(String(label)).toLocaleDateString('es-MX', {
           weekday: 'short',
           year: 'numeric',
@@ -41,7 +41,7 @@ function CustomTooltip({ active, payload, label }: any) {
       </p>
       <p
         className="font-bold font-mono"
-        style={{ fontFamily: 'var(--serif)', fontSize: '14px', letterSpacing: '-0.02em' }}
+        style={{ fontFamily: 'var(--font-serif)', fontSize: '14px', letterSpacing: '-0.02em' }}
       >
         ${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </p>
@@ -72,14 +72,14 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
   const glowId = 'chartLineGlow'
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 premium-card p-4">
       {/* Chart area — clean sparkline look */}
       {isLoading ? (
-        <div className="h-[250px] flex items-center justify-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="h-[250px] flex items-center justify-center text-sm" style={{ color: 'var(--muted-foreground)' }}>
           Cargando datos...
         </div>
       ) : data.length === 0 ? (
-        <div className="h-[250px] flex items-center justify-center text-sm" style={{ color: 'var(--muted)' }}>
+        <div className="h-[250px] flex items-center justify-center text-sm" style={{ color: 'var(--muted-foreground)' }}>
           Agrega transacciones para ver el rendimiento
         </div>
       ) : (
@@ -103,13 +103,13 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
             <Tooltip
               content={<CustomTooltip />}
               cursor={{
-                stroke: 'var(--muted)',
+                stroke: 'var(--muted-foreground)',
                 strokeWidth: 1,
                 strokeDasharray: '4 4',
               }}
             />
             {startValue > 0 && (
-              <ReferenceLine y={startValue} stroke="var(--hair)" strokeDasharray="3 3" />
+              <ReferenceLine y={startValue} stroke="var(--border)" strokeDasharray="3 3" />
             )}
             <Area
               type="monotone"
@@ -141,7 +141,7 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
                     color: isPositive ? 'var(--good)' : 'var(--bad)',
                   }
                 : {
-                    color: 'var(--muted)',
+                    color: 'var(--muted-foreground)',
                   }
             }
           >

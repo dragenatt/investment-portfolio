@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, Check, Clock, Loader2, TrendingUp, TrendingDown } from 'lucide-react'
 import { useSWRConfig } from 'swr'
 import { toast } from 'sonner'
+import { useTrade } from '@/lib/contexts/trade-context'
 
 const RECENT_KEY = 'symbol_search_recent'
 
@@ -56,6 +57,7 @@ export function SymbolSearch() {
   const { data: watchlists } = useWatchlists()
   const { mutate } = useSWRConfig()
   const router = useRouter()
+  const { openTrade } = useTrade()
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [addingSymbol, setAddingSymbol] = useState<string | null>(null)
 
@@ -144,6 +146,18 @@ export function SymbolSearch() {
                 </div>
                 <InlineQuote symbol={r.symbol} />
                 <Badge variant="outline" className="ml-2 text-[10px] shrink-0">{r.exchDisp}</Badge>
+                {/* Quick buy button */}
+                <button
+                  className="ml-2 shrink-0 bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-[10px] font-medium"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    openTrade({ symbol: r.symbol })
+                    setOpen(false)
+                  }}
+                >
+                  Comprar
+                </button>
                 {/* Quick add to watchlist button */}
                 {defaultWatchlist && (
                   <button

@@ -5,7 +5,7 @@ import { useLivePrices } from '@/lib/hooks/use-live-prices'
 import { useTransactions } from '@/lib/hooks/use-transactions'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { PositionsTable } from '@/components/portfolio/positions-table'
-import { TransactionModal } from '@/components/portfolio/transaction-modal'
+import { useTrade } from '@/lib/contexts/trade-context'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
 import { SkeletonTable } from '@/components/shared/skeleton-table'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
@@ -24,12 +24,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { use, useMemo, useCallback } from 'react'
 import Link from 'next/link'
-import { BarChart3, List, Download, TrendingUp, TrendingDown } from 'lucide-react'
+import { BarChart3, List, Download, TrendingUp, TrendingDown, Plus } from 'lucide-react'
 import { transactionsToCSV, positionsToCSV, downloadFile } from '@/lib/utils/export'
 import type { ExportTransaction, ExportPosition } from '@/lib/utils/export'
 
 export default function PortfolioDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const { openTrade } = useTrade()
   const { data: portfolio, isLoading } = usePortfolio(id)
   const { data: transactions } = useTransactions(id)
   const { convert } = useCurrency()
@@ -145,7 +146,12 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           {portfolio.description && <p className="text-muted-foreground">{portfolio.description}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
-          <TransactionModal portfolioId={id} />
+          <button
+            className="inline-flex items-center justify-center rounded-xl text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 h-8 px-3 gap-1"
+            onClick={() => openTrade({ portfolioId: id })}
+          >
+            <Plus className="h-4 w-4" /> Transaccion
+          </button>
           <Link href={`/portfolio/${id}/transactions`}>
             <Button className="rounded-xl" variant="outline" size="sm"><List className="h-4 w-4 mr-1" /> Transacciones</Button>
           </Link>

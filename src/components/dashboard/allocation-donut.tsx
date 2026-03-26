@@ -14,13 +14,12 @@ export function AllocationDonut({ data }: { data: AllocationData[] }) {
 
   return (
     <Card
-      className="overflow-hidden"
-      style={{ borderRadius: '16px', border: '1px solid var(--hair)', background: 'var(--paper)' }}
+      className="overflow-hidden premium-card"
     >
       <CardHeader className="pb-2">
         <CardTitle
           className="font-extrabold uppercase"
-          style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted)' }}
+          style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted-foreground)' }}
         >
           Distribución
         </CardTitle>
@@ -32,7 +31,7 @@ export function AllocationDonut({ data }: { data: AllocationData[] }) {
               <PieChartIcon className="h-5 w-5" style={{ color: 'var(--brand)' }} />
             </div>
             <p className="text-sm font-medium mb-1">Sin datos</p>
-            <p className="text-xs max-w-[200px]" style={{ color: 'var(--muted)' }}>
+            <p className="text-xs max-w-[200px]" style={{ color: 'var(--muted-foreground)' }}>
               Agrega posiciones para ver la distribución de tus activos.
             </p>
           </div>
@@ -56,8 +55,7 @@ export function AllocationDonut({ data }: { data: AllocationData[] }) {
                 return (
                   <div
                     key={item.name}
-                    className="flex items-center justify-between px-3 py-2"
-                    style={{ borderTop: '1px solid var(--hair)' }}
+                    className="flex items-center justify-between px-3 py-2 border-t border-border"
                   >
                     <div className="flex items-center gap-2">
                       <div
@@ -68,7 +66,7 @@ export function AllocationDonut({ data }: { data: AllocationData[] }) {
                     </div>
                     <span
                       className="font-mono text-sm"
-                      style={{ color: 'var(--muted)' }}
+                      style={{ color: 'var(--muted-foreground)' }}
                     >
                       {pct}%
                     </span>

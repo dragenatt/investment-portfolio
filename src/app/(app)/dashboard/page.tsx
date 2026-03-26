@@ -15,9 +15,13 @@ import { OnboardingTour } from '@/components/shared/onboarding-tour'
 import { useMemo, useState } from 'react'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
 import { ArrowRightLeft, Bell, Download } from 'lucide-react'
+import Link from 'next/link'
+import { toast } from 'sonner'
+import { useTrade } from '@/lib/contexts/trade-context'
 
 export default function DashboardPage() {
   const { data: portfolios, isLoading } = usePortfolios()
+  const { openTrade } = useTrade()
   const [chartRange, setChartRange] = useState('30')
   const { data: chartData, isLoading: chartLoading } = usePortfolioHistory(chartRange)
 
@@ -54,22 +58,13 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between gap-6 flex-wrap">
         <div className="space-y-1">
           <h1
-            className="font-bold tracking-tight"
-            style={{
-              fontFamily: 'var(--serif)',
-              fontSize: 'clamp(28px, 3.3vw, 44px)',
-              letterSpacing: '-0.03em',
-            }}
+            className="font-bold tracking-tight font-serif"
+            style={{ fontSize: 'clamp(24px, 3vw, 40px)', letterSpacing: '-0.03em' }}
           >
             Panel de control
           </h1>
           <p
-            style={{
-              color: 'var(--muted)',
-              fontSize: '14px',
-              fontWeight: 600,
-              maxWidth: '62ch',
-            }}
+            className="text-muted-foreground text-sm font-semibold max-w-[62ch]"
           >
             Resumen de tu portafolio de inversiones, rendimiento y distribución de activos.
           </p>
@@ -78,40 +73,35 @@ export default function DashboardPage() {
         {/* Quick action pills */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-full transition-colors hover:bg-muted/50"
-            style={{ border: '1px solid var(--hair)' }}
+            className="inline-flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm font-medium hover:bg-secondary transition-colors btn-press"
+            onClick={() => openTrade()}
           >
             <ArrowRightLeft className="h-3.5 w-3.5" />
             Transacción
             <kbd
-              className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded"
-              style={{ border: '1px solid var(--hair)', color: 'var(--muted)' }}
+              className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground"
             >
               T
             </kbd>
           </button>
           <button
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-full transition-colors hover:bg-muted/50"
-            style={{ border: '1px solid var(--hair)' }}
+            className="inline-flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm font-medium hover:bg-secondary transition-colors btn-press"
           >
             <Bell className="h-3.5 w-3.5" />
             Alerta
             <kbd
-              className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded"
-              style={{ border: '1px solid var(--hair)', color: 'var(--muted)' }}
+              className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground"
             >
               A
             </kbd>
           </button>
           <button
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-full transition-colors hover:bg-muted/50"
-            style={{ border: '1px solid var(--hair)' }}
+            className="inline-flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm font-medium hover:bg-secondary transition-colors btn-press"
           >
             <Download className="h-3.5 w-3.5" />
             Exportar
             <kbd
-              className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded"
-              style={{ border: '1px solid var(--hair)', color: 'var(--muted)' }}
+              className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground"
             >
               E
             </kbd>
@@ -121,8 +111,7 @@ export default function DashboardPage() {
 
       {/* Bento grid: portfolio summary (1.1fr) | market context (0.9fr) */}
       <div
-        className="grid gap-6"
-        style={{ gridTemplateColumns: '1.1fr 0.9fr' }}
+        className="bento-grid stagger-enter"
       >
         {/* Left column — portfolio summary */}
         <div className="space-y-6">
@@ -153,21 +142,21 @@ export default function DashboardPage() {
 
           {/* Action buttons row */}
           <div className="flex items-center gap-3">
-            <button
-              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-muted/50"
-              style={{ border: '1px solid var(--hair)' }}
+            <Link
+              href="/portfolio"
+              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-secondary text-center btn-press border border-border"
             >
               Revisar posiciones
-            </button>
-            <button
-              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-muted/50"
-              style={{ border: '1px solid var(--hair)' }}
+            </Link>
+            <Link
+              href="/portfolio"
+              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-secondary text-center btn-press border border-border"
             >
               Chequeo de riesgo
-            </button>
+            </Link>
             <button
-              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-muted/50"
-              style={{ border: '1px solid var(--hair)' }}
+              onClick={() => toast.info('Proximamente')}
+              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-secondary btn-press border border-border"
             >
               Rebalancear
             </button>
