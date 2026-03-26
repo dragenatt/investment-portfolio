@@ -391,7 +391,7 @@ export default function WatchlistPage() {
 
       {/* Watchlist cards */}
       {(watchlists as Watchlist[] | undefined)?.map(wl => (
-        <Card key={wl.id} className="rounded-2xl border-border shadow-sm">
+        <Card key={wl.id} className="rounded-2xl border-border shadow-sm card-hover">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
               {renamingId === wl.id ? (

@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { formatPercent } from '@/lib/utils/numbers'
+import { FinanceTooltip } from '@/components/shared/finance-tooltip'
 
 // ─── Helper: format large numbers ───────────────────────────────────
 function formatLargeNumber(n: number | null): string {
@@ -378,10 +379,23 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
 
 // ─── Sub-components ─────────────────────────────────────────────────
 
+const STAT_TOOLTIP_MAP: Record<string, string> = {
+  'Cap. de Mercado': 'Market Cap',
+  'P/E Ratio': 'P/E',
+  'EPS (TTM)': 'EPS',
+  'Div. Yield': 'Dividend Yield',
+  '52 Sem. Alto': '52-Week High/Low',
+  '52 Sem. Bajo': '52-Week High/Low',
+}
+
 function StatRow({ label, value }: { label: string; value: string }) {
+  const tooltipTerm = STAT_TOOLTIP_MAP[label]
   return (
     <div className="flex items-center justify-between py-2 border-b border-border last:border-b-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm text-muted-foreground flex items-center gap-1">
+        {label}
+        {tooltipTerm && <FinanceTooltip term={tooltipTerm} />}
+      </span>
       <span className="text-sm font-semibold font-mono">{value}</span>
     </div>
   )

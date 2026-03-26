@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Eye, EyeOff, TrendingUp, TrendingDown, Wallet, CircleDollarSign, BarChart3 } from 'lucide-react'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
 import { PercentageChange } from '@/components/shared/percentage-change'
+import { FinanceTooltip } from '@/components/shared/finance-tooltip'
 
 type Props = {
   totalValue: number
@@ -91,6 +92,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
                 <Wallet className="h-3.5 w-3.5 text-primary" />
               </div>
               <span className="text-xs text-muted-foreground font-medium">Valor Invertido</span>
+              <FinanceTooltip term="Valor Invertido" />
             </div>
             <p className="text-lg font-bold">
               {balanceVisible ? <FormattedAmount value={investedAmount} /> : hiddenText}
@@ -106,6 +108,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
                 <CircleDollarSign className={`h-3.5 w-3.5 ${todayReturn == null ? 'text-muted-foreground' : (todayReturn ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`} />
               </div>
               <span className="text-xs text-muted-foreground font-medium">Ganancia Hoy</span>
+              <FinanceTooltip term="Ganancia Hoy" />
             </div>
             <p className="text-lg font-bold">
               {balanceVisible ? <FormattedAmount value={todayReturn} showSign /> : hiddenText}
@@ -123,6 +126,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
                 <BarChart3 className={`h-3.5 w-3.5 ${totalReturn >= 0 ? 'text-emerald-500' : 'text-red-500'}`} />
               </div>
               <span className="text-xs text-muted-foreground font-medium">Ganancia Total</span>
+              <FinanceTooltip term="Ganancia Total" />
             </div>
             <p className="text-lg font-bold">
               {balanceVisible ? <FormattedAmount value={totalReturn} showSign /> : hiddenText}

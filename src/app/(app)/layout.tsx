@@ -22,7 +22,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Header />
             <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
               <Breadcrumbs />
-              {children}
+              <div className="animate-fade-in">
+                {children}
+              </div>
             </main>
           </div>
           <MobileNav />

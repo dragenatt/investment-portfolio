@@ -23,7 +23,7 @@ export function TopMovers({ movers }: { movers: Mover[] }) {
           </div>
         )}
         {movers.map(m => (
-          <div key={m.symbol} className="flex items-center justify-between">
+          <div key={m.symbol} className="flex items-center justify-between rounded-lg card-hover px-1">
             <div>
               <p className="font-medium text-sm">{m.symbol}</p>
             </div>

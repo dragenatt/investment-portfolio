@@ -29,7 +29,7 @@ export function PortfolioCard({ id, name, description, positions, livePrices }: 
 
   return (
     <Link href={`/portfolio/${id}`}>
-      <Card className="rounded-2xl border-border shadow-sm hover:-translate-y-0.5 transition-transform cursor-pointer">
+      <Card className="rounded-2xl border-border shadow-sm card-hover cursor-pointer">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">{name}</CardTitle>

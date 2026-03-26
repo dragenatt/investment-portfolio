@@ -11,6 +11,7 @@ import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
+import { OnboardingTour } from '@/components/shared/onboarding-tour'
 import { useMemo, useState } from 'react'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
 
@@ -46,8 +47,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <OnboardingTour />
       {/* Hero section: KPI + Chart integrated */}
       <ErrorBoundary>
+        <div data-tour="hero-section">
         <KpiCards
           totalValue={stats.totalValue}
           totalReturn={stats.totalReturn}
@@ -58,14 +61,17 @@ export default function DashboardPage() {
           todayReturnPct={stats.todayReturnPct}
           totalCost={stats.totalCost}
         />
+        </div>
       </ErrorBoundary>
 
       <ErrorBoundary>
+        <div data-tour="portfolio-chart">
         <PortfolioChart
           data={chartData ?? []}
           isLoading={chartLoading}
           onPeriodChange={setChartRange}
         />
+        </div>
       </ErrorBoundary>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

@@ -9,6 +9,7 @@ import { useTheme } from 'next-themes'
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import useSWR from 'swr'
+import { OnboardingTour } from '@/components/shared/onboarding-tour'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => {
   if (r.error) throw new Error(r.error)
@@ -20,6 +21,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const [displayName, setDisplayName] = useState('')
   const [baseCurrency, setBaseCurrency] = useState('MXN')
+  const [showTour, setShowTour] = useState(false)
 
   useEffect(() => {
     if (profile) {
@@ -99,6 +101,29 @@ export default function SettingsPage() {
           <Button className="rounded-xl" onClick={savePreferences}>Guardar preferencias</Button>
         </CardContent>
       </Card>
+
+      <Card className="rounded-2xl border-border shadow-sm">
+        <CardHeader><CardTitle className="text-xl">Tutorial</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Vuelve a ver el recorrido de bienvenida para conocer las funciones principales de la plataforma.
+          </p>
+          <Button
+            className="rounded-xl"
+            variant="outline"
+            onClick={() => {
+              try { localStorage.removeItem('onboarding_completed') } catch {}
+              setShowTour(true)
+            }}
+          >
+            Ver tutorial
+          </Button>
+        </CardContent>
+      </Card>
+
+      {showTour && (
+        <OnboardingTour forceOpen onClose={() => setShowTour(false)} />
+      )}
     </div>
   )
 }

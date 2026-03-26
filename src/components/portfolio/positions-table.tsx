@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { FinanceTooltip } from '@/components/shared/finance-tooltip'
 
 type Position = {
   id: string
@@ -104,10 +105,20 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
             <TableRow>
               <TableHead><SortHeader k="symbol">Símbolo</SortHeader></TableHead>
               <TableHead className="text-right"><SortHeader k="quantity" className="justify-end">Cantidad</SortHeader></TableHead>
-              <TableHead className="text-right"><SortHeader k="avg_cost" className="justify-end">Precio Prom.</SortHeader></TableHead>
+              <TableHead className="text-right">
+                <div className="flex items-center justify-end gap-1">
+                  <SortHeader k="avg_cost" className="justify-end">Precio Prom.</SortHeader>
+                  <FinanceTooltip term="Precio Promedio" />
+                </div>
+              </TableHead>
               <TableHead className="text-right"><SortHeader k="currentPrice" className="justify-end">Precio Actual</SortHeader></TableHead>
               <TableHead className="text-right"><SortHeader k="value" className="justify-end">Valor</SortHeader></TableHead>
-              <TableHead className="text-right"><SortHeader k="gainLoss" className="justify-end">G/P $</SortHeader></TableHead>
+              <TableHead className="text-right">
+                <div className="flex items-center justify-end gap-1">
+                  <SortHeader k="gainLoss" className="justify-end">G/P $</SortHeader>
+                  <FinanceTooltip term="G/P" />
+                </div>
+              </TableHead>
               <TableHead className="text-right"><SortHeader k="gainPct" className="justify-end">G/P %</SortHeader></TableHead>
             </TableRow>
           </TableHeader>

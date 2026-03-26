@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatNumber } from '@/lib/utils/numbers'
+import { FinanceTooltip } from '@/components/shared/finance-tooltip'
 import useSWR from 'swr'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => r.data)
@@ -16,9 +17,9 @@ export function RiskMetrics({ portfolioId }: { portfolioId: string }) {
   }
 
   const metrics = [
-    { label: 'Volatilidad (anual)', value: `${formatNumber(data?.volatility || 0)}%`, description: 'Desviacion estandar anualizada' },
-    { label: 'Sharpe Ratio', value: formatNumber(data?.sharpe || 0), description: 'Rendimiento ajustado por riesgo (rf = CETES 28d)' },
-    { label: 'Max Drawdown', value: `${formatNumber(data?.maxDrawdown || 0)}%`, description: 'Mayor caida desde el pico' },
+    { label: 'Volatilidad (anual)', value: `${formatNumber(data?.volatility || 0)}%`, description: 'Desviacion estandar anualizada', tooltipTerm: 'Volatilidad' },
+    { label: 'Sharpe Ratio', value: formatNumber(data?.sharpe || 0), description: 'Rendimiento ajustado por riesgo (rf = CETES 28d)', tooltipTerm: 'Sharpe Ratio' },
+    { label: 'Max Drawdown', value: `${formatNumber(data?.maxDrawdown || 0)}%`, description: 'Mayor caida desde el pico', tooltipTerm: 'Max Drawdown' },
   ]
 
   return (
@@ -29,7 +30,10 @@ export function RiskMetrics({ portfolioId }: { portfolioId: string }) {
           {metrics.map(m => (
             <div key={m.label} className="text-center p-3 rounded-lg bg-muted/50">
               <p className="text-2xl font-bold font-mono">{m.value}</p>
-              <p className="text-sm font-medium mt-1">{m.label}</p>
+              <p className="text-sm font-medium mt-1 inline-flex items-center gap-1">
+                {m.label}
+                <FinanceTooltip term={m.tooltipTerm} />
+              </p>
               <p className="text-xs text-muted-foreground mt-0.5">{m.description}</p>
             </div>
           ))}

@@ -8,11 +8,12 @@ const LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
   portfolio: 'Portafolios',
   market: 'Mercados',
-  watchlist: 'Watchlists',
+  watchlist: 'Watchlist',
   alerts: 'Alertas',
-  settings: 'Ajustes',
+  settings: 'Configuración',
   transactions: 'Transacciones',
-  analytics: 'Analytics',
+  analytics: 'Análisis',
+  import: 'Importar',
   new: 'Nuevo',
 }
 
