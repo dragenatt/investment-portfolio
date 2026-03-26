@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePriceHistory } from '@/lib/hooks/use-market'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { useState } from 'react'
+import { getChartTheme } from '@/lib/utils/chart-config'
 
 const rangeMap: Record<string, string> = {
   '1D': '1d', '5D': '5d', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', 'MAX': 'max',
@@ -22,8 +23,9 @@ export function PriceChart({ symbol }: { symbol: string }) {
     price: d.close,
   }))
 
+  const theme = getChartTheme()
   const isPositive = chartData.length >= 2 && chartData[chartData.length - 1].price >= chartData[0].price
-  const color = isPositive ? '#16a34a' : '#dc2626'
+  const color = isPositive ? theme.colors.positive : theme.colors.negative
 
   return (
     <Card>
@@ -46,8 +48,8 @@ export function PriceChart({ symbol }: { symbol: string }) {
                 <stop offset="95%" stopColor={color} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-            <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={60} domain={['auto', 'auto']} />
+            <XAxis dataKey="date" {...theme.xAxis} />
+            <YAxis {...theme.yAxis} domain={['auto', 'auto']} />
             <Tooltip />
             <Area type="monotone" dataKey="price" stroke={color} fill={`url(#color-${symbol})`} strokeWidth={2} />
           </AreaChart>

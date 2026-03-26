@@ -1,12 +1,6 @@
 import useSWR from 'swr'
-
-const fetcher = async (url: string) => {
-  const res = await fetch(url)
-  const json = await res.json()
-  if (json.error) throw new Error(json.error)
-  return json.data
-}
+import { apiFetcher } from '@/lib/api/fetcher'
 
 export function useWatchlists() {
-  return useSWR('/api/watchlist', fetcher)
+  return useSWR('/api/watchlist', apiFetcher)
 }

@@ -1,11 +1,5 @@
 import useSWR from 'swr'
-
-const fetcher = async (url: string) => {
-  const res = await fetch(url)
-  const json = await res.json()
-  if (json.error) throw new Error(json.error)
-  return json.data
-}
+import { apiFetcher } from '@/lib/api/fetcher'
 
 export type Transaction = {
   id: string
@@ -26,6 +20,6 @@ export type Transaction = {
 export function useTransactions(portfolioId: string | null) {
   return useSWR<Transaction[]>(
     portfolioId ? `/api/transaction?pid=${portfolioId}` : null,
-    fetcher
+    apiFetcher
   )
 }

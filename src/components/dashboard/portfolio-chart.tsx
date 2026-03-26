@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
 import { useState } from 'react'
+import { getChartTheme } from '@/lib/utils/chart-config'
 
 type DataPoint = { date: string; value: number }
 
@@ -26,6 +27,7 @@ type Props = {
 
 export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
   const [period, setPeriod] = useState<string>('1M')
+  const theme = getChartTheme()
 
   const handlePeriodChange = (p: string) => {
     setPeriod(p)
@@ -58,26 +60,24 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#D97706" stopOpacity={0.1} />
-                  <stop offset="95%" stopColor="#D97706" stopOpacity={0} />
+                  <stop offset="5%" stopColor={theme.colors.primary} stopOpacity={0.1} />
+                  <stop offset="95%" stopColor={theme.colors.primary} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 12 }}
-                tickLine={false}
-                axisLine={false}
+                {...theme.xAxis}
                 tickFormatter={(d: string) => {
                   const date = new Date(d)
                   return `${date.getDate()}/${date.getMonth() + 1}`
                 }}
               />
-              <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} width={60} />
+              <YAxis {...theme.yAxis} />
               <Tooltip
                 labelFormatter={(d) => new Date(String(d)).toLocaleDateString('es-MX')}
                 formatter={(value) => [`$${Number(value).toFixed(2)}`, 'Valor']}
               />
-              <Area type="monotone" dataKey="value" stroke="#D97706" fill="url(#colorValue)" strokeWidth={2} />
+              <Area type="monotone" dataKey="value" stroke={theme.colors.primary} fill="url(#colorValue)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         )}

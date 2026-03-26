@@ -5,7 +5,9 @@ import { useLivePrices } from '@/lib/hooks/use-live-prices'
 import { PortfolioCard } from '@/components/portfolio/portfolio-card'
 import { Button } from '@/components/ui/button'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
-import { Plus } from 'lucide-react'
+import { EmptyState } from '@/components/shared/empty-state'
+import { ErrorDisplay } from '@/components/shared/error-display'
+import { Plus, Briefcase, Upload } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo } from 'react'
 
@@ -25,15 +27,20 @@ export default function PortfolioListPage() {
 
   const { data: livePrices } = useLivePrices(allSymbols)
 
-  if (error) return <p className="text-destructive text-center py-8">Error al cargar portafolios. Intenta recargar la página.</p>
+  if (error) return <ErrorDisplay error="Error al cargar portafolios. Intenta recargar la pagina." onRetry={() => window.location.reload()} />
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Portafolios</h1>
-        <Link href="/portfolio/new">
-          <Button className="rounded-xl bg-primary text-primary-foreground" size="sm"><Plus className="h-4 w-4 mr-1" /> Nuevo Portafolio</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/portfolio/import">
+            <Button variant="outline" className="rounded-xl" size="sm"><Upload className="h-4 w-4 mr-1" /> Importar CSV</Button>
+          </Link>
+          <Link href="/portfolio/new">
+            <Button className="rounded-xl bg-primary text-primary-foreground" size="sm"><Plus className="h-4 w-4 mr-1" /> Nuevo Portafolio</Button>
+          </Link>
+        </div>
       </div>
 
       {isLoading ? (
@@ -41,12 +48,12 @@ export default function PortfolioListPage() {
           {[1, 2].map(i => <SkeletonCard key={i} />)}
         </div>
       ) : portfolios?.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground mb-4">No tienes portafolios aun</p>
-          <Link href="/portfolio/new">
-            <Button className="rounded-xl">Crear mi primer portafolio</Button>
-          </Link>
-        </div>
+        <EmptyState
+          icon={Briefcase}
+          title="Sin portafolios"
+          description="Crea tu primer portafolio para empezar a registrar tus inversiones y hacer seguimiento de tu rendimiento."
+          action={{ label: 'Crear mi primer portafolio', href: '/portfolio/new' }}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {portfolios?.map((p: Record<string, unknown>) => (

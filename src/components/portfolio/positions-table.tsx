@@ -4,6 +4,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { formatNumber } from '@/lib/utils/numbers'
+import { FormattedAmount } from '@/components/shared/formatted-amount'
+import { PercentageChange } from '@/components/shared/percentage-change'
 import { useState } from 'react'
 import { ArrowUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,7 +26,7 @@ type Position = {
 type SortKey = 'symbol' | 'quantity' | 'avg_cost' | 'value'
 
 export function PositionsTable({ positions }: { positions: Position[] }) {
-  const { format, convert } = useCurrency()
+  const { convert } = useCurrency()
   const [sortKey, setSortKey] = useState<SortKey>('value')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -85,18 +87,17 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
               const costConverted = convert(pos.avg_cost, costCur)
               const value = pos.quantity * priceConverted
               const gainPct = costConverted > 0 ? ((priceConverted - costConverted) / costConverted) * 100 : 0
-              const isGain = gainPct >= 0
 
               return (
                 <TableRow key={pos.id}>
                   <TableCell className="font-medium font-mono">{pos.symbol}</TableCell>
                   <TableCell><Badge variant="outline" className="text-xs">{pos.asset_type}</Badge></TableCell>
                   <TableCell className="text-right font-mono">{formatNumber(pos.quantity, 4)}</TableCell>
-                  <TableCell className="text-right font-mono">{format(pos.avg_cost, costCur)}</TableCell>
-                  <TableCell className="text-right font-mono">{format(currentPrice, priceCur)}</TableCell>
-                  <TableCell className="text-right font-mono font-medium">{format(value)}</TableCell>
-                  <TableCell className={`text-right font-mono text-sm ${isGain ? 'text-gain' : 'text-loss'}`}>
-                    {isGain ? '+' : ''}{formatNumber(gainPct)}%
+                  <TableCell className="text-right"><FormattedAmount value={pos.avg_cost} from={costCur} /></TableCell>
+                  <TableCell className="text-right"><FormattedAmount value={currentPrice} from={priceCur} /></TableCell>
+                  <TableCell className="text-right font-medium"><FormattedAmount value={value} /></TableCell>
+                  <TableCell className="text-right text-sm">
+                    <PercentageChange value={gainPct} />
                   </TableCell>
                 </TableRow>
               )
@@ -115,7 +116,6 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
           const costConverted = convert(pos.avg_cost, costCur)
           const value = pos.quantity * priceConverted
           const gainPct = costConverted > 0 ? ((priceConverted - costConverted) / costConverted) * 100 : 0
-          const isGain = gainPct >= 0
 
           return (
             <div key={pos.id} className="border border-border rounded-2xl p-3">
@@ -125,10 +125,10 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
                   <Badge variant="outline" className="text-xs mt-1">{pos.asset_type}</Badge>
                 </div>
                 <div className="text-right">
-                  <p className="font-mono font-medium">{format(value)}</p>
-                  <p className="text-xs text-muted-foreground">{formatNumber(pos.quantity, 4)} @ {format(currentPrice, priceCur)}</p>
-                  <p className={`text-xs font-mono ${isGain ? 'text-gain' : 'text-loss'}`}>
-                    {isGain ? '+' : ''}{formatNumber(gainPct)}%
+                  <p className="font-medium"><FormattedAmount value={value} /></p>
+                  <p className="text-xs text-muted-foreground">{formatNumber(pos.quantity, 4)} @ <FormattedAmount value={currentPrice} from={priceCur} /></p>
+                  <p className="text-xs">
+                    <PercentageChange value={gainPct} />
                   </p>
                 </div>
               </div>

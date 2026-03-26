@@ -4,12 +4,14 @@ import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, C
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMarketSearch } from '@/lib/hooks/use-market'
+import { useDebounce } from '@/lib/hooks/use-debounce'
 import { Badge } from '@/components/ui/badge'
 
 export function SymbolSearch() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const { data: results } = useMarketSearch(query)
+  const debouncedQuery = useDebounce(query, 300)
+  const { data: results } = useMarketSearch(debouncedQuery)
   const router = useRouter()
 
   useEffect(() => {

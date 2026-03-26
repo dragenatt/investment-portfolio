@@ -1,6 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ErrorDisplay } from '@/components/shared/error-display'
 import { Bell, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import useSWR from 'swr'
@@ -26,7 +27,7 @@ export default function AlertsPage() {
     refreshInterval: 30_000,
   })
 
-  if (error) return <p className="text-destructive text-center py-8">Error al cargar alertas. Intenta recargar la página.</p>
+  if (error) return <ErrorDisplay error="Error al cargar alertas. Intenta recargar la pagina." onRetry={() => window.location.reload()} />
 
   return (
     <div className="space-y-6">

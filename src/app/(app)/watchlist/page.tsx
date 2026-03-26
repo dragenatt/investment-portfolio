@@ -8,8 +8,11 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
-import { Plus, X, Search, TrendingUp, TrendingDown, Loader2, Pencil, Trash2 } from 'lucide-react'
+import { EmptyState } from '@/components/shared/empty-state'
+import { ErrorDisplay } from '@/components/shared/error-display'
+import { Plus, X, Search, TrendingUp, TrendingDown, Loader2, Pencil, Trash2, Eye } from 'lucide-react'
 import { useState } from 'react'
+import { useDebounce } from '@/lib/hooks/use-debounce'
 import { useSWRConfig } from 'swr'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -66,7 +69,8 @@ export default function WatchlistPage() {
   const [creating, setCreating] = useState(false)
   const [addingTo, setAddingTo] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const { data: searchResults, isLoading: searching } = useMarketSearch(searchQuery)
+  const debouncedSearch = useDebounce(searchQuery, 300)
+  const { data: searchResults, isLoading: searching } = useMarketSearch(debouncedSearch)
   const [sortBy, setSortBy] = useState<Record<string, string>>({})
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -128,7 +132,7 @@ export default function WatchlistPage() {
 
   if (isLoading) return <div className="space-y-4">{[1, 2].map(i => <SkeletonCard key={i} />)}</div>
 
-  if (error) return <p className="text-destructive text-center py-8">Error al cargar watchlists. Intenta recargar la página.</p>
+  if (error) return <ErrorDisplay error="Error al cargar watchlists. Intenta recargar la pagina." onRetry={() => window.location.reload()} />
 
   return (
     <div className="space-y-6">
@@ -141,7 +145,12 @@ export default function WatchlistPage() {
       </div>
 
       {watchlists?.length === 0 && (
-        <p className="text-muted-foreground text-center py-8">No tienes watchlists. Crea una para empezar a seguir activos.</p>
+        <EmptyState
+          icon={Eye}
+          title="Sin watchlists"
+          description="Crea tu primera watchlist para seguir de cerca los activos que te interesan."
+          action={{ label: 'Crear watchlist', onClick: () => document.querySelector<HTMLInputElement>('.w-48')?.focus() }}
+        />
       )}
 
       {watchlists?.map((wl: { id: string; name: string; watchlist_items: Array<{ id: string; symbol: string; asset_type: string }> }) => (

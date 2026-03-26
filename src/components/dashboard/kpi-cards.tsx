@@ -2,7 +2,8 @@
 
 import { Card, CardContent } from '@/components/ui/card'
 import { DollarSign, TrendingUp, TrendingDown, BarChart3, Trophy, Minus } from 'lucide-react'
-import { useCurrency } from '@/lib/hooks/use-currency'
+import { FormattedAmount } from '@/components/shared/formatted-amount'
+import { PercentageChange } from '@/components/shared/percentage-change'
 
 type Props = {
   totalValue: number
@@ -15,37 +16,35 @@ type Props = {
 }
 
 export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCount, bestPosition, todayReturn, todayReturnPct }: Props) {
-  const { format } = useCurrency()
-
   const cards = [
     {
       label: 'Valor Total',
-      value: format(totalValue),
-      sub: `${positionCount} posiciones`,
+      value: <FormattedAmount value={totalValue} />,
+      sub: <span>{positionCount} posiciones</span>,
       icon: DollarSign,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
     },
     {
       label: 'Hoy',
-      value: todayReturn != null ? `${todayReturn >= 0 ? '+' : '-'}${format(Math.abs(todayReturn))}` : '--',
-      sub: todayReturnPct != null ? `${todayReturnPct >= 0 ? '+' : '-'}${Math.abs(todayReturnPct).toFixed(2)}%` : '--',
+      value: <FormattedAmount value={todayReturn} showSign />,
+      sub: <PercentageChange value={todayReturnPct} />,
       icon: todayReturn == null ? Minus : todayReturn >= 0 ? TrendingUp : TrendingDown,
       color: todayReturn == null ? 'text-muted-foreground' : todayReturn >= 0 ? 'text-gain' : 'text-loss',
       bgColor: todayReturn == null ? 'bg-muted' : todayReturn >= 0 ? 'bg-gain/10' : 'bg-loss/10',
     },
     {
       label: 'Ganancia Total',
-      value: `${totalReturn >= 0 ? '+' : '-'}${format(Math.abs(totalReturn))}`,
-      sub: `${totalReturn >= 0 ? '+' : '-'}${Math.abs(totalReturnPct ?? 0).toFixed(2)}%`,
+      value: <FormattedAmount value={totalReturn} showSign />,
+      sub: <PercentageChange value={totalReturnPct} />,
       icon: BarChart3,
       color: totalReturn >= 0 ? 'text-gain' : 'text-loss',
       bgColor: totalReturn >= 0 ? 'bg-gain/10' : 'bg-loss/10',
     },
     {
       label: 'Mejor Posicion',
-      value: bestPosition?.symbol || '--',
-      sub: bestPosition ? `${(bestPosition.changePct ?? 0) >= 0 ? '+' : ''}${(bestPosition.changePct ?? 0).toFixed(2)}%` : '--',
+      value: <span>{bestPosition?.symbol || '--'}</span>,
+      sub: <PercentageChange value={bestPosition?.changePct} />,
       icon: Trophy,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
@@ -63,7 +62,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
                 <card.icon className={`h-3.5 w-3.5 ${card.color}`} />
               </div>
             </div>
-            <p className="text-xl font-bold font-mono">{card.value}</p>
+            <p className="text-xl font-bold">{card.value}</p>
             <p className={`text-xs mt-1 ${card.color}`}>{card.sub}</p>
           </CardContent>
         </Card>

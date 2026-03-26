@@ -3,6 +3,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { FormattedAmount } from '@/components/shared/formatted-amount'
+import { PercentageChange } from '@/components/shared/percentage-change'
 import Link from 'next/link'
 
 type Props = {
@@ -14,7 +16,7 @@ type Props = {
 }
 
 export function PortfolioCard({ id, name, description, positions, livePrices }: Props) {
-  const { format, convert } = useCurrency()
+  const { convert } = useCurrency()
   const activePositions = positions.filter(p => p.quantity > 0)
   const totalValue = activePositions.reduce((sum, p) => {
     const liveData = livePrices?.[p.symbol]
@@ -36,10 +38,10 @@ export function PortfolioCard({ id, name, description, positions, livePrices }: 
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </CardHeader>
         <CardContent>
-          <p className="text-2xl font-bold font-mono">{format(totalValue)}</p>
+          <p className="text-2xl font-bold"><FormattedAmount value={totalValue} /></p>
           {totalCost > 0 && (
-            <p className={`text-sm font-mono ${gainPct >= 0 ? 'text-gain' : 'text-loss'}`}>
-              {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
+            <p className="text-sm">
+              <PercentageChange value={gainPct} />
             </p>
           )}
         </CardContent>

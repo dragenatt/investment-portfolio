@@ -1,7 +1,8 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { formatNumber, formatPercent } from '@/lib/utils/numbers'
+import { FormattedAmount } from '@/components/shared/formatted-amount'
+import { formatPercent } from '@/lib/utils/numbers'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 
 type Props = {
@@ -17,16 +18,14 @@ export function PriceDisplay({ price, change, changePct, currency = 'USD', size 
   const colorClass = isPositive ? 'text-gain' : 'text-loss'
 
   const sizes = {
-    sm: { price: 'text-sm font-mono', change: 'text-xs' },
-    md: { price: 'text-lg font-mono font-semibold', change: 'text-sm' },
-    lg: { price: 'text-3xl font-mono font-bold', change: 'text-base' },
+    sm: { price: 'text-sm', change: 'text-xs' },
+    md: { price: 'text-lg font-semibold', change: 'text-sm' },
+    lg: { price: 'text-3xl font-bold', change: 'text-base' },
   }
 
   return (
     <div className="flex items-baseline gap-2">
-      <span className={sizes[size].price}>
-        {currency === 'USD' ? '$' : currency === 'EUR' ? '\u20AC' : '$'}{formatNumber(price)}
-      </span>
+      <FormattedAmount value={price} from={currency} className={sizes[size].price} />
       {change != null && changePct != null && (
         <span className={cn(sizes[size].change, colorClass, 'flex items-center gap-0.5')}>
           {isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}

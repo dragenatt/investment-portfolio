@@ -2,7 +2,7 @@
 
 import { usePortfolios } from '@/lib/hooks/use-portfolios'
 import { useLivePrices } from '@/lib/hooks/use-live-prices'
-import { useCurrency } from '@/lib/hooks/use-currency'
+import { usePortfolioStats } from '@/lib/hooks/use-portfolio-stats'
 import { KpiCards } from '@/components/dashboard/kpi-cards'
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
@@ -18,7 +18,6 @@ export default function DashboardPage() {
   const { data: portfolios, isLoading } = usePortfolios()
   const [chartRange, setChartRange] = useState('30')
   const { data: chartData, isLoading: chartLoading } = usePortfolioHistory(chartRange)
-  const { convert, currency: displayCurrency } = useCurrency()
 
   const allSymbols = useMemo(() => {
     if (!portfolios) return []
@@ -32,79 +31,7 @@ export default function DashboardPage() {
   }, [portfolios])
 
   const { data: livePrices } = useLivePrices(allSymbols)
-
-  const stats = useMemo(() => {
-    if (!portfolios) return null
-
-    let totalValue = 0
-    let totalCost = 0
-    let positionCount = 0
-    const allocationMap: Record<string, number> = {}
-    const movers: Array<{ symbol: string; name: string; price: number; change: number; changePct: number; currency: string }> = []
-    let todayReturn = 0
-
-    for (const portfolio of portfolios) {
-      for (const pos of portfolio.positions || []) {
-        if (pos.quantity > 0) {
-          const liveData = livePrices?.[pos.symbol]
-          // Currency of the live price from Yahoo (e.g. USD for US stocks)
-          const priceCurrency = liveData?.currency || pos.currency || 'USD'
-          // Currency of the stored avg_cost
-          const costCurrency = pos.currency || 'USD'
-
-          // Convert live price to display currency, then compute value
-          const livePrice = liveData?.price ?? pos.avg_cost
-          const livePriceInDisplay = liveData
-            ? convert(livePrice, priceCurrency)
-            : convert(livePrice, costCurrency)
-          const value = pos.quantity * livePriceInDisplay
-
-          // Convert avg_cost to display currency, then compute cost
-          const avgCostInDisplay = convert(pos.avg_cost, costCurrency)
-          const cost = pos.quantity * avgCostInDisplay
-
-          totalValue += value
-          totalCost += cost
-          positionCount++
-          allocationMap[pos.asset_type] = (allocationMap[pos.asset_type] || 0) + value
-
-          if (liveData) {
-            const change = liveData.change ?? 0
-            const changePct = liveData.changePct ?? 0
-            // Convert today's change to display currency
-            const changeInDisplay = convert(change, priceCurrency)
-            todayReturn += pos.quantity * changeInDisplay
-            movers.push({
-              symbol: pos.symbol,
-              name: pos.symbol,
-              price: livePriceInDisplay,
-              change: changeInDisplay,
-              changePct,
-              currency: displayCurrency,
-            })
-          }
-        }
-      }
-    }
-
-    const totalReturn = totalValue - totalCost
-    const totalReturnPct = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0
-    const yesterdayValue = totalValue - todayReturn
-    const todayReturnPct = yesterdayValue > 0 ? (todayReturn / yesterdayValue) * 100 : 0
-
-    const allocation = Object.entries(allocationMap).map(([name, value]) => ({ name, value }))
-    const sortedMovers = [...movers].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
-    const topMovers = sortedMovers.slice(0, 5)
-
-    const bestGainer = [...movers].sort((a, b) => b.changePct - a.changePct)[0]
-    const bestPosition = bestGainer && bestGainer.changePct !== 0
-      ? { symbol: bestGainer.symbol, changePct: bestGainer.changePct }
-      : undefined
-
-    const hasPrices = movers.length > 0
-
-    return { totalValue, totalReturn, totalReturnPct, positionCount, allocation, topMovers, bestPosition, todayReturn: hasPrices ? todayReturn : undefined, todayReturnPct: hasPrices ? todayReturnPct : undefined }
-  }, [portfolios, livePrices, convert, displayCurrency])
+  const stats = usePortfolioStats(portfolios, livePrices)
 
   if (isLoading) {
     return (
@@ -123,13 +50,13 @@ export default function DashboardPage() {
 
       <ErrorBoundary>
         <KpiCards
-          totalValue={stats?.totalValue ?? 0}
-          totalReturn={stats?.totalReturn ?? 0}
-          totalReturnPct={stats?.totalReturnPct ?? 0}
-          positionCount={stats?.positionCount ?? 0}
-          bestPosition={stats?.bestPosition}
-          todayReturn={stats?.todayReturn}
-          todayReturnPct={stats?.todayReturnPct}
+          totalValue={stats.totalValue}
+          totalReturn={stats.totalReturn}
+          totalReturnPct={stats.totalReturnPct}
+          positionCount={stats.positionCount}
+          bestPosition={stats.bestPosition}
+          todayReturn={stats.todayReturn}
+          todayReturnPct={stats.todayReturnPct}
         />
       </ErrorBoundary>
 
@@ -145,14 +72,14 @@ export default function DashboardPage() {
         </div>
         <div className="lg:col-span-1">
           <ErrorBoundary>
-            <AllocationDonut data={stats?.allocation ?? []} />
+            <AllocationDonut data={stats.allocation} />
           </ErrorBoundary>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ErrorBoundary>
-          <TopMovers movers={stats?.topMovers ?? []} />
+          <TopMovers movers={stats.topMovers} />
         </ErrorBoundary>
         <ErrorBoundary>
           <RecentActivity />

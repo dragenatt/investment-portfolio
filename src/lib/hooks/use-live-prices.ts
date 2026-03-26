@@ -1,11 +1,5 @@
 import useSWR from 'swr'
-
-const fetcher = async (url: string) => {
-  const res = await fetch(url)
-  const json = await res.json()
-  if (json.error) throw new Error(json.error)
-  return json.data
-}
+import { apiFetcher } from '@/lib/api/fetcher'
 
 export function useLivePrices(symbols: string[]) {
   const unique = [...new Set(symbols)].sort()
@@ -13,7 +7,7 @@ export function useLivePrices(symbols: string[]) {
 
   return useSWR(
     key ? `/api/market/batch?symbols=${encodeURIComponent(key)}` : null,
-    fetcher,
+    apiFetcher,
     { refreshInterval: 30000 }
   )
 }
