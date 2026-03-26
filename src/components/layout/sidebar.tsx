@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Briefcase, TrendingUp, Eye, Bell, Settings, X } from 'lucide-react'
+import { LayoutDashboard, Briefcase, TrendingUp, Eye, Bell, GraduationCap, Settings, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect, useCallback } from 'react'
 
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/market', icon: TrendingUp, label: 'Mercados', desc: 'Explorar + comparar', shortcut: 'M' },
   { href: '/watchlist', icon: Eye, label: 'Watchlist', desc: 'Seguimiento de activos', shortcut: 'W' },
   { href: '/alerts', icon: Bell, label: 'Alertas', desc: 'Notificaciones + reglas', shortcut: 'L' },
+  { href: '/advisor', icon: GraduationCap, label: 'Asesor', desc: 'Perfil + simulación', shortcut: 'R' },
   { href: '/settings', icon: Settings, label: 'Configuracion', desc: 'Cuenta + preferencias', shortcut: 'S' },
 ]
 
