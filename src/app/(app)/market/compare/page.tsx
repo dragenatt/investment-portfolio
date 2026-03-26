@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, Suspense } from 'react'
+import { useState, useMemo, useCallback, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { apiFetcher } from '@/lib/api/fetcher'
@@ -15,7 +15,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -117,24 +116,15 @@ function SymbolDataFetcher({
   onData: (symbol: string, data: HistoryPoint[]) => void
   onError: (symbol: string, err: string) => void
 }) {
-  const { data, error, isLoading } = useHistory(symbol, range)
+  const { data, error } = useHistory(symbol, range)
 
-  // Use a ref-like approach to avoid infinite loops
-  const prevDataRef = useMemo(() => ({ reported: false, errReported: false }), [symbol, range])
+  useEffect(() => {
+    if (data) onData(symbol, data)
+  }, [data, symbol, onData])
 
-  if (data && !prevDataRef.reported) {
-    prevDataRef.reported = true
-    // Schedule for next tick to avoid setState during render
-    setTimeout(() => onData(symbol, data), 0)
-  }
-  if (error && !prevDataRef.errReported) {
-    prevDataRef.errReported = true
-    setTimeout(() => onError(symbol, error.message || 'Error al cargar datos'), 0)
-  }
-
-  if (isLoading) {
-    return null // loading handled at parent level
-  }
+  useEffect(() => {
+    if (error) onError(symbol, error.message || 'Error al cargar datos')
+  }, [error, symbol, onError])
 
   return null
 }
@@ -149,12 +139,9 @@ function QuoteDataFetcher({
 }) {
   const { data } = useQuote(symbol)
 
-  const prevRef = useMemo(() => ({ reported: false }), [symbol])
-
-  if (data && !prevRef.reported) {
-    prevRef.reported = true
-    setTimeout(() => onData(symbol, data), 0)
-  }
+  useEffect(() => {
+    if (data) onData(symbol, data)
+  }, [data, symbol, onData])
 
   return null
 }
@@ -164,12 +151,10 @@ function CompareTooltip({
   active,
   payload,
   label,
-  symbols,
 }: {
   active?: boolean
   payload?: Array<{ dataKey: string; value: number; color: string }>
   label?: string
-  symbols: string[]
 }) {
   if (!active || !payload || payload.length === 0) return null
   return (
@@ -689,7 +674,7 @@ function ComparePageInner() {
                       tickFormatter={(v: number) => `${v.toFixed(0)}%`}
                     />
                     <Tooltip
-                      content={<CompareTooltip symbols={symbols} />}
+                      content={<CompareTooltip />}
                       cursor={{
                         stroke: 'hsl(var(--muted-foreground))',
                         strokeWidth: 1,

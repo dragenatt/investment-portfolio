@@ -14,6 +14,7 @@ import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { OnboardingTour } from '@/components/shared/onboarding-tour'
 import { useMemo, useState } from 'react'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
+import { ArrowRightLeft, Bell, Download } from 'lucide-react'
 
 export default function DashboardPage() {
   const { data: portfolios, isLoading } = usePortfolios()
@@ -46,42 +47,138 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <OnboardingTour />
-      {/* Hero section: KPI + Chart integrated */}
-      <ErrorBoundary>
-        <div data-tour="hero-section">
-        <KpiCards
-          totalValue={stats.totalValue}
-          totalReturn={stats.totalReturn}
-          totalReturnPct={stats.totalReturnPct}
-          positionCount={stats.positionCount}
-          bestPosition={stats.bestPosition}
-          todayReturn={stats.todayReturn}
-          todayReturnPct={stats.todayReturnPct}
-          totalCost={stats.totalCost}
-        />
-        </div>
-      </ErrorBoundary>
 
-      <ErrorBoundary>
-        <div data-tour="portfolio-chart">
-        <PortfolioChart
-          data={chartData ?? []}
-          isLoading={chartLoading}
-          onPeriodChange={setChartRange}
-        />
+      {/* Editorial header + quick action pills */}
+      <div className="flex items-start justify-between gap-6 flex-wrap">
+        <div className="space-y-1">
+          <h1
+            className="font-bold tracking-tight"
+            style={{
+              fontFamily: 'var(--serif)',
+              fontSize: 'clamp(28px, 3.3vw, 44px)',
+              letterSpacing: '-0.03em',
+            }}
+          >
+            Panel de control
+          </h1>
+          <p
+            style={{
+              color: 'var(--muted)',
+              fontSize: '14px',
+              fontWeight: 600,
+              maxWidth: '62ch',
+            }}
+          >
+            Resumen de tu portafolio de inversiones, rendimiento y distribución de activos.
+          </p>
         </div>
-      </ErrorBoundary>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          {/* Allocation donut now gets full width of 2/3 */}
+        {/* Quick action pills */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-full transition-colors hover:bg-muted/50"
+            style={{ border: '1px solid var(--hair)' }}
+          >
+            <ArrowRightLeft className="h-3.5 w-3.5" />
+            Transacción
+            <kbd
+              className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded"
+              style={{ border: '1px solid var(--hair)', color: 'var(--muted)' }}
+            >
+              T
+            </kbd>
+          </button>
+          <button
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-full transition-colors hover:bg-muted/50"
+            style={{ border: '1px solid var(--hair)' }}
+          >
+            <Bell className="h-3.5 w-3.5" />
+            Alerta
+            <kbd
+              className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded"
+              style={{ border: '1px solid var(--hair)', color: 'var(--muted)' }}
+            >
+              A
+            </kbd>
+          </button>
+          <button
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-full transition-colors hover:bg-muted/50"
+            style={{ border: '1px solid var(--hair)' }}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Exportar
+            <kbd
+              className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded"
+              style={{ border: '1px solid var(--hair)', color: 'var(--muted)' }}
+            >
+              E
+            </kbd>
+          </button>
+        </div>
+      </div>
+
+      {/* Bento grid: portfolio summary (1.1fr) | market context (0.9fr) */}
+      <div
+        className="grid gap-6"
+        style={{ gridTemplateColumns: '1.1fr 0.9fr' }}
+      >
+        {/* Left column — portfolio summary */}
+        <div className="space-y-6">
+          <ErrorBoundary>
+            <div data-tour="hero-section">
+              <KpiCards
+                totalValue={stats.totalValue}
+                totalReturn={stats.totalReturn}
+                totalReturnPct={stats.totalReturnPct}
+                positionCount={stats.positionCount}
+                bestPosition={stats.bestPosition}
+                todayReturn={stats.todayReturn}
+                todayReturnPct={stats.todayReturnPct}
+                totalCost={stats.totalCost}
+              />
+            </div>
+          </ErrorBoundary>
+
+          <ErrorBoundary>
+            <div data-tour="portfolio-chart">
+              <PortfolioChart
+                data={chartData ?? []}
+                isLoading={chartLoading}
+                onPeriodChange={setChartRange}
+              />
+            </div>
+          </ErrorBoundary>
+
+          {/* Action buttons row */}
+          <div className="flex items-center gap-3">
+            <button
+              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-muted/50"
+              style={{ border: '1px solid var(--hair)' }}
+            >
+              Revisar posiciones
+            </button>
+            <button
+              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-muted/50"
+              style={{ border: '1px solid var(--hair)' }}
+            >
+              Chequeo de riesgo
+            </button>
+            <button
+              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-muted/50"
+              style={{ border: '1px solid var(--hair)' }}
+            >
+              Rebalancear
+            </button>
+          </div>
+        </div>
+
+        {/* Right column — market context */}
+        <div className="space-y-6">
           <ErrorBoundary>
             <AllocationDonut data={stats.allocation} />
           </ErrorBoundary>
-        </div>
-        <div className="lg:col-span-1">
           <ErrorBoundary>
             <TopMovers movers={stats.topMovers} />
           </ErrorBoundary>

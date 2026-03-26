@@ -13,10 +13,11 @@ import { FormattedAmount } from '@/components/shared/formatted-amount'
 import { useFundamentals } from '@/lib/hooks/use-fundamentals'
 import { useEvents } from '@/lib/hooks/use-events'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Plus, Eye, AlertCircle, ArrowUp, ArrowDown, TrendingUp, Briefcase } from 'lucide-react'
+import { Plus, Eye, AlertCircle, ArrowUp, ArrowDown, TrendingUp, Briefcase, GitCompareArrows } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSWRConfig } from 'swr'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -258,6 +259,12 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <Link href={`/market/compare?symbols=${encodeURIComponent(decodedSymbol)}`}>
+        <Button variant="outline" className="w-full rounded-xl h-11 gap-2">
+          <GitCompareArrows className="h-4 w-4" /> Comparar con...
+        </Button>
+      </Link>
 
       {/* ═══════════════════════════════════════════════════════════════
           5. ABOUT SECTION — Company description

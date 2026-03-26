@@ -39,22 +39,48 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
   const investedAmount = totalCost != null ? totalCost : totalValue - totalReturn
 
   return (
-    <div className="space-y-4">
-      {/* Hero section — Robinhood style */}
-      <div className="space-y-1">
+    <div className="space-y-5">
+      {/* Hero section — editorial style */}
+      <div className="space-y-2">
         <div className="flex items-center gap-3">
-          <h2 className="text-sm text-muted-foreground font-medium">Valor del portafolio</h2>
+          <h2
+            className="text-xs font-extrabold uppercase tracking-widest"
+            style={{ color: 'var(--muted)', letterSpacing: '.08em' }}
+          >
+            Valor del portafolio
+          </h2>
           <button
             onClick={() => setBalanceVisible(v => !v)}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="transition-colors"
+            style={{ color: 'var(--muted)' }}
             aria-label={balanceVisible ? 'Ocultar saldo' : 'Mostrar saldo'}
           >
             {balanceVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
           </button>
+          <Badge
+            variant="outline"
+            className="text-xs gap-1.5 ml-auto"
+            style={{
+              borderColor: marketOpen ? 'color-mix(in srgb, var(--good) 40%, transparent)' : 'color-mix(in srgb, var(--muted) 40%, transparent)',
+            }}
+          >
+            <span
+              className={`inline-block h-1.5 w-1.5 rounded-full ${marketOpen ? 'animate-pulse' : ''}`}
+              style={{ backgroundColor: marketOpen ? 'var(--good)' : 'var(--muted)' }}
+            />
+            {marketOpen ? 'Mercado abierto' : 'Mercado cerrado'}
+          </Badge>
         </div>
 
         <div className="flex items-baseline gap-3">
-          <span className="text-3xl font-bold tracking-tight">
+          <span
+            className="font-bold tracking-tight"
+            style={{
+              fontFamily: 'var(--serif)',
+              fontSize: 'clamp(28px, 3.3vw, 44px)',
+              letterSpacing: '-0.03em',
+            }}
+          >
             {balanceVisible ? <FormattedAmount value={totalValue} /> : hiddenText}
           </span>
         </div>
@@ -62,78 +88,204 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-1.5">
             {isPositive ? (
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
+              <TrendingUp className="h-4 w-4" style={{ color: 'var(--good)' }} />
             ) : (
-              <TrendingDown className="h-4 w-4 text-red-500" />
+              <TrendingDown className="h-4 w-4" style={{ color: 'var(--bad)' }} />
             )}
-            <span className={`text-sm font-medium ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
+            <span className="text-sm font-medium" style={{ color: isPositive ? 'var(--good)' : 'var(--bad)' }}>
               {balanceVisible ? <FormattedAmount value={totalReturn} showSign /> : hiddenText}
             </span>
-            <span className={`text-sm ${isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
-              ({balanceVisible ? <PercentageChange value={totalReturnPct} className="text-sm" /> : hiddenText})
+            {/* Delta badge — pill shape */}
+            <span
+              className="inline-flex items-center font-mono text-xs px-2 py-0.5"
+              style={{
+                borderRadius: '999px',
+                border: `1px solid ${isPositive ? 'var(--good)' : 'var(--bad)'}`,
+                backgroundColor: isPositive
+                  ? 'color-mix(in srgb, var(--good) 10%, transparent)'
+                  : 'color-mix(in srgb, var(--bad) 10%, transparent)',
+                color: isPositive ? 'var(--good)' : 'var(--bad)',
+                fontSize: '12px',
+              }}
+            >
+              {balanceVisible ? <PercentageChange value={totalReturnPct} className="text-xs" /> : hiddenText}
             </span>
           </div>
-          <Badge
-            variant="outline"
-            className={`text-xs gap-1.5 ${marketOpen ? 'border-emerald-500/30' : 'border-muted-foreground/30'}`}
-          >
-            <span className={`inline-block h-1.5 w-1.5 rounded-full ${marketOpen ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`} />
-            {marketOpen ? 'Mercado abierto' : 'Mercado cerrado'}
-          </Badge>
         </div>
       </div>
 
-      {/* Three metric cards */}
+      {/* Three metric cards — glassmorphic with gradient blob */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="rounded-2xl border-border shadow-sm">
-          <CardContent className="p-4">
+        {/* Valor Invertido */}
+        <Card
+          className="relative overflow-hidden"
+          style={{
+            borderRadius: '16px',
+            border: '1px solid var(--hair)',
+            background: 'var(--paper)',
+          }}
+        >
+          {/* Decorative gradient blob */}
+          <div
+            className="pointer-events-none absolute -top-6 -right-6 h-20 w-20 rounded-full opacity-30 blur-2xl"
+            style={{ background: 'var(--brand)' }}
+          />
+          <CardContent className="p-4 relative z-10">
             <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 rounded-lg bg-primary/10">
-                <Wallet className="h-3.5 w-3.5 text-primary" />
+              <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 10%, transparent)' }}>
+                <Wallet className="h-3.5 w-3.5" style={{ color: 'var(--brand)' }} />
               </div>
-              <span className="text-xs text-muted-foreground font-medium">Valor Invertido</span>
+              <span
+                className="font-extrabold uppercase"
+                style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted)' }}
+              >
+                Valor Invertido
+              </span>
               <FinanceTooltip term="Valor Invertido" />
             </div>
-            <p className="text-lg font-bold">
+            <p
+              className="font-bold"
+              style={{ fontFamily: 'var(--serif)', fontSize: '22px', letterSpacing: '-0.02em' }}
+            >
               {balanceVisible ? <FormattedAmount value={investedAmount} /> : hiddenText}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">{positionCount} posiciones</p>
+            <p style={{ fontSize: '13px', fontWeight: 650, color: 'var(--muted)', marginTop: '4px' }}>
+              {positionCount} posiciones
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border shadow-sm">
-          <CardContent className="p-4">
+        {/* Ganancia Hoy */}
+        <Card
+          className="relative overflow-hidden"
+          style={{
+            borderRadius: '16px',
+            border: '1px solid var(--hair)',
+            background: 'var(--paper)',
+          }}
+        >
+          <div
+            className="pointer-events-none absolute -top-6 -right-6 h-20 w-20 rounded-full opacity-30 blur-2xl"
+            style={{ background: todayReturn == null ? 'var(--muted)' : (todayReturn ?? 0) >= 0 ? 'var(--good)' : 'var(--bad)' }}
+          />
+          <CardContent className="p-4 relative z-10">
             <div className="flex items-center gap-2 mb-2">
-              <div className={`p-1.5 rounded-lg ${todayReturn == null ? 'bg-muted' : (todayReturn ?? 0) >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-                <CircleDollarSign className={`h-3.5 w-3.5 ${todayReturn == null ? 'text-muted-foreground' : (todayReturn ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`} />
+              <div
+                className="p-1.5 rounded-lg"
+                style={{
+                  backgroundColor: todayReturn == null
+                    ? 'color-mix(in srgb, var(--muted) 10%, transparent)'
+                    : (todayReturn ?? 0) >= 0
+                      ? 'color-mix(in srgb, var(--good) 10%, transparent)'
+                      : 'color-mix(in srgb, var(--bad) 10%, transparent)',
+                }}
+              >
+                <CircleDollarSign
+                  className="h-3.5 w-3.5"
+                  style={{
+                    color: todayReturn == null ? 'var(--muted)' : (todayReturn ?? 0) >= 0 ? 'var(--good)' : 'var(--bad)',
+                  }}
+                />
               </div>
-              <span className="text-xs text-muted-foreground font-medium">Ganancia Hoy</span>
+              <span
+                className="font-extrabold uppercase"
+                style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted)' }}
+              >
+                Ganancia Hoy
+              </span>
               <FinanceTooltip term="Ganancia Hoy" />
             </div>
-            <p className="text-lg font-bold">
+            <p
+              className="font-bold"
+              style={{ fontFamily: 'var(--serif)', fontSize: '22px', letterSpacing: '-0.02em' }}
+            >
               {balanceVisible ? <FormattedAmount value={todayReturn} showSign /> : hiddenText}
             </p>
-            <p className="text-xs mt-1">
-              {balanceVisible ? <PercentageChange value={todayReturnPct} className="text-xs" /> : <span className="text-muted-foreground">{hiddenText}</span>}
-            </p>
+            <div style={{ marginTop: '4px' }}>
+              {balanceVisible ? (
+                <span
+                  className="inline-flex items-center font-mono px-2 py-0.5"
+                  style={{
+                    borderRadius: '999px',
+                    fontSize: '12px',
+                    border: `1px solid ${(todayReturn ?? 0) >= 0 ? 'var(--good)' : 'var(--bad)'}`,
+                    backgroundColor: (todayReturn ?? 0) >= 0
+                      ? 'color-mix(in srgb, var(--good) 10%, transparent)'
+                      : 'color-mix(in srgb, var(--bad) 10%, transparent)',
+                    color: (todayReturn ?? 0) >= 0 ? 'var(--good)' : 'var(--bad)',
+                  }}
+                >
+                  <PercentageChange value={todayReturnPct} className="text-xs" />
+                </span>
+              ) : (
+                <span style={{ color: 'var(--muted)', fontSize: '13px' }}>{hiddenText}</span>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-border shadow-sm">
-          <CardContent className="p-4">
+        {/* Ganancia Total */}
+        <Card
+          className="relative overflow-hidden"
+          style={{
+            borderRadius: '16px',
+            border: '1px solid var(--hair)',
+            background: 'var(--paper)',
+          }}
+        >
+          <div
+            className="pointer-events-none absolute -top-6 -right-6 h-20 w-20 rounded-full opacity-30 blur-2xl"
+            style={{ background: totalReturn >= 0 ? 'var(--good)' : 'var(--bad)' }}
+          />
+          <CardContent className="p-4 relative z-10">
             <div className="flex items-center gap-2 mb-2">
-              <div className={`p-1.5 rounded-lg ${totalReturn >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-                <BarChart3 className={`h-3.5 w-3.5 ${totalReturn >= 0 ? 'text-emerald-500' : 'text-red-500'}`} />
+              <div
+                className="p-1.5 rounded-lg"
+                style={{
+                  backgroundColor: totalReturn >= 0
+                    ? 'color-mix(in srgb, var(--good) 10%, transparent)'
+                    : 'color-mix(in srgb, var(--bad) 10%, transparent)',
+                }}
+              >
+                <BarChart3
+                  className="h-3.5 w-3.5"
+                  style={{ color: totalReturn >= 0 ? 'var(--good)' : 'var(--bad)' }}
+                />
               </div>
-              <span className="text-xs text-muted-foreground font-medium">Ganancia Total</span>
+              <span
+                className="font-extrabold uppercase"
+                style={{ fontSize: '12px', letterSpacing: '.08em', color: 'var(--muted)' }}
+              >
+                Ganancia Total
+              </span>
               <FinanceTooltip term="Ganancia Total" />
             </div>
-            <p className="text-lg font-bold">
+            <p
+              className="font-bold"
+              style={{ fontFamily: 'var(--serif)', fontSize: '22px', letterSpacing: '-0.02em' }}
+            >
               {balanceVisible ? <FormattedAmount value={totalReturn} showSign /> : hiddenText}
             </p>
-            <p className="text-xs mt-1">
-              {balanceVisible ? <PercentageChange value={totalReturnPct} className="text-xs" /> : <span className="text-muted-foreground">{hiddenText}</span>}
-            </p>
+            <div style={{ marginTop: '4px' }}>
+              {balanceVisible ? (
+                <span
+                  className="inline-flex items-center font-mono px-2 py-0.5"
+                  style={{
+                    borderRadius: '999px',
+                    fontSize: '12px',
+                    border: `1px solid ${totalReturn >= 0 ? 'var(--good)' : 'var(--bad)'}`,
+                    backgroundColor: totalReturn >= 0
+                      ? 'color-mix(in srgb, var(--good) 10%, transparent)'
+                      : 'color-mix(in srgb, var(--bad) 10%, transparent)',
+                    color: totalReturn >= 0 ? 'var(--good)' : 'var(--bad)',
+                  }}
+                >
+                  <PercentageChange value={totalReturnPct} className="text-xs" />
+                </span>
+              ) : (
+                <span style={{ color: 'var(--muted)', fontSize: '13px' }}>{hiddenText}</span>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
