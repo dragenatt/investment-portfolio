@@ -23,7 +23,8 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const body = await req.json()
+  let body
+  try { body = await req.json() } catch { return error('Invalid JSON', 400) }
   const result = await validate(CreateWatchlistSchema, body)
   if ('error' in result) return result.error
 

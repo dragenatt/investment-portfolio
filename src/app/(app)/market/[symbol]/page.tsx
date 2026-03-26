@@ -138,7 +138,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                   : <ArrowDown className="h-3.5 w-3.5" />
                 }
                 <FormattedAmount
-                  value={quote.change}
+                  value={quote.change ?? 0}
                   from={quote.currency}
                   showSign
                   className="text-sm font-medium"
@@ -309,7 +309,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
               {fundamentals.week52_high && fundamentals.week52_low && quote?.price && (() => {
                 const high = Number(fundamentals.week52_high)
                 const low = Number(fundamentals.week52_low)
-                const pct = ((quote.price - low) / (high - low)) * 100
+                const pct = high === low ? 50 : ((quote.price - low) / (high - low)) * 100
                 return (
                   <div className="mt-4">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">

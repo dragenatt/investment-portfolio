@@ -12,7 +12,8 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const pid = url.searchParams.get('pid')
   const limitParam = url.searchParams.get('limit')
-  const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined
+  const parsed = limitParam ? parseInt(limitParam, 10) : NaN
+  const limit = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 100) : undefined
 
   let query = supabase
     .from('transactions')
@@ -47,7 +48,8 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const body = await req.json()
+  let body
+  try { body = await req.json() } catch { return error('Invalid JSON', 400) }
   const result = await validate(CreateTransactionSchema, body)
   if ('error' in result) return result.error
 

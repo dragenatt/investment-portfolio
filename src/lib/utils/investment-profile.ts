@@ -75,8 +75,8 @@ export const RENDIMIENTOS: Record<PerfilNivel, number> = {
 // ── Helper ─────────────────────────────────────────────────────────────────────
 
 function gaussianRandom(mean: number, stddev: number): number {
-  const u1 = Math.random()
-  const u2 = Math.random()
+  const u1 = Math.random() || Number.MIN_VALUE
+  const u2 = Math.random() || Number.MIN_VALUE
   const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
   return mean + z * stddev
 }
@@ -164,7 +164,7 @@ export function simulacionInversion(
   const valorFinal = valor
   const ganancia = valorFinal - capitalAportado
   const rentabilidadTotal =
-    capitalAportado > 0 ? (ganancia / capitalAportado) * 100 : 0
+    capitalAportado > 0 ? (ganancia / capitalAportado) * 100 : ganancia > 0 ? 100 : 0
 
   return { historial, capitalAportado, ganancia, valorFinal, rentabilidadTotal }
 }
@@ -229,11 +229,15 @@ export function aporteNecesario(
   años: number,
   rendimiento: number,
 ): number {
+  if (años <= 0) return meta - inicial > 0 ? Infinity : 0
   const r = Math.pow(1 + rendimiento, 1 / 12) - 1
   const n = años * 12
+  if (r === 0) return n > 0 ? (meta - inicial) / n : Infinity
   const crecimientoInicial = inicial * Math.pow(1 + r, n)
-  const aporte = (meta - crecimientoInicial) / ((Math.pow(1 + r, n) - 1) / r)
-  return aporte
+  const factor = (Math.pow(1 + r, n) - 1) / r
+  if (factor === 0) return Infinity
+  const aporte = (meta - crecimientoInicial) / factor
+  return Math.max(0, aporte)
 }
 
 export function obtenerRecomendacion(

@@ -171,16 +171,18 @@ export default function AdvisorPage() {
   const canAdvance = useCallback((): boolean => {
     switch (step) {
       case 0:
-        return form.edad !== '' && form.ingresos !== ''
+        return Number(form.edad) > 0 && Number(form.ingresos) > 0
       case 1:
         return form.experiencia > 0 && form.reaccion > 0
       case 2:
-        return form.horizonte !== '' && form.estabilidad > 0
+        return Number(form.horizonte) >= 1 && form.estabilidad > 0
       case 3:
         return (
+          Number(form.capitalInicial) >= 0 &&
           form.capitalInicial !== '' &&
+          Number(form.aportacionMensual) >= 0 &&
           form.aportacionMensual !== '' &&
-          form.meta !== ''
+          Number(form.meta) > 0
         )
       default:
         return false

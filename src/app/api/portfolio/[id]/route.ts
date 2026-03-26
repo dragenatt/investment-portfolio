@@ -22,7 +22,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const body = await req.json()
+  let body
+  try { body = await req.json() } catch { return error('Invalid JSON', 400) }
   const result = await validate(UpdatePortfolioSchema, body)
   if ('error' in result) return result.error
 

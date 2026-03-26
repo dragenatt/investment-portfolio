@@ -17,6 +17,9 @@ export function convertCurrency(
   rates: Record<string, number>
 ): number {
   if (from === to) return amount
-  const inUsd = amount / rates[from]
-  return inUsd * rates[to]
+  const fromRate = rates[from]
+  const toRate = rates[to]
+  if (!fromRate || !toRate) return amount // unknown currency — return unchanged
+  const inUsd = amount / fromRate
+  return inUsd * toRate
 }
