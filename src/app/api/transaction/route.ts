@@ -64,7 +64,7 @@ export async function POST(req: Request) {
   // Find or create position
   let { data: position } = await supabase
     .from('positions')
-    .select('id, quantity')
+    .select('id, quantity, currency')
     .eq('portfolio_id', txn.portfolio_id)
     .eq('symbol', txn.symbol)
     .single()
@@ -114,15 +114,17 @@ export async function POST(req: Request) {
   // Recalculate position from all transactions
   const { data: allTxns } = await supabase
     .from('transactions')
-    .select('type, quantity, price, fees')
+    .select('type, quantity, price, fees, currency')
     .eq('position_id', position.id)
     .order('executed_at', { ascending: true })
 
   if (allTxns) {
     const recalc = recalculatePosition(allTxns as Array<{ type: 'buy' | 'sell' | 'dividend' | 'split'; quantity: number; price: number; fees: number }>)
+    // Use the currency from the most recent transaction (last in the ordered list)
+    const latestCurrency = allTxns[allTxns.length - 1]?.currency ?? txn.currency
     await supabase
       .from('positions')
-      .update({ quantity: recalc.quantity, avg_cost: recalc.avg_cost })
+      .update({ quantity: recalc.quantity, avg_cost: recalc.avg_cost, currency: latestCurrency })
       .eq('id', position.id)
   }
 
