@@ -8,6 +8,10 @@ export function useLivePrices(symbols: string[]) {
   return useSWR(
     key ? `/api/market/batch?symbols=${encodeURIComponent(key)}` : null,
     apiFetcher,
-    { refreshInterval: 30000 }
+    {
+      refreshInterval: 60_000,          // refresh every 60s (was 30s)
+      dedupingInterval: 30_000,         // deduplicate identical requests within 30s
+      keepPreviousData: true,           // show stale data while revalidating
+    }
   )
 }

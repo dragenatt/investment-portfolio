@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server'
-import { success, error } from '@/lib/api/response'
-import { getQuote } from '@/lib/services/market'
+import { error } from '@/lib/api/response'
+import { getBatchQuotes } from '@/lib/services/market'
+import { NextResponse } from 'next/server'
 
 export async function GET(req: Request) {
   const supabase = await createServerSupabase()
@@ -12,25 +13,10 @@ export async function GET(req: Request) {
   if (!symbolsParam) return error('symbols required', 400)
 
   const symbols = symbolsParam.split(',').slice(0, 20)
-  const results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string }> = {}
+  const results = await getBatchQuotes(symbols)
 
-  await Promise.all(
-    symbols.map(async (symbol) => {
-      try {
-        const quote = await getQuote(symbol.trim())
-        if (quote) {
-          results[quote.symbol] = {
-            price: quote.price,
-            change: quote.change,
-            changePct: quote.changePct,
-            currency: quote.currency,
-          }
-        }
-      } catch {
-        // skip failed quotes
-      }
-    })
-  )
-
-  return success(results)
+  // Cache-Control: serve cached for 30s, allow stale for 60s while revalidating
+  const res = NextResponse.json({ data: results, error: null }, { status: 200 })
+  res.headers.set('Cache-Control', 's-maxage=30, stale-while-revalidate=60')
+  return res
 }

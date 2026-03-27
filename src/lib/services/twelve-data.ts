@@ -135,3 +135,54 @@ export async function getHistory(
     .filter((p: TwelveDataBar) => p.close !== null)
     .reverse() // Twelve Data returns newest first, we want chronological
 }
+
+/**
+ * Batch quote endpoint — fetches up to 20 symbols in a single API call.
+ * Twelve Data /quote?symbol=AAPL,MSFT,GOOG returns all quotes at once.
+ * Uses 1 credit per symbol but only 1 HTTP round-trip.
+ */
+export async function getBatchQuotes(
+  symbols: string[]
+): Promise<Record<string, TwelveDataQuote>> {
+  const apiKey = getApiKey()
+  if (!apiKey || symbols.length === 0) return {}
+
+  // Twelve Data accepts comma-separated symbols (max ~120 per call)
+  const symbolStr = symbols.slice(0, 20).join(',')
+  const res = await fetch(
+    `${BASE}/quote?symbol=${encodeURIComponent(symbolStr)}&apikey=${apiKey}`,
+    { next: { revalidate: 30 } }
+  )
+  if (!res.ok) return {}
+
+  const data = await res.json()
+  const results: Record<string, TwelveDataQuote> = {}
+
+  // Single symbol returns an object; multiple returns an array
+  const items: Array<Record<string, string>> = Array.isArray(data) ? data : [data]
+
+  for (const item of items) {
+    if (item.status === 'error' || item.code) continue
+
+    const price = item.close ? parseFloat(item.close) : null
+    const previousClose = item.previous_close ? parseFloat(item.previous_close) : null
+    const change = item.change ? parseFloat(item.change) : null
+    const changePct = item.percent_change ? parseFloat(item.percent_change) : null
+
+    const sym = item.symbol || ''
+    if (sym) {
+      results[sym] = {
+        symbol: sym,
+        price,
+        previousClose,
+        change,
+        changePct,
+        currency: item.currency || 'USD',
+        exchange: item.exchange || '',
+        name: item.name || sym,
+      }
+    }
+  }
+
+  return results
+}
