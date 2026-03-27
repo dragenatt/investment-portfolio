@@ -1,27 +1,22 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { validate } from '@/lib/api/validate'
-import { RenameWatchlistSchema } from '@/lib/schemas/watchlist-manage'
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const { data: wl } = await supabase
+  const { data, error: dbError } = await supabase
     .from('watchlists')
-    .select('id')
+    .select('*, watchlist_items(*)')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
-  if (!wl) return error('Watchlist not found', 404)
 
-  await supabase.from('watchlist_items').delete().eq('watchlist_id', id)
-  const { error: delErr } = await supabase.from('watchlists').delete().eq('id', id)
-  if (delErr) return error(delErr.message, 500)
-
-  return success({ deleted: true })
+  if (dbError) return error(dbError.message, 500)
+  if (!data) return error('Watchlist not found', 404)
+  return success(data)
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -30,16 +25,51 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const body = await req.json()
-  const result = await validate(RenameWatchlistSchema, body)
-  if ('error' in result) return result.error
+  let body
+  try { body = await req.json() } catch { return error('Invalid JSON', 400) }
 
-  const { error: updateErr } = await supabase
+  // Verify ownership
+  const { data: watchlist, error: getError } = await supabase
     .from('watchlists')
-    .update({ name: result.data.name })
+    .select('user_id')
     .eq('id', id)
-    .eq('user_id', user.id)
-  if (updateErr) return error(updateErr.message, 500)
+    .single()
 
-  return success({ updated: true })
+  if (getError || !watchlist) return error('Watchlist not found', 404)
+  if (watchlist.user_id !== user.id) return error('Forbidden', 403)
+
+  const { data, error: dbError } = await supabase
+    .from('watchlists')
+    .update(body)
+    .eq('id', id)
+    .select('*, watchlist_items(*)')
+    .single()
+
+  if (dbError) return error(dbError.message, 500)
+  return success(data)
+}
+
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const supabase = await createServerSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return error('Unauthorized', 401)
+
+  // Verify ownership
+  const { data: watchlist, error: getError } = await supabase
+    .from('watchlists')
+    .select('user_id')
+    .eq('id', id)
+    .single()
+
+  if (getError || !watchlist) return error('Watchlist not found', 404)
+  if (watchlist.user_id !== user.id) return error('Forbidden', 403)
+
+  const { error: dbError } = await supabase
+    .from('watchlists')
+    .delete()
+    .eq('id', id)
+
+  if (dbError) return error(dbError.message, 500)
+  return success(null)
 }

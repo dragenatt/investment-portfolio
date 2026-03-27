@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Calendar, TrendingUp, DollarSign, Megaphone } from 'lucide-react'
 
@@ -26,6 +27,8 @@ const EVENT_LABELS = {
 }
 
 export function EventsTimeline({ events }: { events: MarketEvent[] }) {
+  const [now] = useState(() => Date.now())
+
   if (events.length === 0) {
     return (
       <Card className="rounded-2xl border-border shadow-sm">
@@ -51,7 +54,7 @@ export function EventsTimeline({ events }: { events: MarketEvent[] }) {
             const label = EVENT_LABELS[event.event_type] || event.event_type
             const date = new Date(event.event_date + 'T00:00:00')
             const formatted = date.toLocaleDateString('es-MX', { month: 'short', day: 'numeric', year: 'numeric' })
-            const daysUntil = Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            const daysUntil = Math.ceil((date.getTime() - now) / (1000 * 60 * 60 * 24))
 
             return (
               <div key={event.id} className="flex items-start gap-3">

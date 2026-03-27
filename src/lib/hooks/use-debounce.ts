@@ -28,12 +28,14 @@ export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  return useCallback(
-    ((...args: unknown[]) => {
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- intentional: stable debounced callback
+  const debounced = useCallback(
+    (...args: unknown[]) => {
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => fnRef.current(...args), delay)
-    }) as T,
+    },
     [delay]
   )
+
+  return debounced as T
 }

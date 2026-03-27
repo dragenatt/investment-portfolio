@@ -27,6 +27,31 @@ type Position = {
 
 type SortKey = 'symbol' | 'quantity' | 'avg_cost' | 'currentPrice' | 'value' | 'gainLoss' | 'gainPct'
 
+function SortIcon({ k, sortKey, sortDir }: { k: SortKey; sortKey: SortKey; sortDir: 'asc' | 'desc' }) {
+  if (sortKey !== k) return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />
+  return sortDir === 'asc'
+    ? <ArrowUp className="ml-1 h-3 w-3" />
+    : <ArrowDown className="ml-1 h-3 w-3" />
+}
+
+function SortHeader({ k, children, className, sortKey, sortDir, onToggle }: {
+  k: SortKey; children: React.ReactNode; className?: string;
+  sortKey: SortKey; sortDir: 'asc' | 'desc'; onToggle: (k: SortKey) => void
+}) {
+  return (
+    <button
+      className={cn(
+        'inline-flex items-center gap-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors',
+        className,
+      )}
+      onClick={() => onToggle(k)}
+    >
+      {children}
+      <SortIcon k={k} sortKey={sortKey} sortDir={sortDir} />
+    </button>
+  )
+}
+
 export function PositionsTable({ positions }: { positions: Position[] }) {
   const { convert } = useCurrency()
   const router = useRouter()
@@ -72,26 +97,6 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
     else { setSortKey(key); setSortDir('desc') }
   }
 
-  const SortIcon = ({ k }: { k: SortKey }) => {
-    if (sortKey !== k) return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />
-    return sortDir === 'asc'
-      ? <ArrowUp className="ml-1 h-3 w-3" />
-      : <ArrowDown className="ml-1 h-3 w-3" />
-  }
-
-  const SortHeader = ({ k, children, className }: { k: SortKey; children: React.ReactNode; className?: string }) => (
-    <button
-      className={cn(
-        'inline-flex items-center gap-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors',
-        className,
-      )}
-      onClick={() => toggleSort(k)}
-    >
-      {children}
-      <SortIcon k={k} />
-    </button>
-  )
-
   const handleRowClick = (symbol: string) => {
     router.push(`/market/${encodeURIComponent(symbol)}`)
   }
@@ -103,23 +108,23 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead><SortHeader k="symbol">Símbolo</SortHeader></TableHead>
-              <TableHead className="text-right"><SortHeader k="quantity" className="justify-end">Cantidad</SortHeader></TableHead>
+              <TableHead><SortHeader sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} k="symbol">Símbolo</SortHeader></TableHead>
+              <TableHead className="text-right"><SortHeader sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} k="quantity" className="justify-end">Cantidad</SortHeader></TableHead>
               <TableHead className="text-right">
                 <div className="flex items-center justify-end gap-1">
-                  <SortHeader k="avg_cost" className="justify-end">Precio Prom.</SortHeader>
+                  <SortHeader sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} k="avg_cost" className="justify-end">Precio Prom.</SortHeader>
                   <FinanceTooltip term="Precio Promedio" />
                 </div>
               </TableHead>
-              <TableHead className="text-right"><SortHeader k="currentPrice" className="justify-end">Precio Actual</SortHeader></TableHead>
-              <TableHead className="text-right"><SortHeader k="value" className="justify-end">Valor</SortHeader></TableHead>
+              <TableHead className="text-right"><SortHeader sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} k="currentPrice" className="justify-end">Precio Actual</SortHeader></TableHead>
+              <TableHead className="text-right"><SortHeader sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} k="value" className="justify-end">Valor</SortHeader></TableHead>
               <TableHead className="text-right">
                 <div className="flex items-center justify-end gap-1">
-                  <SortHeader k="gainLoss" className="justify-end">G/P $</SortHeader>
+                  <SortHeader sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} k="gainLoss" className="justify-end">G/P $</SortHeader>
                   <FinanceTooltip term="G/P" />
                 </div>
               </TableHead>
-              <TableHead className="text-right"><SortHeader k="gainPct" className="justify-end">G/P %</SortHeader></TableHead>
+              <TableHead className="text-right"><SortHeader sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} k="gainPct" className="justify-end">G/P %</SortHeader></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

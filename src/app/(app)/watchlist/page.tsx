@@ -11,9 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorDisplay } from '@/components/shared/error-display'
-import { Plus, Search, TrendingUp, TrendingDown, Loader2, Pencil, Trash2, Eye, ArrowUp, ArrowDown, ArrowUpDown, Check, ShoppingCart } from 'lucide-react'
+import { Plus, Search, TrendingUp, TrendingDown, Loader2, Pencil, Trash2, Eye, ArrowUp, ArrowDown, ArrowUpDown, Check } from 'lucide-react'
 import { useTrade } from '@/lib/contexts/trade-context'
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useDebounce } from '@/lib/hooks/use-debounce'
 import { useSWRConfig } from 'swr'
 import { toast } from 'sonner'
@@ -176,13 +176,14 @@ function AddSymbolPanel({ watchlistId, existingSymbols }: { watchlistId: string;
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Recent searches from localStorage
-  const [recentSearches, setRecentSearches] = useState<string[]>([])
-  useEffect(() => {
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem('watchlist_recent_searches')
-      if (stored) setRecentSearches(JSON.parse(stored))
-    } catch { /* ignore */ }
-  }, [])
+      return stored ? JSON.parse(stored) : []
+    } catch {
+      return []
+    }
+  })
 
   function saveRecent(symbol: string) {
     const updated = [symbol, ...recentSearches.filter(s => s !== symbol)].slice(0, 5)
@@ -221,8 +222,10 @@ function AddSymbolPanel({ watchlistId, existingSymbols }: { watchlistId: string;
     }
   }
 
-  // Reset highlight when results change
-  useEffect(() => { setHighlightIdx(-1) }, [searchResults])
+  // Reset highlight when results change - use derived state
+  if (highlightIdx >= (results?.length ?? 0)) {
+    setHighlightIdx(-1)
+  }
 
   const alreadyAdded = new Set(existingSymbols)
 

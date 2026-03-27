@@ -14,6 +14,25 @@ type Mover = {
 
 type AllocationEntry = { name: string; value: number }
 
+type Position = {
+  symbol: string
+  quantity: number
+  avg_cost: number
+  currency?: string
+  asset_type: string
+}
+
+type Portfolio = {
+  positions?: Position[]
+}
+
+type LivePrice = {
+  price?: number
+  change?: number
+  changePct?: number
+  currency?: string
+}
+
 type PortfolioStats = {
   totalValue: number
   totalCost: number
@@ -33,8 +52,8 @@ type PortfolioStats = {
  * Handles currency conversion, allocation breakdown, top movers, and return calculations.
  */
 export function usePortfolioStats(
-  portfolios: any[] | undefined,
-  livePrices: Record<string, any> | undefined
+  portfolios: Portfolio[] | undefined,
+  livePrices: Record<string, LivePrice> | undefined
 ): PortfolioStats {
   const { convert, currency: displayCurrency } = useCurrency()
 

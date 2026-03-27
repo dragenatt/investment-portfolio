@@ -16,10 +16,12 @@ import { useMemo, useState } from 'react'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
 import { ArrowRightLeft, Bell, Download } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useTrade } from '@/lib/contexts/trade-context'
 
 export default function DashboardPage() {
+  const router = useRouter()
   const { data: portfolios, isLoading } = usePortfolios()
   const { openTrade } = useTrade()
   const [chartRange, setChartRange] = useState('30')
@@ -148,18 +150,24 @@ export default function DashboardPage() {
             >
               Revisar posiciones
             </Link>
-            <Link
-              href="/portfolio"
-              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-secondary text-center btn-press border border-border"
-            >
-              Chequeo de riesgo
-            </Link>
             <button
-              onClick={() => toast.info('Proximamente')}
+              onClick={() => {
+                if (portfolios && portfolios.length > 0) {
+                  router.push(`/portfolio/${portfolios[0].id}`)
+                } else {
+                  router.push('/portfolio')
+                }
+              }}
               className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-secondary btn-press border border-border"
             >
-              Rebalancear
+              Chequeo de riesgo
             </button>
+            <Link
+              href="/advisor"
+              className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-secondary text-center btn-press border border-border"
+            >
+              Rebalancear
+            </Link>
           </div>
         </div>
 

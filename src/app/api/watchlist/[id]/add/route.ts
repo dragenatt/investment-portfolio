@@ -9,13 +9,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const body = await req.json()
+  // Verify ownership of watchlist
+  const { data: watchlist, error: getError } = await supabase
+    .from('watchlists')
+    .select('user_id')
+    .eq('id', id)
+    .single()
+
+  if (getError || !watchlist) return error('Watchlist not found', 404)
+  if (watchlist.user_id !== user.id) return error('Forbidden', 403)
+
+  let body
+  try { body = await req.json() } catch { return error('Invalid JSON', 400) }
   const result = await validate(AddWatchlistItemSchema, body)
   if ('error' in result) return result.error
 
   const { data, error: dbError } = await supabase
     .from('watchlist_items')
-    .insert({ ...result.data, watchlist_id: id })
+    .insert({
+      watchlist_id: id,
+      symbol: result.data.symbol,
+      asset_type: result.data.asset_type,
+    })
     .select()
     .single()
 

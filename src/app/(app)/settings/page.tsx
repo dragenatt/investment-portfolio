@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useTheme } from 'next-themes'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import useSWR from 'swr'
 import { OnboardingTour } from '@/components/shared/onboarding-tour'
@@ -19,16 +19,10 @@ const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => {
 export default function SettingsPage() {
   const { data: profile, mutate } = useSWR('/api/user/profile', fetcher)
   const { theme, setTheme } = useTheme()
-  const [displayName, setDisplayName] = useState('')
-  const [baseCurrency, setBaseCurrency] = useState('MXN')
+  // Initialize from profile if available, otherwise empty string
+  const [displayName, setDisplayName] = useState(profile?.display_name || '')
+  const [baseCurrency, setBaseCurrency] = useState(profile?.base_currency || 'MXN')
   const [showTour, setShowTour] = useState(false)
-
-  useEffect(() => {
-    if (profile) {
-      setDisplayName(profile.display_name || '')
-      setBaseCurrency(profile.base_currency || 'MXN')
-    }
-  }, [profile])
 
   async function saveProfile() {
     const res = await fetch('/api/user/profile', {

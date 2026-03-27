@@ -16,20 +16,20 @@ export default {
     switch (event.cron) {
       case '*/5 * * * *':
         // Fetch hot symbols (open positions) + crypto
-        ctx.waitUntil(fetchHotPrices(supabase, env))
-        ctx.waitUntil(fetchCryptoPrices(supabase, env))
+        ctx.waitUntil(fetchHotPrices(supabase as any, env))
+        ctx.waitUntil(fetchCryptoPrices(supabase as any, env))
         break
       case '*/30 * * * *':
         // Fetch warm symbols (watchlists, not already hot)
-        ctx.waitUntil(fetchWarmPrices(supabase, env))
+        ctx.waitUntil(fetchWarmPrices(supabase as any, env))
         break
       case '0 */12 * * *':
         // Fetch Banxico data (exchange rates)
-        ctx.waitUntil(fetchBanxico(supabase, env))
+        ctx.waitUntil(fetchBanxico(supabase as any, env))
         break
       case '0 22 * * 1-5':
         // Build daily history from current prices
-        ctx.waitUntil(buildHistory(supabase, env))
+        ctx.waitUntil(buildHistory(supabase as any, env))
         break
     }
   },
@@ -39,7 +39,7 @@ export default {
   },
 }
 
-async function fetchHotPrices(supabase: ReturnType<typeof createClient>, env: Env) {
+async function fetchHotPrices(supabase: any, env: Env) {
   // 1. Get hot symbols (positions with quantity > 0)
   const { data: hotSymbols } = await supabase
     .from('positions')
@@ -48,7 +48,7 @@ async function fetchHotPrices(supabase: ReturnType<typeof createClient>, env: En
 
   if (!hotSymbols || hotSymbols.length === 0) return
 
-  const symbols = [...new Set(hotSymbols.map(s => s.symbol))]
+  const symbols = [...new Set(hotSymbols.map((s: any) => s.symbol))]
 
   // 2. Fetch from Yahoo Finance in batches
   for (const symbol of symbols) {
@@ -57,7 +57,7 @@ async function fetchHotPrices(supabase: ReturnType<typeof createClient>, env: En
       if (cached) continue // Still fresh
 
       const res = await fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(String(symbol))}?interval=1d&range=1d`
       )
       if (!res.ok) continue
       const data = await res.json() as Record<string, unknown>
@@ -67,12 +67,12 @@ async function fetchHotPrices(supabase: ReturnType<typeof createClient>, env: En
       if (!meta) continue
 
       const price = {
-        symbol: meta.symbol,
-        exchange: meta.exchangeName || 'US',
+        symbol: meta.symbol as string,
+        exchange: (meta.exchangeName as string) || 'US',
         price: meta.regularMarketPrice,
         change_pct: ((meta.regularMarketPrice as number) - (meta.previousClose as number)) / (meta.previousClose as number) * 100,
         volume: meta.regularMarketVolume || 0,
-        currency: meta.currency || 'USD',
+        currency: (meta.currency as string) || 'USD',
         source: 'yahoo',
         fetched_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
@@ -111,19 +111,19 @@ async function fetchHotPrices(supabase: ReturnType<typeof createClient>, env: En
     } catch (e) {
       // Log failed fetch
       await supabase.from('failed_fetches').insert({
-        symbol, source: 'yahoo', error: String(e),
+        symbol: String(symbol), source: 'yahoo', error: String(e),
       })
     }
   }
 }
 
-async function fetchWarmPrices(supabase: ReturnType<typeof createClient>, env: Env) {
+async function fetchWarmPrices(supabase: any, env: Env) {
   // Get hot symbols to exclude
   const { data: hotSymbols } = await supabase
     .from('positions')
     .select('symbol')
     .gt('quantity', 0)
-  const hotSet = new Set((hotSymbols || []).map(s => s.symbol))
+  const hotSet = new Set((hotSymbols || []).map((s: any) => s.symbol))
 
   // Get warm symbols (in watchlists but not in positions)
   const { data: watchlistItems } = await supabase
@@ -131,7 +131,7 @@ async function fetchWarmPrices(supabase: ReturnType<typeof createClient>, env: E
     .select('symbol')
   if (!watchlistItems) return
 
-  const warmSymbols = [...new Set(watchlistItems.map(w => w.symbol))].filter(s => !hotSet.has(s))
+  const warmSymbols = [...new Set(watchlistItems.map((w: any) => w.symbol))].filter(s => !hotSet.has(s))
 
   for (const symbol of warmSymbols) {
     try {
@@ -139,7 +139,7 @@ async function fetchWarmPrices(supabase: ReturnType<typeof createClient>, env: E
       if (cached) continue
 
       const res = await fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(String(symbol))}?interval=1d&range=1d`
       )
       if (!res.ok) continue
       const data = await res.json() as Record<string, unknown>
@@ -149,12 +149,12 @@ async function fetchWarmPrices(supabase: ReturnType<typeof createClient>, env: E
       if (!meta) continue
 
       const price = {
-        symbol: meta.symbol,
-        exchange: meta.exchangeName || 'US',
+        symbol: meta.symbol as string,
+        exchange: (meta.exchangeName as string) || 'US',
         price: meta.regularMarketPrice,
         change_pct: ((meta.regularMarketPrice as number) - (meta.previousClose as number)) / (meta.previousClose as number) * 100,
         volume: meta.regularMarketVolume || 0,
-        currency: meta.currency || 'USD',
+        currency: (meta.currency as string) || 'USD',
         source: 'yahoo',
         fetched_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
@@ -163,12 +163,12 @@ async function fetchWarmPrices(supabase: ReturnType<typeof createClient>, env: E
       await env.PRICE_CACHE.put(`price:${symbol}`, JSON.stringify(price), { expirationTtl: 1800 })
       await supabase.from('current_prices').upsert(price, { onConflict: 'symbol,exchange' })
     } catch (e) {
-      await supabase.from('failed_fetches').insert({ symbol, source: 'yahoo', error: String(e) })
+      await supabase.from('failed_fetches').insert({ symbol: String(symbol), source: 'yahoo', error: String(e) })
     }
   }
 }
 
-async function fetchCryptoPrices(supabase: ReturnType<typeof createClient>, env: Env) {
+async function fetchCryptoPrices(supabase: any, env: Env) {
   // Get crypto symbols from positions and watchlists
   const { data: cryptoPositions } = await supabase
     .from('positions')
@@ -178,7 +178,7 @@ async function fetchCryptoPrices(supabase: ReturnType<typeof createClient>, env:
 
   if (!cryptoPositions || cryptoPositions.length === 0) return
 
-  const symbols = [...new Set(cryptoPositions.map(s => s.symbol.toLowerCase()))]
+  const symbols = [...new Set(cryptoPositions.map((s: any) => s.symbol.toLowerCase()))]
 
   try {
     // CoinGecko supports comma-separated ids
@@ -211,7 +211,7 @@ async function fetchCryptoPrices(supabase: ReturnType<typeof createClient>, env:
   }
 }
 
-async function fetchBanxico(supabase: ReturnType<typeof createClient>, env: Env) {
+async function fetchBanxico(supabase: any, env: Env) {
   try {
     // Fetch USD/MXN exchange rate from Banxico
     const res = await fetch('https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno', {
@@ -233,7 +233,7 @@ async function fetchBanxico(supabase: ReturnType<typeof createClient>, env: Env)
   }
 }
 
-async function buildHistory(supabase: ReturnType<typeof createClient>, env: Env) {
+async function buildHistory(supabase: any, env: Env) {
   // Get all current prices and insert into history
   const { data: prices } = await supabase.from('current_prices').select('*')
   if (!prices) return

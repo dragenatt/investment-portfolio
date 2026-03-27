@@ -141,8 +141,8 @@ function parseNumber(raw: string): number | null {
   if (!raw || raw === '-') return 0
   // Handle numbers with comma as decimal separator (e.g., "1.234,56" -> "1234.56")
   let cleaned = raw.replace(/[$€\s]/g, '')
-  if (/,\d{1,2}$/.test(cleaned) && cleaned.includes('.')) {
-    // European format: 1.234,56
+  if (/,\d{1,2}$/.test(cleaned)) {
+    // European format: 1.234,56 or simple comma decimal: 10,50
     cleaned = cleaned.replace(/\./g, '').replace(',', '.')
   } else {
     // Remove thousand-separator commas

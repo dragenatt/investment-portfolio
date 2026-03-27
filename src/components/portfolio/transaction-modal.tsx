@@ -44,14 +44,20 @@ export function TransactionModal({ portfolioId }: Props) {
   const resolvedSymbol = symbol && searchQuery === '' ? symbol : null
   const { data: quote, isLoading: quoteLoading } = useQuote(resolvedSymbol)
 
-  // Auto-fill price when quote loads
+  // Auto-fill price when quote loads — uses ref to track if already filled
+  const priceFilledRef = useRef(false)
+  const quotePrice = quote?.price
+  const quoteCurrency = quote?.currency
   useEffect(() => {
-    if (quote?.price != null && resolvedSymbol) {
-      const marketPrice = String(quote.price)
-      setPrice(marketPrice)
-      if (quote.currency) setCurrency(quote.currency)
+    if (quotePrice != null && resolvedSymbol && !priceFilledRef.current) {
+      priceFilledRef.current = true
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: auto-fill from API data on first load only
+      setPrice(String(quotePrice))
+       
+      if (quoteCurrency) setCurrency(quoteCurrency)
     }
-  }, [quote?.price, quote?.currency, resolvedSymbol])
+    if (!resolvedSymbol) priceFilledRef.current = false
+  }, [quotePrice, quoteCurrency, resolvedSymbol])
 
   // ── Linked field calculations ──────────────────────────────
 
