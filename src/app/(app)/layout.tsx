@@ -4,7 +4,8 @@ import { SWRConfigProvider } from '@/lib/api/swr-config'
 import { SymbolSearch } from '@/components/market/symbol-search'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { I18nProvider, getDictionary } from '@/lib/i18n'
+import { I18nProvider } from '@/lib/i18n'
+import { getDictionary } from '@/lib/i18n/get-dictionary'
 import { getLocaleFromCookies } from '@/lib/i18n/locale'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {

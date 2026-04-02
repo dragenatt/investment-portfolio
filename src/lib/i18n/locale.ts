@@ -1,3 +1,4 @@
+import 'server-only'
 import { cookies } from 'next/headers'
 import type { Locale } from './types'
 import { defaultLocale, locales } from './types'
@@ -9,8 +10,4 @@ export async function getLocaleFromCookies(): Promise<Locale> {
   const val = cookieStore.get(LOCALE_COOKIE)?.value
   if (val && locales.includes(val as Locale)) return val as Locale
   return defaultLocale
-}
-
-export function setLocaleCookie(locale: Locale) {
-  document.cookie = `${LOCALE_COOKIE}=${locale};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`
 }

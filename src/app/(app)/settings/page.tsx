@@ -12,7 +12,7 @@ import useSWR from 'swr'
 import { OnboardingTour } from '@/components/shared/onboarding-tour'
 import { useTranslation } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n'
-import { setLocaleCookie } from '@/lib/i18n/locale'
+import { setLocaleCookie } from '@/lib/i18n/locale-client'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => {
   if (r.error) throw new Error(r.error)

@@ -1,4 +1,5 @@
-import { I18nProvider, getDictionary } from '@/lib/i18n'
+import { I18nProvider } from '@/lib/i18n'
+import { getDictionary } from '@/lib/i18n/get-dictionary'
 import { getLocaleFromCookies } from '@/lib/i18n/locale'
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
