@@ -73,9 +73,11 @@ export function SymbolSearch() {
   }, [])
 
   // Load recent searches when dialog opens
-  if (open && recentSearches.length === 0) {
-    setRecentSearches(getRecentSearches())
-  }
+  useEffect(() => {
+    if (open) {
+      setRecentSearches(getRecentSearches())
+    }
+  }, [open])
 
   function handleSelect(symbol: string) {
     saveRecentSearch(symbol)

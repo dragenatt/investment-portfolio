@@ -4,6 +4,8 @@ import { useWatchlists } from '@/lib/hooks/use-watchlist'
 import { useLivePrices } from '@/lib/hooks/use-live-prices'
 import { useMarketSearch } from '@/lib/hooks/use-market'
 import { useTranslation } from '@/lib/i18n'
+import type { Dictionary } from '@/lib/i18n/types'
+import type { Dictionary } from '@/lib/i18n/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,7 +57,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 // --- Watchlist table with sortable columns & live prices ---
-function WatchlistTable({ watchlist, prices, t }: { watchlist: Watchlist; prices: PriceData | undefined; t: any }) {
+function WatchlistTable({ watchlist, prices, t }: { watchlist: Watchlist; prices: PriceData | undefined; t: Dictionary }) {
   const { mutate } = useSWRConfig()
   const { openTrade } = useTrade()
   const [sort, setSort] = useState<SortState>({ key: 'symbol', dir: 'asc' })
@@ -167,7 +169,7 @@ function WatchlistTable({ watchlist, prices, t }: { watchlist: Watchlist; prices
 }
 
 // --- Add symbol panel with one-tap add ---
-function AddSymbolPanel({ watchlistId, existingSymbols, t }: { watchlistId: string; existingSymbols: string[]; t: any }) {
+function AddSymbolPanel({ watchlistId, existingSymbols, t }: { watchlistId: string; existingSymbols: string[]; t: Dictionary }) {
   const { mutate } = useSWRConfig()
   const [searchQuery, setSearchQuery] = useState('')
   const debouncedSearch = useDebounce(searchQuery, 300)

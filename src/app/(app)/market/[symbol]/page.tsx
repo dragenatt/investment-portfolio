@@ -5,6 +5,8 @@ import { useQuote } from '@/lib/hooks/use-market'
 import { usePortfolios } from '@/lib/hooks/use-portfolios'
 import { useWatchlists } from '@/lib/hooks/use-watchlist'
 import { useTranslation } from '@/lib/i18n'
+import type { Dictionary } from '@/lib/i18n/types'
+import type { Dictionary } from '@/lib/i18n/types'
 import { PriceChart } from '@/components/market/price-chart'
 import { CompanyInfo } from '@/components/market/company-info'
 import { EventsTimeline } from '@/components/market/events-timeline'
@@ -412,7 +414,7 @@ function StatRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function AnalystBar({ rating, t }: { rating: string; t: any }) {
+function AnalystBar({ rating, t }: { rating: string; t: Dictionary }) {
   const ratingLower = rating.toLowerCase()
 
   // Map ratings to visual weights

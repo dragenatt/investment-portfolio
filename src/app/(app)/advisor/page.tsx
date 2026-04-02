@@ -43,6 +43,8 @@ import {
   Percent,
 } from 'lucide-react'
 import { useTranslation } from '@/lib/i18n'
+import type { Dictionary } from '@/lib/i18n/types'
+import type { Dictionary } from '@/lib/i18n/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -82,7 +84,7 @@ const PROFILE_ICONS: Record<PerfilNombre, typeof Shield> = {
   Agresivo: Flame,
 }
 
-const getStepTitles = (t: any) => [
+const getStepTitles = (t: Dictionary) => [
   t.advisor.personal_data,
   t.advisor.risk_tolerance,
   t.advisor.financial_capacity,
