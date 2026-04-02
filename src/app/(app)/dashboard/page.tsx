@@ -19,6 +19,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useTrade } from '@/lib/contexts/trade-context'
+import { useTranslation } from '@/lib/i18n'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -29,6 +30,7 @@ import {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const { data: portfolios, isLoading } = usePortfolios()
   const { openTrade } = useTrade()
   const [chartRange, setChartRange] = useState('30')
@@ -50,7 +52,7 @@ export default function DashboardPage() {
 
   const handleExport = (format: 'csv_positions' | 'csv_transactions' | 'json') => {
     if (!portfolios || portfolios.length === 0) {
-      toast.error('No hay portafolios para exportar')
+      toast.error(t.dashboard.no_portfolios)
       return
     }
 
@@ -81,12 +83,12 @@ export default function DashboardPage() {
             className="font-bold tracking-tight font-serif"
             style={{ fontSize: 'clamp(24px, 3vw, 40px)', letterSpacing: '-0.03em' }}
           >
-            Panel de control
+            {t.dashboard.title}
           </h1>
           <p
             className="text-muted-foreground text-sm font-semibold max-w-[62ch]"
           >
-            Resumen de tu portafolio de inversiones, rendimiento y distribución de activos.
+            {t.dashboard.description}
           </p>
         </div>
 
@@ -97,7 +99,7 @@ export default function DashboardPage() {
             onClick={() => openTrade()}
           >
             <ArrowRightLeft className="h-3.5 w-3.5" />
-            Transacción
+            {t.dashboard.transaction}
             <kbd
               className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground"
             >
@@ -108,7 +110,7 @@ export default function DashboardPage() {
             className="inline-flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm font-medium hover:bg-secondary transition-colors btn-press"
           >
             <Bell className="h-3.5 w-3.5" />
-            Alerta
+            {t.dashboard.alert}
             <kbd
               className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground"
             >
@@ -121,7 +123,7 @@ export default function DashboardPage() {
                 className="inline-flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm font-medium hover:bg-secondary transition-colors btn-press"
               >
                 <Download className="h-3.5 w-3.5" />
-                Exportar
+                {t.dashboard.export}
                 <kbd
                   className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground"
                 >
@@ -132,16 +134,16 @@ export default function DashboardPage() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => handleExport('csv_positions')}>
                 <FileText className="h-4 w-4" />
-                Exportar posiciones (CSV)
+                {t.dashboard.export_positions_csv}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleExport('csv_transactions')}>
                 <FileText className="h-4 w-4" />
-                Exportar transacciones (CSV)
+                {t.dashboard.export_transactions_csv}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => handleExport('json')}>
                 <FileJson className="h-4 w-4" />
-                Exportar todo (JSON)
+                {t.dashboard.export_all_json}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -185,7 +187,7 @@ export default function DashboardPage() {
               href="/portfolio"
               className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-secondary text-center btn-press border border-border"
             >
-              Revisar posiciones
+              {t.dashboard.review_positions}
             </Link>
             <button
               onClick={() => {
@@ -197,13 +199,13 @@ export default function DashboardPage() {
               }}
               className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-secondary btn-press border border-border"
             >
-              Chequeo de riesgo
+              {t.dashboard.risk_check}
             </button>
             <Link
               href="/advisor"
               className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors hover:bg-secondary text-center btn-press border border-border"
             >
-              Rebalancear
+              {t.dashboard.rebalance}
             </Link>
           </div>
         </div>

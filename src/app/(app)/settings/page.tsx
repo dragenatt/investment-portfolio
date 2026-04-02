@@ -10,6 +10,9 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import useSWR from 'swr'
 import { OnboardingTour } from '@/components/shared/onboarding-tour'
+import { useTranslation } from '@/lib/i18n'
+import type { Locale } from '@/lib/i18n'
+import { setLocaleCookie } from '@/lib/i18n/locale'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => {
   if (r.error) throw new Error(r.error)
@@ -17,6 +20,7 @@ const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => {
 })
 
 export default function SettingsPage() {
+  const { t, locale } = useTranslation()
   const { data: profile, mutate } = useSWR('/api/user/profile', fetcher)
   const { theme, setTheme } = useTheme()
   // Initialize from profile if available, otherwise empty string
@@ -32,7 +36,7 @@ export default function SettingsPage() {
     })
     const data = await res.json()
     if (data.error) { toast.error(data.error); return }
-    toast.success('Perfil actualizado')
+    toast.success(t.common.success)
     mutate()
   }
 
@@ -44,34 +48,34 @@ export default function SettingsPage() {
     })
     const data = await res.json()
     if (data.error) { toast.error(data.error); return }
-    toast.success('Preferencias guardadas')
+    toast.success(t.common.success)
     mutate()
   }
 
   return (
     <div className="space-y-6 max-w-lg">
-      <h1 className="text-3xl font-bold">Ajustes</h1>
+      <h1 className="text-3xl font-bold">{t.settings.title}</h1>
 
       <Card className="rounded-2xl border-border shadow-sm">
-        <CardHeader><CardTitle className="text-xl">Perfil</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-xl">{t.settings.profile}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Nombre</Label>
+            <Label>{t.settings.name}</Label>
             <Input className="rounded-xl" value={displayName} onChange={e => setDisplayName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Email</Label>
+            <Label>{t.settings.email}</Label>
             <Input className="rounded-xl" value={profile?.email || ''} disabled />
           </div>
-          <Button className="rounded-xl" onClick={saveProfile}>Guardar perfil</Button>
+          <Button className="rounded-xl" onClick={saveProfile}>{t.settings.save_profile}</Button>
         </CardContent>
       </Card>
 
       <Card className="rounded-2xl border-border shadow-sm">
-        <CardHeader><CardTitle className="text-xl">Preferencias</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-xl">{t.settings.preferences}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Moneda base</Label>
+            <Label>{t.settings.base_currency}</Label>
             <Select value={baseCurrency} onValueChange={(v) => v && setBaseCurrency(v)}>
               <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -82,25 +86,35 @@ export default function SettingsPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Tema</Label>
+            <Label>{t.settings.theme}</Label>
             <Select value={theme} onValueChange={(v) => v && setTheme(v)}>
               <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="light">Claro</SelectItem>
-                <SelectItem value="dark">Oscuro</SelectItem>
-                <SelectItem value="system">Sistema</SelectItem>
+                <SelectItem value="light">{t.settings.light}</SelectItem>
+                <SelectItem value="dark">{t.settings.dark}</SelectItem>
+                <SelectItem value="system">{t.settings.system}</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <Button className="rounded-xl" onClick={savePreferences}>Guardar preferencias</Button>
+          <div className="space-y-2">
+            <Label>{locale === 'es' ? 'Idioma' : 'Language'}</Label>
+            <Select value={locale} onValueChange={(v) => { if (v) { setLocaleCookie(v as Locale); window.location.reload() } }}>
+              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="es">Español</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button className="rounded-xl" onClick={savePreferences}>{t.settings.save_preferences}</Button>
         </CardContent>
       </Card>
 
       <Card className="rounded-2xl border-border shadow-sm">
-        <CardHeader><CardTitle className="text-xl">Tutorial</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-xl">{t.settings.tutorial}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Vuelve a ver el recorrido de bienvenida para conocer las funciones principales de la plataforma.
+            {t.settings.tutorial_desc}
           </p>
           <Button
             className="rounded-xl"
@@ -110,7 +124,7 @@ export default function SettingsPage() {
               setShowTour(true)
             }}
           >
-            Ver tutorial
+            {t.settings.view_tutorial}
           </Button>
         </CardContent>
       </Card>

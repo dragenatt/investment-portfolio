@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
+import { useTranslation } from '@/lib/i18n'
 
 export default function RegisterPage() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -35,7 +37,7 @@ export default function RegisterPage() {
     }
 
     if (!data.session) {
-      setSuccess('Te enviamos un email de confirmación. Revisa tu bandeja de entrada (incluyendo spam).')
+      setSuccess(t.auth.confirmation_email)
       setLoading(false)
       return
     }
@@ -47,21 +49,21 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Crear Cuenta</CardTitle>
-          <CardDescription>Empieza a trackear tus inversiones</CardDescription>
+          <CardTitle className="text-2xl">{t.auth.register_title}</CardTitle>
+          <CardDescription>{t.auth.register_desc}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nombre</Label>
+              <Label htmlFor="name">{t.auth.name}</Label>
               <Input id="name" value={displayName} onChange={e => setDisplayName(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t.auth.email}</Label>
               <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
+              <Label htmlFor="password">{t.auth.password}</Label>
               <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -71,11 +73,11 @@ export default function RegisterPage() {
               </div>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
+              {loading ? t.auth.creating_account : t.auth.create_account}
             </Button>
           </form>
           <p className="text-sm text-muted-foreground text-center mt-4">
-            ¿Ya tienes cuenta? <Link href="/login" className="text-primary hover:underline">Inicia sesión</Link>
+            {t.auth.have_account} <Link href="/login" className="text-primary hover:underline">{t.auth.login_link}</Link>
           </p>
         </CardContent>
       </Card>

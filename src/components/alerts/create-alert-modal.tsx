@@ -9,8 +9,10 @@ import { useState } from 'react'
 import { useSWRConfig } from 'swr'
 import { toast } from 'sonner'
 import { Plus, Loader2 } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n'
 
 export function CreateAlertModal() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [symbol, setSymbol] = useState('')
   const [condition, setCondition] = useState('')
@@ -23,7 +25,7 @@ export function CreateAlertModal() {
     e.preventDefault()
 
     if (!symbol || !condition || !targetValue) {
-      toast.error('Por favor completa todos los campos')
+      toast.error(t.common.error)
       return
     }
 
@@ -42,11 +44,11 @@ export function CreateAlertModal() {
       const result = await response.json()
 
       if (!response.ok) {
-        toast.error(result.error || 'Error al crear la alerta')
+        toast.error(result.error || t.common.error)
         return
       }
 
-      toast.success('Alerta creada exitosamente')
+      toast.success(t.common.success)
       setSymbol('')
       setCondition('')
       setTargetValue('')
@@ -55,7 +57,7 @@ export function CreateAlertModal() {
       // Refresh the alerts list
       mutate('/api/alerts')
     } catch {
-      toast.error('Error al crear la alerta')
+      toast.error(t.common.error)
     } finally {
       setLoading(false)
     }
@@ -66,16 +68,16 @@ export function CreateAlertModal() {
       <DialogTrigger>
         <Button className="rounded-xl gap-2">
           <Plus className="h-4 w-4" />
-          Nueva Alerta
+          {t.dashboard.alert}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Crear Nueva Alerta</DialogTitle>
+          <DialogTitle>{t.alerts.title}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="symbol">Símbolo</Label>
+            <Label htmlFor="symbol">{t.trade.symbol}</Label>
             <Input
               id="symbol"
               placeholder="AAPL"
@@ -120,11 +122,11 @@ export function CreateAlertModal() {
               onClick={() => setOpen(false)}
               disabled={loading}
             >
-              Cancelar
+              {t.common.cancel}
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Crear Alerta
+              {t.common.save}
             </Button>
           </div>
         </form>

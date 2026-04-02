@@ -42,6 +42,7 @@ import {
   DollarSign,
   Percent,
 } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -81,11 +82,11 @@ const PROFILE_ICONS: Record<PerfilNombre, typeof Shield> = {
   Agresivo: Flame,
 }
 
-const STEP_TITLES = [
-  'Datos Personales',
-  'Tolerancia al Riesgo',
-  'Capacidad Financiera',
-  'Capital e Inversión',
+const getStepTitles = (t: any) => [
+  t.advisor.personal_data,
+  t.advisor.risk_tolerance,
+  t.advisor.financial_capacity,
+  t.advisor.capital_investment,
 ]
 
 // ── Pill Button ───────────────────────────────────────────────────────────────
@@ -143,6 +144,8 @@ interface ResultsState {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function AdvisorPage() {
+  const { t } = useTranslation()
+  const STEP_TITLES = getStepTitles(t)
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<ResultsState | null>(null)
@@ -254,7 +257,7 @@ export default function AdvisorPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-        <p className="font-serif text-xl text-muted-foreground">Analizando tu perfil...</p>
+        <p className="font-serif text-xl text-muted-foreground">{t.advisor.analyzing_profile}</p>
       </div>
     )
   }
@@ -275,7 +278,7 @@ export default function AdvisorPage() {
     }))
 
     const chartData = results.simulacion.historial.map((val, i) => ({
-      name: `Año ${i + 1}`,
+      name: `${t.advisor.years} ${i + 1}`,
       valor: Math.round(val),
     }))
 
@@ -578,7 +581,7 @@ export default function AdvisorPage() {
             className="btn-press flex items-center gap-2 bg-secondary text-secondary-foreground rounded-xl px-6 py-3 font-medium hover:bg-secondary/80 transition-colors"
           >
             <RotateCcw className="h-4 w-4" />
-            Volver a empezar
+            {t.advisor.restart}
           </button>
         </div>
       </div>
@@ -595,11 +598,10 @@ export default function AdvisorPage() {
           className="font-serif font-bold"
           style={{ fontSize: 'clamp(20px, 2.5vw, 32px)' }}
         >
-          Asesor de Inversión
+          {t.advisor.title}
         </h1>
         <p className="text-muted-foreground mt-1">
-          Responde estas preguntas para conocer tu perfil de inversionista y recibir recomendaciones
-          personalizadas.
+          {t.advisor.description}
         </p>
       </div>
 
@@ -607,7 +609,7 @@ export default function AdvisorPage() {
       <div>
         <div className="flex justify-between text-xs text-muted-foreground mb-2">
           <span>
-            Paso {step + 1} de 4 — {STEP_TITLES[step]}
+            {t.advisor.step} {step + 1} {t.advisor.of} 4 — {STEP_TITLES[step]}
           </span>
           <span>{Math.round(((step + 1) / 4) * 100)}%</span>
         </div>
@@ -845,7 +847,7 @@ export default function AdvisorPage() {
             className="btn-press flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <BarChart3 className="h-4 w-4" />
-            Analizar perfil
+            {t.advisor.analyze_profile}
           </button>
         )}
       </div>

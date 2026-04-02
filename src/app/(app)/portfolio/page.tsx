@@ -10,8 +10,10 @@ import { ErrorDisplay } from '@/components/shared/error-display'
 import { Plus, Briefcase, Upload } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo } from 'react'
+import { useTranslation } from '@/lib/i18n'
 
 export default function PortfolioListPage() {
+  const { t } = useTranslation()
   const { data: portfolios, isLoading, error } = usePortfolios()
 
   const allSymbols = useMemo(() => {
@@ -27,18 +29,18 @@ export default function PortfolioListPage() {
 
   const { data: livePrices } = useLivePrices(allSymbols)
 
-  if (error) return <ErrorDisplay error="Error al cargar portafolios. Intenta recargar la pagina." onRetry={() => window.location.reload()} />
+  if (error) return <ErrorDisplay error={t.portfolio.error_loading} onRetry={() => window.location.reload()} />
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Portafolios</h1>
+        <h1 className="text-3xl font-bold">{t.portfolio.title}</h1>
         <div className="flex items-center gap-2">
           <Link href="/portfolio/import">
-            <Button variant="outline" className="rounded-xl" size="sm"><Upload className="h-4 w-4 mr-1" /> Importar CSV</Button>
+            <Button variant="outline" className="rounded-xl" size="sm"><Upload className="h-4 w-4 mr-1" /> {t.portfolio.import_csv}</Button>
           </Link>
           <Link href="/portfolio/new">
-            <Button className="rounded-xl bg-primary text-primary-foreground" size="sm"><Plus className="h-4 w-4 mr-1" /> Nuevo Portafolio</Button>
+            <Button className="rounded-xl bg-primary text-primary-foreground" size="sm"><Plus className="h-4 w-4 mr-1" /> {t.portfolio.new_portfolio}</Button>
           </Link>
         </div>
       </div>
@@ -50,9 +52,9 @@ export default function PortfolioListPage() {
       ) : portfolios?.length === 0 ? (
         <EmptyState
           icon={Briefcase}
-          title="Sin portafolios"
-          description="Crea tu primer portafolio para empezar a registrar tus inversiones y hacer seguimiento de tu rendimiento."
-          action={{ label: 'Crear mi primer portafolio', href: '/portfolio/new' }}
+          title={t.portfolio.no_portfolios}
+          description={t.portfolio.no_portfolios_desc}
+          action={{ label: t.portfolio.create_first, href: '/portfolio/new' }}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

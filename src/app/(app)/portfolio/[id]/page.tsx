@@ -27,8 +27,10 @@ import Link from 'next/link'
 import { BarChart3, List, Download, TrendingUp, TrendingDown, Plus } from 'lucide-react'
 import { transactionsToCSV, positionsToCSV, downloadFile } from '@/lib/utils/export'
 import type { ExportTransaction, ExportPosition } from '@/lib/utils/export'
+import { useTranslation } from '@/lib/i18n'
 
 export default function PortfolioDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { t } = useTranslation()
   const { id } = use(params)
   const { openTrade } = useTrade()
   const { data: portfolio, isLoading } = usePortfolio(id)
@@ -135,7 +137,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
     )
   }
 
-  if (!portfolio) return <p className="text-muted-foreground">Portafolio no encontrado</p>
+  if (!portfolio) return <p className="text-muted-foreground">{t.portfolio.portfolio_not_found}</p>
 
   return (
     <div className="space-y-6">
@@ -150,26 +152,26 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
             className="inline-flex items-center justify-center rounded-xl text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 h-8 px-3 gap-1"
             onClick={() => openTrade({ portfolioId: id })}
           >
-            <Plus className="h-4 w-4" /> Transaccion
+            <Plus className="h-4 w-4" /> {t.trade.new_transaction}
           </button>
           <Link href={`/portfolio/${id}/transactions`}>
-            <Button className="rounded-xl" variant="outline" size="sm"><List className="h-4 w-4 mr-1" /> Transacciones</Button>
+            <Button className="rounded-xl" variant="outline" size="sm"><List className="h-4 w-4 mr-1" /> {t.portfolio.transactions}</Button>
           </Link>
           <Link href={`/portfolio/${id}/analytics`}>
-            <Button className="rounded-xl" variant="outline" size="sm"><BarChart3 className="h-4 w-4 mr-1" /> Analytics</Button>
+            <Button className="rounded-xl" variant="outline" size="sm"><BarChart3 className="h-4 w-4 mr-1" /> {t.portfolio.analytics}</Button>
           </Link>
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-xl text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3 gap-1">
-              <Download className="h-4 w-4" /> Exportar
+              <Download className="h-4 w-4" /> {t.dashboard.export}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Exportar datos</DropdownMenuLabel>
+              <DropdownMenuLabel>{t.portfolio.export_data}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleExportTransactions}>
-                Transacciones (CSV)
+                {t.dashboard.export_transactions_csv}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExportPositions}>
-                Posiciones (CSV)
+                {t.dashboard.export_positions_csv}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -181,7 +183,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-8">
           {/* Total value */}
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Valor total</p>
+            <p className="text-sm text-muted-foreground mb-1">{t.portfolio.total_value}</p>
             <p className="text-3xl sm:text-4xl font-bold font-mono tracking-tight">
               <FormattedAmount value={summary.totalValue} />
             </p>
@@ -190,7 +192,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           {/* Day return */}
           <div className="flex items-center gap-3">
             <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Retorno del día</p>
+              <p className="text-xs text-muted-foreground mb-0.5">{t.portfolio.today_return}</p>
               <Badge
                 variant="secondary"
                 className={
@@ -213,7 +215,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
 
           {/* Total return */}
           <div>
-            <p className="text-xs text-muted-foreground mb-0.5">Retorno total</p>
+            <p className="text-xs text-muted-foreground mb-0.5">{t.portfolio.total_return}</p>
             <Badge
               variant="secondary"
               className={

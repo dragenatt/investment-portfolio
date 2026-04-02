@@ -9,8 +9,10 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useSWRConfig } from 'swr'
+import { useTranslation } from '@/lib/i18n'
 
 export default function NewPortfolioPage() {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [currency, setCurrency] = useState('MXN')
@@ -31,7 +33,7 @@ export default function NewPortfolioPage() {
 
     if (data.error) { toast.error(data.error); setLoading(false); return }
 
-    toast.success('Portafolio creado')
+    toast.success(t.portfolio.portfolio_created)
     mutate('/api/portfolio')
     router.push(`/portfolio/${data.data.id}`)
   }
@@ -40,31 +42,31 @@ export default function NewPortfolioPage() {
     <div className="max-w-lg mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>Nuevo Portafolio</CardTitle>
+          <CardTitle>{t.portfolio.new_portfolio_title}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label>Nombre</Label>
+              <Label>{t.portfolio.portfolio_name}</Label>
               <Input value={name} onChange={e => setName(e.target.value)} placeholder="Mi portafolio principal" required />
             </div>
             <div className="space-y-2">
-              <Label>Descripcion (opcional)</Label>
+              <Label>{t.portfolio.portfolio_description}</Label>
               <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Inversiones a largo plazo" />
             </div>
             <div className="space-y-2">
-              <Label>Moneda base</Label>
+              <Label>{t.portfolio.base_currency}</Label>
               <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MXN">MXN - Peso Mexicano</SelectItem>
-                  <SelectItem value="USD">USD - Dolar</SelectItem>
-                  <SelectItem value="EUR">EUR - Euro</SelectItem>
+                  <SelectItem value="MXN">{t.portfolio.currency_mxn_full}</SelectItem>
+                  <SelectItem value="USD">{t.portfolio.currency_usd_full}</SelectItem>
+                  <SelectItem value="EUR">{t.portfolio.currency_eur_full}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creando...' : 'Crear Portafolio'}
+              {loading ? t.portfolio.creating : t.portfolio.create_portfolio}
             </Button>
           </form>
         </CardContent>

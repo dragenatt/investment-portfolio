@@ -16,6 +16,7 @@ import { useTrade } from '@/lib/contexts/trade-context'
 import { SymbolAutocomplete } from '@/components/trade/symbol-autocomplete'
 import { Loader2, ArrowRightLeft, TrendingUp, TrendingDown } from 'lucide-react'
 import Link from 'next/link'
+import { useTranslation } from '@/lib/i18n'
 
 /** Auto-detect asset type from search result type field */
 function detectAssetType(typeStr?: string): string {
@@ -49,6 +50,7 @@ interface SelectedSymbol {
 }
 
 function TradeForm({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const { initialOptions } = useTrade()
   const { data: portfolios } = usePortfolios()
   const { mutate } = useSWRConfig()
@@ -217,22 +219,22 @@ function TradeForm({ onClose }: { onClose: () => void }) {
         return
       }
 
-      toast.success('Transaccion registrada')
+      toast.success(t.trade.transaction_recorded)
       mutate(`/api/portfolio/${portfolioId}`)
       mutate('/api/portfolio')
       resetForm()
       onClose()
     } catch {
-      toast.error('Error de conexion')
+      toast.error(t.common.error_occurred)
     } finally {
       setLoading(false)
     }
   }
 
   const typeLabels: Record<string, string> = {
-    buy: 'Compraras',
-    sell: 'Venderas',
-    dividend: 'Recibiras',
+    buy: t.trade.you_will_buy,
+    sell: t.trade.you_will_sell,
+    dividend: t.trade.you_will_receive,
   }
 
   const portfolioList = Array.isArray(portfolios) ? portfolios : []
@@ -242,7 +244,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* 1. Symbol Autocomplete */}
       <div className="space-y-2">
-        <Label>Simbolo</Label>
+        <Label>{t.trade.symbol}</Label>
         <SymbolAutocomplete
           value={symbolInput}
           onSelect={handleSymbolSelect}
@@ -320,12 +322,12 @@ function TradeForm({ onClose }: { onClose: () => void }) {
 
       {/* 4. Type pills: Compra / Venta / Dividendo */}
       <div className="space-y-2">
-        <Label>Tipo de operacion</Label>
+        <Label>{t.trade.type}</Label>
         <div className="flex gap-2">
           {([
-            { value: 'buy', label: 'Compra' },
-            { value: 'sell', label: 'Venta' },
-            { value: 'dividend', label: 'Dividendo' },
+            { value: 'buy', label: t.trade.buy },
+            { value: 'sell', label: t.trade.sell },
+            { value: 'dividend', label: t.trade.dividend },
           ] as const).map(opt => (
             <button
               key={opt.value}
@@ -346,7 +348,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
       {/* 5. Price per unit */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>Precio por unidad</Label>
+          <Label>{t.trade.price_per_unit}</Label>
           {selectedSymbol && quote?.price != null && (
             <span className="text-xs text-muted-foreground">
               Mercado:{' '}
@@ -371,11 +373,11 @@ function TradeForm({ onClose }: { onClose: () => void }) {
       {/* 6. Amount <-> Quantity (bidirectional linked fields) */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-          <span>Ingresa uno y el otro se calcula automaticamente</span>
+          <span>{t.trade.auto_calculate}</span>
         </div>
         <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-end">
           <div className="space-y-1.5">
-            <Label className="text-xs">Monto ({currency})</Label>
+            <Label className="text-xs">{t.trade.amount_label} ({currency})</Label>
             <Input
               type="number"
               step="any"
@@ -389,7 +391,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
             <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Cantidad</Label>
+            <Label className="text-xs">{t.trade.quantity_label}</Label>
             <Input
               type="number"
               step="any"
@@ -405,7 +407,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
       {/* 7. Fees + Currency row */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Comision</Label>
+          <Label>{t.trade.commission}</Label>
           <Input
             type="number"
             step="any"
@@ -415,7 +417,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
           />
         </div>
         <div className="space-y-2">
-          <Label>Moneda</Label>
+          <Label>{t.trade.currency}</Label>
           <Select value={currency} onValueChange={v => v && setCurrency(v)}>
             <SelectTrigger>
               <SelectValue />
@@ -471,10 +473,10 @@ function TradeForm({ onClose }: { onClose: () => void }) {
       >
         {loading ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin mr-1" /> Guardando...
+            <Loader2 className="h-4 w-4 animate-spin mr-1" /> {t.trade.saving}
           </>
         ) : (
-          'Registrar transaccion'
+          t.trade.register_button
         )}
       </Button>
     </form>
@@ -482,6 +484,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
 }
 
 export function UniversalTradeModal() {
+  const { t } = useTranslation()
   const { isOpen, closeTrade } = useTrade()
   const isMobile = useIsMobile()
 
@@ -497,7 +500,7 @@ export function UniversalTradeModal() {
       <Sheet open={isOpen} onOpenChange={handleOpenChange}>
         <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-2xl">
           <SheetHeader>
-            <SheetTitle>Nueva Transaccion</SheetTitle>
+            <SheetTitle>{t.trade.new_transaction}</SheetTitle>
           </SheetHeader>
           <div className="px-4 pb-4">
             {isOpen && <TradeForm onClose={closeTrade} />}
@@ -511,7 +514,7 @@ export function UniversalTradeModal() {
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nueva Transaccion</DialogTitle>
+          <DialogTitle>{t.trade.new_transaction}</DialogTitle>
         </DialogHeader>
         {isOpen && <TradeForm onClose={closeTrade} />}
       </DialogContent>

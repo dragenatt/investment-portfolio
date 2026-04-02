@@ -13,13 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useSWRConfig } from 'swr'
 import { toast } from 'sonner'
 import Link from 'next/link'
-
-const TYPE_LABELS: Record<string, string> = {
-  buy: 'Compra',
-  sell: 'Venta',
-  dividend: 'Dividendo',
-  split: 'Split',
-}
+import { useTranslation } from '@/lib/i18n'
 
 const TYPE_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   buy: 'default',
@@ -31,7 +25,15 @@ const TYPE_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'out
 const PAGE_SIZE = 20
 
 export default function TransactionsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { t } = useTranslation()
   const { id } = use(params)
+
+  const TYPE_LABELS: Record<string, string> = {
+    buy: t.portfolio.buy,
+    sell: t.portfolio.sell,
+    dividend: t.portfolio.dividend,
+    split: t.portfolio.split,
+  }
   const { data: transactions, isLoading } = useTransactions(id)
   const { mutate } = useSWRConfig()
   const [typeFilter, setTypeFilter] = useState<string>('all')
@@ -61,7 +63,7 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
       if (data.error) {
         toast.error(data.error)
       } else {
-        toast.success('Transaccion eliminada')
+        toast.success(t.portfolio.transaction_deleted)
         mutate(`/api/transaction?pid=${id}`)
         mutate(`/api/portfolio/${id}`)
         setDeleting(null)
@@ -77,26 +79,26 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link href={`/portfolio/${id}`}>
-          <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" /> Volver</Button>
+          <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" /> {t.common.back}</Button>
         </Link>
-        <h1 className="text-2xl font-bold">Transacciones</h1>
+        <h1 className="text-2xl font-bold">{t.portfolio.transactions}</h1>
       </div>
 
       <div className="flex gap-3">
         <Select value={typeFilter} onValueChange={v => { if (v) { setTypeFilter(v); setPage(0) } }}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Tipo" /></SelectTrigger>
+          <SelectTrigger className="w-40"><SelectValue placeholder={t.portfolio.type} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos los tipos</SelectItem>
-            <SelectItem value="buy">Compra</SelectItem>
-            <SelectItem value="sell">Venta</SelectItem>
-            <SelectItem value="dividend">Dividendo</SelectItem>
-            <SelectItem value="split">Split</SelectItem>
+            <SelectItem value="all">{t.portfolio.all_types}</SelectItem>
+            <SelectItem value="buy">{t.portfolio.buy}</SelectItem>
+            <SelectItem value="sell">{t.portfolio.sell}</SelectItem>
+            <SelectItem value="dividend">{t.portfolio.dividend}</SelectItem>
+            <SelectItem value="split">{t.portfolio.split}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={symbolFilter} onValueChange={v => { if (v) { setSymbolFilter(v); setPage(0) } }}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Simbolo" /></SelectTrigger>
+          <SelectTrigger className="w-40"><SelectValue placeholder={t.portfolio.symbol} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="all">{t.portfolio.all}</SelectItem>
             {symbols.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -105,20 +107,20 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
       <Card>
         <CardContent className="p-0">
           {filtered.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No hay transacciones</p>
+            <p className="text-muted-foreground text-center py-8">{t.portfolio.no_transactions}</p>
           ) : (
             <>
               <div className="hidden md:block">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b text-left text-sm text-muted-foreground">
-                      <th className="p-3">Fecha</th>
-                      <th className="p-3">Simbolo</th>
-                      <th className="p-3">Tipo</th>
-                      <th className="p-3 text-right">Cantidad</th>
-                      <th className="p-3 text-right">Precio</th>
-                      <th className="p-3 text-right">Comisiones</th>
-                      <th className="p-3 text-right">Total</th>
+                      <th className="p-3">{t.portfolio.date}</th>
+                      <th className="p-3">{t.portfolio.symbol}</th>
+                      <th className="p-3">{t.portfolio.type}</th>
+                      <th className="p-3 text-right">{t.portfolio.quantity}</th>
+                      <th className="p-3 text-right">{t.portfolio.price}</th>
+                      <th className="p-3 text-right">{t.portfolio.fees}</th>
+                      <th className="p-3 text-right">{t.portfolio.total}</th>
                       <th className="p-3"></th>
                     </tr>
                   </thead>
@@ -176,10 +178,10 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-between p-3 border-t">
-                  <span className="text-sm text-muted-foreground">{filtered.length} transacciones</span>
+                  <span className="text-sm text-muted-foreground">{filtered.length} {t.portfolio.transactions}</span>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Anterior</Button>
-                    <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Siguiente</Button>
+                    <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>{t.common.previous}</Button>
+                    <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>{t.common.next}</Button>
                   </div>
                 </div>
               )}
@@ -199,15 +201,15 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
       <Dialog open={!!deleting} onOpenChange={(open) => { if (!open) setDeleting(null) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar transaccion</DialogTitle>
+            <DialogTitle>{t.portfolio.delete_transaction}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Eliminar esta transaccion de {deleting?.quantity} {deleting?.position.symbol}? Esta accion no se puede deshacer.
+            {t.portfolio.delete_transaction} {deleting?.quantity} {deleting?.position.symbol}? {t.portfolio.action_irreversible}
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleting(null)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDeleting(null)}>{t.common.cancel}</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
-              {deleteLoading ? 'Eliminando...' : 'Eliminar'}
+              {deleteLoading ? t.common.delete : t.common.delete}
             </Button>
           </DialogFooter>
         </DialogContent>

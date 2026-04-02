@@ -8,6 +8,7 @@ import { CreateAlertModal } from '@/components/alerts/create-alert-modal'
 import useSWR from 'swr'
 import { toast } from 'sonner'
 import { useState } from 'react'
+import { useTranslation } from '@/lib/i18n'
 
 const fetcher = async (url: string) => {
   const res = await fetch(url)
@@ -26,6 +27,7 @@ type Alert = {
 }
 
 export default function AlertsPage() {
+  const { t } = useTranslation()
   const { data: alerts, isLoading, error, mutate } = useSWR<Alert[]>('/api/alerts', fetcher, {
     refreshInterval: 30_000,
   })
@@ -47,14 +49,14 @@ export default function AlertsPage() {
       const result = await response.json()
 
       if (!response.ok) {
-        toast.error(result.error || 'Error al actualizar la alerta')
+        toast.error(result.error || t.alerts.error_update)
         return
       }
 
-      toast.success(currentActive ? 'Alerta desactivada' : 'Alerta activada')
+      toast.success(currentActive ? t.alerts.alert_disabled : t.alerts.alert_enabled)
       mutate()
     } catch {
-      toast.error('Error al actualizar la alerta')
+      toast.error(t.alerts.error_update)
     } finally {
       setToggling(null)
     }
@@ -70,25 +72,25 @@ export default function AlertsPage() {
       const result = await response.json()
 
       if (!response.ok) {
-        toast.error(result.error || 'Error al eliminar la alerta')
+        toast.error(result.error || t.alerts.error_delete)
         return
       }
 
-      toast.success('Alerta eliminada')
+      toast.success(t.alerts.alert_deleted)
       mutate()
     } catch {
-      toast.error('Error al eliminar la alerta')
+      toast.error(t.alerts.error_delete)
     } finally {
       setDeleting(null)
     }
   }
 
-  if (error) return <ErrorDisplay error="Error al cargar alertas. Intenta recargar la pagina." onRetry={() => window.location.reload()} />
+  if (error) return <ErrorDisplay error={t.alerts.error_loading} onRetry={() => window.location.reload()} />
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Alertas</h1>
+        <h1 className="text-3xl font-bold">{t.alerts.title}</h1>
         <CreateAlertModal />
       </div>
 
@@ -104,9 +106,9 @@ export default function AlertsPage() {
             <div className="p-4 rounded-2xl bg-primary/10 mb-4">
               <Bell className="h-8 w-8 text-primary" />
             </div>
-            <h3 className="font-semibold text-lg mb-2">Sin alertas configuradas</h3>
+            <h3 className="font-semibold text-lg mb-2">{t.alerts.no_alerts}</h3>
             <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Las alertas de precio estaran disponibles proximamente. Podras recibir notificaciones cuando tus activos alcancen el precio objetivo.
+              {t.alerts.no_alerts_desc}
             </p>
           </CardContent>
         </Card>
@@ -119,19 +121,19 @@ export default function AlertsPage() {
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <span className="font-bold">{alert.symbol}</span>
                     <span className="text-muted-foreground">
-                      {alert.condition === 'above' ? 'sube a' : alert.condition === 'below' ? 'baja a' : 'cambia'} ${alert.target_value?.toFixed(2) ?? '--'}
+                      {alert.condition === 'above' ? t.alerts.above : alert.condition === 'below' ? t.alerts.below : t.alerts.change} ${alert.target_value?.toFixed(2) ?? '--'}
                     </span>
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${alert.is_active ? 'bg-gain/10 text-gain' : 'bg-muted text-muted-foreground'}`}>
-                      {alert.is_active ? 'Activa' : 'Inactiva'}
+                      {alert.is_active ? t.alerts.active : t.alerts.inactive}
                     </span>
                     <Button
                       size="icon-sm"
                       variant="ghost"
                       onClick={() => handleToggleAlert(alert.id, alert.is_active)}
                       disabled={toggling === alert.id || deleting === alert.id}
-                      title={alert.is_active ? 'Desactivar' : 'Activar'}
+                      title={alert.is_active ? t.alerts.disable : t.alerts.enable}
                     >
                       <Power className="h-4 w-4" />
                     </Button>
@@ -140,7 +142,7 @@ export default function AlertsPage() {
                       variant="ghost"
                       onClick={() => handleDeleteAlert(alert.id)}
                       disabled={toggling === alert.id || deleting === alert.id}
-                      title="Eliminar"
+                      title={t.common.delete}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

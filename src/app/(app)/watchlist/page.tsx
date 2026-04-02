@@ -3,6 +3,7 @@
 import { useWatchlists } from '@/lib/hooks/use-watchlist'
 import { useLivePrices } from '@/lib/hooks/use-live-prices'
 import { useMarketSearch } from '@/lib/hooks/use-market'
+import { useTranslation } from '@/lib/i18n'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,7 +55,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 // --- Watchlist table with sortable columns & live prices ---
-function WatchlistTable({ watchlist, prices }: { watchlist: Watchlist; prices: PriceData | undefined }) {
+function WatchlistTable({ watchlist, prices, t }: { watchlist: Watchlist; prices: PriceData | undefined; t: any }) {
   const { mutate } = useSWRConfig()
   const { openTrade } = useTrade()
   const [sort, setSort] = useState<SortState>({ key: 'symbol', dir: 'asc' })
@@ -94,19 +95,19 @@ function WatchlistTable({ watchlist, prices }: { watchlist: Watchlist; prices: P
         <TableRow>
           <TableHead>
             <button className="flex items-center text-xs font-semibold uppercase tracking-wider cursor-pointer select-none" onClick={() => toggleSort('symbol')}>
-              Simbolo
+              {t.portfolio.symbol}
               <SortIcon active={sort.key === 'symbol'} dir={sort.dir} />
             </button>
           </TableHead>
           <TableHead className="text-right">
             <button className="flex items-center justify-end text-xs font-semibold uppercase tracking-wider cursor-pointer select-none w-full" onClick={() => toggleSort('price')}>
-              Precio
+              {t.portfolio.price}
               <SortIcon active={sort.key === 'price'} dir={sort.dir} />
             </button>
           </TableHead>
           <TableHead className="text-right">
             <button className="flex items-center justify-end text-xs font-semibold uppercase tracking-wider cursor-pointer select-none w-full" onClick={() => toggleSort('changePct')}>
-              Cambio %
+              {t.market.change_pct}
               <SortIcon active={sort.key === 'changePct'} dir={sort.dir} />
             </button>
           </TableHead>
@@ -143,7 +144,7 @@ function WatchlistTable({ watchlist, prices }: { watchlist: Watchlist; prices: P
                   className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => openTrade({ symbol: item.symbol })}
                 >
-                  Comprar
+                  {t.market.buy}
                 </button>
               </TableCell>
               <TableCell>
@@ -166,7 +167,7 @@ function WatchlistTable({ watchlist, prices }: { watchlist: Watchlist; prices: P
 }
 
 // --- Add symbol panel with one-tap add ---
-function AddSymbolPanel({ watchlistId, existingSymbols }: { watchlistId: string; existingSymbols: string[] }) {
+function AddSymbolPanel({ watchlistId, existingSymbols, t }: { watchlistId: string; existingSymbols: string[]; t: any }) {
   const { mutate } = useSWRConfig()
   const [searchQuery, setSearchQuery] = useState('')
   const debouncedSearch = useDebounce(searchQuery, 300)
@@ -193,7 +194,7 @@ function AddSymbolPanel({ watchlistId, existingSymbols }: { watchlistId: string;
 
   async function addSymbol(symbol: string) {
     if (existingSymbols.includes(symbol)) {
-      toast.info(`${symbol} ya esta en la watchlist`)
+      toast.info(`${symbol} ${t.watchlist.already_in_watchlist}`)
       return
     }
     setAddingSymbol(symbol)
@@ -205,7 +206,7 @@ function AddSymbolPanel({ watchlistId, existingSymbols }: { watchlistId: string;
     })
     const data = await res.json()
     if (data.error) toast.error(data.error)
-    else { toast.success(`${symbol} agregado`); mutate('/api/watchlist') }
+    else { toast.success(`${symbol} ${t.watchlist.added}`); mutate('/api/watchlist') }
     setAddingSymbol(null)
   }
 
@@ -236,7 +237,7 @@ function AddSymbolPanel({ watchlistId, existingSymbols }: { watchlistId: string;
         <Input
           ref={inputRef}
           className="pl-8 rounded-xl border-border"
-          placeholder="Buscar accion (ej: AAPL, TSLA)..."
+          placeholder={t.watchlist.search_placeholder}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -246,14 +247,14 @@ function AddSymbolPanel({ watchlistId, existingSymbols }: { watchlistId: string;
 
       {searching && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-2 px-1">
-          <Loader2 className="h-3 w-3 animate-spin" /> Buscando...
+          <Loader2 className="h-3 w-3 animate-spin" /> {t.market.searching}
         </div>
       )}
 
       {/* Recent searches when search is empty */}
       {!searchQuery && recentSearches.length > 0 && (
         <div className="py-1">
-          <p className="text-xs text-muted-foreground px-2 py-1 font-medium">Busquedas recientes</p>
+          <p className="text-xs text-muted-foreground px-2 py-1 font-medium">{t.watchlist.recent_searches}</p>
           {recentSearches.map(sym => (
             <div
               key={sym}
@@ -312,6 +313,7 @@ function AddSymbolPanel({ watchlistId, existingSymbols }: { watchlistId: string;
 
 // --- Main page ---
 export default function WatchlistPage() {
+  const { t } = useTranslation()
   const { data: watchlists, isLoading, error } = useWatchlists()
   const { mutate } = useSWRConfig()
   const [newName, setNewName] = useState('')
@@ -372,17 +374,17 @@ export default function WatchlistPage() {
 
   if (isLoading) return <div className="space-y-4">{[1, 2].map(i => <SkeletonCard key={i} />)}</div>
 
-  if (error) return <ErrorDisplay error="Error al cargar watchlists. Intenta recargar la pagina." onRetry={() => window.location.reload()} />
+  if (error) return <ErrorDisplay error={t.common.error_occurred} onRetry={() => window.location.reload()} />
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Watchlists</h1>
+        <h1 className="text-3xl font-bold">{t.watchlist.title}</h1>
         <div className="flex gap-2">
           <Input
             className="w-48 rounded-xl border-border"
-            placeholder="Nueva watchlist..."
+            placeholder={t.watchlist.new_watchlist}
             value={newName}
             onChange={e => setNewName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleCreate()}
@@ -397,9 +399,9 @@ export default function WatchlistPage() {
       {watchlists?.length === 0 && (
         <EmptyState
           icon={Eye}
-          title="Sin watchlists"
-          description="Crea tu primera watchlist para seguir de cerca los activos que te interesan."
-          action={{ label: 'Crear watchlist', onClick: () => document.querySelector<HTMLInputElement>('.w-48')?.focus() }}
+          title={t.watchlist.no_watchlists}
+          description={t.watchlist.no_watchlists_desc}
+          action={{ label: t.watchlist.create_watchlist, onClick: () => document.querySelector<HTMLInputElement>('.w-48')?.focus() }}
         />
       )}
 
@@ -456,16 +458,17 @@ export default function WatchlistPage() {
               <AddSymbolPanel
                 watchlistId={wl.id}
                 existingSymbols={wl.watchlist_items?.map(i => i.symbol) || []}
+                t={t}
               />
             )}
 
             {/* Table or empty message */}
             {wl.watchlist_items?.length === 0 && addingTo !== wl.id ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                Sin activos. Haz click en &quot;Agregar&quot; para buscar y agregar activos.
+                {t.watchlist.click_to_add}
               </p>
             ) : (
-              <WatchlistTable watchlist={wl} prices={prices as PriceData | undefined} />
+              <WatchlistTable watchlist={wl} prices={prices as PriceData | undefined} t={t} />
             )}
           </CardContent>
         </Card>
@@ -475,15 +478,15 @@ export default function WatchlistPage() {
       <Dialog open={!!deletingWl} onOpenChange={(open) => { if (!open) setDeletingWl(null) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar watchlist</DialogTitle>
+            <DialogTitle>{t.watchlist.delete_watchlist}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Eliminar watchlist &quot;{deletingWl?.name}&quot; y todos sus activos? Esta accion no se puede deshacer.
+            Eliminar watchlist &quot;{deletingWl?.name}&quot; {t.watchlist.and_assets}? {t.portfolio.action_irreversible}
           </p>
           <DialogFooter>
-            <Button className="rounded-xl" variant="outline" onClick={() => setDeletingWl(null)}>Cancelar</Button>
+            <Button className="rounded-xl" variant="outline" onClick={() => setDeletingWl(null)}>{t.common.cancel}</Button>
             <Button className="rounded-xl" variant="destructive" onClick={handleDeleteWatchlist} disabled={deleteLoading}>
-              {deleteLoading ? 'Eliminando...' : 'Eliminar'}
+              {deleteLoading ? 'Eliminando...' : t.common.delete}
             </Button>
           </DialogFooter>
         </DialogContent>

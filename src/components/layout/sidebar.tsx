@@ -5,16 +5,20 @@ import { usePathname, useRouter } from 'next/navigation'
 import { LayoutDashboard, Briefcase, TrendingUp, Eye, Bell, GraduationCap, Settings, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect, useCallback } from 'react'
+import { useTranslation } from '@/lib/i18n'
+import type { Dictionary } from '@/lib/i18n'
 
-const navItems = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', desc: 'Resumen + salud del portafolio', shortcut: 'D' },
-  { href: '/portfolio', icon: Briefcase, label: 'Portafolios', desc: 'Posiciones + transacciones', shortcut: 'P' },
-  { href: '/market', icon: TrendingUp, label: 'Mercados', desc: 'Explorar + comparar', shortcut: 'M' },
-  { href: '/watchlist', icon: Eye, label: 'Watchlist', desc: 'Seguimiento de activos', shortcut: 'W' },
-  { href: '/alerts', icon: Bell, label: 'Alertas', desc: 'Notificaciones + reglas', shortcut: 'L' },
-  { href: '/advisor', icon: GraduationCap, label: 'Asesor', desc: 'Perfil + simulación', shortcut: 'R' },
-  { href: '/settings', icon: Settings, label: 'Configuracion', desc: 'Cuenta + preferencias', shortcut: 'S' },
-]
+function getNavItems(t: Dictionary) {
+  return [
+    { href: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard, desc: t.nav.dashboard_desc, shortcut: 'D' },
+    { href: '/portfolio', icon: Briefcase, label: t.nav.portfolios, desc: t.nav.portfolios_desc, shortcut: 'P' },
+    { href: '/market', icon: TrendingUp, label: t.nav.markets, desc: t.nav.markets_desc, shortcut: 'M' },
+    { href: '/watchlist', icon: Eye, label: t.nav.watchlist, desc: t.nav.watchlist_desc, shortcut: 'W' },
+    { href: '/alerts', icon: Bell, label: t.nav.alerts, desc: t.nav.alerts_desc, shortcut: 'L' },
+    { href: '/advisor', icon: GraduationCap, label: t.nav.advisor, desc: t.nav.advisor_desc, shortcut: 'R' },
+    { href: '/settings', icon: Settings, label: t.nav.settings, desc: t.nav.settings_desc, shortcut: 'S' },
+  ]
+}
 
 interface SidebarProps {
   mobileOpen?: boolean
@@ -24,6 +28,8 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { t } = useTranslation()
+  const navItems = getNavItems(t)
 
   const handleKeyboardNav = useCallback((e: KeyboardEvent) => {
     // Don't trigger if user is typing in an input/textarea/contenteditable
@@ -140,16 +146,16 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         {/* Footer CTA */}
         <div className="p-3 border-t border-border mt-auto">
           <div className="rounded-2xl border border-border p-4 bg-gradient-to-br from-primary/5 to-transparent">
-            <h3 className="text-sm font-bold tracking-tight mb-1">Tu portafolio es el centro</h3>
+            <h3 className="text-sm font-bold tracking-tight mb-1">{t.nav.portfolio_center}</h3>
             <p className="text-xs text-muted-foreground mb-3">
-              P&L, asignacion, riesgo y acciones rapidas. Mercado y &quot;populares&quot; son contexto.
+              {t.nav.portfolio_summary}
             </p>
             <div className="flex gap-2 flex-wrap">
               <Link
                 href="/portfolio/new"
                 className="inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium hover:bg-primary/90 transition-colors"
               >
-                Nuevo portafolio
+                {t.nav.new_portfolio}
               </Link>
             </div>
           </div>

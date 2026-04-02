@@ -38,7 +38,7 @@ async function checkRateLimit(ip: string): Promise<boolean> {
   return false
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Rate limit API routes
   if (request.nextUrl.pathname.startsWith('/api/')) {
     // Skip rate limiting for health checks and other special routes

@@ -4,6 +4,7 @@ import { use, useState, useMemo } from 'react'
 import { useQuote } from '@/lib/hooks/use-market'
 import { usePortfolios } from '@/lib/hooks/use-portfolios'
 import { useWatchlists } from '@/lib/hooks/use-watchlist'
+import { useTranslation } from '@/lib/i18n'
 import { PriceChart } from '@/components/market/price-chart'
 import { CompanyInfo } from '@/components/market/company-info'
 import { EventsTimeline } from '@/components/market/events-timeline'
@@ -36,6 +37,7 @@ function formatLargeNumber(n: number | null): string {
 
 export default function SymbolDetailPage({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = use(params)
+  const { t } = useTranslation()
   const decodedSymbol = decodeURIComponent(symbol)
   const { data: quote, isLoading, error } = useQuote(decodedSymbol)
   const { data: fundamentals } = useFundamentals(decodedSymbol)
@@ -93,7 +95,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
         <p className="text-lg font-medium">No se pudo cargar {decodedSymbol}</p>
         <p className="text-sm text-muted-foreground">{error.message}</p>
         <Button className="rounded-xl" variant="outline" onClick={() => mutate(`/api/market/${encodeURIComponent(decodedSymbol)}`)}>
-          Reintentar
+          {t.common.retry}
         </Button>
       </div>
     )
@@ -146,7 +148,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                 <span>({formatPercent(quote.changePct)})</span>
               </span>
               <span className="text-xs text-muted-foreground px-2 py-0.5 rounded-full bg-muted">
-                Hoy
+                {t.market.today}
               </span>
             </div>
           </div>
@@ -168,7 +170,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Briefcase className="h-4 w-4" />
-              Tu posicion
+              {t.market.your_position}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -189,24 +191,24 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                       onClick={() => router.push(`/portfolio/${pos.portfolioId}`)}
                       className="text-primary hover:underline text-xs"
                     >
-                      Ver portafolio
+                      {t.market.view_portfolio}
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-xs text-muted-foreground">Acciones</p>
+                      <p className="text-xs text-muted-foreground">{t.market.shares}</p>
                       <p className="text-sm font-semibold font-mono">{pos.quantity}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Valor de mercado</p>
+                      <p className="text-xs text-muted-foreground">{t.market.market_value}</p>
                       <FormattedAmount value={marketValue} from={quote.currency} className="text-sm font-semibold" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Costo promedio</p>
+                      <p className="text-xs text-muted-foreground">{t.market.average_cost}</p>
                       <FormattedAmount value={pos.avgCost} from={pos.currency} className="text-sm font-semibold" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Retorno total</p>
+                      <p className="text-xs text-muted-foreground">{t.market.total_return}</p>
                       <div className="flex items-center gap-1">
                         <FormattedAmount value={totalReturn} from={quote.currency} showSign colorize className="text-sm font-semibold" />
                         <span className={cn('text-xs', isReturnPositive ? 'text-gain' : 'text-loss')}>
@@ -215,7 +217,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                       </div>
                     </div>
                     <div className="col-span-2">
-                      <p className="text-xs text-muted-foreground">Retorno de hoy</p>
+                      <p className="text-xs text-muted-foreground">{t.market.today_return}</p>
                       <div className="flex items-center gap-1">
                         <FormattedAmount value={todayReturn} from={quote.currency} showSign colorize className="text-sm font-semibold" />
                         <span className={cn('text-xs', isTodayPositive ? 'text-gain' : 'text-loss')}>
@@ -237,7 +239,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
       <div className="flex gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-4 flex-1 gap-2">
-              <Plus className="h-4 w-4" /> Agregar a Portafolio
+              <Plus className="h-4 w-4" /> {t.market.add_to_portfolio}
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             {portfolios?.map((p: { id: string; name: string }) => (
@@ -250,7 +252,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
 
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-xl text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 px-4 flex-1 gap-2">
-              <Eye className="h-4 w-4" /> Agregar a Watchlist
+              <Eye className="h-4 w-4" /> {t.market.add_to_watchlist}
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             {watchlists?.map((wl: { id: string; name: string }) => (
@@ -264,7 +266,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
 
       <Link href={`/market/compare?symbols=${encodeURIComponent(decodedSymbol)}`}>
         <Button variant="outline" className="w-full rounded-xl h-11 gap-2">
-          <GitCompareArrows className="h-4 w-4" /> Comparar con...
+          <GitCompareArrows className="h-4 w-4" /> {t.market.compare_with}
         </Button>
       </Link>
 
@@ -293,16 +295,16 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
         <ErrorBoundary>
           <Card className="rounded-2xl border-border shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Estadisticas</CardTitle>
+              <CardTitle className="text-sm font-medium">{t.market.statistics}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                <StatRow label="Cap. de Mercado" value={formatLargeNumber(fundamentals.market_cap)} />
-                <StatRow label="P/E Ratio" value={fundamentals.pe_ratio != null ? `${Number(fundamentals.pe_ratio).toFixed(2)}x` : '--'} />
-                <StatRow label="EPS (TTM)" value={fundamentals.eps != null ? `$${Number(fundamentals.eps).toFixed(2)}` : '--'} />
-                <StatRow label="Div. Yield" value={fundamentals.dividend_yield != null ? `${Number(fundamentals.dividend_yield).toFixed(2)}%` : '--'} />
-                <StatRow label="52 Sem. Alto" value={fundamentals.week52_high != null ? `$${Number(fundamentals.week52_high).toFixed(2)}` : '--'} />
-                <StatRow label="52 Sem. Bajo" value={fundamentals.week52_low != null ? `$${Number(fundamentals.week52_low).toFixed(2)}` : '--'} />
+                <StatRow label={t.market.market_cap} value={formatLargeNumber(fundamentals.market_cap)} />
+                <StatRow label={t.market.pe_ratio} value={fundamentals.pe_ratio != null ? `${Number(fundamentals.pe_ratio).toFixed(2)}x` : '--'} />
+                <StatRow label={t.market.eps_ttm} value={fundamentals.eps != null ? `$${Number(fundamentals.eps).toFixed(2)}` : '--'} />
+                <StatRow label={t.market.div_yield} value={fundamentals.dividend_yield != null ? `${Number(fundamentals.dividend_yield).toFixed(2)}%` : '--'} />
+                <StatRow label={t.market.high_52w} value={fundamentals.week52_high != null ? `$${Number(fundamentals.week52_high).toFixed(2)}` : '--'} />
+                <StatRow label={t.market.low_52w} value={fundamentals.week52_low != null ? `$${Number(fundamentals.week52_low).toFixed(2)}` : '--'} />
               </div>
 
               {/* 52-week range bar */}
@@ -314,7 +316,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                   <div className="mt-4">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
                       <span>${low.toFixed(2)}</span>
-                      <span className="text-xs font-medium">Rango 52 semanas</span>
+                      <span className="text-xs font-medium">{t.market.range_52w}</span>
                       <span>${high.toFixed(2)}</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden relative">
@@ -340,19 +342,19 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
-                Calificacion de analistas
+                {t.market.analyst_rating}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold">{fundamentals.analyst_rating}</p>
-                  <p className="text-xs text-muted-foreground">Consenso</p>
+                  <p className="text-xs text-muted-foreground">{t.market.consensus}</p>
                 </div>
                 {fundamentals.analyst_target_price && (
                   <div className="text-right">
                     <p className="text-2xl font-bold font-mono">${Number(fundamentals.analyst_target_price).toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">Precio objetivo</p>
+                    <p className="text-xs text-muted-foreground">{t.market.price_target}</p>
                     {quote?.price && (() => {
                       const target = Number(fundamentals.analyst_target_price)
                       const upside = ((target - quote.price) / quote.price) * 100
@@ -361,7 +363,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                           'text-xs font-medium',
                           upside >= 0 ? 'text-gain' : 'text-loss'
                         )}>
-                          {upside >= 0 ? '+' : ''}{upside.toFixed(1)}% vs actual
+                          {upside >= 0 ? '+' : ''}{upside.toFixed(1)}% {t.market.vs_current}
                         </span>
                       )
                     })()}
@@ -370,7 +372,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
               </div>
 
               {/* Visual rating bar */}
-              <AnalystBar rating={fundamentals.analyst_rating} />
+              <AnalystBar rating={fundamentals.analyst_rating} t={t} />
             </CardContent>
           </Card>
         </ErrorBoundary>
@@ -410,7 +412,7 @@ function StatRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function AnalystBar({ rating }: { rating: string }) {
+function AnalystBar({ rating, t }: { rating: string; t: any }) {
   const ratingLower = rating.toLowerCase()
 
   // Map ratings to visual weights
@@ -435,9 +437,9 @@ function AnalystBar({ rating }: { rating: string }) {
         <div className="bg-loss transition-all" style={{ width: `${sell}%` }} />
       </div>
       <div className="flex justify-between text-xs">
-        <span className="text-gain font-medium">Comprar {buy}%</span>
-        <span className="text-amber-500 font-medium">Mantener {hold}%</span>
-        <span className="text-loss font-medium">Vender {sell}%</span>
+        <span className="text-gain font-medium">{t.market.buy} {buy}%</span>
+        <span className="text-amber-500 font-medium">{t.market.hold} {hold}%</span>
+        <span className="text-loss font-medium">{t.market.sell} {sell}%</span>
       </div>
     </div>
   )

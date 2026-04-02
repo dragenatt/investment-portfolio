@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { useMarketSearch } from '@/lib/hooks/use-market'
 import { useMarketOverview } from '@/lib/hooks/use-market-overview'
+import { useTranslation } from '@/lib/i18n'
 import { SectorPerformance } from '@/components/market/sector-performance'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -206,6 +207,7 @@ function MoverRowSkeleton() {
 
 export default function MarketPage() {
   const [query, setQuery] = useState('')
+  const { t } = useTranslation()
   const { data: results, isLoading: searchLoading, error: searchError } = useMarketSearch(query)
   const { data: overview, isLoading: overviewLoading } = useMarketOverview()
 
@@ -222,11 +224,11 @@ export default function MarketPage() {
         {/* ── Title + Search ── */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">Mercado</h1>
+            <h1 className="text-3xl font-bold">{t.market.title}</h1>
             <Link href="/market/compare">
               <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
                 <GitCompareArrows className="h-4 w-4" />
-                Comparar
+                {t.market.compare}
               </button>
             </Link>
           </div>
@@ -234,7 +236,7 @@ export default function MarketPage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               className="pl-12 h-12 text-base rounded-2xl border-border bg-muted/30 focus:bg-background transition-colors"
-              placeholder="Buscar acciones, ETFs, crypto..."
+              placeholder={t.market.search_placeholder}
               value={query}
               onChange={e => setQuery(e.target.value)}
             />
@@ -246,13 +248,13 @@ export default function MarketPage() {
 
         {/* ── Search Results ── */}
         {searchError && (
-          <p className="text-sm text-red-500">Error al buscar: {searchError.message}</p>
+          <p className="text-sm text-red-500">{t.market.search_error}: {searchError.message}</p>
         )}
 
         {searchLoading && (
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">Buscando...</span>
+            <span className="text-sm">{t.market.searching}</span>
           </div>
         )}
 
@@ -277,7 +279,7 @@ export default function MarketPage() {
 
         {query && results?.length === 0 && !searchLoading && (
           <p className="text-muted-foreground text-center py-8">
-            No se encontraron resultados para &quot;{query}&quot;
+            {t.market.no_results}
           </p>
         )}
 
@@ -286,7 +288,7 @@ export default function MarketPage() {
           <>
             {/* ── Indices Section ── */}
             <section>
-              <h2 className="text-lg font-semibold mb-3">Indices</h2>
+              <h2 className="text-lg font-semibold mb-3">{t.market.indices}</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {overviewLoading
                   ? Array.from({ length: 6 }).map((_, i) => <IndexCardSkeleton key={i} />)
@@ -305,7 +307,7 @@ export default function MarketPage() {
                   <CardHeader className="pb-1">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <TrendingUp className="h-4 w-4 text-gain" />
-                      Ganadores del Dia
+                      {t.market.top_gainers}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -323,7 +325,7 @@ export default function MarketPage() {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground py-6 text-center">
-                        Sin datos disponibles
+                        {t.market.no_data}
                       </p>
                     )}
                   </CardContent>
@@ -334,7 +336,7 @@ export default function MarketPage() {
                   <CardHeader className="pb-1">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <TrendingDown className="h-4 w-4 text-loss" />
-                      Perdedores del Dia
+                      {t.market.top_losers}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -352,7 +354,7 @@ export default function MarketPage() {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground py-6 text-center">
-                        Sin datos disponibles
+                        {t.market.no_data}
                       </p>
                     )}
                   </CardContent>
@@ -363,7 +365,7 @@ export default function MarketPage() {
             {/* ── Most Popular ── */}
             {overview?.popular && (
               <section>
-                <h2 className="text-lg font-semibold mb-3">Mas Populares</h2>
+                <h2 className="text-lg font-semibold mb-3">{t.market.most_popular}</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {overview.popular.map((stock: MoverData) => (
                     <Link key={stock.symbol} href={`/market/${encodeURIComponent(stock.symbol)}`}>
@@ -407,7 +409,7 @@ export default function MarketPage() {
             {/* ── Sector Performance ── */}
             {overview?.sectors && (
               <section>
-                <h2 className="text-lg font-semibold mb-3">Por Sector</h2>
+                <h2 className="text-lg font-semibold mb-3">{t.market.by_sector}</h2>
                 <Card>
                   <CardContent className="p-4">
                     <SectorPerformance sectors={overview.sectors} />

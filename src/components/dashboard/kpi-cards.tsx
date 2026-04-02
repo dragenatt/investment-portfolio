@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from '@/lib/i18n'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Eye, EyeOff, TrendingUp, TrendingDown, Wallet, CircleDollarSign, BarChart3 } from 'lucide-react'
@@ -31,6 +32,7 @@ function isMarketOpen(): boolean {
 }
 
 export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCount, bestPosition, todayReturn, todayReturnPct, totalCost }: Props) {
+  const { t } = useTranslation()
   const [balanceVisible, setBalanceVisible] = useState(true)
   const marketOpen = isMarketOpen()
   const isPositive = totalReturn >= 0
@@ -47,13 +49,13 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
             className="text-xs font-extrabold uppercase tracking-widest"
             style={{ color: 'var(--muted-foreground)', letterSpacing: '.08em' }}
           >
-            Valor del portafolio
+            {t.dashboard.portfolio_value}
           </h2>
           <button
             onClick={() => setBalanceVisible(v => !v)}
             className="transition-colors"
             style={{ color: 'var(--muted-foreground)' }}
-            aria-label={balanceVisible ? 'Ocultar saldo' : 'Mostrar saldo'}
+            aria-label={balanceVisible ? t.dashboard.hide_balance : t.dashboard.show_balance}
           >
             {balanceVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
           </button>
@@ -68,7 +70,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
               className={`inline-block h-1.5 w-1.5 rounded-full ${marketOpen ? 'animate-pulse' : ''}`}
               style={{ backgroundColor: marketOpen ? 'var(--good)' : 'var(--muted-foreground)' }}
             />
-            {marketOpen ? 'Mercado abierto' : 'Mercado cerrado'}
+            {marketOpen ? t.dashboard.market_open : t.dashboard.market_closed}
           </Badge>
         </div>
 

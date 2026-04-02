@@ -23,10 +23,12 @@ import {
 } from '@/components/ui/table'
 import { Upload, FileText, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { useTranslation } from '@/lib/i18n'
 
 type ImportState = 'upload' | 'preview' | 'importing' | 'done'
 
 export default function ImportCSVPage() {
+  const { t } = useTranslation()
   const { data: portfolios, isLoading: loadingPortfolios } = usePortfolios()
   const [portfolioId, setPortfolioId] = useState<string>('')
   const [state, setState] = useState<ImportState>('upload')
@@ -38,7 +40,7 @@ export default function ImportCSVPage() {
 
   const handleFile = useCallback((file: File) => {
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      setParseErrors(['El archivo debe ser un CSV (.csv)'])
+      setParseErrors([t.portfolio.import_csv_title])
       return
     }
 
@@ -51,7 +53,7 @@ export default function ImportCSVPage() {
       setState('preview')
     }
     reader.onerror = () => {
-      setParseErrors(['Error al leer el archivo'])
+      setParseErrors([t.common.error_occurred])
     }
     reader.readAsText(file, 'utf-8')
   }, [])
@@ -95,7 +97,7 @@ export default function ImportCSVPage() {
         setImportResult(json.data)
       }
     } catch {
-      setImportResult({ imported: 0, errors: ['Error de conexion al servidor'] })
+      setImportResult({ imported: 0, errors: [t.common.error_occurred] })
     }
     setState('done')
   }
@@ -116,27 +118,27 @@ export default function ImportCSVPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <h1 className="text-3xl font-bold">Importar CSV</h1>
+        <h1 className="text-3xl font-bold">{t.portfolio.import_csv_title}</h1>
       </div>
 
       {/* Portfolio selector */}
       <Card>
         <CardHeader>
-          <CardTitle>Seleccionar portafolio</CardTitle>
+          <CardTitle>{t.portfolio.select_portfolio}</CardTitle>
           <CardDescription>
-            Elige el portafolio donde se importaran las transacciones
+            {t.portfolio.select_portfolio_desc}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="max-w-sm">
             <Label htmlFor="portfolio-select" className="mb-2">
-              Portafolio
+              {t.portfolio.portfolio_field}
             </Label>
             {loadingPortfolios ? (
-              <p className="text-sm text-muted-foreground">Cargando portafolios...</p>
+              <p className="text-sm text-muted-foreground">{t.portfolio.loading_portfolios}</p>
             ) : !portfolios || portfolios.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No tienes portafolios.{' '}
+                {t.portfolio.no_portfolios_owned}{' '}
                 <Link href="/portfolio/new" className="text-primary underline">
                   Crea uno primero
                 </Link>
@@ -145,7 +147,7 @@ export default function ImportCSVPage() {
             ) : (
               <Select value={portfolioId} onValueChange={(v) => v && setPortfolioId(v)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecciona un portafolio" />
+                  <SelectValue placeholder={t.portfolio.select_portfolio} />
                 </SelectTrigger>
                 <SelectContent>
                   {portfolios.map((p: Record<string, unknown>) => (
@@ -164,12 +166,9 @@ export default function ImportCSVPage() {
       {state === 'upload' && portfolioId && (
         <Card>
           <CardHeader>
-            <CardTitle>Subir archivo</CardTitle>
+            <CardTitle>{t.portfolio.upload_file}</CardTitle>
             <CardDescription>
-              Arrastra un archivo CSV o haz clic para seleccionarlo. Formatos
-              soportados: estandar (Date, Symbol, Type, Quantity, Price, Fees,
-              Currency) y GBM+ (Fecha, Emisora, Operacion, Titulos, Precio,
-              Comision).
+              {t.portfolio.drag_or_click}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -189,8 +188,7 @@ export default function ImportCSVPage() {
             >
               <Upload className="h-10 w-10 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Arrastra tu archivo CSV aqui o{' '}
-                <span className="font-medium text-primary">haz clic para buscar</span>
+                {t.portfolio.drag_or_click}
               </p>
               <input
                 ref={fileInputRef}
@@ -210,11 +208,11 @@ export default function ImportCSVPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Vista previa
+              {t.portfolio.preview}
             </CardTitle>
             <CardDescription>
-              {rows.length} transacciones validas
-              {parseErrors.length > 0 && `, ${parseErrors.length} con errores`}
+              {rows.length} {t.portfolio.valid_transactions}
+              {parseErrors.length > 0 && `, ${parseErrors.length} ${t.portfolio.format_errors}`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -223,7 +221,7 @@ export default function ImportCSVPage() {
               <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-3">
                 <div className="mb-2 flex items-center gap-2 text-sm font-medium text-destructive">
                   <AlertCircle className="h-4 w-4" />
-                  Errores de formato ({parseErrors.length})
+                  {t.portfolio.format_errors} ({parseErrors.length})
                 </div>
                 <ul className="space-y-1 text-sm text-destructive/90">
                   {parseErrors.map((err, i) => (
@@ -240,13 +238,13 @@ export default function ImportCSVPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>#</TableHead>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Simbolo</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead className="text-right">Cantidad</TableHead>
-                      <TableHead className="text-right">Precio</TableHead>
-                      <TableHead className="text-right">Comision</TableHead>
-                      <TableHead>Moneda</TableHead>
+                      <TableHead>{t.portfolio.date}</TableHead>
+                      <TableHead>{t.portfolio.symbol}</TableHead>
+                      <TableHead>{t.portfolio.type}</TableHead>
+                      <TableHead className="text-right">{t.portfolio.quantity}</TableHead>
+                      <TableHead className="text-right">{t.portfolio.price}</TableHead>
+                      <TableHead className="text-right">{t.portfolio.fees}</TableHead>
+                      <TableHead>{t.trade.currency}</TableHead>
                       <TableHead>Notas</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -296,10 +294,10 @@ export default function ImportCSVPage() {
             {/* Actions */}
             <div className="flex items-center gap-3 pt-2">
               <Button onClick={handleImport} disabled={rows.length === 0 || !portfolioId}>
-                Importar {rows.length} transacciones
+                {t.portfolio.import} {rows.length} {t.portfolio.transactions}
               </Button>
               <Button variant="outline" onClick={reset}>
-                Cancelar
+                {t.common.cancel}
               </Button>
             </div>
           </CardContent>
@@ -311,7 +309,7 @@ export default function ImportCSVPage() {
         <Card>
           <CardContent className="flex items-center gap-3 py-8">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <p className="text-sm">Importando transacciones...</p>
+            <p className="text-sm">{t.common.loading_data}</p>
           </CardContent>
         </Card>
       )}
@@ -326,19 +324,19 @@ export default function ImportCSVPage() {
               ) : (
                 <AlertCircle className="h-5 w-5 text-destructive" />
               )}
-              Resultado de la importacion
+              {t.portfolio.import_result}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {importResult.imported > 0 && (
               <p className="text-sm text-green-600">
-                {importResult.imported} transacciones importadas exitosamente.
+                {importResult.imported} {t.portfolio.transactions_imported}
               </p>
             )}
             {importResult.errors.length > 0 && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-3">
                 <p className="mb-2 text-sm font-medium text-destructive">
-                  Errores ({importResult.errors.length})
+                  {t.common.error} ({importResult.errors.length})
                 </p>
                 <ul className="space-y-1 text-sm text-destructive/90">
                   {importResult.errors.map((err, i) => (
@@ -349,10 +347,10 @@ export default function ImportCSVPage() {
             )}
             <div className="flex items-center gap-3 pt-2">
               <Link href="/portfolio">
-                <Button>Volver a portafolios</Button>
+                <Button>{t.portfolio.back_to_portfolios}</Button>
               </Link>
               <Button variant="outline" onClick={reset}>
-                Importar otro archivo
+                {t.portfolio.import_another}
               </Button>
             </div>
           </CardContent>

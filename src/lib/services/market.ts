@@ -1,7 +1,7 @@
 /**
  * Market data service with multi-source fallback + in-memory cache
  *
- * Priority: Twelve Data (if API key set) → Yahoo Finance (always available)
+ * Priority: Twelve Data (if API key set) → Finnhub (if API key set) → Yahoo Finance (always available)
  * Each function tries the primary source first, falls back automatically.
  *
  * Performance:
@@ -11,6 +11,7 @@
  */
 
 import * as twelveData from './twelve-data'
+import * as finnhub from './finnhub'
 
 // ─── In-memory quote cache (survives within a single serverless invocation) ──
 
@@ -166,7 +167,27 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
     } catch { /* fall through */ }
   }
 
-  // 3. Fallback to Yahoo with timeout
+  // 3. Try Finnhub with timeout
+  if (await finnhub.isAvailable()) {
+    try {
+      const quote = await withTimeout(finnhub.getQuote(symbol))
+      if (quote?.price != null) {
+        const quoteResult: QuoteResult = {
+          symbol: quote.symbol,
+          price: quote.price,
+          previousClose: quote.previousClose,
+          change: quote.change,
+          changePct: quote.changePct,
+          currency: quote.currency,
+          exchange: quote.exchange,
+        }
+        setCache(symbol, quoteResult)
+        return quoteResult
+      }
+    } catch { /* fall through */ }
+  }
+
+  // 4. Fallback to Yahoo with timeout
   try {
     const quote = await withTimeout(yahooQuote(symbol))
     if (quote) setCache(symbol, quote)
@@ -179,7 +200,7 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
 /**
  * Batch quote fetcher — single API call for multiple symbols.
  * Uses Twelve Data's native batch endpoint when available,
- * otherwise falls back to parallel Yahoo calls.
+ * falls back to Finnhub individual calls, then parallel Yahoo calls.
  * All results are cached individually.
  */
 export async function getBatchQuotes(
@@ -239,18 +260,58 @@ export async function getBatchQuotes(
         }
       }
 
-      // Only fall back for symbols that Twelve Data couldn't resolve
+      // Fall back to Finnhub for symbols that Twelve Data couldn't resolve
       if (stillMissing.length > 0) {
-        await fetchYahooBatch(stillMissing, results)
+        await fetchFinnhubBatch(stillMissing, results)
       }
 
+      return results
+    } catch { /* fall through to Finnhub */ }
+  }
+
+  // 3. Try Finnhub individual calls
+  if (await finnhub.isAvailable()) {
+    try {
+      await fetchFinnhubBatch(uncached, results)
       return results
     } catch { /* fall through to Yahoo */ }
   }
 
-  // 3. Fallback: parallel Yahoo calls
+  // 4. Fallback: parallel Yahoo calls
   await fetchYahooBatch(uncached, results)
   return results
+}
+
+/** Helper: fetch multiple symbols via Finnhub in parallel */
+async function fetchFinnhubBatch(
+  symbols: string[],
+  results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string }>
+) {
+  await Promise.all(
+    symbols.map(async (s) => {
+      try {
+        const q = await withTimeout(finnhub.getQuote(s))
+        if (q?.price != null) {
+          const entry: QuoteResult = {
+            symbol: q.symbol,
+            price: q.price,
+            previousClose: q.previousClose,
+            change: q.change,
+            changePct: q.changePct,
+            currency: q.currency,
+            exchange: q.exchange,
+          }
+          setCache(s, entry)
+          results[q.symbol || s] = {
+            price: entry.price,
+            change: entry.change,
+            changePct: entry.changePct,
+            currency: entry.currency,
+          }
+        }
+      } catch { /* skip */ }
+    })
+  )
 }
 
 /** Helper: fetch multiple symbols via Yahoo in parallel */
@@ -284,10 +345,19 @@ export async function getHistory(symbol: string, range: string = '1mo') {
     } catch { /* fall through */ }
   }
 
+  if (await finnhub.isAvailable()) {
+    try {
+      const history = await withTimeout(finnhub.getHistory(symbol, range), 6_000)
+      if (history.length > 0) return history
+    } catch { /* fall through */ }
+  }
+
   return yahooHistory(symbol, range)
 }
 
 /** Returns which data source is currently active */
-export async function getActiveSource(): Promise<'twelve-data' | 'yahoo'> {
-  return (await twelveData.isAvailable()) ? 'twelve-data' : 'yahoo'
+export async function getActiveSource(): Promise<'twelve-data' | 'finnhub' | 'yahoo'> {
+  if (await twelveData.isAvailable()) return 'twelve-data'
+  if (await finnhub.isAvailable()) return 'finnhub'
+  return 'yahoo'
 }

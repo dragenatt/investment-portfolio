@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useMarketSearch, useQuote } from '@/lib/hooks/use-market'
+import { useTranslation } from '@/lib/i18n'
 import { getChartTheme } from '@/lib/utils/chart-config'
 import { formatPercent } from '@/lib/utils/numbers'
 import { cn } from '@/lib/utils'
@@ -188,6 +189,7 @@ function SearchDropdown({
   existingSymbols: string[]
 }) {
   const { data: results, isLoading } = useMarketSearch(query)
+  const { t } = useTranslation()
 
   if (!query || query.length < 2) return null
   if (isLoading) {
@@ -195,7 +197,7 @@ function SearchDropdown({
       <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-xl shadow-lg p-3">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Buscando...</span>
+          <span className="text-sm">{t.market.searching}</span>
         </div>
       </div>
     )
@@ -204,7 +206,7 @@ function SearchDropdown({
   if (!results || results.length === 0) {
     return (
       <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-xl shadow-lg p-3">
-        <p className="text-sm text-muted-foreground text-center">Sin resultados</p>
+        <p className="text-sm text-muted-foreground text-center">{t.market.no_results}</p>
       </div>
     )
   }
@@ -230,7 +232,7 @@ function SearchDropdown({
               </p>
             </div>
             {alreadyAdded && (
-              <span className="text-xs text-muted-foreground">Ya agregado</span>
+              <span className="text-xs text-muted-foreground">{t.watchlist.already_added}</span>
             )}
           </button>
         )
@@ -243,6 +245,7 @@ function SearchDropdown({
 function ComparePageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { t } = useTranslation()
 
   // Initialize from URL
   const initialSymbols = useMemo(() => {
@@ -540,7 +543,7 @@ function ComparePageInner() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold">Comparar Activos</h1>
+        <h1 className="text-2xl font-bold">{t.market.compare_assets}</h1>
       </div>
 
       {/* ─── Symbol Selector ────────────────────────────────────────── */}
@@ -565,7 +568,7 @@ function ComparePageInner() {
             ))}
             {symbols.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                Agrega simbolos para comparar (maximo {MAX_SYMBOLS})
+                {t.market.add_symbols}
               </p>
             )}
           </div>
@@ -576,7 +579,7 @@ function ComparePageInner() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 className="pl-10 h-10 rounded-xl"
-                placeholder="Buscar simbolo..."
+                placeholder={t.market.search_symbol}
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value)
@@ -605,7 +608,7 @@ function ComparePageInner() {
         <Card className="rounded-2xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
-              Rendimiento Comparativo (%)
+              {t.market.comparative_performance}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -703,7 +706,7 @@ function ComparePageInner() {
               </div>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-muted-foreground text-sm">
-                Sin datos para mostrar
+                {t.market.no_data_display}
               </div>
             )}
 
@@ -738,7 +741,7 @@ function ComparePageInner() {
         <Card className="rounded-2xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
-              Tabla Comparativa
+              {t.market.comparison_table}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -750,7 +753,7 @@ function ComparePageInner() {
                       onClick={() => toggleSort('symbol')}
                       className="flex items-center gap-1 hover:text-foreground transition-colors"
                     >
-                      Simbolo
+                      {t.portfolio.symbol}
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
@@ -759,7 +762,7 @@ function ComparePageInner() {
                       onClick={() => toggleSort('price')}
                       className="flex items-center gap-1 hover:text-foreground transition-colors"
                     >
-                      Precio
+                      {t.portfolio.price}
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
@@ -768,7 +771,7 @@ function ComparePageInner() {
                       onClick={() => toggleSort('changePct')}
                       className="flex items-center gap-1 hover:text-foreground transition-colors"
                     >
-                      Cambio %
+                      {t.market.change_pct}
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
@@ -786,7 +789,7 @@ function ComparePageInner() {
                       onClick={() => toggleSort('marketCap')}
                       className="flex items-center gap-1 hover:text-foreground transition-colors"
                     >
-                      Market Cap
+                      {t.market.market_cap}
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
@@ -863,10 +866,9 @@ function ComparePageInner() {
           <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center">
             <TrendingUpIcon className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h2 className="text-lg font-semibold">Compara el rendimiento</h2>
+          <h2 className="text-lg font-semibold">{t.market.compare_performance}</h2>
           <p className="text-sm text-muted-foreground max-w-sm">
-            Agrega hasta {MAX_SYMBOLS} simbolos para comparar su rendimiento en
-            un mismo grafico
+            {t.market.add_up_to_5}
           </p>
         </div>
       )}
