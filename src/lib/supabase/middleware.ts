@@ -4,11 +4,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
-  // API routes handle their own auth — skip session check entirely
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    return supabaseResponse
-  }
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -30,7 +25,14 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // Always refresh the session — this keeps the JWT token alive
+  // for both page routes AND API routes
   const { data: { user } } = await supabase.auth.getUser()
+
+  // API routes handle their own auth checks after token refresh
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return supabaseResponse
+  }
 
   const publicPaths = ['/', '/login', '/register']
   const isPublicPath = publicPaths.some(p => request.nextUrl.pathname === p)
