@@ -2,9 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ErrorDisplay } from '@/components/shared/error-display'
-import { Bell, Plus } from 'lucide-react'
+import { Bell, Trash2, Power } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { CreateAlertModal } from '@/components/alerts/create-alert-modal'
 import useSWR from 'swr'
+import { toast } from 'sonner'
+import { useState } from 'react'
 
 const fetcher = async (url: string) => {
   const res = await fetch(url)
@@ -23,9 +26,62 @@ type Alert = {
 }
 
 export default function AlertsPage() {
-  const { data: alerts, isLoading, error } = useSWR<Alert[]>('/api/alerts', fetcher, {
+  const { data: alerts, isLoading, error, mutate } = useSWR<Alert[]>('/api/alerts', fetcher, {
     refreshInterval: 30_000,
   })
+
+  const [toggling, setToggling] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  const handleToggleAlert = async (alertId: string, currentActive: boolean) => {
+    setToggling(alertId)
+    try {
+      const response = await fetch(`/api/alerts/${alertId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          is_active: !currentActive,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast.error(result.error || 'Error al actualizar la alerta')
+        return
+      }
+
+      toast.success(currentActive ? 'Alerta desactivada' : 'Alerta activada')
+      mutate()
+    } catch {
+      toast.error('Error al actualizar la alerta')
+    } finally {
+      setToggling(null)
+    }
+  }
+
+  const handleDeleteAlert = async (alertId: string) => {
+    setDeleting(alertId)
+    try {
+      const response = await fetch(`/api/alerts/${alertId}`, {
+        method: 'DELETE',
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast.error(result.error || 'Error al eliminar la alerta')
+        return
+      }
+
+      toast.success('Alerta eliminada')
+      mutate()
+    } catch {
+      toast.error('Error al eliminar la alerta')
+    } finally {
+      setDeleting(null)
+    }
+  }
 
   if (error) return <ErrorDisplay error="Error al cargar alertas. Intenta recargar la pagina." onRetry={() => window.location.reload()} />
 
@@ -33,10 +89,7 @@ export default function AlertsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Alertas</h1>
-        <Button className="rounded-xl gap-2" disabled>
-          <Plus className="h-4 w-4" />
-          Nueva Alerta
-        </Button>
+        <CreateAlertModal />
       </div>
 
       {isLoading ? (
@@ -62,15 +115,37 @@ export default function AlertsPage() {
           {alerts.map(alert => (
             <Card key={alert.id} className="rounded-2xl border-border shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <span className="font-bold">{alert.symbol}</span>
-                  <span className="text-muted-foreground">
-                    {alert.condition === 'above' ? 'sube a' : alert.condition === 'below' ? 'baja a' : 'cambia'} ${alert.target_value?.toFixed(2) ?? '--'}
-                  </span>
-                  <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${alert.is_active ? 'bg-gain/10 text-gain' : 'bg-muted text-muted-foreground'}`}>
-                    {alert.is_active ? 'Activa' : 'Inactiva'}
-                  </span>
-                </CardTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <span className="font-bold">{alert.symbol}</span>
+                    <span className="text-muted-foreground">
+                      {alert.condition === 'above' ? 'sube a' : alert.condition === 'below' ? 'baja a' : 'cambia'} ${alert.target_value?.toFixed(2) ?? '--'}
+                    </span>
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${alert.is_active ? 'bg-gain/10 text-gain' : 'bg-muted text-muted-foreground'}`}>
+                      {alert.is_active ? 'Activa' : 'Inactiva'}
+                    </span>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => handleToggleAlert(alert.id, alert.is_active)}
+                      disabled={toggling === alert.id || deleting === alert.id}
+                      title={alert.is_active ? 'Desactivar' : 'Activar'}
+                    >
+                      <Power className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => handleDeleteAlert(alert.id)}
+                      disabled={toggling === alert.id || deleting === alert.id}
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
             </Card>
           ))}

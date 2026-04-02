@@ -14,11 +14,18 @@ import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { OnboardingTour } from '@/components/shared/onboarding-tour'
 import { useMemo, useState } from 'react'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
-import { ArrowRightLeft, Bell, Download } from 'lucide-react'
+import { ArrowRightLeft, Bell, Download, FileJson, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useTrade } from '@/lib/contexts/trade-context'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -40,6 +47,17 @@ export default function DashboardPage() {
 
   const { data: livePrices } = useLivePrices(allSymbols)
   const stats = usePortfolioStats(portfolios, livePrices)
+
+  const handleExport = (format: 'csv_positions' | 'csv_transactions' | 'json') => {
+    if (!portfolios || portfolios.length === 0) {
+      toast.error('No hay portafolios para exportar')
+      return
+    }
+
+    const portfolioId = portfolios[0].id
+    const url = `/api/portfolio/${portfolioId}/export?format=${format}`
+    window.open(url, '_blank')
+  }
 
   if (isLoading) {
     return (
@@ -97,17 +115,36 @@ export default function DashboardPage() {
               A
             </kbd>
           </button>
-          <button
-            className="inline-flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm font-medium hover:bg-secondary transition-colors btn-press"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Exportar
-            <kbd
-              className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground"
-            >
-              E
-            </kbd>
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger>
+              <button
+                className="inline-flex items-center gap-2 border border-border rounded-full px-3 py-1.5 text-sm font-medium hover:bg-secondary transition-colors btn-press"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Exportar
+                <kbd
+                  className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground"
+                >
+                  E
+                </kbd>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport('csv_positions')}>
+                <FileText className="h-4 w-4" />
+                Exportar posiciones (CSV)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('csv_transactions')}>
+                <FileText className="h-4 w-4" />
+                Exportar transacciones (CSV)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleExport('json')}>
+                <FileJson className="h-4 w-4" />
+                Exportar todo (JSON)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
