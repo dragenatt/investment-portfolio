@@ -45,10 +45,9 @@ export const DELETE = apiHandler(async (_req: Request, ctx) => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const { error: dbError } = await supabase
-    .from('portfolios')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id)
+  const { error: dbError } = await supabase.rpc('soft_delete_portfolio', {
+    p_portfolio_id: id,
+  })
 
   if (dbError) return error(dbError.message, 500)
   return success({ deleted: true })
