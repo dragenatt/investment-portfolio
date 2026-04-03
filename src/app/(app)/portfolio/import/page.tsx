@@ -56,7 +56,7 @@ export default function ImportCSVPage() {
       setParseErrors([t.common.error_occurred])
     }
     reader.readAsText(file, 'utf-8')
-  }, [])
+  }, [t.portfolio.import_csv_title, t.common.error_occurred])
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {

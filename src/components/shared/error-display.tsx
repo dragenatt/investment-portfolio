@@ -39,7 +39,7 @@ export function ErrorDisplay({ error, onRetry, compact }: Props) {
         <div className="p-4 rounded-2xl bg-destructive/10 mb-4">
           <AlertCircle className="h-8 w-8 text-destructive" />
         </div>
-        <h3 className="font-semibold text-lg mb-2">Algo salio mal</h3>
+        <h3 className="font-semibold text-lg mb-2">Algo salió mal</h3>
         <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
           {message}
         </p>

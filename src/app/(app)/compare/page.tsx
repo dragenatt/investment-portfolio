@@ -101,6 +101,7 @@ export default function ComparePage() {
   // Find best/worst in each metric for highlighting
   const getBestWorst = (metricKey: string, higherIsBetter: boolean) => {
     if (!comparison?.metrics || comparison.metrics.length < 2) return { best: '', worst: '' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sorted = [...comparison.metrics].sort((a: any, b: any) => {
       const aVal = a[metricKey] ?? -Infinity
       const bVal = b[metricKey] ?? -Infinity
@@ -119,6 +120,7 @@ export default function ComparePage() {
     const sortedDates = [...allDates].sort()
 
     return sortedDates.map(date => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const point: any = { date }
       history.forEach((h, idx) => {
         const entry = h.values.find(v => v.date === date)
@@ -149,7 +151,9 @@ export default function ComparePage() {
     ]
 
     return dimensions.map(dim => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const point: any = { metric: dim.label }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       metrics.forEach((m: any, idx: number) => {
         const val = m[dim.key] ?? 0
         // Normalize to 0-100 scale, invert for "lower is better" metrics
@@ -369,6 +373,7 @@ export default function ComparePage() {
                     <Tooltip
                       contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', fontSize: '12px' }}
                       labelFormatter={(d) => new Date(d as string).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       formatter={(value: any, name: any) => {
                         const idx = parseInt(String(name).replace('portfolio_', ''))
                         const label = history[idx]?.portfolioName || name
@@ -376,6 +381,7 @@ export default function ComparePage() {
                       }}
                     />
                     <Legend
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       formatter={(value: any) => {
                         const idx = parseInt(String(value).replace('portfolio_', ''))
                         return history[idx]?.portfolioName || value
@@ -438,6 +444,7 @@ export default function ComparePage() {
                       />
                     ))}
                     <Legend
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       formatter={(value: any) => {
                         const idx = parseInt(String(value).replace('portfolio_', ''))
                         return history[idx]?.portfolioName || value
@@ -658,6 +665,7 @@ export default function ComparePage() {
 
 type ComparisonMetric = {
   portfolioId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any
 }
 
@@ -673,7 +681,7 @@ function MetricRow({
   label: string
   tooltip?: string
   metrics: ComparisonMetric[]
-  getValue: (m: any) => number | null
+  getValue: (m: ComparisonMetric) => number | null
   format: (v: number | null) => React.ReactNode
   best: string
   worst: string

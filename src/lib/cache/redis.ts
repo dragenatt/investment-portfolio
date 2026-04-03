@@ -26,6 +26,13 @@ export const CACHE_KEYS = {
   LEADERBOARD: 'leaderboard:',
   PRICE: 'price:',
   PRICE_BATCH: 'price:batch:',
+  MARKET_HISTORY: 'market:history:',
+  MARKET_FUNDAMENTALS: 'market:fundamentals:',
+  ANALYTICS_ALLOCATION: 'analytics:allocation:',
+  ANALYTICS_PERFORMANCE: 'analytics:performance:',
+  ANALYTICS_RISK: 'analytics:risk:',
+  USER_PORTFOLIOS: 'user:portfolios:',
+  MARKET_EVENTS: 'market:events:',
 } as const
 
 // Generic typed cache operations
@@ -85,47 +92,48 @@ export async function cacheInvalidatePattern(pattern: string): Promise<void> {
 // Portfolio snapshot caching
 export async function cachePortfolioSnapshot(
   portfolioId: string,
-  data: any,
+  data: Record<string, unknown>,
   ttl: number = 3600 // 1 hour default
 ): Promise<void> {
   const key = `${CACHE_KEYS.PORTFOLIO_SNAPSHOT}${portfolioId}`
   await cacheSet(key, data, ttl)
 }
 
-export async function getCachedSnapshot(portfolioId: string): Promise<any | null> {
+export async function getCachedSnapshot(portfolioId: string): Promise<Record<string, unknown> | null> {
   const key = `${CACHE_KEYS.PORTFOLIO_SNAPSHOT}${portfolioId}`
-  return cacheGet<any>(key)
+  return cacheGet<Record<string, unknown>>(key)
 }
 
 // Portfolio comparison caching
 export async function cacheComparison(
   ids: string[],
   period: string,
-  data: any,
+  data: Record<string, unknown>,
   ttl: number = 1800 // 30 minutes default
 ): Promise<void> {
   const key = `${CACHE_KEYS.PORTFOLIO_COMPARISON}${ids.sort().join(',')}:${period}`
   await cacheSet(key, data, ttl)
 }
 
-export async function getCachedComparison(ids: string[], period: string): Promise<any | null> {
+export async function getCachedComparison(ids: string[], period: string): Promise<Record<string, unknown> | null> {
   const key = `${CACHE_KEYS.PORTFOLIO_COMPARISON}${ids.sort().join(',')}:${period}`
-  return cacheGet<any>(key)
+  return cacheGet<Record<string, unknown>>(key)
 }
 
-// Leaderboard caching
+// Leaderboard caching (key includes category + period to avoid collisions)
 export async function cacheLeaderboard(
   category: string,
-  data: any,
+  period: string,
+  data: Record<string, unknown>,
   ttl: number = 900 // 15 minutes default
 ): Promise<void> {
-  const key = `${CACHE_KEYS.LEADERBOARD}${category}`
+  const key = `${CACHE_KEYS.LEADERBOARD}${category}:${period}`
   await cacheSet(key, data, ttl)
 }
 
-export async function getCachedLeaderboard(category: string): Promise<any | null> {
-  const key = `${CACHE_KEYS.LEADERBOARD}${category}`
-  return cacheGet<any>(key)
+export async function getCachedLeaderboard(category: string, period: string): Promise<Record<string, unknown> | null> {
+  const key = `${CACHE_KEYS.LEADERBOARD}${category}:${period}`
+  return cacheGet<Record<string, unknown>>(key)
 }
 
 // Price caching
@@ -178,7 +186,7 @@ export async function getCachedBatchPrices(symbols: string[]): Promise<Record<st
     return Object.fromEntries(
       symbols.map((symbol, index) => {
         try {
-          const data = values[index] as any
+          const data = values[index] as { price?: number } | string | null
           if (!data) return [symbol, null]
           const parsed = typeof data === 'string' ? JSON.parse(data) : data
           return [symbol, parsed.price ?? null]

@@ -48,7 +48,7 @@ export async function searchSymbols(query: string): Promise<Array<{
   // symbol_search doesn't require API key
   const res = await fetch(
     `${BASE}/symbol_search?symbol=${encodeURIComponent(query)}&outputsize=10`,
-    { next: { revalidate: 60 } }
+    { next: { revalidate: 60 } } as RequestInit
   )
   if (!res.ok) return []
   const data = await res.json()
@@ -69,7 +69,7 @@ export async function getQuote(symbol: string): Promise<TwelveDataQuote | null> 
 
   const res = await fetch(
     `${BASE}/quote?symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`,
-    { next: { revalidate: 30 } }
+    { next: { revalidate: 30 } } as RequestInit
   )
   if (!res.ok) return null
 
@@ -116,7 +116,7 @@ export async function getHistory(
 
   const res = await fetch(
     `${BASE}/time_series?symbol=${encodeURIComponent(symbol)}&interval=${config.interval}&outputsize=${config.outputsize}&apikey=${apiKey}`,
-    { next: { revalidate: 300 } }
+    { next: { revalidate: 300 } } as RequestInit
   )
   if (!res.ok) return []
 
@@ -151,7 +151,7 @@ export async function getBatchQuotes(
   const symbolStr = symbols.slice(0, 20).join(',')
   const res = await fetch(
     `${BASE}/quote?symbol=${encodeURIComponent(symbolStr)}&apikey=${apiKey}`,
-    { next: { revalidate: 30 } }
+    { next: { revalidate: 30 } } as RequestInit
   )
   if (!res.ok) return {}
 

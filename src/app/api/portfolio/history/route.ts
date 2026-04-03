@@ -1,5 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
+import { rateLimit } from '@/lib/api/rate-limit'
+import { cacheGet, cacheSet } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
 import { computeDailyPositions, buildDailyTimeline } from '@/lib/services/portfolio-history'
 
@@ -17,8 +19,16 @@ export async function GET(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
+  const allowed = await rateLimit(user.id, 'general')
+  if (!allowed) return error('Demasiadas solicitudes, intenta más tarde', 429)
+
   const url = new URL(req.url)
   const range = url.searchParams.get('range') || '30'
+
+  // Check Redis cache (5 min TTL — this is a heavy computation)
+  const cacheKey = `portfolio:history:${user.id}:${range}`
+  const cached = await cacheGet<Array<Record<string, unknown>>>(cacheKey)
+  if (cached) return success(cached)
 
   const { data: portfolios } = await supabase
     .from('portfolios')
@@ -131,6 +141,9 @@ export async function GET(req: Request) {
   const today = new Date().toISOString().slice(0, 10)
   const timeline = buildDailyTimeline(snapshots, historicalPrices, today, transactionPrices)
   const filtered = timeline.filter(t => t.date >= cutoffStr)
+
+  // Cache the computed result for 5 minutes
+  await cacheSet(cacheKey, filtered, 300)
 
   return success(filtered)
 }

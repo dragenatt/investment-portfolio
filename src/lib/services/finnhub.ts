@@ -54,7 +54,7 @@ export async function searchSymbols(query: string): Promise<Array<{
 
   const res = await fetch(
     `${BASE}/search?q=${encodeURIComponent(query)}&token=${apiKey}`,
-    { next: { revalidate: 60 } }
+    { next: { revalidate: 60 } } as RequestInit
   )
   if (!res.ok) return []
 
@@ -81,7 +81,7 @@ export async function getQuote(symbol: string): Promise<FinnhubQuote | null> {
 
   const res = await fetch(
     `${BASE}/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
-    { next: { revalidate: 30 } }
+    { next: { revalidate: 30 } } as RequestInit
   )
   if (!res.ok) return null
 
@@ -138,7 +138,7 @@ export async function getHistory(
 
   const res = await fetch(
     `${BASE}/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=${config.resolution}&from=${fromTime}&to=${toTime}&token=${apiKey}`,
-    { next: { revalidate: 300 } }
+    { next: { revalidate: 300 } } as RequestInit
   )
   if (!res.ok) return []
 

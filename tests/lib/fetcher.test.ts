@@ -8,20 +8,25 @@ beforeEach(() => {
   mockFetch.mockReset()
 })
 
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => body,
+  }
+}
+
 describe('apiFetcher', () => {
   it('returns data on success', async () => {
-    mockFetch.mockResolvedValueOnce({
-      json: async () => ({ data: { id: 1, name: 'Test' } }),
-    })
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: 1, name: 'Test' } }))
 
     const result = await apiFetcher('/api/test')
     expect(result).toEqual({ id: 1, name: 'Test' })
   })
 
   it('throws on error response', async () => {
-    mockFetch.mockResolvedValueOnce({
-      json: async () => ({ error: 'Something went wrong' }),
-    })
+    mockFetch.mockResolvedValueOnce(jsonResponse({ error: 'Something went wrong', data: null }, 400))
 
     await expect(apiFetcher('/api/test')).rejects.toThrow('Something went wrong')
   })
@@ -32,21 +37,58 @@ describe('apiFetcher', () => {
     await expect(apiFetcher('/api/test')).rejects.toThrow('Failed to fetch')
   })
 
-  it('returns undefined when data field is missing', async () => {
+  it('throws on non-JSON responses', async () => {
     mockFetch.mockResolvedValueOnce({
-      json: async () => ({ success: true }),
+      ok: false,
+      status: 500,
+      headers: new Headers({ 'content-type': 'text/html' }),
     })
 
-    const result = await apiFetcher('/api/test')
-    expect(result).toBeUndefined()
+    await expect(apiFetcher('/api/test')).rejects.toThrow('Error del servidor (500)')
   })
 
-  it('passes the URL to fetch', async () => {
-    mockFetch.mockResolvedValueOnce({
-      json: async () => ({ data: null }),
-    })
+  it('throws on HTTP error even with no error field', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: null }, 500))
+
+    await expect(apiFetcher('/api/test')).rejects.toThrow('Error del servidor (500)')
+  })
+
+  it('returns null data without throwing when API returns null', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: null, error: null }))
+
+    const result = await apiFetcher('/api/test')
+    expect(result).toBeNull()
+  })
+
+  it('passes the URL and options to fetch', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: [], error: null }))
 
     await apiFetcher('https://example.com/api/items')
-    expect(mockFetch).toHaveBeenCalledWith('https://example.com/api/items')
+    expect(mockFetch).toHaveBeenCalledWith('https://example.com/api/items', {
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' },
+    })
+  })
+
+  it('throws auth error on redirected response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      redirected: true,
+      headers: new Headers({ 'content-type': 'text/html' }),
+    })
+
+    await expect(apiFetcher('/api/test')).rejects.toThrow('Sesión expirada')
+  })
+
+  it('throws Unauthorized on 401 non-JSON response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      redirected: false,
+      headers: new Headers({ 'content-type': 'text/html' }),
+    })
+
+    await expect(apiFetcher('/api/test')).rejects.toThrow('Unauthorized')
   })
 })

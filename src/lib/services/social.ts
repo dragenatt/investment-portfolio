@@ -99,6 +99,7 @@ export async function getUserFollowers(
 
     if (error) return { data: [], error }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const followers: FollowerData[] = (data ?? []).map((follow: any) => ({
       id: follow.follower?.id,
       email: follow.follower?.email,
@@ -140,6 +141,7 @@ export async function getUserFollowing(
 
     if (error) return { data: [], error }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const following: FollowerData[] = (data ?? []).map((follow: any) => ({
       id: follow.following?.id,
       email: follow.following?.email,

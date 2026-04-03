@@ -1,7 +1,7 @@
 'use client'
 
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, startTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMarketSearch, useQuote } from '@/lib/hooks/use-market'
 import { useWatchlists } from '@/lib/hooks/use-watchlist'
@@ -75,7 +75,8 @@ export function SymbolSearch() {
   // Load recent searches when dialog opens
   useEffect(() => {
     if (open) {
-      setRecentSearches(getRecentSearches())
+      const searches = getRecentSearches()
+      startTransition(() => setRecentSearches(searches))
     }
   }, [open])
 

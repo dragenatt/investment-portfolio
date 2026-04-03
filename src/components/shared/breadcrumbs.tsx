@@ -23,7 +23,7 @@ export function Breadcrumbs() {
 
   if (segments.length <= 1) return null
 
-  const crumbs = segments.map((segment, i) => {
+  const crumbs = segments.map((segment: string, i: number) => {
     const href = '/' + segments.slice(0, i + 1).join('/')
     const label = LABELS[segment] || decodeURIComponent(segment)
     const isLast = i === segments.length - 1
@@ -32,7 +32,7 @@ export function Breadcrumbs() {
 
   return (
     <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-4">
-      {crumbs.map((crumb, i) => (
+      {crumbs.map((crumb: { href: string; label: string; isLast: boolean }, i: number) => (
         <span key={crumb.href} className="flex items-center gap-1">
           {i > 0 && <ChevronRight className="h-3 w-3" />}
           {crumb.isLast ? (

@@ -576,6 +576,7 @@ export async function refreshLeaderboard(): Promise<void> {
       })
       .slice(0, 50) // Top 50 per category
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const leaderboardEntries = ranked.map((s: any, idx: number) => ({
       portfolio_id: s.portfolio_id,
       user_id: s.portfolios.user_id,

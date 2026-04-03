@@ -36,6 +36,7 @@ export default function PrivacySettingsPage() {
       return settings
     }
     const initialized: Record<string, PortfolioSettings> = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     portfolios.forEach((p: any) => {
       if (!initialized[p.id]) {
         initialized[p.id] = {
@@ -139,6 +140,7 @@ export default function PrivacySettingsPage() {
           </CardContent>
         </Card>
       ) : (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         portfolios.map((portfolio: any) => {
           const settings = initializedSettings[portfolio.id]
           const isSaving = saving[portfolio.id]

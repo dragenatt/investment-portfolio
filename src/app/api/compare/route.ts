@@ -77,10 +77,12 @@ export async function GET(req: Request) {
   if (pErr) return error(pErr.message, 500)
 
   const portfolioMap = new Map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (portfolios || []).map((p: any) => [p.id, p])
   )
 
   // Get latest snapshot per portfolio
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const latestByPortfolio = new Map<string, any>()
   for (const snap of (latestSnapshots || [])) {
     if (!latestByPortfolio.has(snap.portfolio_id)) {
@@ -96,6 +98,7 @@ export async function GET(req: Request) {
     .gte('snapshot_date', startDate)
     .order('snapshot_date', { ascending: true })
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const periodStartByPortfolio = new Map<string, any>()
   for (const snap of (periodStartSnapshots || [])) {
     if (!periodStartByPortfolio.has(snap.portfolio_id)) {

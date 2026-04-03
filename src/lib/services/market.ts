@@ -1,17 +1,44 @@
 /**
- * Market data service with multi-source fallback + in-memory cache
+ * Market data service with multi-source fallback + caching
  *
  * Priority: Twelve Data (if API key set) → Finnhub (if API key set) → Yahoo Finance (always available)
  * Each function tries the primary source first, falls back automatically.
  *
- * Performance:
- * - In-memory quote cache (60s TTL) avoids redundant external API calls
- * - getBatchQuotes() uses Twelve Data's native batch endpoint (1 call for N symbols)
- * - Fallback timeout of 4s prevents slow cascading failures
+ * Resilience:
+ * - Circuit breakers for each data source
+ * - Retry with exponential backoff for transient failures
+ * - In-memory quote cache (60s TTL) for within-invocation reuse
+ * - Redis cache for cross-invocation performance
+ * - Automatic fallback with timeout of 4s per source
  */
 
 import * as twelveData from './twelve-data'
 import * as finnhub from './finnhub'
+import { CircuitBreaker, withRetry } from './resilience'
+import { getCachedPrice, cachePrice, getCachedBatchPrices, cacheBatchPrices } from '@/lib/cache/redis'
+
+// ─── Circuit Breakers (for resilience) ──────────────────────────────────────
+
+const twelveDataBreaker = new CircuitBreaker({
+  name: 'twelve-data',
+  failureThreshold: 5,
+  resetTimeoutMs: 30_000,
+  successThreshold: 2,
+})
+
+const finnhubBreaker = new CircuitBreaker({
+  name: 'finnhub',
+  failureThreshold: 5,
+  resetTimeoutMs: 30_000,
+  successThreshold: 2,
+})
+
+const yahooBreaker = new CircuitBreaker({
+  name: 'yahoo',
+  failureThreshold: 5,
+  resetTimeoutMs: 30_000,
+  successThreshold: 2,
+})
 
 // ─── In-memory quote cache (survives within a single serverless invocation) ──
 
@@ -71,7 +98,7 @@ const YAHOO_BASE = 'https://query1.finance.yahoo.com/v1/finance'
 async function yahooSearch(query: string) {
   const res = await fetch(
     `${YAHOO_BASE}/search?q=${encodeURIComponent(query)}&quotesCount=10&lang=en-US`,
-    { next: { revalidate: 60 } }
+    { next: { revalidate: 60 } } as RequestInit
   )
   if (!res.ok) return []
   const data = await res.json()
@@ -87,7 +114,7 @@ async function yahooSearch(query: string) {
 async function yahooQuote(symbol: string): Promise<QuoteResult | null> {
   const res = await fetch(
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`,
-    { next: { revalidate: 30 } }
+    { next: { revalidate: 30 } } as RequestInit
   )
   if (!res.ok) return null
   const data = await res.json()
@@ -120,7 +147,7 @@ async function yahooHistory(symbol: string, range: string = '1mo') {
 
   const res = await fetch(
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}`,
-    { next: { revalidate: 300 } }
+    { next: { revalidate: 300 } } as RequestInit
   )
   if (!res.ok) return []
   const data = await res.json()
@@ -152,25 +179,46 @@ export async function searchSymbols(query: string) {
 }
 
 export async function getQuote(symbol: string): Promise<QuoteResult | null> {
-  // 1. Check cache first
-  const cached = getCached(symbol)
-  if (cached) return cached
+  // 1. In-memory cache
+  const memCached = getCached(symbol)
+  if (memCached) return memCached
 
-  // 2. Try Twelve Data with timeout
+  // 2. Redis cache
+  const redisCached = await getCachedPrice(symbol)
+  if (redisCached) {
+    const quoteResult: QuoteResult = {
+      symbol: symbol.toUpperCase(),
+      price: redisCached,
+      previousClose: null,
+      change: null,
+      changePct: null,
+      currency: 'USD',
+      exchange: '',
+    }
+    setCache(symbol, quoteResult)
+    return quoteResult
+  }
+
+  // 3. Try Twelve Data with circuit breaker and retry
   if (await twelveData.isAvailable()) {
     try {
-      const quote = await withTimeout(twelveData.getQuote(symbol))
+      const quote = await twelveDataBreaker.execute(() =>
+        withRetry(() => withTimeout(twelveData.getQuote(symbol)), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 2000 })
+      )
       if (quote?.price != null) {
         setCache(symbol, quote)
+        if (quote.price != null) cachePrice(symbol, quote.price, 300)
         return quote
       }
     } catch { /* fall through */ }
   }
 
-  // 3. Try Finnhub with timeout
+  // 4. Try Finnhub with circuit breaker and retry
   if (await finnhub.isAvailable()) {
     try {
-      const quote = await withTimeout(finnhub.getQuote(symbol))
+      const quote = await finnhubBreaker.execute(() =>
+        withRetry(() => withTimeout(finnhub.getQuote(symbol)), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 2000 })
+      )
       if (quote?.price != null) {
         const quoteResult: QuoteResult = {
           symbol: quote.symbol,
@@ -182,15 +230,21 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
           exchange: quote.exchange,
         }
         setCache(symbol, quoteResult)
+        if (quoteResult.price != null) cachePrice(symbol, quoteResult.price, 300)
         return quoteResult
       }
     } catch { /* fall through */ }
   }
 
-  // 4. Fallback to Yahoo with timeout
+  // 5. Fallback to Yahoo with circuit breaker and retry
   try {
-    const quote = await withTimeout(yahooQuote(symbol))
-    if (quote) setCache(symbol, quote)
+    const quote = await yahooBreaker.execute(() =>
+      withRetry(() => withTimeout(yahooQuote(symbol)), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 2000 })
+    )
+    if (quote) {
+      setCache(symbol, quote)
+      if (quote.price != null) cachePrice(symbol, quote.price, 300)
+    }
     return quote
   } catch {
     return null
@@ -201,7 +255,7 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
  * Batch quote fetcher — single API call for multiple symbols.
  * Uses Twelve Data's native batch endpoint when available,
  * falls back to Finnhub individual calls, then parallel Yahoo calls.
- * All results are cached individually.
+ * All results are cached in Redis and in-memory.
  */
 export async function getBatchQuotes(
   symbols: string[]
@@ -209,7 +263,7 @@ export async function getBatchQuotes(
   const results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string }> = {}
   const uncached: string[] = []
 
-  // 1. Serve from cache first
+  // 1. Serve from in-memory cache first
   for (const s of symbols) {
     const cached = getCached(s)
     if (cached) {
@@ -226,16 +280,44 @@ export async function getBatchQuotes(
 
   if (uncached.length === 0) return results
 
-  // 2. Try Twelve Data batch endpoint (single HTTP call for all symbols)
+  // 2. Check Redis cache for remaining symbols
+  const redisCachedPrices = await getCachedBatchPrices(uncached)
+  const stillMissing: string[] = []
+  for (const s of uncached) {
+    const redisPrice = redisCachedPrices[s]
+    if (redisPrice != null) {
+      const entry: QuoteResult = {
+        symbol: s.toUpperCase(),
+        price: redisPrice,
+        previousClose: null,
+        change: null,
+        changePct: null,
+        currency: 'USD',
+        exchange: '',
+      }
+      setCache(s, entry)
+      results[s.toUpperCase()] = {
+        price: entry.price,
+        change: entry.change,
+        changePct: entry.changePct,
+        currency: entry.currency,
+      }
+    } else {
+      stillMissing.push(s)
+    }
+  }
+
+  if (stillMissing.length === 0) return results
+
+  // 3. Try Twelve Data batch endpoint with circuit breaker
   if (await twelveData.isAvailable()) {
     try {
-      const batchResults = await withTimeout(
-        twelveData.getBatchQuotes(uncached),
-        6_000 // slightly longer timeout for batch
+      const batchResults = await twelveDataBreaker.execute(() =>
+        withRetry(() => withTimeout(twelveData.getBatchQuotes(stillMissing), 6_000), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 3000 })
       )
-      const stillMissing: string[] = []
+      const unresolved: string[] = []
 
-      for (const s of uncached) {
+      for (const s of stillMissing) {
         const q = batchResults[s.toUpperCase()] || batchResults[s]
         if (q?.price != null) {
           const entry: QuoteResult = {
@@ -249,6 +331,7 @@ export async function getBatchQuotes(
             name: q.name || s,
           }
           setCache(s, entry)
+          if (entry.price != null) cacheBatchPrices({ [s]: entry.price }, 300)
           results[entry.symbol] = {
             price: entry.price,
             change: entry.change,
@@ -256,29 +339,29 @@ export async function getBatchQuotes(
             currency: entry.currency,
           }
         } else {
-          stillMissing.push(s)
+          unresolved.push(s)
         }
       }
 
       // Fall back to Finnhub for symbols that Twelve Data couldn't resolve
-      if (stillMissing.length > 0) {
-        await fetchFinnhubBatch(stillMissing, results)
+      if (unresolved.length > 0) {
+        await fetchFinnhubBatch(unresolved, results)
       }
 
       return results
     } catch { /* fall through to Finnhub */ }
   }
 
-  // 3. Try Finnhub individual calls
+  // 4. Try Finnhub individual calls with circuit breaker
   if (await finnhub.isAvailable()) {
     try {
-      await fetchFinnhubBatch(uncached, results)
+      await fetchFinnhubBatch(stillMissing, results)
       return results
     } catch { /* fall through to Yahoo */ }
   }
 
-  // 4. Fallback: parallel Yahoo calls
-  await fetchYahooBatch(uncached, results)
+  // 5. Fallback: parallel Yahoo calls with circuit breaker
+  await fetchYahooBatch(stillMissing, results)
   return results
 }
 
@@ -290,7 +373,9 @@ async function fetchFinnhubBatch(
   await Promise.all(
     symbols.map(async (s) => {
       try {
-        const q = await withTimeout(finnhub.getQuote(s))
+        const q = await finnhubBreaker.execute(() =>
+          withRetry(() => withTimeout(finnhub.getQuote(s)), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 2000 })
+        )
         if (q?.price != null) {
           const entry: QuoteResult = {
             symbol: q.symbol,
@@ -302,6 +387,7 @@ async function fetchFinnhubBatch(
             exchange: q.exchange,
           }
           setCache(s, entry)
+          if (entry.price != null) cachePrice(s, entry.price, 300)
           results[q.symbol || s] = {
             price: entry.price,
             change: entry.change,
@@ -322,9 +408,12 @@ async function fetchYahooBatch(
   await Promise.all(
     symbols.map(async (s) => {
       try {
-        const q = await withTimeout(yahooQuote(s))
+        const q = await yahooBreaker.execute(() =>
+          withRetry(() => withTimeout(yahooQuote(s)), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 2000 })
+        )
         if (q) {
           setCache(s, q)
+          if (q.price != null) cachePrice(s, q.price, 300)
           results[q.symbol || s] = {
             price: q.price,
             change: q.change,
@@ -360,4 +449,13 @@ export async function getActiveSource(): Promise<'twelve-data' | 'finnhub' | 'ya
   if (await twelveData.isAvailable()) return 'twelve-data'
   if (await finnhub.isAvailable()) return 'finnhub'
   return 'yahoo'
+}
+
+/** Returns the health status of each data source (circuit breaker state) */
+export function getSourceHealth(): Record<string, 'closed' | 'open' | 'half-open'> {
+  return {
+    'twelve-data': twelveDataBreaker.getState(),
+    'finnhub': finnhubBreaker.getState(),
+    'yahoo': yahooBreaker.getState(),
+  }
 }

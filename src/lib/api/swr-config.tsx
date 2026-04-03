@@ -12,7 +12,13 @@ export function SWRConfigProvider({ children }: { children: ReactNode }) {
         dedupingInterval: 5000,
         revalidateOnFocus: true,
         errorRetryCount: 3,
-        shouldRetryOnError: true,
+        shouldRetryOnError: (err: Error) => {
+          // Don't retry on auth errors or client errors
+          const msg = err?.message || ''
+          if (msg.includes('401') || msg.includes('403') || msg.includes('Unauthorized')) return false
+          return true
+        },
+        errorRetryInterval: 3000,
       }}
     >
       {children}

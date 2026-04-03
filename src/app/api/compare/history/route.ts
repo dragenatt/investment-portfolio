@@ -46,6 +46,7 @@ export async function GET(req: Request) {
       if (pErr) throw new Error(pErr.message)
 
       const portfolioMap = new Map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (portfolios || []).map((p: any) => [p.id, p.name])
       )
 

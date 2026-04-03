@@ -253,7 +253,7 @@ function ComparePageInner() {
     if (!param) return []
     return param
       .split(',')
-      .map((s) => s.trim().toUpperCase())
+      .map((s: string) => s.trim().toUpperCase())
       .filter(Boolean)
       .slice(0, MAX_SYMBOLS)
   }, [searchParams])

@@ -1,10 +1,11 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
+import { apiHandler } from '@/lib/api/handler'
 import { validate } from '@/lib/api/validate'
 import { CreatePortfolioSchema } from '@/lib/schemas/portfolio'
 import { getUserPortfolios } from '@/lib/services/portfolio'
 
-export async function GET() {
+export const GET = apiHandler(async () => {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -13,9 +14,9 @@ export async function GET() {
   if (dbError) return error(dbError.message, 500)
 
   return success(data)
-}
+})
 
-export async function POST(req: Request) {
+export const POST = apiHandler(async (req: Request) => {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -33,4 +34,4 @@ export async function POST(req: Request) {
 
   if (dbError) return error(dbError.message, 500)
   return success(data, undefined, 201)
-}
+})

@@ -9,12 +9,14 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorDisplay } from '@/components/shared/error-display'
 import { Plus, Briefcase, Upload } from 'lucide-react'
 import Link from 'next/link'
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { useTranslation } from '@/lib/i18n'
+import { useRouter } from 'next/navigation'
 
 export default function PortfolioListPage() {
   const { t } = useTranslation()
-  const { data: portfolios, isLoading, error } = usePortfolios()
+  const router = useRouter()
+  const { data: portfolios, isLoading, error, mutate } = usePortfolios()
 
   const allSymbols = useMemo(() => {
     if (!portfolios) return []
@@ -29,7 +31,18 @@ export default function PortfolioListPage() {
 
   const { data: livePrices } = useLivePrices(allSymbols)
 
-  if (error) return <ErrorDisplay error={t.portfolio.error_loading} onRetry={() => window.location.reload()} />
+  const handleRetry = useCallback(() => {
+    // If it's an auth error, redirect to login instead of retrying
+    const msg = error?.message || ''
+    if (msg.includes('Unauthorized') || msg.includes('401') || msg.includes('Sesión expirada')) {
+      router.push('/login')
+      return
+    }
+    // Otherwise, re-fetch the data without a full page reload
+    mutate()
+  }, [error, router, mutate])
+
+  if (error) return <ErrorDisplay error={t.portfolio.error_loading} onRetry={handleRetry} />
 
   return (
     <div className="space-y-6">

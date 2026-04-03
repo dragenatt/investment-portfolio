@@ -11,8 +11,8 @@ export async function GET(req: Request) {
   const category = searchParams.get('category') || 'top_return_1m'
   const period = searchParams.get('period') || '1M'
 
-  // Check cache first
-  const cached = await getCachedLeaderboard(category)
+  // Check cache first (key includes both category and period)
+  const cached = await getCachedLeaderboard(category, period)
   if (cached) {
     return success(cached)
   }
@@ -25,11 +25,11 @@ export async function GET(req: Request) {
     .single()
 
   if (dbError) return error(dbError.message, 500)
-  
+
   const rankings = data?.rankings || []
 
   // Cache the leaderboard (15 minutes)
-  await cacheLeaderboard(category, rankings, 900)
+  await cacheLeaderboard(category, period, rankings, 900)
 
   return success(rankings)
 }
