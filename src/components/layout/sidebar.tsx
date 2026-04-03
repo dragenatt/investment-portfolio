@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Briefcase, TrendingUp, Eye, Bell, GraduationCap, Settings, X } from 'lucide-react'
+import { LayoutDashboard, Briefcase, TrendingUp, Eye, Bell, GraduationCap, Settings, X, Compass, GitCompareArrows } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect, useCallback } from 'react'
 import { useTranslation } from '@/lib/i18n'
@@ -15,6 +15,8 @@ function getNavItems(t: Dictionary) {
     { href: '/market', icon: TrendingUp, label: t.nav.markets, desc: t.nav.markets_desc, shortcut: 'M' },
     { href: '/watchlist', icon: Eye, label: t.nav.watchlist, desc: t.nav.watchlist_desc, shortcut: 'W' },
     { href: '/alerts', icon: Bell, label: t.nav.alerts, desc: t.nav.alerts_desc, shortcut: 'L' },
+    { href: '/discover', icon: Compass, label: 'Descubrir', desc: 'Explora portafolios', shortcut: 'X' },
+    { href: '/compare', icon: GitCompareArrows, label: 'Comparar', desc: 'Compara rendimientos', shortcut: 'C' },
     { href: '/advisor', icon: GraduationCap, label: t.nav.advisor, desc: t.nav.advisor_desc, shortcut: 'R' },
     { href: '/settings', icon: Settings, label: t.nav.settings, desc: t.nav.settings_desc, shortcut: 'S' },
   ]
