@@ -2,6 +2,7 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { validate } from '@/lib/api/validate'
 import { SaveComparisonSchema } from '@/lib/schemas/social'
+import { getCachedComparison, cacheComparison, CACHE_KEYS } from '@/lib/cache/redis'
 
 type Period = '1M' | '3M' | '6M' | '1Y' | '5Y' | 'ALL'
 
@@ -27,6 +28,12 @@ export async function GET(req: Request) {
 
   const portfolioIds = ids.split(',').filter(Boolean).slice(0, 5)
   if (portfolioIds.length === 0) return error('At least one portfolio ID required', 400)
+
+  // Check cache first
+  const cached = await getCachedComparison(portfolioIds, period)
+  if (cached) {
+    return success(cached)
+  }
 
   const periodDays = getPeriodDays(period)
   const startDate = new Date(Date.now() - periodDays * 86400000)
@@ -138,12 +145,17 @@ export async function GET(req: Request) {
     }
   }).filter(Boolean)
 
-  return success({
+  const response = {
     period,
     startDate,
     endDate: new Date().toISOString().split('T')[0],
     metrics
-  })
+  }
+
+  // Cache the result (30 minutes)
+  await cacheComparison(portfolioIds, period, response, 1800)
+
+  return success(response)
 }
 
 export async function POST(req: Request) {

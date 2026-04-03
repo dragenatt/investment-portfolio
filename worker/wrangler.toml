@@ -1,13 +1,14 @@
 name = "price-engine"
 main = "src/index.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-12-16"
+account_id = "8b18281e7f5efd3d2dceef34f64184e4"
+type = "service"
 
 [triggers]
 crons = [
   "*/5 * * * *",
   "*/30 * * * *",
-  "0 */12 * * *",
-  "0 22 * * 1-5"
+  "0 */12 * * *"
 ]
 
 [[kv_namespaces]]
@@ -18,6 +19,11 @@ id = "87b00ff379c84fc48d899444e564e309"
 SUPABASE_URL = "https://mabmqxztvakaijtrncyl.supabase.co"
 
 # Secrets (set via wrangler secret put):
-# SUPABASE_SERVICE_ROLE_KEY
-# ALPHA_VANTAGE_API_KEY
-# BANXICO_TOKEN
+# SUPABASE_SERVICE_ROLE_KEY - Supabase service role key for database access
+# TWELVE_DATA_API_KEY - Twelve Data API key (primary price source)
+# FINNHUB_API_KEY - Finnhub API key (fallback price source)
+
+[env.production]
+routes = [
+  { pattern = "api.investtracker.com/price-engine/*", zone_name = "investtracker.com" }
+]
