@@ -72,7 +72,7 @@ export default function PortfolioListPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {portfolios?.map((p: Record<string, unknown>) => (
-            <PortfolioCard key={p.id as string} id={p.id as string} name={p.name as string} description={p.description as string} positions={p.positions as []} livePrices={livePrices} />
+            <PortfolioCard key={p.id as string} id={p.id as string} name={p.name as string} description={p.description as string} positions={p.positions as []} livePrices={livePrices} onMutate={mutate} />
           ))}
         </div>
       )}

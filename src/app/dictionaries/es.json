@@ -128,7 +128,19 @@
     "import_result": "Resultado de la importacion",
     "transactions_imported": "transacciones importadas exitosamente",
     "back_to_portfolios": "Volver a portafolios",
-    "import_another": "Importar otro archivo"
+    "import_another": "Importar otro archivo",
+    "rename": "Renombrar",
+    "delete_portfolio": "Eliminar portafolio",
+    "delete_confirm_title": "Eliminar portafolio",
+    "delete_confirm_desc": "¿Estás seguro de que quieres eliminar este portafolio? Esta acción no se puede deshacer.",
+    "rename_title": "Renombrar portafolio",
+    "new_name": "Nuevo nombre",
+    "new_description": "Nueva descripción (opcional)",
+    "portfolio_renamed": "Portafolio renombrado",
+    "portfolio_deleted": "Portafolio eliminado",
+    "saving": "Guardando...",
+    "deleting": "Eliminando...",
+    "manage": "Administrar"
   },
   "market": {
     "title": "Mercado",
