@@ -154,6 +154,7 @@ async function yahooQuote(symbol: string): Promise<QuoteResult | null> {
     currency: meta.currency,
     exchange: meta.exchangeName,
     marketState: meta.marketState,
+    name: meta.shortName || meta.longName || undefined,
   }
 }
 
@@ -280,8 +281,8 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
  */
 export async function getBatchQuotes(
   symbols: string[]
-): Promise<Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string }>> {
-  const results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string }> = {}
+): Promise<Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string; name?: string }>> {
+  const results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string; name?: string }> = {}
   const uncached: string[] = []
 
   // 1. Serve from in-memory cache first
@@ -293,6 +294,7 @@ export async function getBatchQuotes(
         change: cached.change,
         changePct: cached.changePct,
         currency: cached.currency,
+        name: cached.name,
       }
     } else {
       uncached.push(s)
@@ -373,6 +375,7 @@ export async function getBatchQuotes(
             change: entry.change,
             changePct: entry.changePct,
             currency: entry.currency,
+            name: entry.name,
           }
         } else {
           unresolved.push(original)
@@ -408,7 +411,7 @@ export async function getBatchQuotes(
 /** Helper: fetch multiple symbols via Finnhub in parallel */
 async function fetchFinnhubBatch(
   symbols: string[],
-  results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string }>
+  results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string; name?: string }>
 ) {
   await Promise.all(
     symbols.map(async (s) => {
@@ -433,6 +436,7 @@ async function fetchFinnhubBatch(
             change: entry.change,
             changePct: entry.changePct,
             currency: entry.currency,
+            name: entry.name,
           }
         }
       } catch { /* skip */ }
@@ -443,7 +447,7 @@ async function fetchFinnhubBatch(
 /** Helper: fetch multiple symbols via Yahoo in parallel */
 async function fetchYahooBatch(
   symbols: string[],
-  results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string }>
+  results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string; name?: string }>
 ) {
   await Promise.all(
     symbols.map(async (s) => {
@@ -459,6 +463,7 @@ async function fetchYahooBatch(
             change: q.change,
             changePct: q.changePct,
             currency: q.currency,
+            name: q.name,
           }
         }
       } catch { /* skip */ }

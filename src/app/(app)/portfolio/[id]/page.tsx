@@ -54,6 +54,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
       const liveData = livePrices?.[pos.symbol]
       return {
         ...pos,
+        name: liveData?.name || pos.name || pos.symbol,
         currentPrice: liveData?.price ?? pos.avg_cost,
         priceCurrency: liveData?.currency || pos.currency || 'USD',
         changePct: liveData?.changePct ?? 0,

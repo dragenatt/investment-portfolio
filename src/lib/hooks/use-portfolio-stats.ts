@@ -31,6 +31,7 @@ type LivePrice = {
   change?: number
   changePct?: number
   currency?: string
+  name?: string
 }
 
 type PortfolioStats = {
@@ -109,7 +110,7 @@ export function usePortfolioStats(
             todayReturn += pos.quantity * changeInDisplay
             movers.push({
               symbol: pos.symbol,
-              name: pos.symbol,
+              name: liveData.name || pos.symbol,
               price: livePriceInDisplay,
               change: changeInDisplay,
               changePct,
