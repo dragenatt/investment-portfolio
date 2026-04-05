@@ -103,11 +103,13 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
     const map: Record<string, number> = {}
     for (const pos of positionsWithPrices) {
       if (pos.quantity > 0) {
-        map[pos.asset_type] = (map[pos.asset_type] || 0) + pos.quantity * pos.currentPrice
+        const priceCur = pos.priceCurrency || pos.currency || 'USD'
+        const converted = convert(pos.currentPrice, priceCur)
+        map[pos.asset_type] = (map[pos.asset_type] || 0) + pos.quantity * converted
       }
     }
     return Object.entries(map).map(([name, value]) => ({ name, value }))
-  }, [positionsWithPrices])
+  }, [positionsWithPrices, convert])
 
   // Performance summary calculations
   const summary = useMemo(() => {

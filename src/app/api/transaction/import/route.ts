@@ -4,6 +4,17 @@ import { rateLimit } from '@/lib/api/rate-limit'
 import { recalculatePosition } from '@/lib/services/transaction'
 import { z } from 'zod'
 
+const ASSET_TYPES = ['stock', 'etf', 'crypto', 'bond', 'forex', 'commodity'] as const
+
+/** Auto-detect asset type from symbol pattern */
+function inferAssetType(symbol: string): typeof ASSET_TYPES[number] {
+  if (symbol.startsWith('^')) return 'etf'
+  if (symbol.endsWith('.X') || symbol.includes('-USD')) return 'crypto'
+  if (symbol.endsWith('=F')) return 'commodity'
+  if (symbol.endsWith('=X')) return 'forex'
+  return 'stock'
+}
+
 const ImportRowSchema = z.object({
   date: z.string(),
   symbol: z.string().max(20).regex(/^[A-Z0-9.\-:=^]+$/),
@@ -13,6 +24,7 @@ const ImportRowSchema = z.object({
   fees: z.number().min(0).default(0),
   currency: z.enum(['MXN', 'USD', 'EUR']),
   notes: z.string().max(500).optional(),
+  asset_type: z.enum(ASSET_TYPES).optional(),
 })
 
 const ImportBodySchema = z.object({
@@ -84,12 +96,14 @@ export async function POST(req: Request) {
         continue
       }
 
+      // Use row-level asset_type, then request-level, then auto-detect from symbol
+      const resolvedType = firstRow.asset_type ?? asset_type ?? inferAssetType(symbol)
       const { data: newPos, error: posErr } = await supabase
         .from('positions')
         .insert({
           portfolio_id,
           symbol,
-          asset_type,
+          asset_type: resolvedType,
           quantity: 0,
           avg_cost: 0,
           currency: firstRow.currency,

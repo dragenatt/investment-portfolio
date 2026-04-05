@@ -18,13 +18,18 @@ import { Loader2, ArrowRightLeft, TrendingUp, TrendingDown } from 'lucide-react'
 import Link from 'next/link'
 import { useTranslation } from '@/lib/i18n'
 
-/** Auto-detect asset type from search result type field */
-function detectAssetType(typeStr?: string): string {
+/** Auto-detect asset type from search result type field (Twelve Data instrument_type) */
+function detectAssetType(typeStr?: string, symbol?: string): string {
+  // Symbols starting with ^ are indices — classify as ETF (closest match)
+  if (symbol?.startsWith('^')) return 'etf'
   if (!typeStr) return 'stock'
   const t = typeStr.toLowerCase()
-  if (t.includes('etf')) return 'etf'
-  if (t.includes('crypto')) return 'crypto'
-  if (t.includes('equity') || t.includes('stock')) return 'stock'
+  if (t.includes('etf') || t.includes('mutual fund') || t.includes('index')) return 'etf'
+  if (t.includes('crypto') || t.includes('digital currency')) return 'crypto'
+  if (t.includes('bond') || t.includes('debt') || t.includes('reit')) return 'bond'
+  if (t.includes('forex') || t.includes('currency')) return 'forex'
+  if (t.includes('commodity') || t.includes('futures')) return 'commodity'
+  if (t.includes('equity') || t.includes('stock') || t.includes('common')) return 'stock'
   return 'stock'
 }
 
@@ -154,7 +159,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
   const handleSymbolSelect = useCallback((result: { symbol: string; name: string; type?: string; exchDisp?: string }) => {
     setSelectedSymbol(result)
     setSymbolInput(result.symbol)
-    setAssetType(detectAssetType(result.type))
+    setAssetType(detectAssetType(result.type, result.symbol))
   }, [])
 
   function resetForm() {
