@@ -98,6 +98,7 @@ export function PositionPnLTable({ positions }: Props) {
   const router = useRouter()
   const [sortKey, setSortKey] = useState<SortKey>('market_value')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const positionCount = positions.length
 
   const sorted = [...positions].sort((a, b) => {
     const getValue = (p: PositionWithPnL): string | number => {
@@ -131,6 +132,11 @@ export function PositionPnLTable({ positions }: Props) {
     <>
       {/* Desktop table */}
       <div className="hidden md:block">
+        <div className="flex items-center justify-between px-1 mb-2">
+          <p className="text-sm font-medium text-muted-foreground">
+            {positionCount} {positionCount === 1 ? 'posicion' : 'posiciones'}
+          </p>
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -229,6 +235,9 @@ export function PositionPnLTable({ positions }: Props) {
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-2">
+        <p className="text-sm font-medium text-muted-foreground px-1">
+          {positionCount} {positionCount === 1 ? 'posicion' : 'posiciones'}
+        </p>
         {sorted.map(pos => (
           <div
             key={pos.id}

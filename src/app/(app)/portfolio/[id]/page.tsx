@@ -62,21 +62,22 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
   }, [portfolio, livePrices])
 
   // Enriched positions for PositionPnLTable
+  // NOTE: Do NOT convert currencies here — FormattedAmount handles conversion at render time.
+  // Pass raw values in their original currency to avoid double-conversion.
   const enrichedPositions = useMemo(() => {
     if (!positionsWithPrices.length) return []
     return positionsWithPrices
       .filter((pos: { quantity: number }) => pos.quantity > 0)
       .map((pos: { id: string; symbol: string; name?: string; asset_type: string; quantity: number; avg_cost: number; currency: string; currentPrice: number; priceCurrency: string; changePct: number }) => {
-        const priceCur = pos.priceCurrency || pos.currency || 'USD'
-        const costCur = pos.currency || 'USD'
-        const currentPrice = convert(pos.currentPrice, priceCur)
-        const avgCost = convert(pos.avg_cost, costCur)
+        const currentPrice = pos.currentPrice
+        const avgCost = pos.avg_cost
         const marketValue = pos.quantity * currentPrice
         const costBasis = pos.quantity * avgCost
         const pnlAbsolute = marketValue - costBasis
         const pnlPercent = costBasis > 0 ? (pnlAbsolute / costBasis) * 100 : 0
         const changePct = pos.changePct ?? 0
-        const dailyChange = marketValue * (changePct / (100 + changePct))
+        const dailyChange = marketValue * (changePct / 100)
+        const priceCurrency = pos.priceCurrency || pos.currency || 'USD'
 
         return {
           id: pos.id,
@@ -85,7 +86,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           asset_type: pos.asset_type,
           quantity: pos.quantity,
           avg_cost: avgCost,
-          currency: pos.currency,
+          currency: priceCurrency,
           current_price: currentPrice,
           market_value: marketValue,
           pnl_absolute: pnlAbsolute,
@@ -93,10 +94,10 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           daily_change: dailyChange,
           daily_change_pct: changePct,
           sparkline_7d: [] as number[],
-          is_stale: !livePrices?.[pos.symbol],
+          is_stale: livePrices != null && !livePrices[pos.symbol],
         }
       })
-  }, [positionsWithPrices, convert, livePrices])
+  }, [positionsWithPrices, livePrices])
 
   const allocation = useMemo(() => {
     if (!positionsWithPrices.length) return []
@@ -129,7 +130,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
       totalCost += pos.quantity * costConverted
       // Day change: use changePct from live prices
       const changePct = pos.changePct ?? 0
-      dayChange += posValue * (changePct / (100 + changePct))
+      dayChange += posValue * (changePct / 100)
     }
 
     const totalGain = totalValue - totalCost
