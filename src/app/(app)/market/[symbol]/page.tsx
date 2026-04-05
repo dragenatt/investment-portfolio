@@ -104,9 +104,8 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
 
   const isPositive = (quote?.change ?? 0) >= 0
   const displayPrice = hoverPrice ?? quote?.price
-  const companyName = fundamentals?.name && fundamentals.name !== decodedSymbol
-    ? fundamentals.name
-    : null
+  const displayName = quote?.name || fundamentals?.name || null
+  const showName = displayName && displayName !== decodedSymbol
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -116,9 +115,9 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
           ═══════════════════════════════════════════════════════════════ */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <h1 className="text-lg font-semibold text-muted-foreground">{decodedSymbol}</h1>
-          {companyName && (
-            <span className="text-sm text-muted-foreground">· {companyName}</span>
+          <h1 className="text-lg font-semibold">{showName ? displayName : decodedSymbol}</h1>
+          {showName && (
+            <span className="text-sm text-muted-foreground">{decodedSymbol}</span>
           )}
         </div>
 
