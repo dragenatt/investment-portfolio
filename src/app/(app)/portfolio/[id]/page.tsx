@@ -6,6 +6,7 @@ import { useTransactions } from '@/lib/hooks/use-transactions'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { usePortfolioAlerts } from '@/lib/hooks/use-analytics'
 import { PositionsTable } from '@/components/portfolio/positions-table'
+import { PositionPnLTable } from '@/components/dashboard/position-pnl-table'
 import { ConcentrationAlerts } from '@/components/portfolio/concentration-alerts'
 import { useTrade } from '@/lib/contexts/trade-context'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
@@ -54,12 +55,48 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
       return {
         ...pos,
         currentPrice: liveData?.price ?? pos.avg_cost,
-        // The currency the live price is denominated in (from Yahoo)
         priceCurrency: liveData?.currency || pos.currency || 'USD',
         changePct: liveData?.changePct ?? 0,
       }
     })
   }, [portfolio, livePrices])
+
+  // Enriched positions for PositionPnLTable
+  const enrichedPositions = useMemo(() => {
+    if (!positionsWithPrices.length) return []
+    return positionsWithPrices
+      .filter((pos: { quantity: number }) => pos.quantity > 0)
+      .map((pos: { id: string; symbol: string; name?: string; asset_type: string; quantity: number; avg_cost: number; currency: string; currentPrice: number; priceCurrency: string; changePct: number }) => {
+        const priceCur = pos.priceCurrency || pos.currency || 'USD'
+        const costCur = pos.currency || 'USD'
+        const currentPrice = convert(pos.currentPrice, priceCur)
+        const avgCost = convert(pos.avg_cost, costCur)
+        const marketValue = pos.quantity * currentPrice
+        const costBasis = pos.quantity * avgCost
+        const pnlAbsolute = marketValue - costBasis
+        const pnlPercent = costBasis > 0 ? (pnlAbsolute / costBasis) * 100 : 0
+        const changePct = pos.changePct ?? 0
+        const dailyChange = marketValue * (changePct / (100 + changePct))
+
+        return {
+          id: pos.id,
+          symbol: pos.symbol,
+          name: pos.name,
+          asset_type: pos.asset_type,
+          quantity: pos.quantity,
+          avg_cost: avgCost,
+          currency: pos.currency,
+          current_price: currentPrice,
+          market_value: marketValue,
+          pnl_absolute: pnlAbsolute,
+          pnl_percent: pnlPercent,
+          daily_change: dailyChange,
+          daily_change_pct: changePct,
+          sparkline_7d: [] as number[],
+          is_stale: !livePrices?.[pos.symbol],
+        }
+      })
+  }, [positionsWithPrices, convert, livePrices])
 
   const allocation = useMemo(() => {
     if (!positionsWithPrices.length) return []
@@ -261,7 +298,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <ErrorBoundary>
-            <PositionsTable positions={positionsWithPrices} />
+            <PositionPnLTable positions={enrichedPositions} />
           </ErrorBoundary>
         </div>
         <ErrorBoundary>
