@@ -17,6 +17,25 @@ import * as finnhub from './finnhub'
 import { CircuitBreaker, withRetry } from './resilience'
 import { getCachedPrice, cachePrice, getCachedBatchPrices, cacheBatchPrices } from '@/lib/cache/redis'
 
+// ─── Symbol normalization ───────────────────────────────────────────────────
+// Maps Yahoo-style index symbols to Twelve Data format.
+// ^-prefix symbols are Yahoo indices that Twelve Data doesn't support on free tier.
+// We skip them for Twelve Data and let Yahoo handle them via fallback.
+
+const TWELVE_DATA_SYMBOL_MAP: Record<string, string> = {
+  '^N225': 'N225',  // Nikkei 225 — supported in Twelve Data as N225
+}
+
+/** Symbols that should skip Twelve Data entirely (US indices not on free tier) */
+function shouldSkipTwelveData(symbol: string): boolean {
+  return symbol.startsWith('^') && !TWELVE_DATA_SYMBOL_MAP[symbol]
+}
+
+/** Translate a symbol for Twelve Data API calls */
+function toTwelveDataSymbol(symbol: string): string {
+  return TWELVE_DATA_SYMBOL_MAP[symbol] || symbol
+}
+
 // ─── Circuit Breakers (for resilience) ──────────────────────────────────────
 
 const twelveDataBreaker = new CircuitBreaker({
@@ -199,16 +218,18 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
     return quoteResult
   }
 
-  // 3. Try Twelve Data with circuit breaker and retry
-  if (await twelveData.isAvailable()) {
+  // 3. Try Twelve Data with circuit breaker and retry (skip unsupported symbols)
+  if (!shouldSkipTwelveData(symbol) && await twelveData.isAvailable()) {
     try {
+      const tdSymbol = toTwelveDataSymbol(symbol)
       const quote = await twelveDataBreaker.execute(() =>
-        withRetry(() => withTimeout(twelveData.getQuote(symbol)), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 2000 })
+        withRetry(() => withTimeout(twelveData.getQuote(tdSymbol)), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 2000 })
       )
       if (quote?.price != null) {
-        setCache(symbol, quote)
-        if (quote.price != null) cachePrice(symbol, quote.price, 300)
-        return quote
+        const normalized = { ...quote, symbol }
+        setCache(symbol, normalized)
+        if (normalized.price != null) cachePrice(symbol, normalized.price, 300)
+        return normalized
       }
     } catch { /* fall through */ }
   }
@@ -309,59 +330,78 @@ export async function getBatchQuotes(
 
   if (stillMissing.length === 0) return results
 
-  // 3. Try Twelve Data batch endpoint with circuit breaker
-  if (await twelveData.isAvailable()) {
-    try {
-      const batchResults = await twelveDataBreaker.execute(() =>
-        withRetry(() => withTimeout(twelveData.getBatchQuotes(stillMissing), 6_000), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 3000 })
-      )
-      const unresolved: string[] = []
+  // 3. Split symbols: some should skip Twelve Data (e.g. ^-prefix US indices)
+  const tdSymbols: string[] = []
+  const skipTdSymbols: string[] = []
+  for (const s of stillMissing) {
+    if (shouldSkipTwelveData(s)) {
+      skipTdSymbols.push(s)
+    } else {
+      tdSymbols.push(s)
+    }
+  }
 
-      for (const s of stillMissing) {
-        const q = batchResults[s.toUpperCase()] || batchResults[s]
+  let unresolved = [...skipTdSymbols]
+
+  // 4. Try Twelve Data batch endpoint with circuit breaker (only compatible symbols)
+  if (tdSymbols.length > 0 && await twelveData.isAvailable()) {
+    try {
+      const mappedSymbols = tdSymbols.map(toTwelveDataSymbol)
+      const batchResults = await twelveDataBreaker.execute(() =>
+        withRetry(() => withTimeout(twelveData.getBatchQuotes(mappedSymbols), 6_000), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 3000 })
+      )
+
+      for (let i = 0; i < tdSymbols.length; i++) {
+        const original = tdSymbols[i]
+        const mapped = mappedSymbols[i]
+        const q = batchResults[mapped.toUpperCase()] || batchResults[mapped] || batchResults[original.toUpperCase()] || batchResults[original]
         if (q?.price != null) {
           const entry: QuoteResult = {
-            symbol: q.symbol || s,
+            symbol: original,
             price: q.price,
             previousClose: q.previousClose ?? null,
             change: q.change,
             changePct: q.changePct,
             currency: q.currency,
             exchange: q.exchange || '',
-            name: q.name || s,
+            name: q.name || original,
           }
-          setCache(s, entry)
-          if (entry.price != null) cacheBatchPrices({ [s]: entry.price }, 300)
-          results[entry.symbol] = {
+          setCache(original, entry)
+          if (entry.price != null) cacheBatchPrices({ [original]: entry.price }, 300)
+          results[original] = {
             price: entry.price,
             change: entry.change,
             changePct: entry.changePct,
             currency: entry.currency,
           }
         } else {
-          unresolved.push(s)
+          unresolved.push(original)
         }
       }
-
-      // Fall back to Finnhub for symbols that Twelve Data couldn't resolve
-      if (unresolved.length > 0) {
-        await fetchFinnhubBatch(unresolved, results)
-      }
-
-      return results
-    } catch { /* fall through to Finnhub */ }
+    } catch {
+      // Twelve Data failed entirely — all tdSymbols need fallback
+      unresolved.push(...tdSymbols)
+    }
+  } else if (tdSymbols.length > 0) {
+    // Twelve Data not available — all symbols need fallback
+    unresolved.push(...tdSymbols)
   }
 
-  // 4. Try Finnhub individual calls with circuit breaker
+  if (unresolved.length === 0) return results
+
+  // 5. Try Finnhub for unresolved symbols
   if (await finnhub.isAvailable()) {
     try {
-      await fetchFinnhubBatch(stillMissing, results)
-      return results
-    } catch { /* fall through to Yahoo */ }
+      await fetchFinnhubBatch(unresolved, results)
+      // Check which symbols are still missing after Finnhub
+      unresolved = unresolved.filter(s => !results[s] && !results[s.toUpperCase()])
+    } catch { /* fall through */ }
   }
 
-  // 5. Fallback: parallel Yahoo calls with circuit breaker
-  await fetchYahooBatch(stillMissing, results)
+  if (unresolved.length === 0) return results
+
+  // 6. Final fallback: Yahoo Finance for remaining unresolved symbols
+  await fetchYahooBatch(unresolved, results)
   return results
 }
 
@@ -427,9 +467,10 @@ async function fetchYahooBatch(
 }
 
 export async function getHistory(symbol: string, range: string = '1mo') {
-  if (await twelveData.isAvailable()) {
+  if (!shouldSkipTwelveData(symbol) && await twelveData.isAvailable()) {
     try {
-      const history = await withTimeout(twelveData.getHistory(symbol, range), 6_000)
+      const tdSymbol = toTwelveDataSymbol(symbol)
+      const history = await withTimeout(twelveData.getHistory(tdSymbol, range), 6_000)
       if (history.length > 0) return history
     } catch { /* fall through */ }
   }
