@@ -4,11 +4,11 @@ import { rateLimit } from '@/lib/api/rate-limit'
 import { recalculatePosition } from '@/lib/services/transaction'
 import { z } from 'zod'
 
-const ASSET_TYPES = ['stock', 'etf', 'crypto', 'bond', 'forex', 'commodity'] as const
+const ASSET_TYPES = ['stock', 'etf', 'crypto', 'bond', 'forex', 'commodity', 'index'] as const
 
 /** Auto-detect asset type from symbol pattern */
 function inferAssetType(symbol: string): typeof ASSET_TYPES[number] {
-  if (symbol.startsWith('^')) return 'etf'
+  if (symbol.startsWith('^')) return 'index'
   if (symbol.endsWith('.X') || symbol.includes('-USD')) return 'crypto'
   if (symbol.endsWith('=F')) return 'commodity'
   if (symbol.endsWith('=X')) return 'forex'
@@ -29,7 +29,7 @@ const ImportRowSchema = z.object({
 
 const ImportBodySchema = z.object({
   portfolio_id: z.string().uuid(),
-  asset_type: z.enum(['stock', 'etf', 'crypto', 'bond', 'forex', 'commodity']).default('stock'),
+  asset_type: z.enum(['stock', 'etf', 'crypto', 'bond', 'forex', 'commodity', 'index']).default('stock'),
   rows: z.array(ImportRowSchema).min(1).max(500),
 })
 

@@ -20,11 +20,11 @@ import { useTranslation } from '@/lib/i18n'
 
 /** Auto-detect asset type from search result type field (Twelve Data instrument_type) */
 function detectAssetType(typeStr?: string, symbol?: string): string {
-  // Symbols starting with ^ are indices — classify as ETF (closest match)
-  if (symbol?.startsWith('^')) return 'etf'
+  if (symbol?.startsWith('^')) return 'index'
   if (!typeStr) return 'stock'
   const t = typeStr.toLowerCase()
-  if (t.includes('etf') || t.includes('mutual fund') || t.includes('index')) return 'etf'
+  if (t.includes('index')) return 'index'
+  if (t.includes('etf') || t.includes('mutual fund')) return 'etf'
   if (t.includes('crypto') || t.includes('digital currency')) return 'crypto'
   if (t.includes('bond') || t.includes('debt') || t.includes('reit')) return 'bond'
   if (t.includes('forex') || t.includes('currency')) return 'forex'

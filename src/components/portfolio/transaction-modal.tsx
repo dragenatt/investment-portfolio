@@ -207,6 +207,7 @@ export function TransactionModal({ portfolioId }: Props) {
                 <SelectContent>
                   <SelectItem value="stock">Acción</SelectItem>
                   <SelectItem value="etf">ETF</SelectItem>
+                  <SelectItem value="index">Índice</SelectItem>
                   <SelectItem value="crypto">Crypto</SelectItem>
                   <SelectItem value="bond">Bono/CETE</SelectItem>
                   <SelectItem value="forex">Forex</SelectItem>
