@@ -110,6 +110,28 @@ function withTimeout<T>(promise: Promise<T>, ms = FETCH_TIMEOUT_MS): Promise<T> 
   ])
 }
 
+// ─── Known symbol names (reliable fallback when API doesn't return names) ───
+
+const KNOWN_NAMES: Record<string, string> = {
+  '^GSPC': 'S&P 500',
+  '^DJI': 'Dow Jones Industrial',
+  '^IXIC': 'Nasdaq Composite',
+  '^N225': 'Nikkei 225',
+  '^FTSE': 'FTSE 100',
+  '^RUT': 'Russell 2000',
+  '^NYA': 'NYSE Composite',
+  '^STOXX50E': 'Euro Stoxx 50',
+  'SPY': 'SPDR S&P 500 ETF',
+  'QQQ': 'Invesco QQQ Trust',
+  'VOO': 'Vanguard S&P 500 ETF',
+  'IVV': 'iShares Core S&P 500',
+  'VTI': 'Vanguard Total Stock Market',
+}
+
+function resolveSymbolName(symbol: string, apiName?: string): string | undefined {
+  return apiName || KNOWN_NAMES[symbol] || KNOWN_NAMES[symbol.toUpperCase()] || undefined
+}
+
 // ─── Yahoo Finance (fallback) ────────────────────────────────────────────
 
 const YAHOO_BASE = 'https://query1.finance.yahoo.com/v1/finance'
@@ -154,7 +176,7 @@ async function yahooQuote(symbol: string): Promise<QuoteResult | null> {
     currency: meta.currency,
     exchange: meta.exchangeName,
     marketState: meta.marketState,
-    name: meta.shortName || meta.longName || undefined,
+    name: resolveSymbolName(meta.symbol, meta.shortName || meta.longName),
   }
 }
 
@@ -227,7 +249,7 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
         withRetry(() => withTimeout(twelveData.getQuote(tdSymbol)), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 2000 })
       )
       if (quote?.price != null) {
-        const normalized = { ...quote, symbol }
+        const normalized = { ...quote, symbol, name: resolveSymbolName(symbol, quote.name) }
         setCache(symbol, normalized)
         if (normalized.price != null) cachePrice(symbol, normalized.price, 300)
         return normalized
@@ -250,6 +272,7 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
           changePct: quote.changePct,
           currency: quote.currency,
           exchange: quote.exchange,
+          name: resolveSymbolName(symbol),
         }
         setCache(symbol, quoteResult)
         if (quoteResult.price != null) cachePrice(symbol, quoteResult.price, 300)
@@ -366,7 +389,7 @@ export async function getBatchQuotes(
             changePct: q.changePct,
             currency: q.currency,
             exchange: q.exchange || '',
-            name: q.name || original,
+            name: resolveSymbolName(original, q.name),
           }
           setCache(original, entry)
           if (entry.price != null) cacheBatchPrices({ [original]: entry.price }, 300)
