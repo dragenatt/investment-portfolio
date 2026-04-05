@@ -69,6 +69,40 @@ export function createAdminSupabase(): SupabaseClient {
   })
 }
 
+// ─── Cron Monitoring ────────────────────────────────────────────────────────
+
+export async function startCronRun(
+  supabase: SupabaseClient,
+  jobName: string
+): Promise<string> {
+  const { data } = await supabase
+    .from('cron_runs')
+    .insert({ job_name: jobName, status: 'running' })
+    .select('id')
+    .single()
+  return data?.id ?? ''
+}
+
+export async function finishCronRun(
+  supabase: SupabaseClient,
+  runId: string,
+  result: { processed: number; errors: number; errorDetails?: unknown }
+): Promise<void> {
+  if (!runId) return
+  const status = result.errors === 0 ? 'success' : result.processed > 0 ? 'partial' : 'failed'
+  await supabase
+    .from('cron_runs')
+    .update({
+      status,
+      finished_at: new Date().toISOString(),
+      portfolios_processed: result.processed,
+      portfolios_failed: result.errors,
+      error_details: result.errorDetails ?? null,
+      duration_ms: Date.now(), // will be calculated in route
+    })
+    .eq('id', runId)
+}
+
 // ─── Price Fetching ─────────────────────────────────────────────────────────
 
 async function fetchCurrentPrices(

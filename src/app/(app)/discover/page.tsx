@@ -3,6 +3,9 @@
 import { useState, useMemo } from 'react'
 import { usePublicPortfolios } from '@/lib/hooks/use-discover'
 import { useSearchUsers } from '@/lib/hooks/use-social'
+import { useWinnersLosers } from '@/lib/hooks/use-analytics'
+import { WinnersLosers } from '@/components/discover/winners-losers'
+import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,6 +30,7 @@ export default function DiscoverPage() {
 
   const { users: searchResults, isLoading: searchLoading } = useSearchUsers(searchQuery)
   const { portfolios, isLoading, error } = usePublicPortfolios(sort, 'desc', 'all', page)
+  const { data: winnersLosers, isLoading: wlLoading } = useWinnersLosers()
 
   const tabToSort: Record<Tab, Sort> = {
     popular: 'likes',
@@ -53,6 +57,15 @@ export default function DiscoverPage() {
           Explora portafolios públicos de otros inversores y aprende de sus estrategias
         </p>
       </div>
+
+      {/* Winners & Losers */}
+      <ErrorBoundary>
+        <WinnersLosers
+          winners={winnersLosers?.winners ?? []}
+          losers={winnersLosers?.losers ?? []}
+          isLoading={wlLoading}
+        />
+      </ErrorBoundary>
 
       {/* Search and Sort Row */}
       <div className="flex items-center gap-3 flex-wrap">

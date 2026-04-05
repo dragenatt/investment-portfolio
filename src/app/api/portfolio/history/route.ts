@@ -39,6 +39,61 @@ export async function GET(req: Request) {
 
   const portfolioIds = portfolios.map(p => p.id)
 
+  // Compute cutoff date for range filtering
+  const rangeDays = range === 'max' ? 3650 : (parseInt(range) || 30)
+  const cutoffDate = new Date()
+  cutoffDate.setDate(cutoffDate.getDate() - rangeDays)
+  const cutoffStr = cutoffDate.toISOString().slice(0, 10)
+
+  // PRIMARY SOURCE: Use portfolio_snapshots if available
+  const { data: snapshotData } = await supabase
+    .from('portfolio_snapshots')
+    .select('snapshot_date, total_value')
+    .in('portfolio_id', portfolioIds)
+    .gte('snapshot_date', cutoffStr)
+    .order('snapshot_date', { ascending: true })
+
+  if (snapshotData && snapshotData.length >= 7) {
+    // Aggregate across portfolios by date
+    const dateValues: Record<string, number> = {}
+    for (const snap of snapshotData) {
+      dateValues[snap.snapshot_date] = (dateValues[snap.snapshot_date] || 0) + snap.total_value
+    }
+
+    const timeline = Object.entries(dateValues)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, value]) => ({ date, value }))
+
+    // Add benchmark overlay
+    let benchmarkData: { dates: string[]; values: number[] } = { dates: [], values: [] }
+    try {
+      const { getBenchmarkSeries } = await import('@/lib/services/benchmarks')
+      benchmarkData = await getBenchmarkSeries(supabase, 'SPY', cutoffStr, new Date().toISOString().split('T')[0])
+    } catch (e) {
+      console.warn('Benchmarks service not available, skipping benchmark overlay:', e)
+    }
+
+    // Normalize portfolio to start at 100 for comparison
+    const startValue = timeline[0]?.value || 1
+    const normalizedPortfolio = timeline.map((t) => ({
+      date: t.date,
+      value: t.value,
+      normalized: (t.value / startValue) * 100,
+    }))
+
+    const result = {
+      timeline: normalizedPortfolio,
+      benchmark: benchmarkData,
+      benchmarkSymbol: 'SPY',
+      source: 'snapshots',
+    }
+
+    await cacheSet(cacheKey, result, range === 'max' || parseInt(range) > 30 ? 600 : 120)
+    return success(result)
+  }
+
+  // FALLBACK: Reconstruct from transactions + price_history (existing code below)
+
   const { data: transactions } = await supabase
     .from('transactions')
     .select('executed_at, type, quantity, price, position:positions!inner(portfolio_id, symbol)')
@@ -67,11 +122,6 @@ export async function GET(req: Request) {
   const historicalPrices: Record<string, Record<string, number>> = {}
 
   // Check cache in price_history table
-  const rangeDays = range === 'max' ? 3650 : (parseInt(range) || 30)
-  const cutoffDate = new Date()
-  cutoffDate.setDate(cutoffDate.getDate() - rangeDays)
-  const cutoffStr = cutoffDate.toISOString().slice(0, 10)
-
   for (const symbol of symbols) {
     const { data: cached } = await supabase
       .from('price_history')

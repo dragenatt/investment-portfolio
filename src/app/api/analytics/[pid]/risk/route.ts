@@ -53,10 +53,37 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
       // Use CETES 28-day rate as risk-free rate (approx 10% annual in MXN, ~5% USD)
       const riskFreeRate = 0.10
 
+      const TRADING_DAYS = 252
+      const maxDrawdown = calculateMaxDrawdown(values)
+      const totalValue = values[values.length - 1] ?? 0
+
+      // Calmar Ratio
+      const mean = returns.length > 0
+        ? returns.reduce((a, b) => a + b, 0) / returns.length
+        : 0
+      const cagr = returns.length > 0
+        ? (Math.pow(1 + mean, TRADING_DAYS) - 1)
+        : 0
+      const calmar = maxDrawdown > 0 ? cagr / maxDrawdown : 0
+
+      // VaR 95%
+      const sortedReturns = [...returns].sort((a, b) => a - b)
+      const var95Index = Math.floor(returns.length * 0.05)
+      const var95 = sortedReturns[var95Index] ? Math.abs(sortedReturns[var95Index]) * totalValue : 0
+
+      // Drawdown series
+      const drawdownSeries = values.map((_, i) => {
+        const peak = Math.max(...values.slice(0, i + 1))
+        return peak > 0 ? -((peak - values[i]) / peak) * 100 : 0
+      })
+
       return {
         volatility: calculateVolatility(returns) * 100,
         sharpe: calculateSharpeRatio(returns, riskFreeRate),
-        maxDrawdown: calculateMaxDrawdown(values),
+        maxDrawdown,
+        calmar,
+        var95,
+        drawdownSeries,
         dataPoints: values.length,
       }
     }

@@ -4,7 +4,9 @@ import { usePortfolio } from '@/lib/hooks/use-portfolios'
 import { useLivePrices } from '@/lib/hooks/use-live-prices'
 import { useTransactions } from '@/lib/hooks/use-transactions'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { usePortfolioAlerts } from '@/lib/hooks/use-analytics'
 import { PositionsTable } from '@/components/portfolio/positions-table'
+import { ConcentrationAlerts } from '@/components/portfolio/concentration-alerts'
 import { useTrade } from '@/lib/contexts/trade-context'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
 import { SkeletonTable } from '@/components/shared/skeleton-table'
@@ -35,6 +37,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
   const { openTrade } = useTrade()
   const { data: portfolio, isLoading } = usePortfolio(id)
   const { data: transactions } = useTransactions(id)
+  const { data: alerts, mutate: mutateAlerts } = usePortfolioAlerts(id)
   const { convert } = useCurrency()
 
   const symbols = useMemo(() => {
@@ -177,6 +180,23 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Concentration alerts */}
+      {alerts && alerts.length > 0 && (
+        <ErrorBoundary>
+          <ConcentrationAlerts
+            alerts={alerts}
+            onDismiss={async (alertId) => {
+              await fetch(`/api/portfolio/${id}/alerts/${alertId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dismissed: true }),
+              })
+              mutateAlerts()
+            }}
+          />
+        </ErrorBoundary>
+      )}
 
       {/* Performance summary */}
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">

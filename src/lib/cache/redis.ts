@@ -33,6 +33,11 @@ export const CACHE_KEYS = {
   ANALYTICS_RISK: 'analytics:risk:',
   USER_PORTFOLIOS: 'user:portfolios:',
   MARKET_EVENTS: 'market:events:',
+  DASHBOARD_SUMMARY: 'dashboard:summary:',
+  ANALYTICS_RETURNS: 'analytics:returns:',
+  ANALYTICS_ATTRIBUTION: 'analytics:attribution:',
+  ANALYTICS_INCOME: 'analytics:income:',
+  BENCHMARK: 'benchmark:',
 } as const
 
 // Generic typed cache operations

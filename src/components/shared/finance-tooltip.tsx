@@ -30,6 +30,19 @@ const TERMS: Record<string, string> = {
   'Portafolio': 'Conjunto de inversiones agrupadas. Puedes tener varios portafolios con diferentes estrategias.',
   'Valor Invertido': 'Monto total que has invertido en este portafolio, sin contar ganancias ni pérdidas.',
   'G/P': 'Ganancia o Pérdida — la diferencia entre el valor actual y tu costo de compra.',
+  'Retorno Simple': 'Ganancia directa sobre tu inversión — diferencia porcentual entre lo que invertiste y lo que vale ahora.',
+  'TWR': 'Time-Weighted Return — rendimiento de la estrategia, sin importar depósitos o retiros.',
+  'MWR': 'Money-Weighted Return — tu rendimiento real, considerando el timing de tus depósitos y retiros.',
+  'Sortino Ratio': 'Similar al Sharpe pero solo penaliza la volatilidad negativa. Mayor Sortino = mejor manejo del riesgo a la baja.',
+  'Calmar Ratio': 'Rendimiento anualizado dividido entre el max drawdown. Mayor Calmar = mejor recuperación de caídas.',
+  'VaR 95%': 'Value at Risk — con 95% de confianza, la pérdida máxima diaria esperada.',
+  'Beta': 'Sensibilidad al mercado. Beta > 1 = más volátil que el mercado, Beta < 1 = menos volátil.',
+  'Alpha': 'Rendimiento extra sobre lo esperado dado el riesgo (beta). Alpha positivo = superas al mercado.',
+  'Tracking Error': 'Desviación estándar de la diferencia de rendimientos entre tu portafolio y el benchmark.',
+  'Information Ratio': 'Exceso de rendimiento por unidad de tracking error. Mayor = mejor rendimiento ajustado vs benchmark.',
+  'Drawdown': 'Caída porcentual desde un máximo histórico hasta el punto más bajo antes de recuperarse.',
+  'Atribucion BHB': 'Modelo Brinson-Hood-Beebower — descompone el exceso de rendimiento en efecto de asignación (peso por sector) y selección (qué acciones elegiste).',
+  'Rendimiento Mensual': 'Retorno porcentual del portafolio en cada mes calendario.',
 }
 
 export function FinanceTooltip({ term }: { term: string }) {

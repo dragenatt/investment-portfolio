@@ -3,8 +3,11 @@
 import { usePortfolios } from '@/lib/hooks/use-portfolios'
 import { useLivePrices } from '@/lib/hooks/use-live-prices'
 import { usePortfolioStats } from '@/lib/hooks/use-portfolio-stats'
+import { useDashboardSummary } from '@/lib/hooks/use-dashboard-summary'
 import { KpiCards } from '@/components/dashboard/kpi-cards'
+import { PnlCards } from '@/components/dashboard/pnl-cards'
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart'
+import { BenchmarkOverlay } from '@/components/dashboard/benchmark-overlay'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
 import { TopMovers } from '@/components/dashboard/top-movers'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
@@ -34,7 +37,8 @@ export default function DashboardPage() {
   const { data: portfolios, isLoading } = usePortfolios()
   const { openTrade } = useTrade()
   const [chartRange, setChartRange] = useState('30')
-  const { data: chartData, isLoading: chartLoading } = usePortfolioHistory(chartRange)
+  const { data: chartData, timeline, benchmark, benchmarkSymbol, isLoading: chartLoading } = usePortfolioHistory(chartRange)
+  const { data: dashSummary } = useDashboardSummary()
 
   const allSymbols = useMemo(() => {
     if (!portfolios) return []
@@ -171,6 +175,24 @@ export default function DashboardPage() {
             </div>
           </ErrorBoundary>
 
+          {/* Enhanced P&L cards from dashboard summary API */}
+          {dashSummary && (
+            <ErrorBoundary>
+              <PnlCards
+                totalValue={dashSummary.total_value}
+                totalCost={dashSummary.total_cost}
+                totalReturn={dashSummary.total_return}
+                totalReturnPct={dashSummary.total_return_pct}
+                dailyChange={dashSummary.daily_change}
+                dailyChangePct={dashSummary.daily_change_pct}
+                weeklyChange={dashSummary.weekly_change}
+                weeklyChangePct={dashSummary.weekly_change_pct}
+                bestPosition={dashSummary.best_position}
+                worstPosition={dashSummary.worst_position}
+              />
+            </ErrorBoundary>
+          )}
+
           <ErrorBoundary>
             <div data-tour="portfolio-chart">
               <PortfolioChart
@@ -180,6 +202,18 @@ export default function DashboardPage() {
               />
             </div>
           </ErrorBoundary>
+
+          {/* Benchmark overlay chart */}
+          {timeline.length > 0 && (
+            <ErrorBoundary>
+              <BenchmarkOverlay
+                timeline={timeline}
+                benchmark={benchmark}
+                benchmarkSymbol={benchmarkSymbol}
+                isLoading={chartLoading}
+              />
+            </ErrorBoundary>
+          )}
 
           {/* Action buttons row */}
           <div className="flex items-center gap-3">
