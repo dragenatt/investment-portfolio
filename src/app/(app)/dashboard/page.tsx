@@ -175,23 +175,22 @@ export default function DashboardPage() {
             </div>
           </ErrorBoundary>
 
-          {/* Enhanced P&L cards from dashboard summary API */}
-          {dashSummary && (
-            <ErrorBoundary>
-              <PnlCards
-                totalValue={dashSummary.total_value}
-                totalCost={dashSummary.total_cost}
-                totalReturn={dashSummary.total_return}
-                totalReturnPct={dashSummary.total_return_pct}
-                dailyChange={dashSummary.daily_change}
-                dailyChangePct={dashSummary.daily_change_pct}
-                weeklyChange={dashSummary.weekly_change}
-                weeklyChangePct={dashSummary.weekly_change_pct}
-                bestPosition={dashSummary.best_position}
-                worstPosition={dashSummary.worst_position}
-              />
-            </ErrorBoundary>
-          )}
+          {/* Enhanced P&L cards — use client-side stats for value/cost/return (live prices + currency),
+              server-side dashSummary only for snapshot-based metrics (daily/weekly change, best/worst) */}
+          <ErrorBoundary>
+            <PnlCards
+              totalValue={stats.totalValue}
+              totalCost={stats.totalCost}
+              totalReturn={stats.totalReturn}
+              totalReturnPct={stats.totalReturnPct}
+              dailyChange={stats.todayReturn ?? 0}
+              dailyChangePct={stats.todayReturnPct ?? 0}
+              weeklyChange={dashSummary?.weekly_change ?? 0}
+              weeklyChangePct={dashSummary?.weekly_change_pct ?? 0}
+              bestPosition={dashSummary?.best_position ?? null}
+              worstPosition={dashSummary?.worst_position ?? null}
+            />
+          </ErrorBoundary>
 
           <ErrorBoundary>
             <div data-tour="portfolio-chart">

@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
+import { getBatchQuotes } from '@/lib/services/market'
 
 export async function GET() {
   const supabase = await createServerSupabase()
@@ -27,7 +28,7 @@ export async function GET() {
       // Get all positions with current prices
       const { data: positions } = await supabase
         .from('positions')
-        .select('symbol, quantity, avg_cost, portfolio_id')
+        .select('symbol, quantity, avg_cost, currency, portfolio_id')
         .in('portfolio_id', pids)
         .gt('quantity', 0)
 
@@ -35,23 +36,40 @@ export async function GET() {
         return { total_value: 0, total_cost: 0, total_return: 0, total_return_pct: 0, daily_change: 0, daily_change_pct: 0, weekly_change: 0, weekly_change_pct: 0, best_position: null, worst_position: null }
       }
 
+      // Fetch live prices from market service (Twelve Data → Finnhub → Yahoo)
       const symbols = [...new Set(positions.map((p) => p.symbol))]
-      const { data: prices } = await supabase
-        .from('current_prices')
-        .select('symbol, price')
-        .in('symbol', symbols)
+      const liveQuotes = await getBatchQuotes(symbols)
 
-      const priceMap: Record<string, number> = {}
-      for (const p of prices ?? []) priceMap[p.symbol] = p.price
+      // Build price map: live price takes priority, then current_prices table, then avg_cost
+      const priceMap: Record<string, { price: number; changePct: number; currency: string }> = {}
+      for (const sym of symbols) {
+        const live = liveQuotes[sym] || liveQuotes[sym.toUpperCase()]
+        if (live?.price != null) {
+          priceMap[sym] = { price: live.price, changePct: live.changePct ?? 0, currency: live.currency || 'USD' }
+        }
+      }
 
-      // Calculate totals
+      // Fallback: check current_prices table for symbols not found via live quotes
+      const missingSymbols = symbols.filter(s => !priceMap[s])
+      if (missingSymbols.length > 0) {
+        const { data: dbPrices } = await supabase
+          .from('current_prices')
+          .select('symbol, price')
+          .in('symbol', missingSymbols)
+        for (const p of dbPrices ?? []) {
+          priceMap[p.symbol] = { price: p.price, changePct: 0, currency: 'USD' }
+        }
+      }
+
+      // Calculate totals (all values in their original currency — client handles conversion)
       let totalValue = 0
       let totalCost = 0
       let bestPos = { symbol: '', pct: -Infinity }
       let worstPos = { symbol: '', pct: Infinity }
 
       for (const pos of positions) {
-        const price = priceMap[pos.symbol] ?? pos.avg_cost
+        const liveData = priceMap[pos.symbol]
+        const price = liveData?.price ?? pos.avg_cost
         const value = pos.quantity * price
         const cost = pos.quantity * pos.avg_cost
         totalValue += value
@@ -106,8 +124,8 @@ export async function GET() {
         daily_change_pct: Math.round(dailyChangePct * 100) / 100,
         weekly_change: Math.round(weeklyChange * 100) / 100,
         weekly_change_pct: Math.round(weeklyChangePct * 100) / 100,
-        best_position: bestPos.symbol ? bestPos : null,
-        worst_position: worstPos.symbol ? worstPos : null,
+        best_position: bestPos.symbol ? { symbol: bestPos.symbol, pnl_percent: bestPos.pct } : null,
+        worst_position: worstPos.symbol ? { symbol: worstPos.symbol, pnl_percent: worstPos.pct } : null,
       }
     }
   )
