@@ -211,13 +211,58 @@ async function yahooHistory(symbol: string, range: string = '1mo') {
 
 // ─── Public API (with automatic fallback + caching) ──────────────────────
 
+// ─── Search aliases for common terms people use ─────────────────────────
+
+const SEARCH_ALIASES: Array<{
+  keywords: string[]
+  result: { symbol: string; name: string; type: string; exchange: string; exchDisp: string }
+}> = [
+  { keywords: ['syp500', 'sp500', 's&p500', 's&p 500', 'snp500', 'spy500', 'standard poor'],
+    result: { symbol: '^GSPC', name: 'S&P 500', type: 'index', exchange: 'SNP', exchDisp: 'SNP' } },
+  { keywords: ['nasdaq', 'nasaq', 'nasdac', 'ixic'],
+    result: { symbol: '^IXIC', name: 'Nasdaq Composite', type: 'index', exchange: 'NASDAQ', exchDisp: 'NASDAQ' } },
+  { keywords: ['dow jones', 'dow', 'djia', 'dji'],
+    result: { symbol: '^DJI', name: 'Dow Jones Industrial', type: 'index', exchange: 'DJI', exchDisp: 'DJI' } },
+  { keywords: ['nikkei', 'n225', 'japon', 'japan'],
+    result: { symbol: '^N225', name: 'Nikkei 225', type: 'index', exchange: 'OSA', exchDisp: 'Osaka' } },
+  { keywords: ['ftse', 'london', 'londres'],
+    result: { symbol: '^FTSE', name: 'FTSE 100', type: 'index', exchange: 'LSE', exchDisp: 'London' } },
+  { keywords: ['russell', 'rut', 'russell2000'],
+    result: { symbol: '^RUT', name: 'Russell 2000', type: 'index', exchange: 'RUS', exchDisp: 'Russell' } },
+  { keywords: ['femsa', 'femsaubd', 'oxxo'],
+    result: { symbol: 'FEMSAUBD.MX', name: 'FEMSA UBD', type: 'stock', exchange: 'BMV', exchDisp: 'BMV' } },
+]
+
+function matchAliases(query: string): typeof SEARCH_ALIASES[number]['result'][] {
+  const q = query.toLowerCase().trim()
+  return SEARCH_ALIASES
+    .filter(a => a.keywords.some(k => q.includes(k) || k.includes(q)))
+    .map(a => a.result)
+}
+
 export async function searchSymbols(query: string) {
+  // Check local aliases first
+  const aliasMatches = matchAliases(query)
+
   try {
     const results = await withTimeout(twelveData.searchSymbols(query))
-    if (results.length > 0) return results
+    if (results.length > 0) {
+      // Prepend alias matches that aren't already in results
+      const existing = new Set(results.map((r: { symbol: string }) => r.symbol))
+      const unique = aliasMatches.filter(a => !existing.has(a.symbol))
+      return [...unique, ...results]
+    }
   } catch { /* fall through */ }
 
-  return yahooSearch(query)
+  const yahooResults = await yahooSearch(query)
+  if (yahooResults.length > 0) {
+    const existing = new Set(yahooResults.map((r: { symbol: string }) => r.symbol))
+    const unique = aliasMatches.filter(a => !existing.has(a.symbol))
+    return [...unique, ...yahooResults]
+  }
+
+  // If APIs returned nothing, return alias matches only
+  return aliasMatches
 }
 
 export async function getQuote(symbol: string): Promise<QuoteResult | null> {
