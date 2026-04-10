@@ -1,15 +1,13 @@
 'use client'
 
 import { ThemeToggle } from './theme-toggle'
-import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { LogOut, Search, Bell, Plus, Menu } from 'lucide-react'
+import { LogOut, Search, Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import Link from 'next/link'
 import { useState, useEffect } from 'react'
 
 interface TopbarProps {
@@ -81,27 +79,6 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             <SelectItem value="EUR">EUR</SelectItem>
           </SelectContent>
         </Select>
-
-        <Link href="/alerts">
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full gap-1.5 h-8 px-3 text-xs"
-          >
-            <Bell className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Alertas</span>
-          </Button>
-        </Link>
-
-        <Link href="/portfolio/new">
-          <Button
-            size="sm"
-            className="rounded-full gap-1.5 h-8 px-3 text-xs"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Nuevo</span>
-          </Button>
-        </Link>
 
         <ThemeToggle />
 

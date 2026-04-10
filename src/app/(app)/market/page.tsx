@@ -9,7 +9,7 @@ import { SectorPerformance } from '@/components/market/sector-performance'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Search, TrendingUp, TrendingDown, Loader2, ArrowUpRight, ArrowDownRight, GitCompareArrows } from 'lucide-react'
+import { Search, TrendingUp, TrendingDown, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import Link from 'next/link'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -36,44 +36,6 @@ type SearchResult = {
   name: string
   type: string
   exchDisp: string
-}
-
-// ─── Ticker Bar ─────────────────────────────────────────────────────────────
-
-function TickerBar({ indices }: { indices: IndexData[] }) {
-  if (!indices || indices.length === 0) return null
-
-  // Duplicate items for seamless infinite scroll
-  const items = [...indices, ...indices]
-
-  return (
-    <div className="w-full overflow-hidden bg-muted/30 border-b border-border">
-      <div className="flex animate-ticker-scroll whitespace-nowrap">
-        {items.map((idx, i) => {
-          const isPositive = idx.changePct >= 0
-          return (
-            <Link
-              key={`${idx.symbol}-${i}`}
-              href={`/market/${encodeURIComponent(idx.symbol)}`}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm hover:bg-muted/50 transition-colors shrink-0"
-            >
-              <span className="font-medium text-foreground">{idx.name}</span>
-              <span className="font-mono text-muted-foreground">
-                {idx.price > 0 ? idx.price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
-              </span>
-              <span
-                className={`font-mono text-xs font-semibold ${
-                  isPositive ? 'text-gain' : 'text-loss'
-                }`}
-              >
-                {isPositive ? '+' : ''}{idx.changePct.toFixed(2)}%
-              </span>
-            </Link>
-          )
-        })}
-      </div>
-    </div>
-  )
 }
 
 // ─── Index Card ─────────────────────────────────────────────────────────────
@@ -161,18 +123,6 @@ function MoverRow({ stock, type }: { stock: MoverData; type: 'gainer' | 'loser' 
 
 // ─── Loading Skeletons ──────────────────────────────────────────────────────
 
-function TickerSkeleton() {
-  return (
-    <div className="w-full bg-muted/30 border-b border-border py-2.5 px-4">
-      <div className="flex gap-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-5 w-36 shrink-0" />
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function IndexCardSkeleton() {
   return (
     <Card>
@@ -212,39 +162,20 @@ export default function MarketPage() {
   const { data: overview, isLoading: overviewLoading } = useMarketOverview()
 
   return (
-    <div className="space-y-0">
-      {/* ── Ticker Bar ── */}
-      {overviewLoading ? (
-        <TickerSkeleton />
-      ) : overview?.indices ? (
-        <TickerBar indices={overview.indices} />
-      ) : null}
-
-      <div className="space-y-8 px-1 pt-6">
-        {/* ── Title + Search ── */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">{t.market.title}</h1>
-            <Link href="/market/compare">
-              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
-                <GitCompareArrows className="h-4 w-4" />
-                {t.market.compare}
-              </button>
-            </Link>
-          </div>
-          <div className="relative max-w-2xl">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              className="pl-12 h-12 text-base rounded-2xl border-border bg-muted/30 focus:bg-background transition-colors"
-              placeholder={t.market.search_placeholder}
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-            />
-            <kbd className="absolute right-4 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground">
-              Ctrl+K
-            </kbd>
-          </div>
+    <div className="space-y-8">
+      {/* ── Title + Search ── */}
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold">{t.market.title}</h1>
+        <div className="relative max-w-xl">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-11 h-11 text-sm rounded-xl border-border bg-muted/30 focus:bg-background transition-colors"
+            placeholder={t.market.search_placeholder}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
         </div>
+      </div>
 
         {/* ── Search Results ── */}
         {searchError && (
@@ -362,50 +293,6 @@ export default function MarketPage() {
               </div>
             </section>
 
-            {/* ── Most Popular ── */}
-            {overview?.popular && (
-              <section>
-                <h2 className="text-lg font-semibold mb-3">{t.market.most_popular}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {overview.popular.map((stock: MoverData) => (
-                    <Link key={stock.symbol} href={`/market/${encodeURIComponent(stock.symbol)}`}>
-                      <Card className="card-hover cursor-pointer">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
-                                {stock.symbol.slice(0, 2)}
-                              </div>
-                              <div>
-                                <p className="font-mono font-semibold text-sm">{stock.symbol}</p>
-                                <p className="text-xs text-muted-foreground truncate max-w-[120px]">
-                                  {stock.name}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-mono font-medium text-sm">
-                                ${stock.price > 0 ? stock.price.toFixed(2) : '--'}
-                              </p>
-                              {stock.changePct !== 0 && (
-                                <span
-                                  className={`text-xs font-mono font-semibold ${
-                                    stock.changePct >= 0 ? 'text-gain' : 'text-loss'
-                                  }`}
-                                >
-                                  {stock.changePct >= 0 ? '+' : ''}{stock.changePct.toFixed(2)}%
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
-
             {/* ── Sector Performance ── */}
             {overview?.sectors && (
               <section>
@@ -419,7 +306,6 @@ export default function MarketPage() {
             )}
           </>
         )}
-      </div>
     </div>
   )
 }

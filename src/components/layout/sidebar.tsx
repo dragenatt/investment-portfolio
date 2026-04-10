@@ -10,15 +10,15 @@ import type { Dictionary } from '@/lib/i18n'
 
 function getNavItems(t: Dictionary) {
   return [
-    { href: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard, desc: t.nav.dashboard_desc, shortcut: 'D' },
-    { href: '/portfolio', icon: Briefcase, label: t.nav.portfolios, desc: t.nav.portfolios_desc, shortcut: 'P' },
-    { href: '/market', icon: TrendingUp, label: t.nav.markets, desc: t.nav.markets_desc, shortcut: 'M' },
-    { href: '/watchlist', icon: Eye, label: t.nav.watchlist, desc: t.nav.watchlist_desc, shortcut: 'W' },
-    { href: '/alerts', icon: Bell, label: t.nav.alerts, desc: t.nav.alerts_desc, shortcut: 'L' },
-    { href: '/discover', icon: Compass, label: 'Descubrir', desc: 'Explora portafolios', shortcut: 'X' },
-    { href: '/compare', icon: GitCompareArrows, label: 'Comparar', desc: 'Compara rendimientos', shortcut: 'C' },
-    { href: '/advisor', icon: GraduationCap, label: t.nav.advisor, desc: t.nav.advisor_desc, shortcut: 'R' },
-    { href: '/settings', icon: Settings, label: t.nav.settings, desc: t.nav.settings_desc, shortcut: 'S' },
+    { href: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard, shortcut: 'D' },
+    { href: '/portfolio', icon: Briefcase, label: t.nav.portfolios, shortcut: 'P' },
+    { href: '/market', icon: TrendingUp, label: t.nav.markets, shortcut: 'M' },
+    { href: '/watchlist', icon: Eye, label: t.nav.watchlist, shortcut: 'W' },
+    { href: '/alerts', icon: Bell, label: t.nav.alerts, shortcut: 'L' },
+    { href: '/discover', icon: Compass, label: 'Descubrir', shortcut: 'X' },
+    { href: '/compare', icon: GitCompareArrows, label: 'Comparar', shortcut: 'C' },
+    { href: '/advisor', icon: GraduationCap, label: t.nav.advisor, shortcut: 'R' },
+    { href: '/settings', icon: Settings, label: t.nav.settings, shortcut: 'S' },
   ]
 }
 
@@ -83,21 +83,17 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           'lg:sticky lg:translate-x-0 lg:z-auto',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
-        style={{ width: 280, minWidth: 280 }}
+        style={{ width: 240, minWidth: 240 }}
       >
         {/* Brand */}
-        <div className="p-4 border-b border-border">
+        <div className="px-4 py-3.5 border-b border-border">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-primary-foreground" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 shadow-md flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-primary-foreground" />
               </div>
-              <div>
-                <h1 className="text-base font-bold tracking-tight">InvestTracker</h1>
-                <p className="text-xs text-muted-foreground">Portfolio Intelligence</p>
-              </div>
+              <h1 className="text-sm font-bold tracking-tight">InvestTracker</h1>
             </div>
-            {/* Close button on mobile */}
             <button
               onClick={onMobileClose}
               className="lg:hidden p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"
@@ -108,7 +104,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-2.5 flex flex-col gap-1.5 overflow-y-auto">
+        <nav className="flex-1 p-2 flex flex-col gap-0.5 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
             const Icon = item.icon
@@ -117,51 +113,30 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'relative flex items-center justify-between gap-3 px-3 py-3 rounded-xl transition-all duration-200',
+                  'relative flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-lg transition-all duration-200',
                   isActive
                     ? 'bg-primary/8 text-foreground'
                     : 'hover:bg-secondary text-foreground/80'
                 )}
               >
-                {/* Active indicator bar */}
                 {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-primary" />
                 )}
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <Icon className={cn(
-                    'h-5 w-5 shrink-0',
+                    'h-[18px] w-[18px] shrink-0',
                     isActive ? 'text-primary' : 'text-muted-foreground'
                   )} />
-                  <div className="min-w-0">
-                    <div className="font-semibold text-sm tracking-wide">{item.label}</div>
-                    <span className="text-xs text-muted-foreground">{item.desc}</span>
-                  </div>
+                  <span className="font-medium text-sm">{item.label}</span>
                 </div>
-                <span className="hidden lg:inline font-mono text-xs text-muted-foreground border border-border rounded-full px-2.5 py-1 bg-secondary">
+                <kbd className="hidden lg:inline font-mono text-[10px] text-muted-foreground/60">
                   {item.shortcut}
-                </span>
+                </kbd>
               </Link>
             )
           })}
         </nav>
 
-        {/* Footer CTA */}
-        <div className="p-3 border-t border-border mt-auto">
-          <div className="rounded-2xl border border-border p-4 bg-gradient-to-br from-primary/5 to-transparent">
-            <h3 className="text-sm font-bold tracking-tight mb-1">{t.nav.portfolio_center}</h3>
-            <p className="text-xs text-muted-foreground mb-3">
-              {t.nav.portfolio_summary}
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <Link
-                href="/portfolio/new"
-                className="inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium hover:bg-primary/90 transition-colors"
-              >
-                {t.nav.new_portfolio}
-              </Link>
-            </div>
-          </div>
-        </div>
       </aside>
     </>
   )
