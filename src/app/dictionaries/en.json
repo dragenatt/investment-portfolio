@@ -369,6 +369,17 @@
     "register_button": "Register",
     "saving": "Saving..."
   },
+  "onboarding": {
+    "welcome_title": "Welcome to InvestTracker!",
+    "welcome_desc": "Your platform to record, analyze, and grow your investments. Start by creating your first portfolio.",
+    "create_portfolio": "Create my first portfolio",
+    "complete_profile": "Complete investment profile",
+    "checklist_title": "Getting started",
+    "step_portfolio": "Create a portfolio",
+    "step_position": "Add a position",
+    "step_advisor": "Complete investment profile",
+    "dismiss": "Dismiss"
+  },
   "errors": {
     "unexpected_error": "An unexpected error occurred",
     "something_wrong": "Something went wrong",

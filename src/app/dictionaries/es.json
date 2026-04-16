@@ -369,6 +369,17 @@
     "register_button": "Registrar",
     "saving": "Guardando..."
   },
+  "onboarding": {
+    "welcome_title": "¡Bienvenido a InvestTracker!",
+    "welcome_desc": "Tu plataforma para registrar, analizar y hacer crecer tus inversiones. Empieza creando tu primer portafolio.",
+    "create_portfolio": "Crear mi primer portafolio",
+    "complete_profile": "Completar perfil de inversión",
+    "checklist_title": "Primeros pasos",
+    "step_portfolio": "Crear un portafolio",
+    "step_position": "Agregar una posición",
+    "step_advisor": "Completar perfil de inversión",
+    "dismiss": "Ocultar"
+  },
   "errors": {
     "unexpected_error": "Ocurrio un error inesperado",
     "something_wrong": "Algo salio mal",

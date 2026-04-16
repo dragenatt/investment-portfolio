@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Briefcase, TrendingUp, Eye, Bell, Compass, GitCompareArrows, Settings, X } from 'lucide-react'
+import { LayoutDashboard, Briefcase, TrendingUp, Eye, Lightbulb, Bell, Compass, GitCompareArrows, Settings, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect, useCallback } from 'react'
 import { useTranslation } from '@/lib/i18n'
@@ -16,6 +16,7 @@ function getPrimaryItems(t: Dictionary): NavItem[] {
     { href: '/portfolio', icon: Briefcase, label: t.nav.portfolios, shortcut: 'P' },
     { href: '/market', icon: TrendingUp, label: t.nav.markets, shortcut: 'M' },
     { href: '/watchlist', icon: Eye, label: t.nav.watchlist, shortcut: 'W' },
+    { href: '/advisor', icon: Lightbulb, label: t.nav.advisor, shortcut: 'A' },
   ]
 }
 

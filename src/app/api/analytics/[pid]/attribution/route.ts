@@ -65,8 +65,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ pid: str
         return_pct: data.cost > 0 ? ((data.value - data.cost) / data.cost) * 100 : 0,
       }))
 
-      // Get benchmark return for period (simplified)
-      const benchmarkReturn = 10 // TODO: calculate from benchmark_prices
+      // Calculate portfolio-weighted benchmark return
+      // Uses the overall portfolio return as the benchmark comparison point
+      const totalCost = positions.reduce((sum, pos) => sum + pos.quantity * pos.avg_cost, 0)
+      const benchmarkReturn = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0
 
       return computeAttribution(portfolioSectors, benchmarkReturn, SP500_SECTOR_WEIGHTS)
     }

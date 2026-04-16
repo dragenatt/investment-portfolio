@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,6 +12,7 @@ import { useTranslation } from '@/lib/i18n'
 
 export default function RegisterPage() {
   const { t } = useTranslation()
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -42,7 +44,7 @@ export default function RegisterPage() {
       return
     }
 
-    window.location.href = '/dashboard'
+    router.push('/dashboard')
   }
 
   return (

@@ -7,6 +7,8 @@ import { KpiCards } from '@/components/dashboard/kpi-cards'
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
 import { TopMovers } from '@/components/dashboard/top-movers'
+import { WelcomeEmptyState } from '@/components/dashboard/welcome-empty-state'
+import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
@@ -34,6 +36,9 @@ export default function DashboardPage() {
   const { data: livePrices } = useLivePrices(allSymbols)
   const stats = usePortfolioStats(portfolios, livePrices)
 
+  const hasPortfolio = (portfolios?.length ?? 0) > 0
+  const hasPosition = allSymbols.length > 0
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -43,8 +48,24 @@ export default function DashboardPage() {
     )
   }
 
+  // Empty state for brand new users
+  if (!hasPortfolio) {
+    return (
+      <div className="space-y-6">
+        <WelcomeEmptyState />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
+      {/* Onboarding checklist — visible until all steps complete or dismissed */}
+      <OnboardingChecklist
+        hasPortfolio={hasPortfolio}
+        hasPosition={hasPosition}
+        hasAdvisorProfile={false}
+      />
+
       {/* KPI hero */}
       <ErrorBoundary>
         <KpiCards

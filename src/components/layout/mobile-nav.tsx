@@ -3,13 +3,14 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Briefcase, TrendingUp, Eye } from 'lucide-react'
+import { LayoutDashboard, Briefcase, TrendingUp, Eye, Lightbulb } from 'lucide-react'
 
 const navItems = [
   { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
   { href: '/portfolio', label: 'Portafolios', icon: Briefcase },
   { href: '/market', label: 'Mercados', icon: TrendingUp },
   { href: '/watchlist', label: 'Watchlist', icon: Eye },
+  { href: '/advisor', label: 'Asesor', icon: Lightbulb },
 ]
 
 export function MobileNav() {
