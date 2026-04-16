@@ -30,10 +30,8 @@ export function TopMovers({ movers }: { movers: Mover[] }) {
               className={`flex items-center justify-between py-2.5${idx > 0 ? ' border-t border-border' : ''}`}
             >
               <div className="flex flex-col min-w-0">
-                <span className="text-sm font-semibold truncate">{m.symbol}</span>
-                {m.name && (
-                  <span className="text-xs text-muted-foreground truncate">{m.name}</span>
-                )}
+                <span className="text-sm font-semibold truncate">{m.name || m.symbol}</span>
+                <span className="text-xs text-muted-foreground truncate">{m.symbol}</span>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
                 <FormattedAmount value={m.price} from={m.currency} className="text-sm font-mono" />
