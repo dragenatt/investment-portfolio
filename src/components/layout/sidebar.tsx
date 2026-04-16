@@ -2,23 +2,28 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Briefcase, TrendingUp, Eye, Bell, GraduationCap, Settings, X, Compass, GitCompareArrows } from 'lucide-react'
+import { LayoutDashboard, Briefcase, TrendingUp, Eye, Bell, Compass, GitCompareArrows, Settings, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect, useCallback } from 'react'
 import { useTranslation } from '@/lib/i18n'
 import type { Dictionary } from '@/lib/i18n'
 
-function getNavItems(t: Dictionary) {
+type NavItem = { href: string; icon: typeof LayoutDashboard; label: string; shortcut: string }
+
+function getPrimaryItems(t: Dictionary): NavItem[] {
   return [
     { href: '/dashboard', icon: LayoutDashboard, label: t.nav.dashboard, shortcut: 'D' },
     { href: '/portfolio', icon: Briefcase, label: t.nav.portfolios, shortcut: 'P' },
     { href: '/market', icon: TrendingUp, label: t.nav.markets, shortcut: 'M' },
     { href: '/watchlist', icon: Eye, label: t.nav.watchlist, shortcut: 'W' },
+  ]
+}
+
+function getToolItems(t: Dictionary): NavItem[] {
+  return [
     { href: '/alerts', icon: Bell, label: t.nav.alerts, shortcut: 'L' },
     { href: '/discover', icon: Compass, label: 'Descubrir', shortcut: 'X' },
     { href: '/compare', icon: GitCompareArrows, label: 'Comparar', shortcut: 'C' },
-    { href: '/advisor', icon: GraduationCap, label: t.nav.advisor, shortcut: 'R' },
-    { href: '/settings', icon: Settings, label: t.nav.settings, shortcut: 'S' },
   ]
 }
 
@@ -27,14 +32,40 @@ interface SidebarProps {
   onMobileClose?: () => void
 }
 
+function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+  const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+  const Icon = item.icon
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        'relative flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200',
+        isActive
+          ? 'bg-primary/8 text-foreground'
+          : 'hover:bg-secondary text-foreground/70'
+      )}
+    >
+      {isActive && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-primary" />
+      )}
+      <Icon className={cn(
+        'h-[18px] w-[18px] shrink-0',
+        isActive ? 'text-primary' : 'text-muted-foreground'
+      )} />
+      <span className="font-medium text-sm">{item.label}</span>
+    </Link>
+  )
+}
+
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useTranslation()
-  const navItems = getNavItems(t)
+  const primaryItems = getPrimaryItems(t)
+  const toolItems = getToolItems(t)
+  const allItems = [...primaryItems, ...toolItems, { href: '/settings', icon: Settings, label: t.nav.settings, shortcut: 'S' }]
 
   const handleKeyboardNav = useCallback((e: KeyboardEvent) => {
-    // Don't trigger if user is typing in an input/textarea/contenteditable
     const target = e.target as HTMLElement
     if (
       target.tagName === 'INPUT' ||
@@ -46,7 +77,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     }
 
     const key = e.key.toUpperCase()
-    const item = navItems.find((n) => n.shortcut === key)
+    const item = allItems.find((n) => n.shortcut === key)
     if (item) {
       e.preventDefault()
       router.push(item.href)
@@ -58,7 +89,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     return () => window.removeEventListener('keydown', handleKeyboardNav)
   }, [handleKeyboardNav])
 
-  // Close mobile sidebar on route change
   useEffect(() => {
     if (mobileOpen && onMobileClose) {
       onMobileClose()
@@ -68,7 +98,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-40 lg:hidden"
@@ -83,14 +112,14 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           'lg:sticky lg:translate-x-0 lg:z-auto',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
-        style={{ width: 240, minWidth: 240 }}
+        style={{ width: 200, minWidth: 200 }}
       >
         {/* Brand */}
         <div className="px-4 py-3.5 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 shadow-md flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-primary-foreground" />
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+                <TrendingUp className="h-3.5 w-3.5 text-primary-foreground" />
               </div>
               <h1 className="text-sm font-bold tracking-tight">InvestTracker</h1>
             </div>
@@ -104,39 +133,34 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-2 flex flex-col gap-0.5 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-            const Icon = item.icon
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'relative flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-lg transition-all duration-200',
-                  isActive
-                    ? 'bg-primary/8 text-foreground'
-                    : 'hover:bg-secondary text-foreground/80'
-                )}
-              >
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-primary" />
-                )}
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className={cn(
-                    'h-[18px] w-[18px] shrink-0',
-                    isActive ? 'text-primary' : 'text-muted-foreground'
-                  )} />
-                  <span className="font-medium text-sm">{item.label}</span>
-                </div>
-                <kbd className="hidden lg:inline font-mono text-[10px] text-muted-foreground/60">
-                  {item.shortcut}
-                </kbd>
-              </Link>
-            )
-          })}
-        </nav>
+        <nav className="flex-1 p-2 flex flex-col overflow-y-auto">
+          {/* Primary items */}
+          <div className="flex flex-col gap-0.5">
+            {primaryItems.map((item) => (
+              <NavLink key={item.href} item={item} pathname={pathname} />
+            ))}
+          </div>
 
+          {/* Tools section */}
+          <div className="mt-4 pt-3 border-t border-border">
+            <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              Herramientas
+            </p>
+            <div className="flex flex-col gap-0.5">
+              {toolItems.map((item) => (
+                <NavLink key={item.href} item={item} pathname={pathname} />
+              ))}
+            </div>
+          </div>
+
+          {/* Settings at bottom */}
+          <div className="mt-auto pt-3 border-t border-border">
+            <NavLink
+              item={{ href: '/settings', icon: Settings, label: t.nav.settings, shortcut: 'S' }}
+              pathname={pathname}
+            />
+          </div>
+        </nav>
       </aside>
     </>
   )

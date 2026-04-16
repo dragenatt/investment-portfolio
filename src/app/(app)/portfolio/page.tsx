@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorDisplay } from '@/components/shared/error-display'
-import { Plus, Briefcase, Upload } from 'lucide-react'
+import { Plus, Briefcase } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo, useCallback } from 'react'
 import { useTranslation } from '@/lib/i18n'
@@ -47,15 +47,12 @@ export default function PortfolioListPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{t.portfolio.title}</h1>
-        <div className="flex items-center gap-2">
-          <Link href="/portfolio/import">
-            <Button variant="outline" className="rounded-xl" size="sm"><Upload className="h-4 w-4 mr-1" /> {t.portfolio.import_csv}</Button>
-          </Link>
-          <Link href="/portfolio/new">
-            <Button className="rounded-xl bg-primary text-primary-foreground" size="sm"><Plus className="h-4 w-4 mr-1" /> {t.portfolio.new_portfolio}</Button>
-          </Link>
-        </div>
+        <h1 className="text-2xl font-bold">{t.portfolio.title}</h1>
+        <Link href="/portfolio/new">
+          <Button size="sm" className="rounded-full">
+            <Plus className="h-4 w-4 mr-1" /> {t.portfolio.new_portfolio}
+          </Button>
+        </Link>
       </div>
 
       {isLoading ? (

@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input'
 import { useMarketSearch } from '@/lib/hooks/use-market'
 import { useMarketOverview } from '@/lib/hooks/use-market-overview'
 import { useTranslation } from '@/lib/i18n'
-import { SectorPerformance } from '@/components/market/sector-performance'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -165,7 +164,7 @@ export default function MarketPage() {
     <div className="space-y-8">
       {/* ── Title + Search ── */}
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold">{t.market.title}</h1>
+        <h1 className="text-2xl font-semibold">{t.market.title}</h1>
         <div className="relative max-w-xl">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -293,17 +292,6 @@ export default function MarketPage() {
               </div>
             </section>
 
-            {/* ── Sector Performance ── */}
-            {overview?.sectors && (
-              <section>
-                <h2 className="text-lg font-semibold mb-3">{t.market.by_sector}</h2>
-                <Card>
-                  <CardContent className="p-4">
-                    <SectorPerformance sectors={overview.sectors} />
-                  </CardContent>
-                </Card>
-              </section>
-            )}
           </>
         )}
     </div>

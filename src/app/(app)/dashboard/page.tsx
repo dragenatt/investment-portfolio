@@ -7,21 +7,16 @@ import { KpiCards } from '@/components/dashboard/kpi-cards'
 import { PortfolioChart } from '@/components/dashboard/portfolio-chart'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
 import { TopMovers } from '@/components/dashboard/top-movers'
-import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
-import { OnboardingTour } from '@/components/shared/onboarding-tour'
 import { useMemo, useState } from 'react'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
-import { ArrowRightLeft } from 'lucide-react'
-import { useTrade } from '@/lib/contexts/trade-context'
 import { useTranslation } from '@/lib/i18n'
 
 export default function DashboardPage() {
   const { t } = useTranslation()
   const { data: portfolios, isLoading } = usePortfolios()
-  const { openTrade } = useTrade()
   const [chartRange, setChartRange] = useState('30')
   const { data: chartData, isLoading: chartLoading } = usePortfolioHistory(chartRange)
 
@@ -42,85 +37,46 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-3 gap-3">
-          {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
-        </div>
+        <SkeletonCard />
         <SkeletonChart />
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
-      <OnboardingTour />
-
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <h1
-          className="font-bold tracking-tight font-serif"
-          style={{ fontSize: 'clamp(24px, 3vw, 36px)', letterSpacing: '-0.03em' }}
-        >
-          {t.dashboard.title}
-        </h1>
-        <button
-          className="inline-flex items-center gap-2 border border-border rounded-full px-4 py-2 text-sm font-medium hover:bg-secondary transition-colors btn-press"
-          onClick={() => openTrade()}
-        >
-          <ArrowRightLeft className="h-3.5 w-3.5" />
-          {t.dashboard.transaction}
-          <kbd className="hidden sm:inline-flex items-center font-mono text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground">
-            T
-          </kbd>
-        </button>
-      </div>
-
-      {/* Bento grid: portfolio summary (1.1fr) | market context (0.9fr) */}
-      <div
-        className="bento-grid stagger-enter"
-      >
-        {/* Left column — portfolio summary */}
-        <div className="space-y-6">
-          <ErrorBoundary>
-            <div data-tour="hero-section">
-              <KpiCards
-                totalValue={stats.totalValue}
-                totalReturn={stats.totalReturn}
-                totalReturnPct={stats.totalReturnPct}
-                positionCount={stats.positionCount}
-                bestPosition={stats.bestPosition}
-                todayReturn={stats.todayReturn}
-                todayReturnPct={stats.todayReturnPct}
-                totalCost={stats.totalCost}
-              />
-            </div>
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <div data-tour="portfolio-chart">
-              <PortfolioChart
-                data={chartData ?? []}
-                isLoading={chartLoading}
-                onPeriodChange={setChartRange}
-              />
-            </div>
-          </ErrorBoundary>
-
-        </div>
-
-        {/* Right column — market context */}
-        <div className="space-y-6">
-          <ErrorBoundary>
-            <AllocationDonut data={stats.allocation} />
-          </ErrorBoundary>
-          <ErrorBoundary>
-            <TopMovers movers={stats.topMovers} />
-          </ErrorBoundary>
-        </div>
-      </div>
-
+    <div className="space-y-6">
+      {/* KPI hero */}
       <ErrorBoundary>
-        <RecentActivity />
+        <KpiCards
+          totalValue={stats.totalValue}
+          totalReturn={stats.totalReturn}
+          totalReturnPct={stats.totalReturnPct}
+          positionCount={stats.positionCount}
+          bestPosition={stats.bestPosition}
+          todayReturn={stats.todayReturn}
+          todayReturnPct={stats.todayReturnPct}
+          totalCost={stats.totalCost}
+        />
       </ErrorBoundary>
+
+      {/* Chart */}
+      <ErrorBoundary>
+        <PortfolioChart
+          data={chartData ?? []}
+          isLoading={chartLoading}
+          onPeriodChange={setChartRange}
+        />
+      </ErrorBoundary>
+
+      {/* Allocation + Top Movers side by side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <ErrorBoundary>
+          <AllocationDonut data={stats.allocation} />
+        </ErrorBoundary>
+        <ErrorBoundary>
+          <TopMovers movers={stats.topMovers} />
+        </ErrorBoundary>
+      </div>
     </div>
   )
 }

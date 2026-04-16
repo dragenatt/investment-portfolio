@@ -6,8 +6,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { LogOut, Search, Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useCurrency } from '@/lib/hooks/use-currency'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useState, useEffect } from 'react'
 
 interface TopbarProps {
@@ -17,7 +15,6 @@ interface TopbarProps {
 export function Topbar({ onMenuClick }: TopbarProps) {
   const router = useRouter()
   const supabase = createClient()
-  const { currency, setCurrency } = useCurrency()
   const [initials, setInitials] = useState('U')
 
   useEffect(() => {
@@ -56,35 +53,21 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
         <button
           onClick={openSearch}
-          className="flex items-center gap-2 px-4 h-10 rounded-full border border-border bg-secondary hover:bg-secondary/80 text-muted-foreground text-sm transition-colors max-w-md w-full lg:w-96"
+          className="flex items-center gap-2 px-4 h-9 rounded-full border border-border bg-secondary/50 hover:bg-secondary text-muted-foreground text-sm transition-colors max-w-sm w-full lg:w-72"
         >
           <Search className="h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">Buscar activos, portafolios...</span>
-          <span className="sm:hidden">Buscar...</span>
-          <kbd className="hidden sm:inline-flex ml-auto h-5 items-center gap-1 rounded border border-border bg-background px-1.5 text-[10px] text-muted-foreground font-mono">
-            ⌘K
-          </kbd>
+          <span className="hidden sm:inline">Buscar...</span>
+          <span className="sm:hidden">Buscar</span>
         </button>
       </div>
 
       {/* Right: actions */}
-      <div className="flex items-center gap-2">
-        <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
-          <SelectTrigger className="w-20 h-8 border-border text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="MXN">MXN</SelectItem>
-            <SelectItem value="USD">USD</SelectItem>
-            <SelectItem value="EUR">EUR</SelectItem>
-          </SelectContent>
-        </Select>
-
+      <div className="flex items-center gap-1.5">
         <ThemeToggle />
 
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-accent h-9 w-9">
-            <Avatar className="h-8 w-8 ring-2 ring-primary/30">
+            <Avatar className="h-8 w-8">
               <AvatarFallback className="bg-primary/10 text-primary text-sm">{initials}</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>

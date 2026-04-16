@@ -17,6 +17,21 @@ const LABELS: Record<string, string> = {
   new: 'Nuevo',
 }
 
+const SYMBOL_NAMES: Record<string, string> = {
+  '^GSPC': 'S&P 500',
+  '%5EGSPC': 'S&P 500',
+  '^DJI': 'Dow Jones',
+  '%5EDJI': 'Dow Jones',
+  '^IXIC': 'Nasdaq',
+  '%5EIXIC': 'Nasdaq',
+  '^N225': 'Nikkei 225',
+  '%5EN225': 'Nikkei 225',
+  '^FTSE': 'FTSE 100',
+  '%5EFTSE': 'FTSE 100',
+  '^RUT': 'Russell 2000',
+  '%5ERUT': 'Russell 2000',
+}
+
 export function Breadcrumbs() {
   const pathname = usePathname()
   const segments = pathname.split('/').filter(Boolean)
@@ -25,7 +40,8 @@ export function Breadcrumbs() {
 
   const crumbs = segments.map((segment: string, i: number) => {
     const href = '/' + segments.slice(0, i + 1).join('/')
-    const label = LABELS[segment] || decodeURIComponent(segment)
+    const decoded = decodeURIComponent(segment)
+    const label = LABELS[segment] || SYMBOL_NAMES[segment] || SYMBOL_NAMES[decoded] || decoded
     const isLast = i === segments.length - 1
     return { href, label, isLast }
   })
