@@ -3,6 +3,7 @@ import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { calculateSimpleReturn, calculateTWR, calculateMWR } from '@/lib/services/returns'
+import { getHistory } from '@/lib/services/market'
 
 export async function GET(req: Request, { params }: { params: Promise<{ pid: string }> }) {
   const { pid } = await params
@@ -17,8 +18,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ pid: str
     `${CACHE_KEYS.ANALYTICS_RETURNS}${pid}:${period}`,
     600,
     async () => {
-      // Get snapshots
       const cutoff = getPeriodCutoff(period)
+
+      // Try snapshots first
       const { data: snapshots } = await supabase
         .from('portfolio_snapshots')
         .select('snapshot_date, total_value, total_cost')
@@ -29,18 +31,94 @@ export async function GET(req: Request, { params }: { params: Promise<{ pid: str
       // Get transactions for TWR/MWR
       const { data: transactions } = await supabase
         .from('transactions')
-        .select('executed_at, type, quantity, price, position:positions!inner(portfolio_id)')
+        .select('executed_at, type, quantity, price, position:positions!inner(portfolio_id, symbol)')
         .eq('position.portfolio_id', pid)
         .gte('executed_at', cutoff)
         .order('executed_at', { ascending: true })
 
-      const snaps = (snapshots ?? []).map((s) => ({ date: s.snapshot_date, value: s.total_value }))
-      const lastSnap = snapshots?.[snapshots.length - 1]
-      const firstSnap = snapshots?.[0]
+      let snaps = (snapshots ?? []).map((s) => ({ date: s.snapshot_date, value: s.total_value }))
+
+      // FALLBACK: If no snapshots, build from positions + Yahoo price history
+      if (snaps.length < 2) {
+        const { data: positions } = await supabase
+          .from('positions')
+          .select('symbol, quantity, avg_cost')
+          .eq('portfolio_id', pid)
+          .gt('quantity', 0)
+
+        if (positions && positions.length > 0) {
+          const symbols = positions.map(p => p.symbol)
+          const priceMap: Record<string, Record<string, number>> = {}
+
+          await Promise.all(
+            symbols.map(async (symbol) => {
+              try {
+                // Try DB first
+                const { data: cached } = await supabase
+                  .from('price_history')
+                  .select('date, close')
+                  .eq('symbol', symbol)
+                  .gte('date', cutoff)
+                  .order('date', { ascending: true })
+
+                if (cached && cached.length >= 5) {
+                  priceMap[symbol] = {}
+                  for (const row of cached) priceMap[symbol][row.date] = row.close
+                  return
+                }
+
+                // Fallback to Yahoo
+                const range = periodToRange(period)
+                const history = await getHistory(symbol, range)
+                priceMap[symbol] = {}
+                for (const point of history) {
+                  if (point.close == null) continue
+                  const date = new Date(point.date).toISOString().slice(0, 10)
+                  if (date >= cutoff) priceMap[symbol][date] = point.close
+                }
+              } catch { /* skip */ }
+            })
+          )
+
+          // Build daily portfolio values from price history
+          const allDates = new Set<string>()
+          for (const sym of symbols) {
+            for (const date of Object.keys(priceMap[sym] || {})) {
+              allDates.add(date)
+            }
+          }
+
+          const sortedDates = [...allDates].sort()
+          const lastPrices: Record<string, number> = {}
+
+          for (const date of sortedDates) {
+            let totalValue = 0
+            for (const pos of positions) {
+              const price = priceMap[pos.symbol]?.[date]
+              if (price != null) lastPrices[pos.symbol] = price
+              const currentPrice = lastPrices[pos.symbol] ?? pos.avg_cost
+              totalValue += pos.quantity * currentPrice
+            }
+            snaps.push({ date, value: totalValue })
+          }
+        }
+      }
+
+      const lastSnap = snaps[snaps.length - 1]
+      const firstSnap = snaps[0]
+
+      // Calculate total cost from positions
+      const { data: positionsForCost } = await supabase
+        .from('positions')
+        .select('quantity, avg_cost')
+        .eq('portfolio_id', pid)
+        .gt('quantity', 0)
+
+      const totalCost = (positionsForCost ?? []).reduce((sum, p) => sum + p.quantity * p.avg_cost, 0)
 
       // Simple return
-      const simple = lastSnap && firstSnap
-        ? calculateSimpleReturn(lastSnap.total_value, lastSnap.total_cost)
+      const simple = lastSnap
+        ? calculateSimpleReturn(lastSnap.value, totalCost)
         : 0
 
       // TWR
@@ -53,16 +131,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ pid: str
 
       const twr = calculateTWR(snaps, cashFlows)
       const mwr = lastSnap
-        ? calculateMWR(cashFlows, lastSnap.total_value, new Date())
+        ? calculateMWR(cashFlows, lastSnap.value, new Date())
         : 0
 
       // Calendar returns (monthly)
-      const calendar = buildCalendarReturns(snapshots ?? [])
+      const calendar = buildCalendarReturns(snaps)
 
-      // Period comparison table
-      const periods = await buildPeriodReturns(supabase, pid)
-
-      return { summary: { simple, twr, mwr, period }, calendar, periods }
+      return { summary: { simple, twr, mwr, period }, calendar, periods: [] }
     }
   )
 
@@ -83,12 +158,26 @@ function getPeriodCutoff(period: string): string {
   return now.toISOString().split('T')[0]
 }
 
-function buildCalendarReturns(snapshots: Array<{ snapshot_date: string; total_value: number }>) {
+function periodToRange(period: string): string {
+  switch (period) {
+    case '1M': return '1mo'
+    case '3M': return '3mo'
+    case '6M': return '6mo'
+    case 'YTD': return '1y'
+    case '1Y': return '1y'
+    case 'ALL': return 'max'
+    default: return '1y'
+  }
+}
+
+function buildCalendarReturns(snapshots: Array<{ date: string; value: number }>) {
+  if (snapshots.length < 2) return []
+
   const monthly: Record<string, { start: number; end: number }> = {}
   for (const snap of snapshots) {
-    const month = snap.snapshot_date.slice(0, 7) // YYYY-MM
-    if (!monthly[month]) monthly[month] = { start: snap.total_value, end: snap.total_value }
-    monthly[month].end = snap.total_value
+    const month = snap.date.slice(0, 7) // YYYY-MM
+    if (!monthly[month]) monthly[month] = { start: snap.value, end: snap.value }
+    monthly[month].end = snap.value
   }
 
   const years: Record<number, (number | null)[]> = {}
@@ -105,9 +194,4 @@ function buildCalendarReturns(snapshots: Array<{ snapshot_date: string; total_va
     months,
     total: months.reduce((sum: number, m) => sum + (m ?? 0), 0),
   }))
-}
-
-async function buildPeriodReturns(supabase: ReturnType<typeof import('@/lib/supabase/server').createServerSupabase extends () => Promise<infer T> ? () => T : never>, pid: string) {
-  // Simplified — returns basic period comparison
-  return []
 }
