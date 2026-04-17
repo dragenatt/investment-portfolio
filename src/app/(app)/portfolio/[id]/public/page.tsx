@@ -124,14 +124,14 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
         <Card className="rounded-2xl border-border">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Lock className="h-10 w-10 text-muted-foreground mb-4" />
-            <h2 className="text-xl font-bold mb-2">Portafolio no disponible</h2>
+            <h2 className="text-xl font-bold mb-2">{t.sharing.unavailable}</h2>
             <p className="text-muted-foreground text-center max-w-md mb-6">
-              Este portafolio es privado o no existe.
+              {t.sharing.unavailable_desc}
             </p>
             <Link href="/discover">
               <Button variant="outline" className="rounded-xl gap-2">
                 <ArrowLeft className="h-4 w-4" />
-                Volver a Descubrir
+                {t.sharing.back_to_discover}
               </Button>
             </Link>
           </CardContent>
@@ -143,14 +143,14 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
   const showAmounts = portfolio.show_amounts !== false
   const showPositions = portfolio.show_positions !== false
   const showAllocation = portfolio.show_allocation !== false
-  const ownerName = portfolio.owner?.display_name || portfolio.owner?.username || portfolio.owner?.email || 'Anónimo'
+  const ownerName = portfolio.owner?.display_name || portfolio.owner?.username || portfolio.owner?.email || t.sharing.anonymous
 
   return (
     <div className="space-y-6">
       {/* Back link */}
       <Link href="/discover" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="h-4 w-4" />
-        Descubrir
+        {t.sharing.discover}
       </Link>
 
       {/* Header: Owner + Portfolio info */}
@@ -169,7 +169,7 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
               href={`/profile/${portfolio.owner?.username || portfolio.owner?.email}`}
               className="text-sm text-muted-foreground hover:text-primary transition-colors"
             >
-              por {ownerName}
+              {t.sharing.by} {ownerName}
             </Link>
             {portfolio.description && (
               <p className="text-sm text-muted-foreground mt-1">{portfolio.description}</p>
@@ -191,7 +191,7 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
           <Link href={`/compare?add=${id}`}>
             <Button variant="outline" size="sm" className="rounded-xl gap-1.5">
               <GitCompareArrows className="h-4 w-4" />
-              Comparar
+              {t.sharing.compare}
             </Button>
           </Link>
         </div>
@@ -224,7 +224,7 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
               </Badge>
             </div>
             <div className="text-sm text-muted-foreground">
-              {symbols.length} posiciones
+              {symbols.length} {t.dashboard.positions_count}
             </div>
           </div>
         </div>
@@ -236,21 +236,21 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
           <div className="lg:col-span-2">
             <Card className="rounded-2xl border-border shadow-sm">
               <CardHeader>
-                <CardTitle className="text-lg">Posiciones</CardTitle>
+                <CardTitle className="text-lg">{t.sharing.positions}</CardTitle>
               </CardHeader>
               <CardContent>
                 {positionsWithPrices.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">Sin posiciones</p>
+                  <p className="text-sm text-muted-foreground py-4 text-center">{t.sharing.no_positions}</p>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-xs font-semibold uppercase">Símbolo</TableHead>
-                        <TableHead className="text-right text-xs font-semibold uppercase">Precio</TableHead>
-                        <TableHead className="text-right text-xs font-semibold uppercase">Cambio</TableHead>
+                        <TableHead className="text-xs font-semibold uppercase">{t.sharing.symbol}</TableHead>
+                        <TableHead className="text-right text-xs font-semibold uppercase">{t.sharing.price}</TableHead>
+                        <TableHead className="text-right text-xs font-semibold uppercase">{t.sharing.change}</TableHead>
                         {showAmounts && (
                           <>
-                            <TableHead className="text-right text-xs font-semibold uppercase">Valor</TableHead>
+                            <TableHead className="text-right text-xs font-semibold uppercase">{t.sharing.value}</TableHead>
                             <TableHead className="text-right text-xs font-semibold uppercase">P&L</TableHead>
                           </>
                         )}

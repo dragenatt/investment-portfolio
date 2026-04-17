@@ -25,7 +25,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
-import { use, useMemo, useCallback, useState } from 'react'
+import { use, useMemo, useCallback, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { BarChart3, List, Download, TrendingUp, TrendingDown, Plus, Share2, Globe, Lock, Check, Copy } from 'lucide-react'
 import { transactionsToCSV, positionsToCSV, downloadFile } from '@/lib/utils/export'
@@ -176,9 +176,16 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
 
   // Share dialog state
   const [shareOpen, setShareOpen] = useState(false)
-  const [visibility, setVisibility] = useState<'private' | 'public'>(portfolio?.visibility === 'public' ? 'public' : 'private')
+  const [visibility, setVisibility] = useState<'private' | 'public'>('private')
   const [savingVisibility, setSavingVisibility] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  // Sync visibility state when portfolio data loads asynchronously
+  useEffect(() => {
+    if (portfolio?.visibility) {
+      setVisibility(portfolio.visibility === 'public' ? 'public' : 'private')
+    }
+  }, [portfolio?.visibility])
 
   const handleToggleVisibility = useCallback(async (newVis: 'public' | 'private') => {
     setSavingVisibility(true)
@@ -193,16 +200,20 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           show_allocation: true,
         }),
       })
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        throw new Error(json?.error || t.sharing.error_visibility)
+      }
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       setVisibility(newVis)
-      toast.success(newVis === 'public' ? 'Portafolio visible para todos' : 'Portafolio ahora es privado')
+      toast.success(newVis === 'public' ? t.sharing.now_public : t.sharing.now_private)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al cambiar visibilidad')
+      toast.error(err instanceof Error ? err.message : t.sharing.error_visibility)
     } finally {
       setSavingVisibility(false)
     }
-  }, [id])
+  }, [id, t])
 
   const handleCopyLink = useCallback(() => {
     const url = `${window.location.origin}/portfolio/${id}/public`
@@ -248,7 +259,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
             <Button className="rounded-xl" variant="outline" size="sm"><BarChart3 className="h-4 w-4 mr-1" /> {t.portfolio.analytics}</Button>
           </Link>
           <Button className="rounded-xl" variant="outline" size="sm" onClick={() => setShareOpen(true)}>
-            <Share2 className="h-4 w-4 mr-1" /> Compartir
+            <Share2 className="h-4 w-4 mr-1" /> {t.sharing.share}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-xl text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3 gap-1">
@@ -360,12 +371,12 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Compartir Portafolio</DialogTitle>
+            <DialogTitle>{t.sharing.share_portfolio}</DialogTitle>
           </DialogHeader>
           <div className="space-y-5 py-2">
             {/* Visibility toggle */}
             <div className="space-y-3">
-              <p className="text-sm font-medium">Visibilidad</p>
+              <p className="text-sm font-medium">{t.sharing.visibility}</p>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   className={`flex items-center gap-2 p-3 rounded-xl border transition-colors text-left ${
@@ -378,8 +389,8 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
                 >
                   <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div>
-                    <p className="text-sm font-medium">Privado</p>
-                    <p className="text-xs text-muted-foreground">Solo tú</p>
+                    <p className="text-sm font-medium">{t.sharing.private}</p>
+                    <p className="text-xs text-muted-foreground">{t.sharing.private_desc}</p>
                   </div>
                 </button>
                 <button
@@ -393,8 +404,8 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
                 >
                   <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div>
-                    <p className="text-sm font-medium">Público</p>
-                    <p className="text-xs text-muted-foreground">Visible en Descubrir</p>
+                    <p className="text-sm font-medium">{t.sharing.public}</p>
+                    <p className="text-xs text-muted-foreground">{t.sharing.public_desc}</p>
                   </div>
                 </button>
               </div>
@@ -403,14 +414,14 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
             {/* Copy link */}
             {visibility === 'public' && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Link público</p>
+                <p className="text-sm font-medium">{t.sharing.public_link}</p>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 rounded-xl border border-border bg-secondary/50 px-3 py-2 text-sm text-muted-foreground truncate font-mono">
                     {typeof window !== 'undefined' ? `${window.location.origin}/portfolio/${id}/public` : `/portfolio/${id}/public`}
                   </div>
                   <Button size="sm" className="rounded-xl gap-1.5 shrink-0" onClick={handleCopyLink}>
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copied ? 'Copiado' : 'Copiar'}
+                    {copied ? t.sharing.copied : t.sharing.copy}
                   </Button>
                 </div>
               </div>
@@ -418,7 +429,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
 
             {visibility === 'private' && (
               <p className="text-sm text-muted-foreground">
-                Haz tu portafolio público para compartirlo con otros inversores. Aparecerá en la sección Descubrir.
+                {t.sharing.make_public_hint}
               </p>
             )}
           </div>

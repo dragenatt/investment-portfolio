@@ -386,10 +386,17 @@
     "unavailable": "Portafolio no disponible",
     "unavailable_desc": "Este portafolio es privado o no existe.",
     "back_to_discover": "Volver a Descubrir",
+    "discover": "Descubrir",
     "by": "por",
     "compare": "Comparar",
     "positions": "Posiciones",
-    "no_positions": "Sin posiciones"
+    "no_positions": "Sin posiciones",
+    "symbol": "Símbolo",
+    "price": "Precio",
+    "change": "Cambio",
+    "value": "Valor",
+    "anonymous": "Anónimo",
+    "error_visibility": "Error al cambiar la visibilidad. Verifica que la base de datos esté actualizada."
   },
   "onboarding": {
     "welcome_title": "¡Bienvenido a InvestTracker!",

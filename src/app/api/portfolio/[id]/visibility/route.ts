@@ -31,6 +31,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     .select()
     .single()
 
-  if (dbError) return error(dbError.message, 500)
+  if (dbError) {
+    // If the visibility column doesn't exist, migration 005 hasn't been applied
+    if (dbError.message.includes('column') || dbError.code === '42703') {
+      return error(
+        'La base de datos necesita ser actualizada. Ejecuta la migración 005_social_foundation.sql en tu proyecto de Supabase.',
+        500
+      )
+    }
+    return error(dbError.message, 500)
+  }
   return success(data)
 }
