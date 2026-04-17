@@ -177,7 +177,7 @@ export default function ComparePage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold font-serif">Comparar Portafolios</h1>
         <p className="text-muted-foreground">
-          Analiza y compara el rendimiento de tus portafolios con métricas profesionales
+          Compara tus portafolios entre sí, o contra portafolios públicos de otros inversores
         </p>
       </div>
 
@@ -210,10 +210,10 @@ export default function ComparePage() {
               <p className="text-sm text-muted-foreground">No hay portafolios seleccionados</p>
             ) : (
               selectedPortfolios.map((id, idx) => {
-                const name =
-                  ownPortfolios?.find((p: { id: string }) => p.id === id)?.name ||
-                  publicPortfolios.find((p) => p.id === id)?.name ||
-                  id
+                const ownMatch = ownPortfolios?.find((p: { id: string }) => p.id === id)
+                const publicMatch = publicPortfolios.find((p) => p.id === id)
+                const name = ownMatch?.name || publicMatch?.name || id
+                const isOwn = !!ownMatch
                 return (
                   <Badge
                     key={id}
@@ -223,6 +223,7 @@ export default function ComparePage() {
                     onClick={() => handleRemovePortfolio(id)}
                   >
                     {name}
+                    <span className="text-[10px] opacity-60">{isOwn ? '(tuyo)' : '(público)'}</span>
                     <X className="h-3 w-3" />
                   </Badge>
                 )
@@ -265,7 +266,11 @@ export default function ComparePage() {
                         disabled={selectedPortfolios.includes(p.id)}
                       >
                         <span className="flex-1">{p.name}</span>
-                        {p.isOwn && <Badge variant="secondary" className="text-xs rounded-full">Propio</Badge>}
+                        {p.isOwn ? (
+                          <Badge variant="secondary" className="text-xs rounded-full">Tuyo</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs rounded-full">Público</Badge>
+                        )}
                       </Button>
                     ))
                   )}

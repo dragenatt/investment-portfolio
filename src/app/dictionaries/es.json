@@ -369,6 +369,28 @@
     "register_button": "Registrar",
     "saving": "Guardando..."
   },
+  "sharing": {
+    "share": "Compartir",
+    "share_portfolio": "Compartir Portafolio",
+    "visibility": "Visibilidad",
+    "private": "Privado",
+    "private_desc": "Solo tú",
+    "public": "Público",
+    "public_desc": "Visible en Descubrir",
+    "public_link": "Link público",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "make_public_hint": "Haz tu portafolio público para compartirlo con otros inversores.",
+    "now_public": "Portafolio visible para todos",
+    "now_private": "Portafolio ahora es privado",
+    "unavailable": "Portafolio no disponible",
+    "unavailable_desc": "Este portafolio es privado o no existe.",
+    "back_to_discover": "Volver a Descubrir",
+    "by": "por",
+    "compare": "Comparar",
+    "positions": "Posiciones",
+    "no_positions": "Sin posiciones"
+  },
   "onboarding": {
     "welcome_title": "¡Bienvenido a InvestTracker!",
     "welcome_desc": "Tu plataforma para registrar, analizar y hacer crecer tus inversiones. Empieza creando tu primer portafolio.",

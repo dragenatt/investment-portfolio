@@ -25,11 +25,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
-import { use, useMemo, useCallback } from 'react'
+import { use, useMemo, useCallback, useState } from 'react'
 import Link from 'next/link'
-import { BarChart3, List, Download, TrendingUp, TrendingDown, Plus } from 'lucide-react'
+import { BarChart3, List, Download, TrendingUp, TrendingDown, Plus, Share2, Globe, Lock, Check, Copy } from 'lucide-react'
 import { transactionsToCSV, positionsToCSV, downloadFile } from '@/lib/utils/export'
 import type { ExportTransaction, ExportPosition } from '@/lib/utils/export'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n'
 
 export default function PortfolioDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -172,6 +174,47 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
     downloadFile(csv, `${name}_posiciones.csv`, 'text/csv')
   }, [positionsWithPrices, portfolio?.name])
 
+  // Share dialog state
+  const [shareOpen, setShareOpen] = useState(false)
+  const [visibility, setVisibility] = useState<'private' | 'public'>(portfolio?.visibility === 'public' ? 'public' : 'private')
+  const [savingVisibility, setSavingVisibility] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const handleToggleVisibility = useCallback(async (newVis: 'public' | 'private') => {
+    setSavingVisibility(true)
+    try {
+      const res = await fetch(`/api/portfolio/${id}/visibility`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visibility: newVis,
+          show_amounts: true,
+          show_positions: true,
+          show_allocation: true,
+        }),
+      })
+      const json = await res.json()
+      if (json.error) throw new Error(json.error)
+      setVisibility(newVis)
+      toast.success(newVis === 'public' ? 'Portafolio visible para todos' : 'Portafolio ahora es privado')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al cambiar visibilidad')
+    } finally {
+      setSavingVisibility(false)
+    }
+  }, [id])
+
+  const handleCopyLink = useCallback(() => {
+    const url = `${window.location.origin}/portfolio/${id}/public`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      toast.success('Link copiado')
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {
+      toast.error('No se pudo copiar el link')
+    })
+  }, [id])
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -204,6 +247,9 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           <Link href={`/portfolio/${id}/analytics`}>
             <Button className="rounded-xl" variant="outline" size="sm"><BarChart3 className="h-4 w-4 mr-1" /> {t.portfolio.analytics}</Button>
           </Link>
+          <Button className="rounded-xl" variant="outline" size="sm" onClick={() => setShareOpen(true)}>
+            <Share2 className="h-4 w-4 mr-1" /> Compartir
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-xl text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3 gap-1">
               <Download className="h-4 w-4" /> {t.dashboard.export}
@@ -309,6 +355,75 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           <AllocationDonut data={allocation} />
         </ErrorBoundary>
       </div>
+
+      {/* Share Dialog */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Compartir Portafolio</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            {/* Visibility toggle */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Visibilidad</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  className={`flex items-center gap-2 p-3 rounded-xl border transition-colors text-left ${
+                    visibility === 'private'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                  onClick={() => handleToggleVisibility('private')}
+                  disabled={savingVisibility}
+                >
+                  <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Privado</p>
+                    <p className="text-xs text-muted-foreground">Solo tú</p>
+                  </div>
+                </button>
+                <button
+                  className={`flex items-center gap-2 p-3 rounded-xl border transition-colors text-left ${
+                    visibility === 'public'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                  onClick={() => handleToggleVisibility('public')}
+                  disabled={savingVisibility}
+                >
+                  <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Público</p>
+                    <p className="text-xs text-muted-foreground">Visible en Descubrir</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Copy link */}
+            {visibility === 'public' && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Link público</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 rounded-xl border border-border bg-secondary/50 px-3 py-2 text-sm text-muted-foreground truncate font-mono">
+                    {typeof window !== 'undefined' ? `${window.location.origin}/portfolio/${id}/public` : `/portfolio/${id}/public`}
+                  </div>
+                  <Button size="sm" className="rounded-xl gap-1.5 shrink-0" onClick={handleCopyLink}>
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {copied ? 'Copiado' : 'Copiar'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {visibility === 'private' && (
+              <p className="text-sm text-muted-foreground">
+                Haz tu portafolio público para compartirlo con otros inversores. Aparecerá en la sección Descubrir.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
