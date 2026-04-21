@@ -245,7 +245,12 @@ CREATE POLICY "market_data_read" ON company_profile FOR SELECT TO authenticated 
 CREATE POLICY "market_data_read" ON dividend_calendar FOR SELECT TO authenticated USING (true);
 CREATE POLICY "market_data_read" ON earnings_calendar FOR SELECT TO authenticated USING (true);
 CREATE POLICY "market_data_read" ON news_items FOR SELECT TO authenticated USING (true);
--- INSERT/UPDATE/DELETE: service role only (no policies = denied for non-service).
+-- INSERT/UPDATE/DELETE: service role only.
+-- NOTE: this denial is *only* enforced because RLS is ENABLED above. Without
+-- the ALTER TABLE ... ENABLE ROW LEVEL SECURITY lines, "no policy" means
+-- "open to all" — the opposite of what we want. The runbook
+-- `docs/runbooks/secret-rotation.md` includes a check that all four tables
+-- still have RLS enabled.
 ```
 
 **Notes:**
@@ -483,9 +488,11 @@ Modal endpoints are public by default. Validation via **HMAC**:
 
 No user JWT propagation — Next.js validates auth/authorization before calling Modal.
 
-### 3.3a Error envelope (TS ↔ Python contract)
+### 3.3a Error envelope (universal contract)
 
-All Modal endpoints return errors using a normalized JSON envelope so the Next.js wrapper can type-check against it once and surface consistent UX.
+This envelope was designed for the Modal ↔ Next.js boundary, but it applies to **all** API routes added in this roadmap (Phases 2 and 3, including Next.js-only routes). Section 5.7 item 9 references this section as the canonical shape.
+
+All endpoints return errors using a normalized JSON envelope so wrappers and clients can type-check against it once and surface consistent UX.
 
 **Shape:**
 ```json
@@ -688,7 +695,8 @@ CREATE TABLE alerts (
   ai_action_suggestion TEXT,
   read_at TIMESTAMPTZ,
   dismissed_at TIMESTAMPTZ,
-  delivered_channels TEXT[] DEFAULT '{}',
+  delivered_channels TEXT[] DEFAULT '{}'
+    CHECK (delivered_channels <@ ARRAY['in_app', 'email', 'push']),
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -879,12 +887,14 @@ Never invent data. Omit points without info. No emojis. No greetings.
 **Delivery logic:**
 ```typescript
 // Channel rules:
-//  - in-app: always delivered (the alerts table itself + Realtime broadcast IS
-//    the in-app channel — there is no opt-out, just a quiet-hours suppression).
-//  - email/push: opt-in via prefs.channels.{email,push}.
-//  - quiet hours suppress non-critical alerts on ALL channels including in-app
-//    Realtime; the alert is still inserted, the user just doesn't get pushed
-//    awake. They'll see it next time they open the app.
+//  - in-app inbox: always written (the alerts table row IS the inbox; the user
+//    will see it next time they open the app — there is no opt-out for the
+//    inbox itself).
+//  - in-app realtime push: subject to quiet hours (the realtime broadcast that
+//    surfaces the toast/badge while the app is open is suppressed for
+//    non-critical severity inside the quiet window).
+//  - email/push: opt-in via prefs.channels.{email,push} AND severity != 'info'
+//    AND not in quiet hours (unless 'critical').
 async function deliverAlert(alert: Alert) {
   const prefs = await getUserPrefs(alert.user_id)
   const inQuietHours = isInQuietHours(prefs.quiet_hours)
@@ -949,9 +959,12 @@ async function deliverAlert(alert: Alert) {
 **Migration 007 — Worker expansion (Phase 1):** `company_profile`, `dividend_calendar`, `earnings_calendar`, `news_items`.
 
 **Migration 008 — Quant + targets (Phase 2):**
-- New `portfolios` columns: `target_weights JSONB`, `optimization_constraints JSONB`
-- `quant_runs` audit table:
 ```sql
+-- New columns on existing portfolios table
+ALTER TABLE portfolios ADD COLUMN target_weights JSONB;
+ALTER TABLE portfolios ADD COLUMN optimization_constraints JSONB;
+
+-- Audit table for every Modal call (and cache-served result) — see Section 3.6.
 CREATE TABLE quant_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   portfolio_id UUID REFERENCES portfolios(id) ON DELETE CASCADE,
@@ -965,16 +978,18 @@ CREATE TABLE quant_runs (
 );
 CREATE INDEX idx_quant_runs_portfolio ON quant_runs(portfolio_id, created_at DESC);
 
+-- RLS: audit table is append-only from the user's perspective.
+-- SELECT: own rows. INSERT: service role only (no client INSERT policy).
+-- UPDATE/DELETE: not exposed to clients (audit data must not be tampered).
 ALTER TABLE quant_runs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "own_quant_runs_read" ON quant_runs FOR SELECT TO authenticated
   USING (user_id = auth.uid());
--- INSERT only via service role from services/quant.ts (no client INSERT policy).
 ```
 
 **Migration 009 — Alerts + push (Phase 3):** `alert_thresholds`, `alerts`, `push_subscriptions`. The Phase 3 classifier columns (`relevance`, `topics`, `summary_es`, `action_hint`, `impact_score`, `impact_label`) live in Migration 007 — see Section 2.4 — so the classifier code in Phase 3 has nothing to migrate, only data to write.
 
 **RLS policies (following migration 006 pattern):**
-- `quant_runs`: portfolio owner only (SELECT/UPDATE/DELETE checked against `portfolios.user_id = auth.uid()`); INSERT only via service role from `services/quant.ts`.
+- `quant_runs`: SELECT-only for the owning user (checked against `quant_runs.user_id = auth.uid()`); INSERT only via service role from `services/quant.ts`; **no UPDATE/DELETE policy** — audit data is append-only and immutable from any client path.
 - `alert_thresholds`: own user only — DDL inline in Migration 009 (Section 4.1).
 - `alerts`: own user (SELECT/UPDATE for mark/dismiss); INSERT only via service role — DDL inline in Migration 009 (Section 4.1).
 - `push_subscriptions`: own user — DDL inline in Migration 009 (Section 4.1).
@@ -1049,9 +1064,9 @@ Rotation runbook at `docs/runbooks/secret-rotation.md`. Each rotation logged in 
 
 Install:
 - `@playwright/test` as devDependency
-- `playwright.config.ts` at repo root (baseURL = `http://localhost:3000` locally / preview URL in CI; chromium + webkit projects; trace on first retry)
+- `playwright.config.ts` at repo root (baseURL = `http://localhost:3000` locally / preview URL in CI; **chromium-only** project for Q2 — keep config simple, add webkit/firefox only if a real cross-browser issue surfaces; trace on first retry)
 - Test files in `tests/e2e/*.spec.ts`
-- Browsers downloaded in CI via `npx playwright install --with-deps chromium`
+- Browsers downloaded in CI via `npx playwright install --with-deps chromium` (chromium-only is sufficient for the internal smoke suite — webkit/firefox not in scope for Q2; if added later, update both `playwright.config.ts` projects and the install command together)
 - `.gitignore` add `playwright-report/`, `test-results/`
 
 Initial scenarios (added incrementally per phase):
@@ -1092,7 +1107,7 @@ on push to main:
 
 **Feature flag rollout:** 0% → own account → 5% beta → 25% → 50% → 100%. Kill switch per flag. Error rate per flag visible in PostHog dashboard.
 
-### 5.5 Cost projection (~500 active users)
+### 5.5 Cost projection (~500 total users, ~100 daily-active)
 
 | Service | Usage | Cost |
 |---------|-------|------|
