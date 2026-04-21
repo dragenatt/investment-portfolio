@@ -16,7 +16,7 @@ InvestTracker is a mature Next.js 16 + Supabase application with a Cloudflare Wo
 2. **Phase 2 — Quantitative engine (Weeks 3-4):** Python microservice on Modal with FastAPI + numpy/scipy/cvxpy/riskfolio-lib/empyrical, exposing optimize/monte-carlo/factors/rebalance endpoints. Companion TypeScript library `@/lib/quant` for lightweight metrics. Vertical slice: full Smart Rebalance UI at `/portfolio/[id]/optimize`.
 3. **Phase 3 — Intelligence layer (Weeks 5-6):** Anomaly detection engine (statistical, runs in Worker), news classifier (Anthropic Claude Haiku 4.5 with prompt caching), predictive alerts (earnings/dividends), daily insights (Claude Sonnet 4.6), multi-channel delivery (in-app, email, Web Push).
 
-Each phase ends with a deployable vertical slice. Total estimated added monthly cost at ~500 active users: ~$59.
+Each phase ends with a deployable vertical slice. Total estimated added monthly cost at **~500 total users (~100 of which are daily-active)**: ~$59. Cost projection uses the daily-active figure for Sonnet insights and total users for Sentry/PostHog/Modal — see Section 5.5 table for the breakdown.
 
 ---
 
@@ -103,7 +103,7 @@ User → Click "Optimize" → Next.js API /api/portfolio/[id]/optimize
 Worker cron (hourly) →
   ├→ Read active positions + price history (last 60 days)
   ├→ Compute z-score per symbol
-  ├→ If |z| > 2.5 → POST to Next.js /api/internal/alerts/trigger
+  ├→ If |z| > 2.5 → POST to Next.js /api/internal/anomalies/process
   ├→ Next.js → classify with Claude Haiku (real anomaly or expected vol?)
   ├→ If confirmed → insert into `alerts` table
   ├→ Supabase Realtime broadcasts to `alerts:{userId}` channel
@@ -144,7 +144,7 @@ Worker cron (hourly) →
 
 **Setup:**
 - Install `posthog-js` (client, lazy-loaded to protect LCP) and `posthog-node` (server-side).
-- Provider in `src/providers/posthog-provider.tsx` initialized only on user opt-in (cookie banner respect).
+- Provider in `src/providers/posthog-provider.tsx` initialized only after the user accepts the **cookie consent banner** (`src/components/consent/CookieBanner.tsx`, new in Phase 1 — see deliverable 2.7). Consent stored in `localStorage` key `consent_v1` with values `accepted` | `declined` | unset. Until set, banner is shown and PostHog stays uninitialized. Sentry still loads (error tracking is legitimate-interest, not analytics).
 - Auto-capture pageviews, clicks, form submissions. Custom events for: `portfolio_created`, `transaction_added`, `comparison_run`, `discover_filter_applied`, `share_clicked`.
 
 **Feature flags (immediate use):**
@@ -213,25 +213,45 @@ CREATE TABLE earnings_calendar (
 CREATE TABLE news_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   symbol TEXT,
-  headline TEXT,
+  headline TEXT NOT NULL,
   summary TEXT,
   url TEXT UNIQUE,
   source TEXT,
   published_at TIMESTAMPTZ,
   fetched_at TIMESTAMPTZ DEFAULT now(),
-  -- Phase 3 will populate these:
+  -- Phase 3 (classifier) will populate these. Schema lives here so the
+  -- Phase 3 classifier ships without an additional migration:
   impact_score INT,
-  impact_label TEXT,
+  impact_label TEXT,                         -- 'positive' | 'negative' | 'neutral'
+  relevance TEXT,                            -- 'high' | 'medium' | 'low'
+  topics TEXT[],
+  summary_es TEXT,
+  action_hint TEXT,
   classified_at TIMESTAMPTZ
 );
 
 CREATE INDEX idx_news_symbol_published ON news_items(symbol, published_at DESC);
 CREATE INDEX idx_news_unclassified ON news_items(symbol) WHERE classified_at IS NULL;
+
+-- RLS: market data tables are readable by all authenticated users; writes
+-- only via service role (Worker/Next.js cron). Same policy pattern as
+-- existing market tables in migration 006.
+ALTER TABLE company_profile ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dividend_calendar ENABLE ROW LEVEL SECURITY;
+ALTER TABLE earnings_calendar ENABLE ROW LEVEL SECURITY;
+ALTER TABLE news_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "market_data_read" ON company_profile FOR SELECT TO authenticated USING (true);
+CREATE POLICY "market_data_read" ON dividend_calendar FOR SELECT TO authenticated USING (true);
+CREATE POLICY "market_data_read" ON earnings_calendar FOR SELECT TO authenticated USING (true);
+CREATE POLICY "market_data_read" ON news_items FOR SELECT TO authenticated USING (true);
+-- INSERT/UPDATE/DELETE: service role only (no policies = denied for non-service).
 ```
 
 **Notes:**
 - `news_items` is populated in Phase 1 but classified in Phase 3. By the time Phase 3 starts, there will be ~4 weeks of news for validation.
 - The Worker only ingests; classification happens in Next.js (Anthropic SDK lives there).
+- All Phase 3 classifier columns (`relevance`, `topics`, `summary_es`, `action_hint`, `impact_score`, `impact_label`) ship in this migration as nullable so the Phase 3 classifier can write them without a follow-up DDL change.
 
 ### 2.5 Supabase Realtime price push
 
@@ -258,12 +278,14 @@ Server component with direct API fetches. Internal-use only — not user-facing.
 
 End-of-phase production deployment:
 1. Sentry capturing errors in Next.js + Worker
-2. PostHog capturing key events + 1 working feature flag
-3. Four new tables populated with real data (verify in Supabase)
+2. PostHog capturing key events + 1 working feature flag, gated by a **cookie consent banner** (`src/components/consent/CookieBanner.tsx`) that defers PostHog initialization until accept. If declined, PostHog never loads — Sentry still loads (legitimate-interest error tracking).
+3. Four new tables populated with real data (verify in Supabase) — including the Phase-3-bound `news_items` columns from Migration 007 that ship empty.
 4. Realtime channel working for at least 1 test portfolio
 5. `/admin/metrics` showing real data
+6. **Playwright** installed (`@playwright/test`, `playwright.config.ts`, `tests/e2e/`); Phase 1 smoke spec passes locally and in CI nightly.
+7. `docs/runbooks/health-checks.md` published with the per-service status check matrix referenced in R3.
 
-**Commit milestones:** ~6 independent PRs (one per component), each with tests where applicable.
+**Commit milestones:** ~7 independent PRs (one per component), each with tests where applicable.
 
 ### 2.8 Phase 1 risks
 
@@ -319,7 +341,7 @@ quant-service/
 
 **Why Modal:**
 - Cold start ~2s for scipy/cvxpy image. Acceptable because optimization is explicit.
-- Pay-per-CPU-second. Estimated <$5/mo for ~50-200 optimizations/day.
+- Pay-per-CPU-second. Estimated <$5/mo raw + ~$2/mo for `keep_warm=1` (one always-warm replica) = baseline ~$7-8/mo for ~50-200 optimizations/day. The cost table in 5.5 assumes keep_warm is enabled by default; turning it off would save ~$2/mo at the cost of a 2s penalty on the first request after idle.
 - Deploy: `modal deploy modal_app.py`. CI runs on push to `main` when `quant-service/` changes.
 - Native web endpoints via `@modal.web_endpoint`. No load balancer or DNS provisioning needed.
 
@@ -407,6 +429,8 @@ quant-service/
 }
 ```
 
+> **Contract:** all six factor return arrays MUST have the same length as `portfolio_returns`. Pydantic validates this at the Modal boundary; Zod validates it at the Next.js boundary before the request leaves. Mismatched lengths → 400 with error code `FACTOR_DIMENSION_MISMATCH`.
+
 **Response:**
 ```json
 {
@@ -459,6 +483,35 @@ Modal endpoints are public by default. Validation via **HMAC**:
 
 No user JWT propagation — Next.js validates auth/authorization before calling Modal.
 
+### 3.3a Error envelope (TS ↔ Python contract)
+
+All Modal endpoints return errors using a normalized JSON envelope so the Next.js wrapper can type-check against it once and surface consistent UX.
+
+**Shape:**
+```json
+{
+  "error": {
+    "code": "CVXPY_INFEASIBLE",
+    "message": "Optimization problem is infeasible under the given constraints.",
+    "details": { "constraint_violated": "sector_caps.Energy", "value_attempted": 0.20 }
+  }
+}
+```
+
+**HTTP status mapping:**
+
+| Status | Meaning | Example codes |
+|--------|---------|---------------|
+| 200 | Success | — |
+| 400 | Validation error (bad input shape, dimension mismatch, NaN/Inf) | `FACTOR_DIMENSION_MISMATCH`, `WEIGHTS_DO_NOT_SUM_TO_ONE`, `COVARIANCE_NOT_POSITIVE_DEFINITE` |
+| 401 | HMAC missing/invalid or timestamp expired | `HMAC_INVALID`, `HMAC_EXPIRED` |
+| 422 | Computationally infeasible (problem well-formed but unsolvable) | `CVXPY_INFEASIBLE`, `MONTE_CARLO_DEGENERATE`, `INSUFFICIENT_HISTORY` |
+| 429 | Rate limited (Modal-side) | `RATE_LIMITED` |
+| 500 | Internal Python error (caught by FastAPI exception handler, sent to Sentry) | `INTERNAL_ERROR` |
+| 503 | Service warming or dependency down | `COLD_START_TIMEOUT` |
+
+The Next.js wrapper (`src/lib/services/quant.ts`) maps codes to user-facing strings via i18n keys (`quant.errors.<code>`); unknown codes fall back to a generic message + Sentry breadcrumb. Error responses always include `details` (object, may be empty) so error analytics can drill into root cause without re-fetching.
+
 ### 3.4 Python dependencies
 
 ```toml
@@ -508,9 +561,13 @@ export async function optimizePortfolio(
   // 2. Build returns matrix
   // 3. POST to Modal /optimize with HMAC
   // 4. Cache result 1h in Upstash
-  // 5. Return typed
+  // 5. Insert audit row into `quant_runs` (request, response, elapsed_ms,
+  //    cached=false; cached=true if step 4 hit). Required by done criteria 6.3.
+  // 6. Return typed
 }
 ```
+
+> **Audit invariant:** every successful Modal call (and every cache hit serving a Modal-backed result) MUST insert into `quant_runs`. The same wrapper handles all four endpoints — there is no untracked path. The wrapper writes via service role so RLS does not interfere; the `quant_runs` row is keyed by `portfolio_id` and `user_id` so dashboards can filter.
 
 **New API routes:**
 
@@ -536,7 +593,7 @@ All use existing handler with auth + Sentry breadcrumbs + rate limit.
 
 **Interaction:**
 1. Open page → SWR fetch defaults → render with skeleton.
-2. Adjust constraint → 500ms debounce → SWR mutate → re-render.
+2. Adjust constraint → **debounce on commit, not on change**: slider changes update local state; only the "Apply" button (or 1500ms idle after last change) triggers SWR mutate. Reason: cvxpy on Modal is metered per CPU-second; firing on every slider tick would multiply optimizer cost ~50× during a constraint exploration session.
 3. "Create rebalance plan" → modal with editable trades → confirm → creates N rows in `transactions` table (reuses `services/transaction.ts`).
 4. PostHog tracking on every action.
 
@@ -603,7 +660,9 @@ async function scanAnomalies(env: Env, supabase: SupabaseClient) {
 }
 ```
 
-**Migration 008** (alert thresholds, alerts, push subscriptions):
+**Service responsibility:** The Worker only **detects** anomaly candidates; the Next.js side enriches them (Claude Haiku classification → "real anomaly?"), persists into `alerts`, and triggers delivery. Logic lives in `src/lib/services/anomaly-enricher.ts` and is invoked from the `/api/internal/anomalies/process` route.
+
+**Migration 009** (alert thresholds, alerts, push subscriptions):
 ```sql
 CREATE TABLE alert_thresholds (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -611,7 +670,9 @@ CREATE TABLE alert_thresholds (
   volume_spike_ratio NUMERIC DEFAULT 3.0,
   correlation_break_delta NUMERIC DEFAULT 0.4,
   allocation_drift_pct NUMERIC DEFAULT 0.05,
-  channels JSONB DEFAULT '{"in_app": true, "email": false, "push": false}',
+  -- in-app delivery is always on (it's the canonical UI for alerts).
+  -- This JSONB toggles the *additional* delivery channels.
+  channels JSONB DEFAULT '{"email": false, "push": false}',
   quiet_hours JSONB DEFAULT '{"start": "22:00", "end": "07:00", "tz": "America/Mexico_City"}',
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -631,7 +692,7 @@ CREATE TABLE alerts (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_alerts_user_unread ON alerts(user_id, created_at DESC) 
+CREATE INDEX idx_alerts_user_unread ON alerts(user_id, created_at DESC)
   WHERE read_at IS NULL AND dismissed_at IS NULL;
 
 CREATE TABLE push_subscriptions (
@@ -645,11 +706,29 @@ CREATE TABLE push_subscriptions (
   last_used_at TIMESTAMPTZ,
   UNIQUE (user_id, endpoint)
 );
+
+-- RLS: each user sees only their own data. INSERT into `alerts` happens via
+-- service role from the anomaly-enricher / news-classifier / predictive-alerts
+-- code paths (no client INSERT policy).
+ALTER TABLE alert_thresholds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "own_thresholds" ON alert_thresholds FOR ALL TO authenticated
+  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY "own_alerts_read" ON alerts FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
+CREATE POLICY "own_alerts_update" ON alerts FOR UPDATE TO authenticated
+  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY "own_push_subscriptions" ON push_subscriptions FOR ALL TO authenticated
+  USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 ```
 
 ### 4.2 News classifier (Claude Haiku 4.5)
 
 News is ingested in Phase 1; classified here.
+
+**Service responsibility:** Logic lives in `src/lib/services/news-classifier.ts` and is invoked from `/api/internal/news/classify`. Responsibilities: select unclassified items (`classified_at IS NULL`), batch (≤25), call Anthropic, validate response with Zod, persist columns added in Migration 007 (`relevance`, `topics`, `summary_es`, `action_hint`, `impact_score`, `impact_label`, `classified_at`), then trigger alert delivery for high-impact items.
 
 **Cron `*/15 * * * *`** (every 15 min): Worker → calls `/api/internal/news/classify` in Next.js (Anthropic SDK lives there).
 
@@ -689,7 +768,11 @@ async function classifyBatch(items: NewsItem[]) {
     ],
     messages: [{
       role: 'user',
-      content: `Classify these ${items.length} news items, return JSON array (same order):\n\n${JSON.stringify(items.map(({id, symbol, headline, summary}) => ({id, symbol, headline, summary})))}`
+      // Finnhub items occasionally arrive with a NULL summary. The classifier
+      // must work on headline alone in that case — coerce to empty string so
+      // the prompt structure stays stable, and downgrade `relevance` to
+      // 'medium' max in post-validation when summary was missing.
+      content: `Classify these ${items.length} news items, return JSON array (same order):\n\n${JSON.stringify(items.map(({id, symbol, headline, summary}) => ({id, symbol, headline, summary: summary ?? ''})))}`
     }]
   })
   // Parse + validate with Zod, persist to news_items
@@ -703,6 +786,8 @@ async function classifyBatch(items: NewsItem[]) {
 ### 4.3 Predictive alerts (earnings + dividends)
 
 Daily cron `0 8 * * *` reads `earnings_calendar` and `dividend_calendar`, creates alerts for users holding the symbols.
+
+> **Planner verification:** the query below assumes `positions.quantity > 0`. The planner must confirm `positions` has a `quantity` column (or the equivalent — `shares`, `units`) by reading `supabase/migrations/006_performance_optimization.sql` and prior migrations. If named differently, replace in the snippet below and in any other position queries added in this spec.
 
 ```typescript
 async function createPredictiveAlerts(supabase) {
@@ -735,7 +820,9 @@ async function createPredictiveAlerts(supabase) {
 
 ### 4.4 Daily insights (Claude Sonnet 4.6)
 
-Cron `0 14 * * *` UTC (= 8 AM ET / 9 AM CT) for each active user (≤7d) with positions.
+Cron `0 14 * * *` UTC (= 8 AM ET / 9 AM CT) for each **daily-active user** with positions.
+
+**"Daily-active" definition:** `auth.users.last_sign_in_at >= now() - interval '7 days'` AND has at least one row in `positions` with `quantity > 0`. This filter runs in the Postgres query (no PostHog dependency, no extra round-trips). Expected size at ~500 total users: ~100 daily-active receiving insights.
 
 **Input context:**
 ```typescript
@@ -766,7 +853,7 @@ Never invent data. Omit points without info. No emojis. No greetings.
 
 **Output:** Persisted as alert type `daily_insight`, `severity: 'info'`. Rendered as a large card (not toast) in UI.
 
-**Cost:** ~$0.02 per user per day with Sonnet 4.6 + caching. 1000 beta users ≈ $20/mo.
+**Cost:** Per insight with prompt caching ≈ ~$0.0042 (1500 cached system + 500 fresh input + 150 output, Sonnet 4.6 pricing). At ~100 daily-active users × 30 days ≈ **~$13/mo**. The cost table in 5.5 rounds this to ~$10 because not every daily-active user has positions every day.
 
 ### 4.5 Multi-channel delivery
 
@@ -791,9 +878,20 @@ Never invent data. Omit points without info. No emojis. No greetings.
 
 **Delivery logic:**
 ```typescript
+// Channel rules:
+//  - in-app: always delivered (the alerts table itself + Realtime broadcast IS
+//    the in-app channel — there is no opt-out, just a quiet-hours suppression).
+//  - email/push: opt-in via prefs.channels.{email,push}.
+//  - quiet hours suppress non-critical alerts on ALL channels including in-app
+//    Realtime; the alert is still inserted, the user just doesn't get pushed
+//    awake. They'll see it next time they open the app.
 async function deliverAlert(alert: Alert) {
   const prefs = await getUserPrefs(alert.user_id)
-  if (isInQuietHours(prefs.quiet_hours) && alert.severity !== 'critical') return
+  const inQuietHours = isInQuietHours(prefs.quiet_hours)
+  if (inQuietHours && alert.severity !== 'critical') {
+    // Insert silently — no realtime broadcast, no email, no push.
+    return
+  }
   await broadcastRealtime(`alerts:${alert.user_id}`, alert)
   alert.delivered_channels.push('in_app')
   if (prefs.channels.email && alert.severity !== 'info') {
@@ -813,9 +911,9 @@ async function deliverAlert(alert: Alert) {
 **Topbar:** Bell icon with unread badge → opens AlertsDrawer.
 
 **`/settings/notifications`:**
-- Per-channel toggles (in-app always on, email/push opt-in)
+- Per-channel toggles for the **additional** channels: email (off by default), push (off by default). The in-app channel is always on by design — disclosed in copy ("Las alertas siempre aparecen dentro de la app; aquí decides si también te llegan por email o push").
 - Sliders for 4 anomaly thresholds
-- Quiet hours selector
+- Quiet hours selector (mutes non-critical realtime/email/push during the window)
 - "Test push" button
 - List of subscribed devices with revoke option
 
@@ -866,16 +964,23 @@ CREATE TABLE quant_runs (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX idx_quant_runs_portfolio ON quant_runs(portfolio_id, created_at DESC);
+
+ALTER TABLE quant_runs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "own_quant_runs_read" ON quant_runs FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
+-- INSERT only via service role from services/quant.ts (no client INSERT policy).
 ```
 
-**Migration 009 — Alerts + push (Phase 3):** `alert_thresholds`, `alerts`, `push_subscriptions`. New `news_items` columns: `relevance`, `topics`, `summary_es`, `action_hint`.
+**Migration 009 — Alerts + push (Phase 3):** `alert_thresholds`, `alerts`, `push_subscriptions`. The Phase 3 classifier columns (`relevance`, `topics`, `summary_es`, `action_hint`, `impact_score`, `impact_label`) live in Migration 007 — see Section 2.4 — so the classifier code in Phase 3 has nothing to migrate, only data to write.
 
 **RLS policies (following migration 006 pattern):**
-- `quant_runs`: portfolio owner only
-- `alert_thresholds`: own user only
-- `alerts`: own user only (read/update for mark/dismiss; INSERT only via service role)
-- `push_subscriptions`: own user only
-- `company_profile`, `news_items`, `earnings_calendar`, `dividend_calendar`: public read (market data); INSERT/UPDATE service role only
+- `quant_runs`: portfolio owner only (SELECT/UPDATE/DELETE checked against `portfolios.user_id = auth.uid()`); INSERT only via service role from `services/quant.ts`.
+- `alert_thresholds`: own user only — DDL inline in Migration 009 (Section 4.1).
+- `alerts`: own user (SELECT/UPDATE for mark/dismiss); INSERT only via service role — DDL inline in Migration 009 (Section 4.1).
+- `push_subscriptions`: own user — DDL inline in Migration 009 (Section 4.1).
+- `company_profile`, `news_items`, `earnings_calendar`, `dividend_calendar`: public read for authenticated users; INSERT/UPDATE service role only — DDL inline in Migration 007 (Section 2.4).
+
+The DDL for these policies ships **inside the same migration** as the table creation so a partially-applied migration cannot leave a table without RLS enabled.
 
 ### 5.2 Security & authentication
 
@@ -940,12 +1045,21 @@ Rotation runbook at `docs/runbooks/secret-rotation.md`. Each rotation logged in 
 
 **Worker (Vitest + miniflare):** Unit anomaly detectors with fixtures, mock Supabase + KV for full flow tests.
 
-**E2E (Playwright — new):**
-1. Login → dashboard → no errors
-2. Open `/portfolio/[id]/optimize` → adjust constraint → frontier updates
-3. Simulate alert receipt → toast appears → click → drawer opens with detail
+**E2E (Playwright — new dependency, set up in Phase 1):**
 
-Runs nightly + on releases. Does not block PRs.
+Install:
+- `@playwright/test` as devDependency
+- `playwright.config.ts` at repo root (baseURL = `http://localhost:3000` locally / preview URL in CI; chromium + webkit projects; trace on first retry)
+- Test files in `tests/e2e/*.spec.ts`
+- Browsers downloaded in CI via `npx playwright install --with-deps chromium`
+- `.gitignore` add `playwright-report/`, `test-results/`
+
+Initial scenarios (added incrementally per phase):
+1. **Phase 1 smoke:** Login → dashboard → no console errors, no Sentry events captured. (1 spec)
+2. **Phase 2 vertical slice:** Open `/portfolio/[id]/optimize` → adjust constraint → click "Apply" → frontier updates → "Create rebalance plan" → confirm → see N transactions in table. (1 spec)
+3. **Phase 3 vertical slice:** Open dashboard → manually insert test alert via service-role client in test setup → toast appears within 3s → click → drawer opens with detail → mark read → unread badge decrements. (1 spec)
+
+Runs nightly via cron in GitHub Actions + on every release tag. Does not block PRs (smoke only blocks PRs in Phase 1; full suite advisory). Failed runs auto-create a GitHub issue with the trace artifact attached.
 
 **Load testing (one-shot before flag GA):** k6 script simulating 100 concurrent optimizations → measure p95 latency, errors. Validate Modal autoscale, Sentry not flooded, Supabase queries hold.
 
@@ -986,28 +1100,52 @@ on push to main:
 | Supabase Pro | Existing | $25 |
 | Cloudflare Workers | Free tier (100k req/day) | $0 |
 | Upstash Redis | Free tier (500k commands/day) | $0 |
-| Modal | ~200 optimizations/day × 2s + keep_warm 1 instance | ~$8 |
-| Anthropic Haiku 4.5 | ~500 news/day classification | ~$15 |
-| Anthropic Sonnet 4.6 | 100 daily insights | ~$10 |
+| Modal | ~200 optimizations/day × 2s + `keep_warm=1` always-on | ~$8 |
+| Anthropic Haiku 4.5 | ~500 news/day classification (cached system prompt) | ~$15 |
+| Anthropic Sonnet 4.6 | ~100 daily-active users × 1 insight/day (cached system prompt) | ~$10 |
 | Sentry Team | 50k errors/mo | $26 |
 | PostHog Cloud | Free tier (1M events/mo) | $0 |
 | Resend | Free tier (3k emails/mo) | $0 |
 | Web Push | Free | $0 |
 | **Total added** | | **~$59/mo** |
 
-**Hard budget caps:** Anthropic $50/day. Modal alert if monthly CPU-seconds > 50,000. Sentry rate limit 1,000 errors/h per project.
+**Hard budget caps & rationale:**
+- **Anthropic $50/day** total across both models. At expected usage (Haiku ~$0.50/day + Sonnet ~$0.43/day = ~$1/day), this is **~50× headroom** — intentional to absorb a runaway-loop bug or a viral signup spike without the kill switch firing during normal operation. If we trigger this cap, something is wrong (not just busy).
+- **Modal alert if monthly CPU-seconds > 50,000.** Roughly 6× expected usage; same headroom rationale.
+- **Sentry 1,000 errors/h per project.** Catches loops; 1k/h is well above realistic incident rate.
+
+Per-feature daily soft caps (`DAILY_INSIGHT_BUDGET_USD`, `NEWS_CLASSIFIER_BUDGET_USD`, see Appendix B) live closer to actual usage and skip+log+admin-alert when crossed — those are the operational early warning, not the $50/day cap.
 
 ### 5.6 Documentation deliverables
 
 Per phase, alongside code:
 
-**Phase 1:** `docs/runbooks/sentry.md`, `docs/runbooks/posthog.md`, `docs/runbooks/cache-monitoring.md`. Update `worker/ARCHITECTURE.md`.
+**Phase 1:** `docs/runbooks/sentry.md`, `docs/runbooks/posthog.md`, `docs/runbooks/cache-monitoring.md`, `docs/runbooks/health-checks.md` (per-service status check matrix referenced in R3 mitigation), `docs/runbooks/secret-rotation.md` (initial template — populated as secrets get rotated). Update `worker/ARCHITECTURE.md`.
 
 **Phase 2:** `quant-service/README.md`, `quant-service/DEPLOYMENT.md`, `docs/api/quant.md`, `docs/runbooks/quant-incidents.md`.
 
 **Phase 3:** `docs/runbooks/alerts-tuning.md`, `docs/runbooks/anthropic-budget.md`, `docs/api/web-push.md`.
 
 Important docs duplicated to Obsidian `06 - Dev/Runbooks/` for browsable access.
+
+### 5.7 Operational checklist for new endpoints
+
+Every new API route added in Phases 2/3 — and any future route — must satisfy this list before merge. Consolidated here so the planner and reviewer can use it as a single source.
+
+| # | Item | Where it lives |
+|---|------|----------------|
+| 1 | **Auth check.** Caller is authenticated (or HMAC-validated for `/api/internal/*`) | `src/lib/api/handler.ts` wrapper |
+| 2 | **Zod input schema.** Body and search params validated; reject 400 with shaped error | Route file or `src/lib/schemas/` |
+| 3 | **Rate limit.** Documented in Section 5.2 table; uses existing `@upstash/ratelimit` | Route file |
+| 4 | **Cache key naming.** Prefix: `{feature}:{userId}:{resourceId}:{params-hash}`. TTL documented in Section 3.6 table | Service layer |
+| 5 | **RLS check.** Underlying Supabase queries respect RLS; service role only when explicitly justified | Service layer |
+| 6 | **Sentry breadcrumb.** Add `Sentry.addBreadcrumb({ category, message, data })` at entry | Route file |
+| 7 | **PostHog event.** `postHogServer.capture` for the user-facing action | Route file |
+| 8 | **Audit row.** If endpoint calls Modal → insert into `quant_runs`. If creates an `alerts` row → record `delivered_channels` | Service layer |
+| 9 | **Error envelope.** Errors returned as `{ error: { code, message, details } }` matching the contract in 3.3a | Route file |
+| 10 | **i18n.** User-facing error strings via `quant.errors.<code>` or equivalent namespace | Service layer / route |
+| 11 | **Tests.** Vitest unit (service layer) + integration (route) per Section 5.3 | `__tests__/` colocated |
+| 12 | **Documentation.** New runbook entry if alerting behavior differs from existing patterns | `docs/runbooks/` |
 
 ---
 
@@ -1194,6 +1332,8 @@ investment-portfolio/
         AlertCard.tsx                        # Phase 3
         AlertBadge.tsx                       # Phase 3
         NotificationSettings.tsx             # Phase 3
+      consent/
+        CookieBanner.tsx                     # Phase 1
       optimize/
         EfficientFrontierChart.tsx           # Phase 2
         ConstraintsForm.tsx                  # Phase 2
@@ -1248,30 +1388,56 @@ investment-portfolio/
   sentry.server.config.ts                    # NEW (Phase 1)
   sentry.edge.config.ts                      # NEW (Phase 1)
   instrumentation.ts                         # NEW (Phase 1)
+
+  playwright.config.ts                       # NEW (Phase 1)
+  tests/
+    e2e/
+      smoke.spec.ts                          # NEW (Phase 1)
+      optimize.spec.ts                       # NEW (Phase 2)
+      alerts.spec.ts                         # NEW (Phase 3)
 ```
 
 ## Appendix B — New environment variables
 
 ```
-# Phase 1
-NEXT_PUBLIC_SENTRY_DSN=
-SENTRY_AUTH_TOKEN=
+# Phase 1 — Sentry
+NEXT_PUBLIC_SENTRY_DSN=                     # Browser/edge runtime DSN (public)
+SENTRY_DSN=                                 # Node server runtime DSN (private — keep server-only)
+SENTRY_AUTH_TOKEN=                          # Build-time, source map upload
 SENTRY_ORG=
 SENTRY_PROJECT=
+
+# Phase 1 — PostHog
 NEXT_PUBLIC_POSTHOG_KEY=
 NEXT_PUBLIC_POSTHOG_HOST=
-INTERNAL_KEY=                               # Worker ↔ Next.js
 
-# Phase 2
+# Phase 1 — Worker ↔ Next.js shared secret + base URL
+INTERNAL_KEY=                               # Shared secret, header X-Internal-Key
+NEXT_INTERNAL_URL=                          # Base URL the Worker uses to reach Next.js
+                                            # (e.g., https://app.investtracker.com).
+                                            # Set on the Worker side; Next.js doesn't read it.
+
+# Phase 2 — Quant service
 QUANT_SERVICE_URL=                          # Modal deploy URL
-QUANT_SERVICE_HMAC_KEY=
+QUANT_SERVICE_HMAC_KEY=                     # Shared with Modal secrets
 
-# Phase 3
+# Phase 3 — Anthropic + budget caps
 ANTHROPIC_API_KEY=
+DAILY_INSIGHT_BUDGET_USD=                   # Per-day soft cap for Sonnet daily insights
+NEWS_CLASSIFIER_BUDGET_USD=                 # Per-day soft cap for Haiku news classifier
+
+# Phase 3 — Email (Resend)
 RESEND_API_KEY=
-WEB_PUSH_VAPID_PUBLIC_KEY=
-WEB_PUSH_VAPID_PRIVATE_KEY=
+
+# Phase 3 — Web Push (VAPID, generate once with `web-push generate-vapid-keys`)
+NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY=      # Public key, exposed to client subscribe()
+WEB_PUSH_VAPID_PRIVATE_KEY=                 # Private key, server-only
 WEB_PUSH_VAPID_SUBJECT=                     # mailto:admin@investtracker.app
-DAILY_INSIGHT_BUDGET_USD=                   # daily cap
-NEWS_CLASSIFIER_BUDGET_USD=                 # daily cap
 ```
+
+**Notes on which env vars live where:**
+- All `NEXT_PUBLIC_*` are bundled to the client. Never put secrets there.
+- `SENTRY_DSN` (server) and `NEXT_PUBLIC_SENTRY_DSN` (browser/edge) are typically the same DSN value but separated so server-only code paths and client code paths can be configured independently per `@sentry/nextjs` convention.
+- `INTERNAL_KEY` is needed in both Vercel env (Next.js verifies header) and the Worker env (Worker sets header). Same value both sides.
+- `QUANT_SERVICE_HMAC_KEY` is needed in both Vercel env and Modal secrets. Same value both sides.
+- VAPID public key is `NEXT_PUBLIC_*` because the browser passes it to `pushManager.subscribe()`. Private key is server-only.
