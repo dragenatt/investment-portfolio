@@ -179,7 +179,7 @@ The current Worker only fetches prices for positions and watchlists. A2 (factor 
 | `0 9 * * 1-5` (daily 9 AM ET) | Earnings: Finnhub `/calendar/earnings` next 4 weeks | `earnings_calendar` (new) |
 | `*/30 * * * *` (every 30 min, market hours) | News: Finnhub `/company-news` last 24h for top 50 symbols by portfolio volume | `news_items` (new) |
 
-**Migration 007:**
+**Migration 008:**
 ```sql
 CREATE TABLE company_profile (
   symbol TEXT PRIMARY KEY,
@@ -284,7 +284,7 @@ Server component with direct API fetches. Internal-use only — not user-facing.
 End-of-phase production deployment:
 1. Sentry capturing errors in Next.js + Worker
 2. PostHog capturing key events + 1 working feature flag, gated by a **cookie consent banner** (`src/components/consent/CookieBanner.tsx`) that defers PostHog initialization until accept. If declined, PostHog never loads — Sentry still loads (legitimate-interest error tracking).
-3. Four new tables populated with real data (verify in Supabase) — including the Phase-3-bound `news_items` columns from Migration 007 that ship empty.
+3. Four new tables populated with real data (verify in Supabase) — including the Phase-3-bound `news_items` columns from Migration 008 that ship empty.
 4. Realtime channel working for at least 1 test portfolio
 5. `/admin/metrics` showing real data
 6. **Playwright** installed (`@playwright/test`, `playwright.config.ts`, `tests/e2e/`); Phase 1 smoke spec passes locally and in CI nightly.
@@ -669,7 +669,7 @@ async function scanAnomalies(env: Env, supabase: SupabaseClient) {
 
 **Service responsibility:** The Worker only **detects** anomaly candidates; the Next.js side enriches them (Claude Haiku classification → "real anomaly?"), persists into `alerts`, and triggers delivery. Logic lives in `src/lib/services/anomaly-enricher.ts` and is invoked from the `/api/internal/anomalies/process` route.
 
-**Migration 009** (alert thresholds, alerts, push subscriptions):
+**Migration 010** (alert thresholds, alerts, push subscriptions):
 ```sql
 CREATE TABLE alert_thresholds (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -736,7 +736,7 @@ CREATE POLICY "own_push_subscriptions" ON push_subscriptions FOR ALL TO authenti
 
 News is ingested in Phase 1; classified here.
 
-**Service responsibility:** Logic lives in `src/lib/services/news-classifier.ts` and is invoked from `/api/internal/news/classify`. Responsibilities: select unclassified items (`classified_at IS NULL`), batch (≤25), call Anthropic, validate response with Zod, persist columns added in Migration 007 (`relevance`, `topics`, `summary_es`, `action_hint`, `impact_score`, `impact_label`, `classified_at`), then trigger alert delivery for high-impact items.
+**Service responsibility:** Logic lives in `src/lib/services/news-classifier.ts` and is invoked from `/api/internal/news/classify`. Responsibilities: select unclassified items (`classified_at IS NULL`), batch (≤25), call Anthropic, validate response with Zod, persist columns added in Migration 008 (`relevance`, `topics`, `summary_es`, `action_hint`, `impact_score`, `impact_label`, `classified_at`), then trigger alert delivery for high-impact items.
 
 **Cron `*/15 * * * *`** (every 15 min): Worker → calls `/api/internal/news/classify` in Next.js (Anthropic SDK lives there).
 
@@ -795,7 +795,7 @@ async function classifyBatch(items: NewsItem[]) {
 
 Daily cron `0 8 * * *` reads `earnings_calendar` and `dividend_calendar`, creates alerts for users holding the symbols.
 
-> **Planner verification:** the query below assumes `positions.quantity > 0`. The planner must confirm `positions` has a `quantity` column (or the equivalent — `shares`, `units`) by reading `supabase/migrations/006_performance_optimization.sql` and prior migrations. If named differently, replace in the snippet below and in any other position queries added in this spec.
+> **Planner verification:** confirmed `positions.quantity NUMERIC` exists since `supabase/migrations/001_initial_schema.sql:44`. The query below uses `positions.quantity > 0`. If a future migration renames the column, all position queries added by this roadmap must be updated.
 
 ```typescript
 async function createPredictiveAlerts(supabase) {
@@ -956,9 +956,9 @@ async function deliverAlert(alert: Alert) {
 
 ### 5.1 Consolidated data model
 
-**Migration 007 — Worker expansion (Phase 1):** `company_profile`, `dividend_calendar`, `earnings_calendar`, `news_items`.
+**Migration 008 — Worker expansion (Phase 1):** `company_profile`, `dividend_calendar`, `earnings_calendar`, `news_items`.
 
-**Migration 008 — Quant + targets (Phase 2):**
+**Migration 009 — Quant + targets (Phase 2):**
 ```sql
 -- New columns on existing portfolios table
 ALTER TABLE portfolios ADD COLUMN target_weights JSONB;
@@ -986,14 +986,14 @@ CREATE POLICY "own_quant_runs_read" ON quant_runs FOR SELECT TO authenticated
   USING (user_id = auth.uid());
 ```
 
-**Migration 009 — Alerts + push (Phase 3):** `alert_thresholds`, `alerts`, `push_subscriptions`. The Phase 3 classifier columns (`relevance`, `topics`, `summary_es`, `action_hint`, `impact_score`, `impact_label`) live in Migration 007 — see Section 2.4 — so the classifier code in Phase 3 has nothing to migrate, only data to write.
+**Migration 010 — Alerts + push (Phase 3):** `alert_thresholds`, `alerts`, `push_subscriptions`. The Phase 3 classifier columns (`relevance`, `topics`, `summary_es`, `action_hint`, `impact_score`, `impact_label`) live in Migration 008 — see Section 2.4 — so the classifier code in Phase 3 has nothing to migrate, only data to write.
 
 **RLS policies (following migration 006 pattern):**
 - `quant_runs`: SELECT-only for the owning user (checked against `quant_runs.user_id = auth.uid()`); INSERT only via service role from `services/quant.ts`; **no UPDATE/DELETE policy** — audit data is append-only and immutable from any client path.
-- `alert_thresholds`: own user only — DDL inline in Migration 009 (Section 4.1).
-- `alerts`: own user (SELECT/UPDATE for mark/dismiss); INSERT only via service role — DDL inline in Migration 009 (Section 4.1).
-- `push_subscriptions`: own user — DDL inline in Migration 009 (Section 4.1).
-- `company_profile`, `news_items`, `earnings_calendar`, `dividend_calendar`: public read for authenticated users; INSERT/UPDATE service role only — DDL inline in Migration 007 (Section 2.4).
+- `alert_thresholds`: own user only — DDL inline in Migration 010 (Section 4.1).
+- `alerts`: own user (SELECT/UPDATE for mark/dismiss); INSERT only via service role — DDL inline in Migration 010 (Section 4.1).
+- `push_subscriptions`: own user — DDL inline in Migration 010 (Section 4.1).
+- `company_profile`, `news_items`, `earnings_calendar`, `dividend_calendar`: public read for authenticated users; INSERT/UPDATE service role only — DDL inline in Migration 008 (Section 2.4).
 
 The DDL for these policies ships **inside the same migration** as the table creation so a partially-applied migration cannot leave a table without RLS enabled.
 
@@ -1392,9 +1392,9 @@ investment-portfolio/
       earnings-cron.ts                       # NEW (Phase 1)
 
   supabase/migrations/
-    007_worker_expansion.sql                 # NEW
-    008_quant_engine.sql                     # NEW
-    009_alerts_and_push.sql                  # NEW
+    008_worker_expansion.sql                 # NEW (next available after 007 analytics)
+    009_quant_engine.sql                     # NEW
+    010_alerts_and_push.sql                  # NEW
 
   public/
     sw.js                                    # NEW (Phase 3)
