@@ -42,10 +42,10 @@ worker/src/news-ingestion.ts                  — Finnhub /company-news (24h, to
 worker/src/realtime-publish.ts                — POST to Supabase Realtime broadcast REST after price upserts
 
 tests/e2e/smoke.spec.ts                       — Phase 1 smoke: login → dashboard → no console / Sentry errors
-src/lib/cache/__tests__/with-metrics.test.ts  — Vitest unit for cacheGetWithMetrics
-src/lib/hooks/__tests__/useRealtimePrices.test.ts — Vitest+RTL: subscribe, fallback, kill switch
-worker/src/__tests__/sectors-cron.test.ts     — Vitest+miniflare: hold-symbol enumeration, upsert
-worker/src/__tests__/news-ingestion.test.ts   — Vitest+miniflare: dedupe by url, batch, classified_at NULL
+tests/lib/cache/with-metrics.test.ts  — Vitest unit for cacheGetWithMetrics
+tests/lib/hooks/useRealtimePrices.test.ts — Vitest+RTL: subscribe, fallback, kill switch
+worker/src/tests/sectors-cron.test.ts     — Vitest+miniflare: hold-symbol enumeration, upsert
+worker/src/tests/news-ingestion.test.ts   — Vitest+miniflare: dedupe by url, batch, classified_at NULL
 
 docs/runbooks/sentry.md                       — Quotas, beforeSend, source maps, on-call triage
 docs/runbooks/posthog.md                      — Cookie banner contract, flags, dashboards
@@ -175,6 +175,29 @@ CREATE POLICY "market_data_read" ON dividend_calendar   FOR SELECT TO authentica
 CREATE POLICY "market_data_read" ON earnings_calendar   FOR SELECT TO authenticated USING (true);
 CREATE POLICY "market_data_read" ON news_items          FOR SELECT TO authenticated USING (true);
 -- INSERT/UPDATE/DELETE: service role only (no policies — service role bypasses RLS).
+
+-- ═══════════════════════════════════════════════════════════════════
+-- RPC: top_symbols_by_volume(limit_n)
+-- Consumed by worker/src/news-ingestion.ts (Task 5.5) to scope news
+-- fetching to the most-held symbols across all portfolios. Folded into
+-- this same migration so worker expansion ships as a single atomic
+-- DDL unit in Phase 1 (no suffix files).
+-- ═══════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION top_symbols_by_volume(limit_n INT)
+RETURNS TABLE (symbol TEXT, volume NUMERIC)
+LANGUAGE sql STABLE AS $$
+  SELECT
+    p.symbol,
+    SUM(p.quantity * COALESCE(cp.price, 0))::NUMERIC AS volume
+  FROM positions p
+  LEFT JOIN current_prices cp ON cp.symbol = p.symbol
+  WHERE p.quantity > 0
+  GROUP BY p.symbol
+  ORDER BY volume DESC
+  LIMIT limit_n
+$$;
+
+GRANT EXECUTE ON FUNCTION top_symbols_by_volume(INT) TO authenticated, service_role;
 ```
 
 - [ ] **Step 2: Verify file matches spec exactly**
@@ -335,7 +358,7 @@ Expected: wizard prompts for org / project / DSN. Choose existing org or create 
 
 > If wizard refuses to run non-interactively in this environment, install manually:
 > ```bash
-> pnpm add @sentry/nextjs
+> npm i @sentry/nextjs
 > ```
 > then hand-author the four config files using the templates in steps 3–6 below.
 
@@ -455,7 +478,7 @@ grep -q "^\.sentryclirc$" .gitignore || echo ".sentryclirc" >> .gitignore
 - [ ] **Step 9: Build to verify Sentry plugin doesn't break Next.js 16 build**
 
 ```bash
-pnpm build
+npm run build
 ```
 
 Expected: `✓ Compiled successfully`. Sentry plugin should report `Skipping source map upload because SENTRY_AUTH_TOKEN is not set` (acceptable for first local build).
@@ -463,7 +486,7 @@ Expected: `✓ Compiled successfully`. Sentry plugin should report `Skipping sou
 - [ ] **Step 10: Commit Sentry Next.js setup**
 
 ```bash
-git add package.json pnpm-lock.yaml sentry.*.config.ts instrumentation.ts next.config.ts .gitignore
+git add package.json package-lock.json sentry.*.config.ts instrumentation.ts next.config.ts .gitignore
 git commit -m "feat(observability): add Sentry to Next.js (client/server/edge + instrumentation)
 
 Wires @sentry/nextjs with App Router instrumentation hook. 10% trace
@@ -477,15 +500,15 @@ in CI/Vercel — added in deploy task."
 
 **Files:**
 - Modify: `src/lib/api/handler.ts`
-- Test: `src/lib/api/__tests__/handler.test.ts`
+- Test: `tests/lib/api/handler.test.ts`
 
 - [ ] **Step 1: Write failing test for Sentry.setUser on authenticated requests**
 
 ```typescript
-// src/lib/api/__tests__/handler.test.ts
+// tests/lib/api/handler.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as Sentry from '@sentry/nextjs'
-import { apiHandler } from '../handler'
+import { apiHandler } from '@/lib/api/handler'
 
 vi.mock('@sentry/nextjs', () => ({
   setUser: vi.fn(),
@@ -531,7 +554,7 @@ describe('apiHandler', () => {
 - [ ] **Step 2: Run test, expect failure**
 
 ```bash
-pnpm test src/lib/api/__tests__/handler.test.ts
+npm run test -- tests/lib/api/handler.test.ts
 ```
 
 Expected: 4 failures — `Sentry.setUser` / `addBreadcrumb` / `captureException` not called.
@@ -574,7 +597,7 @@ export function apiHandler(handler: RouteHandler): RouteHandler {
 - [ ] **Step 4: Run tests, expect pass**
 
 ```bash
-pnpm test src/lib/api/__tests__/handler.test.ts
+npm run test -- tests/lib/api/handler.test.ts
 ```
 
 Expected: 4 PASS.
@@ -582,7 +605,7 @@ Expected: 4 PASS.
 - [ ] **Step 5: Commit handler integration**
 
 ```bash
-git add src/lib/api/handler.ts src/lib/api/__tests__/handler.test.ts
+git add src/lib/api/handler.ts tests/lib/api/handler.test.ts
 git commit -m "feat(api): wire Sentry user/breadcrumbs/captureException in apiHandler
 
 Centralises observability per spec §5.7 item 6 (Sentry breadcrumb)."
@@ -598,7 +621,7 @@ Centralises observability per spec §5.7 item 6 (Sentry breadcrumb)."
 - [ ] **Step 1: Add `@sentry/cloudflare` to worker package**
 
 ```bash
-cd worker && pnpm add @sentry/cloudflare && cd ..
+cd worker && npm i @sentry/cloudflare && cd ..
 ```
 
 - [ ] **Step 2: Add `SENTRY_DSN` and `ENVIRONMENT` to `worker/wrangler.toml`**
@@ -694,7 +717,7 @@ Expected: 200 OK from `/health`. Then verify in Sentry → `worker-dev` env show
 - [ ] **Step 6: Commit worker Sentry integration**
 
 ```bash
-git add worker/package.json worker/pnpm-lock.yaml worker/src/index.ts worker/wrangler.toml
+git add worker/package.json worker/package-lock.json worker/src/index.ts worker/wrangler.toml
 git commit -m "feat(worker): integrate @sentry/cloudflare in price-engine
 
 Wraps fetch + scheduled with withSentry; environment tag distinguishes
@@ -715,15 +738,15 @@ PostHog is the analytics + flags + replay backbone for Phases 2/3 rollout. Per s
 **Files:**
 - Create: `src/components/consent/CookieBanner.tsx`
 - Create: `src/lib/consent/index.ts`
-- Test: `src/lib/consent/__tests__/index.test.ts`
-- Test: `src/components/consent/__tests__/CookieBanner.test.tsx`
+- Test: `tests/lib/consent/index.test.ts`
+- Test: `tests/components/consent/CookieBanner.test.tsx`
 
 - [ ] **Step 1: Write failing test for consent helper**
 
 ```typescript
-// src/lib/consent/__tests__/index.test.ts
+// tests/lib/consent/index.test.ts
 import { describe, it, expect, beforeEach } from 'vitest'
-import { getConsent, setConsent, hasAccepted, CONSENT_KEY } from '../index'
+import { getConsent, setConsent, hasAccepted, CONSENT_KEY } from '@/lib/consent'
 
 describe('consent helper', () => {
   beforeEach(() => localStorage.clear())
@@ -753,7 +776,7 @@ describe('consent helper', () => {
 - [ ] **Step 2: Run test, expect import failure**
 
 ```bash
-pnpm test src/lib/consent/__tests__/index.test.ts
+npm run test -- tests/lib/consent/index.test.ts
 ```
 
 Expected: `Cannot find module '../index'`.
@@ -790,7 +813,7 @@ export function hasAccepted(): boolean {
 - [ ] **Step 4: Run test, expect pass**
 
 ```bash
-pnpm test src/lib/consent/__tests__/index.test.ts
+npm run test -- tests/lib/consent/index.test.ts
 ```
 
 Expected: 4 PASS.
@@ -798,7 +821,7 @@ Expected: 4 PASS.
 - [ ] **Step 5: Write failing test for `CookieBanner`**
 
 ```tsx
-// src/components/consent/__tests__/CookieBanner.test.tsx
+// tests/components/consent/CookieBanner.test.tsx
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CookieBanner } from '../CookieBanner'
@@ -845,7 +868,7 @@ describe('CookieBanner', () => {
 - [ ] **Step 6: Run test, expect failure**
 
 ```bash
-pnpm test src/components/consent/__tests__/CookieBanner.test.tsx
+npm run test -- tests/components/consent/CookieBanner.test.tsx
 ```
 
 Expected: `Cannot find module '../CookieBanner'`.
@@ -906,7 +929,7 @@ export function CookieBanner() {
 - [ ] **Step 8: Run test, expect pass**
 
 ```bash
-pnpm test src/components/consent/__tests__/CookieBanner.test.tsx
+npm run test -- tests/components/consent/CookieBanner.test.tsx
 ```
 
 Expected: 5 PASS.
@@ -929,12 +952,12 @@ next commit). Sentry NOT gated by this banner per spec §2.2."
 - Modify: `.env.local.example`
 - Create: `src/providers/posthog-provider.tsx`
 - Create: `src/lib/posthog/server.ts`
-- Test: `src/providers/__tests__/posthog-provider.test.tsx`
+- Test: `tests/providers/posthog-provider.test.tsx`
 
 - [ ] **Step 1: Install PostHog libraries**
 
 ```bash
-pnpm add posthog-js posthog-node
+npm i posthog-js posthog-node
 ```
 
 - [ ] **Step 2: Append PostHog block to `.env.local.example`**
@@ -951,10 +974,10 @@ EOF
 - [ ] **Step 3: Write failing test — provider does NOT init when consent is null**
 
 ```tsx
-// src/providers/__tests__/posthog-provider.test.tsx
+// tests/providers/posthog-provider.test.tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act } from '@testing-library/react'
-import { PostHogProvider } from '../posthog-provider'
+import { PostHogProvider } from '@/providers/posthog-provider'
 import { setConsent } from '@/lib/consent'
 
 const mockInit = vi.fn()
@@ -1008,7 +1031,7 @@ describe('PostHogProvider', () => {
 - [ ] **Step 4: Run test, expect import failure**
 
 ```bash
-pnpm test src/providers/__tests__/posthog-provider.test.tsx
+npm run test -- tests/providers/posthog-provider.test.tsx
 ```
 
 Expected: `Cannot find module '../posthog-provider'`.
@@ -1064,7 +1087,7 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
 - [ ] **Step 6: Run test, expect pass**
 
 ```bash
-pnpm test src/providers/__tests__/posthog-provider.test.tsx
+npm run test -- tests/providers/posthog-provider.test.tsx
 ```
 
 Expected: 5 PASS.
@@ -1122,7 +1145,7 @@ Edit `src/app/layout.tsx` — wrap children:
 - [ ] **Step 9: Build + smoke-load to verify no runtime errors**
 
 ```bash
-pnpm dev &
+npm run dev &
 sleep 6
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/
 kill %1
@@ -1133,7 +1156,7 @@ Expected: `200`. Inspect browser devtools manually: cookie banner visible; click
 - [ ] **Step 10: Commit PostHog integration**
 
 ```bash
-git add package.json pnpm-lock.yaml .env.local.example src/providers/posthog-provider.tsx src/lib/posthog/server.ts src/providers/__tests__/posthog-provider.test.tsx src/app/layout.tsx
+git add package.json package-lock.json .env.local.example src/providers/posthog-provider.tsx src/lib/posthog/server.ts tests/providers/posthog-provider.test.tsx src/app/layout.tsx
 git commit -m "feat(observability): PostHog client+server, gated by cookie consent
 
 Client provider defers posthog.init until hasAccepted(); listens for
@@ -1218,24 +1241,24 @@ Today there's no observability into Upstash hit/miss patterns. This chunk adds a
 
 **Files:**
 - Create: `src/lib/cache/with-metrics.ts`
-- Test: `src/lib/cache/__tests__/with-metrics.test.ts`
+- Test: `tests/lib/cache/with-metrics.test.ts`
 - Modify: `src/lib/cache/index.ts`
 
 - [ ] **Step 1: Write failing test for hit + miss + latency**
 
 ```typescript
-// src/lib/cache/__tests__/with-metrics.test.ts
+// tests/lib/cache/with-metrics.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockCacheGet = vi.fn()
 const mockCapture = vi.fn()
 
-vi.mock('../redis', () => ({ cacheGet: (k: string) => mockCacheGet(k) }))
+vi.mock('@/lib/cache/redis', () => ({ cacheGet: (k: string) => mockCacheGet(k) }))
 vi.mock('@/lib/posthog/server', () => ({
   captureServer: (...a: unknown[]) => mockCapture(...a),
 }))
 
-import { cacheGetWithMetrics } from '../with-metrics'
+import { cacheGetWithMetrics } from '@/lib/cache/with-metrics'
 
 beforeEach(() => {
   mockCacheGet.mockReset()
@@ -1309,7 +1332,7 @@ describe('cacheGetWithMetrics', () => {
 - [ ] **Step 2: Run test, expect import failure**
 
 ```bash
-pnpm test src/lib/cache/__tests__/with-metrics.test.ts
+npm run test -- tests/lib/cache/with-metrics.test.ts
 ```
 
 Expected: `Cannot find module '../with-metrics'`.
@@ -1372,7 +1395,7 @@ export type { CacheMetricsOptions } from './with-metrics'
 - [ ] **Step 5: Run test, expect pass**
 
 ```bash
-pnpm test src/lib/cache/__tests__/with-metrics.test.ts
+npm run test -- tests/lib/cache/with-metrics.test.ts
 ```
 
 Expected: 7 PASS.
@@ -1380,7 +1403,7 @@ Expected: 7 PASS.
 - [ ] **Step 6: Commit wrapper**
 
 ```bash
-git add src/lib/cache/with-metrics.ts src/lib/cache/__tests__/with-metrics.test.ts src/lib/cache/index.ts
+git add src/lib/cache/with-metrics.ts tests/lib/cache/with-metrics.test.ts src/lib/cache/index.ts
 git commit -m "feat(cache): cacheGetWithMetrics wrapper emits cache_lookup PostHog event
 
 Drop-in for cacheGet — same return shape, adds key_prefix/hit/latency_ms
@@ -1388,55 +1411,155 @@ to PostHog. Capture errors are swallowed so cache reads never fail due
 to analytics outages. See spec §2.3."
 ```
 
-### Task 4.2: Migrate first call site as proof — analytics/risk
+### Task 4.2: Instrument `withCache` — single surgical change covers ~15 routes
 
 **Files:**
-- Modify: `src/app/api/analytics/[pid]/risk/route.ts`
+- Modify: `src/lib/cache/with-cache.ts`
+- Test: `tests/lib/cache/with-cache.metrics.test.ts`
 
-> **Strategy:** Migrate one route per day across Phase 1, Week 2. This task migrates the first one to validate the pattern. The runbook (Task 9.x) lists the queue. Do NOT bulk-replace — each call site needs to verify which `distinctId` to pass (often the route's authenticated user).
+> **Strategy reversal vs. earlier drafts:** the repo's `src/app/` tree has exactly **one** bare `cacheGet` call (`src/app/api/portfolio/history/route.ts`). Every other cache consumer already goes through `src/lib/cache/with-cache.ts` (`withCache` / `withCacheStaleWhileRevalidate`). Instrumenting the wrapper once emits `cache_lookup` for ~15 routes automatically and keeps existing call sites unchanged. The remaining bare `cacheGet` is migrated in Task 4.3.
+>
+> Verify the current call-site map before editing:
+>
+> ```bash
+> grep -rn "\bcacheGet\b" src/app/
+> grep -rn "from '@/lib/cache/with-cache'" src/app/
+> ```
+>
+> Expected: exactly one file in the first query (`portfolio/history/route.ts`); ~15 files in the second.
 
-- [ ] **Step 1: Read existing route to identify the cache call**
-
-```bash
-grep -n "cacheGet\b" src/app/api/analytics/[pid]/risk/route.ts
-```
-
-Expected: at least one match. Note line number.
-
-- [ ] **Step 2: Replace `cacheGet` with `cacheGetWithMetrics`**
-
-Find the import:
-
-```typescript
-// Before
-import { cacheGet, cacheSet, CACHE_KEYS } from '@/lib/cache'
-```
-
-Replace with:
+- [ ] **Step 1: Write the failing test**
 
 ```typescript
-import { cacheGetWithMetrics, cacheSet, CACHE_KEYS } from '@/lib/cache'
+// tests/lib/cache/with-cache.metrics.test.ts
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+const mockMetrics = vi.fn()
+const mockSet = vi.fn().mockResolvedValue(undefined)
+
+vi.mock('@/lib/cache/with-metrics', () => ({
+  cacheGetWithMetrics: (k: string, o?: any) => mockMetrics(k, o),
+}))
+vi.mock('@/lib/cache/redis', () => ({
+  cacheSet: (k: any, v: any, t: any) => mockSet(k, v, t),
+}))
+
+import { withCache } from '@/lib/cache/with-cache'
+
+beforeEach(() => {
+  mockMetrics.mockReset()
+  mockSet.mockReset().mockResolvedValue(undefined)
+})
+
+describe('withCache — delegates reads to cacheGetWithMetrics', () => {
+  it('returns cached value when cacheGetWithMetrics finds one (no compute)', async () => {
+    mockMetrics.mockResolvedValue({ value: 42 })
+    const compute = vi.fn()
+    const result = await withCache('analytics:risk:u1:p1', 300, async () => compute())
+    expect(result).toEqual({ value: 42 })
+    expect(compute).not.toHaveBeenCalled()
+    expect(mockMetrics).toHaveBeenCalledWith('analytics:risk:u1:p1', {})
+  })
+
+  it('computes + caches on miss', async () => {
+    mockMetrics.mockResolvedValue(null)
+    const result = await withCache('price:AAPL', 60, async () => ({ value: 1 }))
+    expect(result).toEqual({ value: 1 })
+    expect(mockSet).toHaveBeenCalledWith('price:AAPL', { value: 1 }, 60)
+  })
+
+  it('forwards distinctId to cacheGetWithMetrics', async () => {
+    mockMetrics.mockResolvedValue(null)
+    await withCache('analytics:risk:u1:p1', 300, async () => ({ value: 1 }), { distinctId: 'u-7' })
+    expect(mockMetrics).toHaveBeenCalledWith('analytics:risk:u1:p1', { distinctId: 'u-7' })
+  })
+
+  it('still returns computed data if the metrics read throws', async () => {
+    mockMetrics.mockRejectedValue(new Error('upstash down'))
+    const result = await withCache('price:AAPL', 60, async () => ({ value: 1 }))
+    expect(result).toEqual({ value: 1 })
+  })
+})
 ```
 
-Find the call (typically inside the GET handler) — replace `cacheGet<T>(key)` with `cacheGetWithMetrics<T>(key, { distinctId: user.id })`. The exact line depends on the route's existing structure.
-
-- [ ] **Step 3: Run typecheck + existing route test (if present)**
+- [ ] **Step 2: Run test, expect failure**
 
 ```bash
-pnpm exec tsc --noEmit
-pnpm test src/app/api/analytics 2>/dev/null || echo "no existing tests for this route — acceptable"
+npm run test -- tests/lib/cache/with-cache.metrics.test.ts
 ```
 
-Expected: no type errors. Test result either PASS or `no existing tests`.
+Expected: FAIL — either "Expected captureServerEvent to have been called" or "withCache takes 3 args, got 4".
 
-- [ ] **Step 4: Commit migration**
+- [ ] **Step 3: Update `withCache` signature to delegate to `cacheGetWithMetrics`**
+
+```typescript
+// src/lib/cache/with-cache.ts
+import { cacheSet } from './redis'
+import { cacheGetWithMetrics, type CacheMetricsOptions } from './with-metrics'
+
+export interface WithCacheOptions extends CacheMetricsOptions {}
+
+/**
+ * Wraps an async function with caching (read → fall-through → write).
+ * Reads go through `cacheGetWithMetrics` so every call emits a PostHog
+ * `cache_lookup` event with {key_prefix, hit, latency_ms}. Callers that
+ * know the authenticated user should pass `{ distinctId: user.id }` for
+ * per-user attribution; otherwise lookups are attributed to `'system'`.
+ */
+export async function withCache<T>(
+  key: string,
+  ttl: number,
+  fn: () => Promise<T>,
+  options: WithCacheOptions = {}
+): Promise<T> {
+  try {
+    const cached = await cacheGetWithMetrics<T>(key, options)
+    if (cached !== null) return cached
+  } catch (err) {
+    console.error(`Error reading from cache for key ${key}:`, err)
+  }
+
+  const data = await fn()
+
+  try {
+    await cacheSet(key, data, ttl)
+  } catch (err) {
+    console.error(`Error writing to cache for key ${key}:`, err)
+  }
+
+  return data
+}
+```
+
+> **DRY:** this task does not reinvent prefix extraction or PostHog emission — both live in `cacheGetWithMetrics` (Task 4.1). `withCache` becomes a thin read-through + write-back on top.
+
+> Leave `withCacheStaleWhileRevalidate` unchanged in this task — the stale-branch latency accounting is a separate refactor (tracked in Task 4.3's queue). It emits nothing in Phase 1; documented as "known gap" in the cache-monitoring runbook.
+
+- [ ] **Step 4: Run test, expect pass**
 
 ```bash
-git add src/app/api/analytics/[pid]/risk/route.ts
-git commit -m "refactor(cache): migrate analytics/risk to cacheGetWithMetrics
+npm run test -- tests/lib/cache/with-cache.metrics.test.ts
+```
 
-First migration validating the wrapper. Remaining call sites tracked in
-docs/runbooks/cache-monitoring.md."
+Expected: 4 PASS.
+
+- [ ] **Step 5: Typecheck full project (no caller changes required — new arg is optional)**
+
+```bash
+npx tsc --noEmit
+```
+
+Expected: 0 errors.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/lib/cache/with-cache.ts tests/lib/cache/with-cache.metrics.test.ts
+git commit -m "feat(cache): instrument withCache with cache_lookup PostHog event
+
+Single-file change — all ~15 routes using withCache now emit cache_lookup
+with {key_prefix, hit, latency_ms}. New optional {distinctId} option lets
+authenticated routes attribute lookups to the user. See spec §2.3."
 ```
 
 ### Task 4.3: Cache monitoring runbook
@@ -1479,21 +1602,47 @@ Create in PostHog → Insights → New Insight:
 | p95 latency > 200ms | 30 min | Check Upstash dashboard for region/network issue |
 | Volume drops > 80% vs 7-day avg | 1h | Check `cacheGetWithMetrics` migration didn't regress to `cacheGet` |
 
-## Migration queue (Week 2)
+## What is already covered
 
-Replace `cacheGet` with `cacheGetWithMetrics` in these routes, one per
-commit, smallest first:
+Task 4.2 instrumented `withCache` itself, so every route that already uses
+the wrapper emits `cache_lookup` automatically — no per-route change. Verify:
 
-- [x] `src/app/api/analytics/[pid]/risk/route.ts` (Task 4.2)
-- [ ] `src/app/api/analytics/[pid]/allocation/route.ts`
-- [ ] `src/app/api/analytics/[pid]/returns/route.ts`
-- [ ] `src/app/api/analytics/[pid]/attribution/route.ts`
-- [ ] `src/app/api/analytics/[pid]/income/route.ts`
-- [ ] `src/app/api/dashboard/summary/route.ts`
-- [ ] `src/app/api/discover/leaderboard/route.ts`
-- [ ] `src/app/api/portfolio/compare/route.ts`
+```bash
+grep -rln "from '@/lib/cache/with-cache'" src/app/
+```
 
-For each: pass `{ distinctId: user.id }` when available; otherwise omit.
+Each file in the output is instrumented as of Task 4.2.
+
+## Remaining work — bare `cacheGet` call sites
+
+These call `cacheGet` directly (bypassing `withCache`). Migrate to either
+`withCache` (preferred) or a direct `cacheGetWithMetrics` call so they also
+emit `cache_lookup`:
+
+- [ ] `src/app/api/portfolio/history/route.ts` — current bare consumer. Refactor to `withCache` (see Task 4.4 below).
+
+Verify nothing was added while reviewing:
+
+```bash
+grep -rn "\bcacheGet\b" src/app/
+```
+
+Expected: zero matches after Task 4.4 merges.
+
+## Known gap — `withCacheStaleWhileRevalidate`
+
+The stale-branch helper in `src/lib/cache/with-cache.ts` still uses
+`cacheGet` directly and is **not** instrumented in Phase 1. Routes using
+it (grep `withCacheStaleWhileRevalidate`) are excluded from the cache
+metrics dashboard. If the gap matters, follow the same pattern as Task
+4.2 in a follow-up commit. Phase 1 accepts the gap — those routes are few
+and low-traffic.
+
+## Per-route attribution
+
+Routes wanting per-user attribution (analytics, dashboard) should pass
+`{ distinctId: user.id }` as the 4th argument to `withCache`. Unattributed
+calls default to `'system'`. This is additive — no typecheck break.
 
 ## On-call
 
@@ -1511,13 +1660,91 @@ git add docs/runbooks/cache-monitoring.md
 git commit -m "docs(runbook): cache-monitoring — dashboard, alerts, migration queue"
 ```
 
+### Task 4.4: Migrate the last bare `cacheGet` — `portfolio/history`
+
+**Files:**
+- Modify: `src/app/api/portfolio/history/route.ts`
+
+> **Goal:** fold `src/app/api/portfolio/history/route.ts` into `withCache` so it picks up the Task 4.2 instrumentation automatically. No new abstractions.
+
+- [ ] **Step 1: Read the current route to confirm the caching block**
+
+```bash
+grep -n "cacheGet\|cacheSet" src/app/api/portfolio/history/route.ts
+```
+
+Expected: lines near 4 (imports) and ~30 (usage). Confirm it is a simple "get → if null compute → set" pattern that `withCache` can replace.
+
+- [ ] **Step 2: Replace the cache read/compute/write block with `withCache`**
+
+Edit `src/app/api/portfolio/history/route.ts`:
+
+Before:
+
+```typescript
+import { cacheGet, cacheSet } from '@/lib/cache/redis'
+// …
+const cached = await cacheGet<Array<Record<string, unknown>>>(cacheKey)
+if (cached) return NextResponse.json(cached)
+const fresh = await compute(/* … */)
+await cacheSet(cacheKey, fresh, TTL)
+return NextResponse.json(fresh)
+```
+
+After:
+
+```typescript
+import { withCache } from '@/lib/cache/with-cache'
+// …
+const data = await withCache(cacheKey, TTL, () => compute(/* … */), { distinctId: user?.id ?? 'system' })
+return NextResponse.json(data)
+```
+
+> If the route does not already have `user.id` available, keep the default `'system'` attribution — do not bolt on an auth dependency in this task.
+
+- [ ] **Step 3: Typecheck**
+
+```bash
+npx tsc --noEmit
+```
+
+Expected: 0 errors.
+
+- [ ] **Step 4: Verify no bare `cacheGet` remains in `src/app/`**
+
+```bash
+grep -rn "\bcacheGet\b" src/app/
+```
+
+Expected: **no output**. If anything remains, migrate it the same way before committing.
+
+- [ ] **Step 5: Smoke-test the route manually**
+
+```bash
+npm run dev
+# In another shell, hit the endpoint with a known portfolio id
+curl -s "http://localhost:3000/api/portfolio/history?portfolioId=<id>" | head -c 200
+```
+
+Expected: 200 response (or whatever the route's auth requires — pass the cookie). Check dev-server logs for `[cache_lookup]` breadcrumb / PostHog emission.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/app/api/portfolio/history/route.ts
+git commit -m "refactor(cache): migrate portfolio/history to withCache
+
+Last bare cacheGet in src/app/ — now instrumented via Task 4.2.
+grep -rn '\\bcacheGet\\b' src/app/ returns empty."
+```
+
 ---
 
 ## Chunk 5: Worker expansion — 4 new background crons
 
 The Worker currently only fetches prices. Phases 2 (factor analysis) and 3 (alerts) need additional background data: sector/industry per held symbol, dividend calendar, earnings calendar, and news. This chunk adds 4 new crons and their corresponding tables (DDL already shipped in Chunk 1).
 
-> **Worker tests use Vitest + miniflare.** If miniflare isn't installed, `worker/package.json` needs `vitest`, `@cloudflare/vitest-pool-workers`, and `wrangler` as devDeps. Worker tests run via `pnpm --filter worker test`.
+> **Worker tests use Vitest + miniflare.** The root `package.json` does NOT declare the worker as an npm workspace — worker tests run via `cd worker && npm test -- <filename>`, not from the repo root. `worker/package.json` needs `vitest`, `@cloudflare/vitest-pool-workers`, and `wrangler` as devDeps.
 
 > **API rate limits:** Twelve Data free tier = 8 req/min. Finnhub free = 60 req/min. Code respects both via existing rate-limit pattern in `worker/src/index.ts` — extend that pattern; do not add a new mechanism.
 
@@ -1538,7 +1765,7 @@ test -f worker/vitest.config.ts && echo "EXISTS" || echo "MISSING"
 
 ```bash
 cd worker
-pnpm add -D vitest @cloudflare/vitest-pool-workers @cloudflare/workers-types
+npm i -D vitest @cloudflare/vitest-pool-workers @cloudflare/workers-types
 cd ..
 ```
 
@@ -1571,7 +1798,7 @@ export default defineWorkersConfig({
 - [ ] **Step 4: Verify test runner boots (no tests yet — empty pass)**
 
 ```bash
-pnpm --filter worker test
+cd worker && npm test && cd ..
 ```
 
 Expected: `No test files found` (acceptable). If errors about missing types, install `@cloudflare/workers-types` (Step 2).
@@ -1579,7 +1806,7 @@ Expected: `No test files found` (acceptable). If errors about missing types, ins
 - [ ] **Step 5: Commit**
 
 ```bash
-git add worker/package.json worker/pnpm-lock.yaml worker/vitest.config.ts
+git add worker/package.json worker/package-lock.json worker/vitest.config.ts
 git commit -m "chore(worker): add vitest + cloudflare workers pool for cron tests"
 ```
 
@@ -1587,56 +1814,74 @@ git commit -m "chore(worker): add vitest + cloudflare workers pool for cron test
 
 **Files:**
 - Create: `worker/src/sectors-cron.ts`
-- Test: `worker/src/__tests__/sectors-cron.test.ts`
+- Test: `worker/src/tests/sectors-cron.test.ts`
 - Modify: `worker/src/index.ts`
 - Modify: `worker/wrangler.toml`
 
 - [ ] **Step 1: Write failing test**
 
 ```typescript
-// worker/src/__tests__/sectors-cron.test.ts
+// worker/src/tests/sectors-cron.test.ts
 import { describe, it, expect, vi } from 'vitest'
 import { runSectorsCron } from '../sectors-cron'
 
-const supabase = (rows: { symbol: string }[]) => ({
-  from: vi.fn(() => ({
-    select: vi.fn().mockResolvedValue({ data: rows, error: null }),
-    upsert: vi.fn().mockResolvedValue({ error: null }),
-  })),
-})
+// Supabase query builders are chainable: .from().select().gt() terminates
+// as a PromiseLike. Mock as a builder whose terminal method resolves, and
+// whose upsert is a separate terminal. We remember each builder per-call
+// so we can assert against it from the test body.
+function mockSupabase(positions: { symbol: string }[]) {
+  const upserts: Array<{ table: string; rows: unknown }> = []
+  const builders: any[] = []
+
+  const from = vi.fn((table: string) => {
+    const builder: any = {
+      _table: table,
+      select: vi.fn(function (this: any) { return this }),
+      gt: vi.fn().mockResolvedValue({
+        data: table === 'positions' ? positions : [],
+        error: null,
+      }),
+      upsert: vi.fn(async (rows: unknown) => {
+        upserts.push({ table, rows })
+        return { error: null }
+      }),
+    }
+    builders.push(builder)
+    return builder
+  })
+
+  return { client: { from } as any, upserts, builders, from }
+}
 
 describe('runSectorsCron', () => {
   it('enumerates held symbols and upserts company_profile rows', async () => {
-    const sb = supabase([{ symbol: 'AAPL' }, { symbol: 'MSFT' }])
+    const sb = mockSupabase([{ symbol: 'AAPL' }, { symbol: 'MSFT' }])
     const fetchProfile = vi.fn().mockResolvedValue({
       symbol: 'AAPL', sector: 'Technology', industry: 'Hardware',
       market_cap: 3e12, country: 'US', exchange: 'NASDAQ', description: 'x',
     })
-    await runSectorsCron(sb as any, fetchProfile)
+    await runSectorsCron(sb.client, fetchProfile)
     expect(fetchProfile).toHaveBeenCalledTimes(2)
     expect(sb.from).toHaveBeenCalledWith('company_profile')
   })
 
   it('skips symbols whose profile fetch returns null (rate-limited or 404)', async () => {
-    const sb = supabase([{ symbol: 'AAPL' }, { symbol: 'BADSYM' }])
+    const sb = mockSupabase([{ symbol: 'AAPL' }, { symbol: 'BADSYM' }])
     const fetchProfile = vi.fn()
       .mockResolvedValueOnce({ symbol: 'AAPL', sector: 'Technology', industry: 'x', market_cap: 1, country: 'US', exchange: 'NASDAQ', description: '' })
       .mockResolvedValueOnce(null)
-    await runSectorsCron(sb as any, fetchProfile)
-    // Only one upsert call should carry data; the other is skipped.
-    const upsertCalls = (sb.from as any).mock.results
-      .map((r: any) => r.value.upsert)
-      .filter((u: any) => u && u.mock.calls.length > 0)
-    expect(upsertCalls.length).toBeGreaterThan(0)
+    await runSectorsCron(sb.client, fetchProfile)
+    const profileUpserts = sb.upserts.filter(u => u.table === 'company_profile')
+    expect(profileUpserts.length).toBe(1)
   })
 
   it('returns a summary { processed, skipped }', async () => {
-    const sb = supabase([{ symbol: 'AAPL' }])
+    const sb = mockSupabase([{ symbol: 'AAPL' }])
     const fetchProfile = vi.fn().mockResolvedValue({
       symbol: 'AAPL', sector: 'x', industry: 'x', market_cap: 1,
       country: 'US', exchange: 'NASDAQ', description: '',
     })
-    const result = await runSectorsCron(sb as any, fetchProfile)
+    const result = await runSectorsCron(sb.client, fetchProfile)
     expect(result).toEqual({ processed: 1, skipped: 0 })
   })
 })
@@ -1645,7 +1890,7 @@ describe('runSectorsCron', () => {
 - [ ] **Step 2: Run test, expect import failure**
 
 ```bash
-pnpm --filter worker test sectors-cron
+(cd worker && npm test -- sectors-cron)
 ```
 
 Expected: `Cannot find module '../sectors-cron'`.
@@ -1731,7 +1976,7 @@ export function makeTwelveDataFetcher(apiKey: string): FetchProfile {
 - [ ] **Step 4: Run test, expect pass**
 
 ```bash
-pnpm --filter worker test sectors-cron
+(cd worker && npm test -- sectors-cron)
 ```
 
 Expected: 3 PASS.
@@ -1787,7 +2032,7 @@ Expected: HTTP 200, log shows `[sectors-cron] { processed: N, skipped: M }`.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add worker/src/sectors-cron.ts worker/src/__tests__/sectors-cron.test.ts worker/src/index.ts worker/wrangler.toml
+git add worker/src/sectors-cron.ts worker/src/tests/sectors-cron.test.ts worker/src/index.ts worker/wrangler.toml
 git commit -m "feat(worker): hourly sectors cron — Twelve Data /profile → company_profile
 
 Pure runSectorsCron(supabase, fetchProfile) for testability; production
@@ -1798,57 +2043,67 @@ fetcher from Twelve Data wired in scheduled handler. See spec §2.4."
 
 **Files:**
 - Create: `worker/src/dividends-cron.ts`
-- Test: `worker/src/__tests__/dividends-cron.test.ts`
+- Test: `worker/src/tests/dividends-cron.test.ts`
 - Modify: `worker/src/index.ts`
 
 - [ ] **Step 1: Write failing test**
 
 ```typescript
-// worker/src/__tests__/dividends-cron.test.ts
+// worker/src/tests/dividends-cron.test.ts
 import { describe, it, expect, vi } from 'vitest'
 import { runDividendsCron } from '../dividends-cron'
 
-const supabase = (positions: { symbol: string }[]) => ({
-  from: vi.fn((table: string) => ({
-    select: vi.fn().mockResolvedValue({
-      data: table === 'positions' ? positions : [],
-      error: null,
-    }),
-    upsert: vi.fn().mockResolvedValue({ error: null }),
-  })),
-})
+function mockSupabase(
+  positions: { symbol: string }[],
+  opts: { upsertError?: { message: string } } = {}
+) {
+  const upserts: Array<{ table: string; rows: unknown }> = []
+
+  const from = vi.fn((table: string) => {
+    const builder: any = {
+      _table: table,
+      select: vi.fn(function (this: any) { return this }),
+      gt: vi.fn().mockResolvedValue({
+        data: table === 'positions' ? positions : [],
+        error: null,
+      }),
+      upsert: vi.fn(async (rows: unknown) => {
+        upserts.push({ table, rows })
+        return { error: opts.upsertError ?? null }
+      }),
+    }
+    return builder
+  })
+
+  return { client: { from } as any, upserts, from }
+}
 
 describe('runDividendsCron', () => {
   it('fetches next 90d dividends for each held symbol and upserts', async () => {
-    const sb = supabase([{ symbol: 'AAPL' }, { symbol: 'MSFT' }])
+    const sb = mockSupabase([{ symbol: 'AAPL' }, { symbol: 'MSFT' }])
     const fetchDivs = vi.fn().mockResolvedValue([
       { symbol: 'AAPL', ex_date: '2026-05-15', pay_date: '2026-05-22', amount: 0.24, currency: 'USD' },
     ])
-    const result = await runDividendsCron(sb as any, fetchDivs)
+    const result = await runDividendsCron(sb.client, fetchDivs)
     expect(fetchDivs).toHaveBeenCalledTimes(2)
     expect(fetchDivs).toHaveBeenCalledWith('AAPL', expect.any(String), expect.any(String))
     expect(result.processed).toBeGreaterThan(0)
   })
 
   it('handles symbols with no upcoming dividends gracefully', async () => {
-    const sb = supabase([{ symbol: 'TSLA' }])
+    const sb = mockSupabase([{ symbol: 'TSLA' }])
     const fetchDivs = vi.fn().mockResolvedValue([])
-    const result = await runDividendsCron(sb as any, fetchDivs)
+    const result = await runDividendsCron(sb.client, fetchDivs)
     expect(result.processed).toBe(0)
     expect(result.skipped).toBe(0)
   })
 
   it('counts upsert errors as skipped', async () => {
-    const sb = {
-      from: vi.fn((table: string) => ({
-        select: vi.fn().mockResolvedValue({ data: table === 'positions' ? [{ symbol: 'AAPL' }] : [], error: null }),
-        upsert: vi.fn().mockResolvedValue({ error: { message: 'fail' } }),
-      })),
-    }
+    const sb = mockSupabase([{ symbol: 'AAPL' }], { upsertError: { message: 'fail' } })
     const fetchDivs = vi.fn().mockResolvedValue([
       { symbol: 'AAPL', ex_date: '2026-05-15', pay_date: '2026-05-22', amount: 0.24, currency: 'USD' },
     ])
-    const result = await runDividendsCron(sb as any, fetchDivs)
+    const result = await runDividendsCron(sb.client, fetchDivs)
     expect(result.skipped).toBe(1)
   })
 })
@@ -1857,7 +2112,7 @@ describe('runDividendsCron', () => {
 - [ ] **Step 2: Run test, expect failure**
 
 ```bash
-pnpm --filter worker test dividends-cron
+(cd worker && npm test -- dividends-cron)
 ```
 
 Expected: `Cannot find module '../dividends-cron'`.
@@ -1942,7 +2197,7 @@ export function makeFinnhubDividendFetcher(apiKey: string): FetchDividends {
 - [ ] **Step 4: Run test, expect pass**
 
 ```bash
-pnpm --filter worker test dividends-cron
+(cd worker && npm test -- dividends-cron)
 ```
 
 Expected: 3 PASS.
@@ -1963,7 +2218,7 @@ case '0 */4 * * *':
 - [ ] **Step 6: Commit**
 
 ```bash
-git add worker/src/dividends-cron.ts worker/src/__tests__/dividends-cron.test.ts worker/src/index.ts
+git add worker/src/dividends-cron.ts worker/src/tests/dividends-cron.test.ts worker/src/index.ts
 git commit -m "feat(worker): 4h dividends cron — Finnhub /calendar/dividend (90d window)
 
 Pure runDividendsCron(supabase, fetcher); upserts into dividend_calendar.
@@ -1974,42 +2229,49 @@ Skip-and-count on upsert errors so one bad symbol doesn't fail the run."
 
 **Files:**
 - Create: `worker/src/earnings-cron.ts`
-- Test: `worker/src/__tests__/earnings-cron.test.ts`
+- Test: `worker/src/tests/earnings-cron.test.ts`
 - Modify: `worker/src/index.ts`
 
 - [ ] **Step 1: Write failing test**
 
 ```typescript
-// worker/src/__tests__/earnings-cron.test.ts
+// worker/src/tests/earnings-cron.test.ts
 import { describe, it, expect, vi } from 'vitest'
 import { runEarningsCron } from '../earnings-cron'
 
-const supabase = (positions: { symbol: string }[]) => ({
-  from: vi.fn((table: string) => ({
-    select: vi.fn().mockResolvedValue({
+function mockSupabase(positions: { symbol: string }[]) {
+  const upserts: Array<{ table: string; rows: unknown }> = []
+  const from = vi.fn((table: string) => ({
+    _table: table,
+    select: vi.fn(function (this: any) { return this }),
+    gt: vi.fn().mockResolvedValue({
       data: table === 'positions' ? positions : [],
       error: null,
     }),
-    upsert: vi.fn().mockResolvedValue({ error: null }),
-  })),
-})
+    upsert: vi.fn(async (rows: unknown) => {
+      upserts.push({ table, rows })
+      return { error: null }
+    }),
+  }))
+  return { client: { from } as any, upserts, from }
+}
 
 describe('runEarningsCron', () => {
   it('fetches next 4 weeks earnings per held symbol and upserts', async () => {
-    const sb = supabase([{ symbol: 'AAPL' }])
+    const sb = mockSupabase([{ symbol: 'AAPL' }])
     const fetchEarnings = vi.fn().mockResolvedValue([
       { symbol: 'AAPL', earnings_date: '2026-05-01', hour: 'amc', eps_estimate: 1.50, revenue_estimate: 95e9 },
     ])
-    const result = await runEarningsCron(sb as any, fetchEarnings)
+    const result = await runEarningsCron(sb.client, fetchEarnings)
     expect(result.processed).toBe(1)
   })
 
   it('coerces missing eps/revenue to null', async () => {
-    const sb = supabase([{ symbol: 'AAPL' }])
+    const sb = mockSupabase([{ symbol: 'AAPL' }])
     const fetchEarnings = vi.fn().mockResolvedValue([
       { symbol: 'AAPL', earnings_date: '2026-05-01', hour: 'bmo', eps_estimate: undefined, revenue_estimate: null },
     ])
-    const result = await runEarningsCron(sb as any, fetchEarnings)
+    const result = await runEarningsCron(sb.client, fetchEarnings)
     expect(result.processed).toBe(1)
   })
 })
@@ -2018,7 +2280,7 @@ describe('runEarningsCron', () => {
 - [ ] **Step 2: Run test, expect failure**
 
 ```bash
-pnpm --filter worker test earnings-cron
+(cd worker && npm test -- earnings-cron)
 ```
 
 Expected: `Cannot find module '../earnings-cron'`.
@@ -2107,7 +2369,7 @@ export function makeFinnhubEarningsFetcher(apiKey: string): FetchEarnings {
 - [ ] **Step 4: Run test, expect pass**
 
 ```bash
-pnpm --filter worker test earnings-cron
+(cd worker && npm test -- earnings-cron)
 ```
 
 Expected: 2 PASS.
@@ -2130,7 +2392,7 @@ case '0 9 * * 1-5':
 - [ ] **Step 6: Commit**
 
 ```bash
-git add worker/src/earnings-cron.ts worker/src/__tests__/earnings-cron.test.ts worker/src/index.ts
+git add worker/src/earnings-cron.ts worker/src/tests/earnings-cron.test.ts worker/src/index.ts
 git commit -m "feat(worker): daily earnings cron — Finnhub /calendar/earnings (4w window)
 
 Pure runEarningsCron(supabase, fetcher); upserts earnings_calendar.
@@ -2141,56 +2403,58 @@ Hour normalised to bmo|amc|null."
 
 **Files:**
 - Create: `worker/src/news-ingestion.ts`
-- Test: `worker/src/__tests__/news-ingestion.test.ts`
+- Test: `worker/src/tests/news-ingestion.test.ts`
 - Modify: `worker/src/index.ts`
 
 - [ ] **Step 1: Write failing test**
 
 ```typescript
-// worker/src/__tests__/news-ingestion.test.ts
+// worker/src/tests/news-ingestion.test.ts
 import { describe, it, expect, vi } from 'vitest'
 import { runNewsIngestion } from '../news-ingestion'
 
-const supabase = (topSymbols: { symbol: string; volume: number }[]) => ({
-  rpc: vi.fn().mockResolvedValue({ data: topSymbols, error: null }),
-  from: vi.fn(() => ({
-    insert: vi.fn().mockResolvedValue({ error: null }),
-  })),
-})
+function mockSupabase(topSymbols: { symbol: string; volume: number }[]) {
+  const inserts: unknown[][] = []
+  const rpc = vi.fn().mockResolvedValue({ data: topSymbols, error: null })
+  const from = vi.fn((table: string) => ({
+    _table: table,
+    insert: vi.fn(async (rows: unknown[]) => {
+      inserts.push(rows)
+      return { error: null }
+    }),
+  }))
+  return { client: { rpc, from } as any, inserts, rpc, from }
+}
 
 describe('runNewsIngestion', () => {
   it('fetches news for top 50 symbols by portfolio volume', async () => {
     const top = Array.from({ length: 60 }, (_, i) => ({ symbol: `S${i}`, volume: 1000 - i }))
-    const sb = supabase(top)
+    const sb = mockSupabase(top)
     const fetchNews = vi.fn().mockResolvedValue([
       { symbol: 'S0', headline: 'h', summary: 's', url: 'https://x/0', source: 'reuters', published_at: '2026-04-20T10:00:00Z' },
     ])
-    await runNewsIngestion(sb as any, fetchNews)
+    await runNewsIngestion(sb.client, fetchNews)
     expect(fetchNews).toHaveBeenCalledTimes(50)  // capped at 50
   })
 
   it('does not insert duplicate URLs (relies on UNIQUE constraint)', async () => {
-    const sb = supabase([{ symbol: 'AAPL', volume: 1 }])
+    const sb = mockSupabase([{ symbol: 'AAPL', volume: 1 }])
     const fetchNews = vi.fn().mockResolvedValue([
       { symbol: 'AAPL', headline: 'h', summary: 's', url: 'https://x/dup', source: 'reuters', published_at: '2026-04-20T10:00:00Z' },
       { symbol: 'AAPL', headline: 'h2', summary: 's', url: 'https://x/dup', source: 'reuters', published_at: '2026-04-20T11:00:00Z' },
     ])
-    await runNewsIngestion(sb as any, fetchNews)
-    // Implementation dedupes in-batch by url before insert.
-    const insertCalls = (sb.from as any).mock.results
-      .map((r: any) => r.value.insert.mock.calls).flat()
-    const inserted = insertCalls.flat()
-    const urls = inserted.map((row: any) => row.url)
+    await runNewsIngestion(sb.client, fetchNews)
+    const urls = sb.inserts.flat().map((row: any) => row.url)
     expect(new Set(urls).size).toBe(urls.length)
   })
 
   it('inserts with classified_at = null (Phase 3 will set it)', async () => {
-    const sb = supabase([{ symbol: 'AAPL', volume: 1 }])
+    const sb = mockSupabase([{ symbol: 'AAPL', volume: 1 }])
     const fetchNews = vi.fn().mockResolvedValue([
       { symbol: 'AAPL', headline: 'h', summary: 's', url: 'https://x/1', source: 'r', published_at: '2026-04-20T10:00:00Z' },
     ])
-    await runNewsIngestion(sb as any, fetchNews)
-    const insertedRow = (sb.from as any).mock.results[0].value.insert.mock.calls[0][0][0]
+    await runNewsIngestion(sb.client, fetchNews)
+    const insertedRow = (sb.inserts[0] as any[])[0]
     expect(insertedRow.classified_at).toBeUndefined()  // never set by ingester
   })
 })
@@ -2199,7 +2463,7 @@ describe('runNewsIngestion', () => {
 - [ ] **Step 2: Run test, expect failure**
 
 ```bash
-pnpm --filter worker test news-ingestion
+(cd worker && npm test -- news-ingestion)
 ```
 
 Expected: `Cannot find module '../news-ingestion'`.
@@ -2297,45 +2561,22 @@ export function makeFinnhubNewsFetcher(apiKey: string): FetchNews {
 }
 ```
 
-- [ ] **Step 4: Add `top_symbols_by_volume` RPC migration**
+- [ ] **Step 4: Verify `top_symbols_by_volume` RPC is deployed**
 
-This RPC is referenced by Step 3. Add to a follow-up SQL file:
+The RPC is already defined at the end of `supabase/migrations/008_worker_expansion.sql` (shipped in Chunk 1 Task 1.1). No separate migration file needed.
+
+Confirm it is callable:
 
 ```bash
-cat > supabase/migrations/008b_top_symbols_rpc.sql <<'EOF'
--- 008b_top_symbols_rpc.sql
--- RPC consumed by worker/src/news-ingestion.ts to scope news fetching
--- to the most-held symbols across all portfolios.
---
--- Numbered 008b (suffix, not 009) to keep with the worker-expansion
--- Phase 1 scope; 009/010 are reserved for Phases 2/3 per spec §5.1.
-
-CREATE OR REPLACE FUNCTION top_symbols_by_volume(limit_n INT)
-RETURNS TABLE (symbol TEXT, volume NUMERIC)
-LANGUAGE sql STABLE AS $$
-  SELECT
-    p.symbol,
-    SUM(p.quantity * COALESCE(cp.price, 0))::NUMERIC AS volume
-  FROM positions p
-  LEFT JOIN current_prices cp ON cp.symbol = p.symbol
-  WHERE p.quantity > 0
-  GROUP BY p.symbol
-  ORDER BY volume DESC
-  LIMIT limit_n
-$$;
-
--- Grant execute to authenticated and service_role.
-GRANT EXECUTE ON FUNCTION top_symbols_by_volume(INT) TO authenticated, service_role;
-EOF
-supabase db push
+supabase db query "SELECT * FROM top_symbols_by_volume(5);"
 ```
 
-> **Numbering note:** Suffix `b` is acceptable for an additive RPC inside the same Phase 1 scope. If the project's convention rejects suffixes, rename to a fresh sequential number (e.g., 008b → 008_2 or fold into 008 as one file before any of these migrations are applied to production). Pick the convention before commit; do not mix.
+Expected: 5 rows `(symbol, volume)` from the largest current positions, or empty result if no positions yet. If the RPC is missing, re-run `supabase db push` — Task 1.1 Step 3 applies 008 and the RPC ships inside it.
 
 - [ ] **Step 5: Run news test, expect pass**
 
 ```bash
-pnpm --filter worker test news-ingestion
+(cd worker && npm test -- news-ingestion)
 ```
 
 Expected: 3 PASS.
@@ -2361,7 +2602,7 @@ case '*/30 * * * *':
 - [ ] **Step 7: Commit**
 
 ```bash
-git add worker/src/news-ingestion.ts worker/src/__tests__/news-ingestion.test.ts worker/src/index.ts supabase/migrations/008b_top_symbols_rpc.sql
+git add worker/src/news-ingestion.ts worker/src/tests/news-ingestion.test.ts worker/src/index.ts
 git commit -m "feat(worker): 30-min news ingestion — Finnhub /company-news (top 50, 24h)
 
 Pure runNewsIngestion(supabase, fetcher); RPC top_symbols_by_volume
@@ -2409,13 +2650,13 @@ After the Worker upserts `current_prices`, broadcast on the `prices` channel via
 
 **Files:**
 - Create: `worker/src/realtime-publish.ts`
-- Test: `worker/src/__tests__/realtime-publish.test.ts`
+- Test: `worker/src/tests/realtime-publish.test.ts`
 - Modify: `worker/src/index.ts` (call from `fetchHotPrices` and `fetchWarmPrices` after upsert)
 
 - [ ] **Step 1: Write failing test**
 
 ```typescript
-// worker/src/__tests__/realtime-publish.test.ts
+// worker/src/tests/realtime-publish.test.ts
 import { describe, it, expect, vi } from 'vitest'
 import { publishPriceUpdates } from '../realtime-publish'
 
@@ -2460,7 +2701,7 @@ describe('publishPriceUpdates', () => {
 - [ ] **Step 2: Run test, expect failure**
 
 ```bash
-pnpm --filter worker test realtime-publish
+(cd worker && npm test -- realtime-publish)
 ```
 
 Expected: `Cannot find module '../realtime-publish'`.
@@ -2521,7 +2762,7 @@ export async function publishPriceUpdates(
 - [ ] **Step 4: Run test, expect pass**
 
 ```bash
-pnpm --filter worker test realtime-publish
+(cd worker && npm test -- realtime-publish)
 ```
 
 Expected: 3 PASS.
@@ -2553,7 +2794,7 @@ await publishPriceUpdates(updates, {
 - [ ] **Step 6: Commit**
 
 ```bash
-git add worker/src/realtime-publish.ts worker/src/__tests__/realtime-publish.test.ts worker/src/index.ts
+git add worker/src/realtime-publish.ts worker/src/tests/realtime-publish.test.ts worker/src/index.ts
 git commit -m "feat(worker): broadcast price upserts to Supabase Realtime prices channel
 
 Best-effort: errors log and continue; SWR polling remains source of truth.
@@ -2564,12 +2805,12 @@ Hook useRealtimePrices (next commit) consumes the channel. See spec §2.5."
 
 **Files:**
 - Create: `src/lib/hooks/useRealtimePrices.ts`
-- Test: `src/lib/hooks/__tests__/useRealtimePrices.test.ts`
+- Test: `tests/lib/hooks/useRealtimePrices.test.ts`
 
 - [ ] **Step 1: Write failing test**
 
 ```tsx
-// src/lib/hooks/__tests__/useRealtimePrices.test.ts
+// tests/lib/hooks/useRealtimePrices.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
@@ -2584,12 +2825,12 @@ const mockChannel = {
 const mockSupabase = {
   channel: vi.fn().mockReturnValue(mockChannel),
 }
-vi.mock('@/lib/supabase/client', () => ({ supabase: mockSupabase }))
+vi.mock('@/lib/supabase/client', () => ({ createClient: () => mockSupabase }))
 
 const mockFlag = vi.fn()
 vi.mock('@/lib/posthog/client', () => ({ isFeatureEnabled: (k: string) => mockFlag(k) }))
 
-import { useRealtimePrices } from '../useRealtimePrices'
+import { useRealtimePrices } from '@/lib/hooks/useRealtimePrices'
 
 beforeEach(() => {
   mockChannel.on.mockClear()
@@ -2650,7 +2891,7 @@ describe('useRealtimePrices', () => {
 - [ ] **Step 2: Run test, expect failure**
 
 ```bash
-pnpm test src/lib/hooks/__tests__/useRealtimePrices.test.ts
+npm run test -- tests/lib/hooks/useRealtimePrices.test.ts
 ```
 
 Expected: `Cannot find module '../useRealtimePrices'` and `Cannot find module '@/lib/posthog/client'`.
@@ -2676,8 +2917,8 @@ export function isFeatureEnabled(key: string): boolean {
 // src/lib/hooks/useRealtimePrices.ts
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
-import { supabase } from '@/lib/supabase/client'
+import { useEffect, useState, useMemo, useRef } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { isFeatureEnabled } from '@/lib/posthog/client'
 
 export interface PriceUpdate {
@@ -2694,15 +2935,22 @@ export interface PriceUpdate {
  * uninitialized — SWR polling continues independently as fallback.
  *
  * `symbols` should be stable across renders (memoise upstream).
+ *
+ * Note: `@/lib/supabase/client` exports a factory (`createClient()`), not a
+ * singleton. Memoise the instance per hook-lifetime with `useRef` so we don't
+ * recreate the WebSocket connection on every render.
  */
 export function useRealtimePrices(symbols: string[]): Map<string, PriceUpdate> {
   const [updates, setUpdates] = useState<Map<string, PriceUpdate>>(new Map())
   const watchSet = useMemo(() => new Set(symbols), [symbols.join(',')])
+  const clientRef = useRef<ReturnType<typeof createClient> | null>(null)
+  if (clientRef.current === null) clientRef.current = createClient()
 
   useEffect(() => {
     if (!isFeatureEnabled('realtime_prices_enabled')) return
     if (watchSet.size === 0) return
 
+    const supabase = clientRef.current!
     const channel = supabase.channel('prices')
       .on('broadcast', { event: 'price_update' }, (msg: any) => {
         const u: PriceUpdate = msg.payload
@@ -2728,7 +2976,7 @@ export function useRealtimePrices(symbols: string[]): Map<string, PriceUpdate> {
 - [ ] **Step 5: Run test, expect pass**
 
 ```bash
-pnpm test src/lib/hooks/__tests__/useRealtimePrices.test.ts
+npm run test -- tests/lib/hooks/useRealtimePrices.test.ts
 ```
 
 Expected: 5 PASS.
@@ -2753,7 +3001,7 @@ const merged = symbols.map(s => realtime.get(s)?.price ?? swrData.prices[s])
 - [ ] **Step 7: Manual verification**
 
 ```bash
-pnpm dev &
+npm run dev &
 # Open http://localhost:3000 with PostHog flag realtime_prices_enabled=ON.
 # In another terminal, force the worker to publish:
 curl -X POST "https://price-engine.<workers-subdomain>.workers.dev/__test/broadcast" \
@@ -2767,7 +3015,7 @@ kill %1
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/lib/posthog/client.ts src/lib/hooks/useRealtimePrices.ts src/lib/hooks/__tests__/useRealtimePrices.test.ts src/components/<chosen-consumer>.tsx
+git add src/lib/posthog/client.ts src/lib/hooks/useRealtimePrices.ts tests/lib/hooks/useRealtimePrices.test.ts src/components/<chosen-consumer>.tsx
 git commit -m "feat(realtime): useRealtimePrices hook + first consumer integration
 
 Subscribes to Supabase Realtime prices channel; respects
@@ -2788,12 +3036,12 @@ Single page, accessible only to users with the `admin` role (already exists in t
 **Files:**
 - Create: `src/app/api/admin/metrics/route.ts`
 - Create: `src/lib/services/admin-metrics.ts`
-- Test: `src/lib/services/__tests__/admin-metrics.test.ts`
+- Test: `tests/lib/services/admin-metrics.test.ts`
 
 - [ ] **Step 1: Write failing test for the service aggregator**
 
 ```typescript
-// src/lib/services/__tests__/admin-metrics.test.ts
+// tests/lib/services/admin-metrics.test.ts
 import { describe, it, expect, vi } from 'vitest'
 
 const mockPosthog = vi.fn()
@@ -2804,13 +3052,13 @@ vi.mock('@/lib/services/posthog-query', () => ({ queryCacheHitRatios: () => mock
 vi.mock('@/lib/services/sentry-query', () => ({ queryOpenIssues: () => mockSentry() }))
 vi.mock('@/lib/services/cron-status', () => ({ queryCronHealth: () => mockCron() }))
 
-import { collectAdminMetrics } from '../admin-metrics'
+import { collectAdminMetrics } from '@/lib/services/admin-metrics'
 
 describe('collectAdminMetrics', () => {
   it('aggregates from all 3 sources in parallel', async () => {
     mockPosthog.mockResolvedValue({ analytics_risk: 0.82, price: 0.91 })
     mockSentry.mockResolvedValue([{ id: 's1', title: 'boom', count: 12 }])
-    mockCron.mockResolvedValue([{ name: 'sectors-cron', last_run: '2026-04-20', ok: true }])
+    mockCron.mockResolvedValue([{ name: 'sectors-cron', last_run: '2026-04-20', ok: true, duration_ms: 1234 }])
 
     const m = await collectAdminMetrics()
     expect(m.cache_hit_ratios).toEqual({ analytics_risk: 0.82, price: 0.91 })
@@ -2833,7 +3081,7 @@ describe('collectAdminMetrics', () => {
 - [ ] **Step 2: Run test, expect failure**
 
 ```bash
-pnpm test src/lib/services/__tests__/admin-metrics.test.ts
+npm run test -- tests/lib/services/admin-metrics.test.ts
 ```
 
 Expected: `Cannot find module '../admin-metrics'` and the three mock targets.
@@ -2849,7 +3097,7 @@ import { queryCronHealth } from './cron-status'
 export interface AdminMetrics {
   cache_hit_ratios: Record<string, number>
   open_issues: Array<{ id: string; title: string; count: number }>
-  cron_health: Array<{ name: string; last_run: string; ok: boolean }>
+  cron_health: Array<{ name: string; last_run: string; ok: boolean; duration_ms: number | null }>
   errors: string[]
 }
 
@@ -2925,34 +3173,47 @@ export async function queryOpenIssues(): Promise<Array<{ id: string; title: stri
 }
 
 // src/lib/services/cron-status.ts
-export async function queryCronHealth(): Promise<Array<{ name: string; last_run: string; ok: boolean }>> {
-  // Sourced from worker logs aggregated into Supabase by an existing cron_runs
-  // table (see analytics overhaul plan §A1) OR by parsing wrangler logs API.
-  // Phase 1 simplification: read from cron_runs (created in migration 007).
+//
+// Reads the `cron_runs` table shipped by migration 007 (already on main).
+// Schema — see supabase/migrations/007_analytics_overhaul.sql:21-32:
+//   job_name TEXT
+//   started_at TIMESTAMPTZ
+//   finished_at TIMESTAMPTZ
+//   status TEXT — 'running' | 'completed' | 'failed'
+//   portfolios_failed INTEGER
+//   duration_ms INTEGER
+export async function queryCronHealth(): Promise<
+  Array<{ name: string; last_run: string; ok: boolean; duration_ms: number | null }>
+> {
   const { createClient } = await import('@supabase/supabase-js')
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
   const { data, error } = await sb
     .from('cron_runs')
-    .select('name, started_at, ok')
+    .select('job_name, started_at, status, duration_ms, portfolios_failed')
     .order('started_at', { ascending: false })
     .limit(20)
   if (error) throw error
-  return (data ?? []).map(r => ({ name: r.name, last_run: r.started_at, ok: !!r.ok }))
+  return (data ?? []).map((r) => ({
+    name: r.job_name,
+    last_run: r.started_at,
+    ok: r.status === 'completed' && (r.portfolios_failed ?? 0) === 0,
+    duration_ms: r.duration_ms,
+  }))
 }
 ```
 
-> **Verify before merging:** `cron_runs` table existence. The analytics overhaul plan adds it in migration 007. If absent in your branch, replace `queryCronHealth` body with a stub that returns `[]` until that table lands.
+> **Schema source of truth:** `cron_runs` columns come from `supabase/migrations/007_analytics_overhaul.sql` (already merged). Columns used: `job_name`, `started_at`, `status`, `duration_ms`, `portfolios_failed`. Do **not** rename or aggregate in this query — surface the raw row so `/admin/metrics` can group by `job_name` client-side.
 
 ```bash
-grep -rn "CREATE TABLE.*cron_runs" supabase/migrations/
+grep -n "CREATE TABLE.*cron_runs" supabase/migrations/007_analytics_overhaul.sql
 ```
 
-If no match: replace body of `queryCronHealth` with `return []` and add a TODO referencing the analytics overhaul migration.
+Expected: line 21. If absent (rebased branch): halt and reconcile with the analytics overhaul migration before continuing.
 
 - [ ] **Step 5: Run test, expect pass**
 
 ```bash
-pnpm test src/lib/services/__tests__/admin-metrics.test.ts
+npm run test -- tests/lib/services/admin-metrics.test.ts
 ```
 
 Expected: 2 PASS.
@@ -2961,13 +3222,21 @@ Expected: 2 PASS.
 
 ```typescript
 // src/app/api/admin/metrics/route.ts
+//
+// Uses the repo's existing envelope from src/lib/api/response.ts:
+//   success(data, meta?, status?)  →  { data, error: null, meta? }
+//   error(message, status?)        →  { data: null, error: message }
+//
+// The spec §3.3a richer envelope ({ error: { code, message, details } }) is
+// a cross-cutting change owed by Phase 2 — do NOT introduce it here. Phase 1
+// uses whatever the repo already ships.
 import { apiHandler } from '@/lib/api/handler'
-import { json, error } from '@/lib/api/response'
+import { success, error } from '@/lib/api/response'
 import { collectAdminMetrics } from '@/lib/services/admin-metrics'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerSupabase } from '@/lib/supabase/server'
 
 export const GET = apiHandler(async (req) => {
-  const supabase = await createServerClient()
+  const supabase = await createServerSupabase()
   const { data: { user }, error: authErr } = await supabase.auth.getUser()
   if (authErr || !user) return error('unauthorized', 401)
 
@@ -2979,11 +3248,11 @@ export const GET = apiHandler(async (req) => {
   if (profile?.role !== 'admin') return error('forbidden', 403)
 
   const metrics = await collectAdminMetrics()
-  return json(metrics)
+  return success(metrics)
 })
 ```
 
-> Confirm the actual import paths for `createServerClient` and the role column name in `user_profiles`. If the project uses a different role-check helper, use it instead.
+> Import verified against `src/lib/supabase/server.ts` (exports `createServerSupabase`, not `createServerClient`). Confirm the `user_profiles.role` column exists for admin check; if the project uses a different role-check helper or column, use it instead.
 
 - [ ] **Step 7: Add env vars to `.env.local.example`**
 
@@ -2999,7 +3268,7 @@ EOF
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/lib/services/admin-metrics.ts src/lib/services/posthog-query.ts src/lib/services/sentry-query.ts src/lib/services/cron-status.ts src/lib/services/__tests__/admin-metrics.test.ts src/app/api/admin/metrics/route.ts .env.local.example
+git add src/lib/services/admin-metrics.ts src/lib/services/posthog-query.ts src/lib/services/sentry-query.ts src/lib/services/cron-status.ts tests/lib/services/admin-metrics.test.ts src/app/api/admin/metrics/route.ts .env.local.example
 git commit -m "feat(admin): /api/admin/metrics aggregator (PostHog + Sentry + cron health)
 
 Promise.allSettled so partial failures degrade gracefully (errors[]
@@ -3017,12 +3286,12 @@ field surfaces which source). Admin role required. See spec §2.6."
 // src/app/(app)/admin/metrics/page.tsx
 import { redirect } from 'next/navigation'
 import { collectAdminMetrics } from '@/lib/services/admin-metrics'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerSupabase } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'   // always fetch fresh
 
 export default async function AdminMetricsPage() {
-  const supabase = await createServerClient()
+  const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login?next=/admin/metrics')
 
@@ -3076,12 +3345,13 @@ export default async function AdminMetricsPage() {
       <section>
         <h2 className="mb-2 text-lg font-medium">Crons (últimos 20)</h2>
         <table className="w-full border text-sm">
-          <thead><tr><th className="border p-2 text-left">Cron</th><th className="border p-2 text-left">Última ejecución</th><th className="border p-2">Estado</th></tr></thead>
+          <thead><tr><th className="border p-2 text-left">Cron</th><th className="border p-2 text-left">Última ejecución</th><th className="border p-2">Duración</th><th className="border p-2">Estado</th></tr></thead>
           <tbody>
             {metrics.cron_health.map((c, i) => (
               <tr key={`${c.name}-${i}`}>
                 <td className="border p-2 font-mono">{c.name}</td>
                 <td className="border p-2">{new Date(c.last_run).toLocaleString('es-MX')}</td>
+                <td className="border p-2 text-right font-mono">{c.duration_ms != null ? `${c.duration_ms} ms` : '—'}</td>
                 <td className="border p-2 text-center">{c.ok ? '✅' : '❌'}</td>
               </tr>
             ))}
@@ -3096,7 +3366,7 @@ export default async function AdminMetricsPage() {
 - [ ] **Step 2: Manual smoke**
 
 ```bash
-pnpm dev &
+npm run dev &
 sleep 5
 # Sign in as admin user, then:
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/admin/metrics
@@ -3133,7 +3403,7 @@ Phase 1 ships exactly one E2E spec (login → dashboard → no console errors / 
 - [ ] **Step 1: Install Playwright**
 
 ```bash
-pnpm add -D @playwright/test
+npm i -D @playwright/test
 npx playwright install --with-deps chromium
 ```
 
@@ -3176,7 +3446,7 @@ export default defineConfig({
   ],
   webServer: process.env.CI
     ? undefined
-    : { command: 'pnpm dev', url: baseURL, reuseExistingServer: true, timeout: 60_000 },
+    : { command: 'npm run dev', url: baseURL, reuseExistingServer: true, timeout: 60_000 },
 })
 ```
 
@@ -3195,7 +3465,7 @@ EOF
 - [ ] **Step 5: Commit harness**
 
 ```bash
-git add package.json pnpm-lock.yaml playwright.config.ts .gitignore
+git add package.json package-lock.json playwright.config.ts .gitignore
 git commit -m "chore(test): install Playwright (chromium-only), add config + gitignore"
 ```
 
@@ -3275,7 +3545,7 @@ test.describe('Phase 1 smoke', () => {
 - [ ] **Step 3: Run locally**
 
 ```bash
-E2E_USER_EMAIL='e2e@investtracker.local' E2E_USER_PASSWORD='<seeded-password>' pnpm e2e
+E2E_USER_EMAIL='e2e@investtracker.local' E2E_USER_PASSWORD='<seeded-password>' npm run e2e --
 ```
 
 Expected: 2 PASS. If the test user doesn't exist yet, seed via Supabase Studio (one-off; document in `docs/runbooks/health-checks.md` Step 9.2 of this plan).
@@ -3315,23 +3585,29 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: 'pnpm' }
-      - run: pnpm install --frozen-lockfile
+        with: { node-version: 20, cache: 'npm' }
+      - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Wait for Vercel preview
-        # Use vercel/preview-url-action or rely on gh deployment status — concrete
-        # mechanism depends on existing deploy setup; skeleton:
+      - name: Resolve Vercel preview URL
+        # zentered/vercel-preview-url polls the GitHub Deployments API for the
+        # Vercel preview that matches this PR's head SHA and exports it as
+        # `steps.preview.outputs.preview_url`. Requires VERCEL_TOKEN secret
+        # (add in GitHub → Settings → Secrets; token from vercel.com/account/tokens).
+        # Timeout default is 6 min — long enough for a typical Next.js build.
         id: preview
-        run: echo "url=https://placeholder" >> $GITHUB_OUTPUT
+        uses: zentered/vercel-preview-url@v1.3.0
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        with:
+          vercel_team_id: ${{ secrets.VERCEL_TEAM_ID }}  # omit this line for personal accounts
+          vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID }}
       - name: Run smoke
         env:
-          PLAYWRIGHT_BASE_URL: ${{ steps.preview.outputs.url }}
+          PLAYWRIGHT_BASE_URL: https://${{ steps.preview.outputs.preview_url }}
           E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-        run: pnpm e2e tests/e2e/smoke.spec.ts
+        run: npm run e2e -- tests/e2e/smoke.spec.ts
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -3344,17 +3620,15 @@ jobs:
     if: github.event_name == 'schedule'
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: 'pnpm' }
-      - run: pnpm install --frozen-lockfile
+        with: { node-version: 20, cache: 'npm' }
+      - run: npm ci
       - run: npx playwright install --with-deps chromium
       - env:
           PLAYWRIGHT_BASE_URL: ${{ secrets.PRODUCTION_URL }}
           E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-        run: pnpm e2e
+        run: npm run e2e --
       - uses: actions/upload-artifact@v4
         if: failure()
         with: { name: playwright-report-nightly, path: playwright-report/ }
@@ -3376,11 +3650,19 @@ on:
     - cron: '0 6 * * *'    # nightly 06:00 UTC
 ```
 
-> **Preview URL discovery** depends on the project's existing Vercel integration. If the repo already has a preview-comment bot, parse `${{ github.event.pull_request.head.sha }}` from the bot's deployment URL. If not, use the official `vercel/preview-action` or the manual `vercel pull`/`vercel build`/`vercel deploy --prebuilt --yes` flow inside the job. Pick one before merging this workflow.
+> **Preview URL discovery** uses `zentered/vercel-preview-url@v1.3.0`, which polls GitHub's Deployments API for the Vercel preview whose commit SHA matches `pull_request.head.sha`. The action outputs `preview_url` (hostname only, no scheme — hence `https://` prefix in the env var). If the project doesn't yet have a Vercel↔GitHub integration that emits deployments, enable it via Vercel dashboard → Project → Git before merging this workflow, or swap to `amondnet/vercel-action@v25` and deploy inside the job.
 
 - [ ] **Step 3: Add the secrets in GitHub repo Settings → Secrets**
 
-(`E2E_USER_EMAIL`, `E2E_USER_PASSWORD`, `PRODUCTION_URL`. Document in `docs/runbooks/health-checks.md`.)
+Required for the workflow:
+
+- `E2E_USER_EMAIL`, `E2E_USER_PASSWORD` — seeded Supabase test account (see Task 9.2).
+- `PRODUCTION_URL` — full production URL including `https://` (e.g. `https://investtracker.app`).
+- `VERCEL_TOKEN` — personal or team token from https://vercel.com/account/tokens (scope: full access or read-only deployments).
+- `VERCEL_PROJECT_ID` — from `.vercel/project.json` after running `vercel link`, or Vercel dashboard → Project → Settings → General.
+- `VERCEL_TEAM_ID` — only if the Vercel project lives under a team; omit from the workflow `with:` block for personal accounts.
+
+Document these (names only, not values) in `docs/runbooks/health-checks.md` so future contributors know what to provision.
 
 - [ ] **Step 4: Commit workflow**
 
@@ -3442,7 +3724,7 @@ Hard alert: > 1,000 errors/h per project (spec §5.5). Triage in #alerts.
 
 ## Source maps
 
-Uploaded via `withSentryConfig` during `pnpm build`. CI step needs
+Uploaded via `withSentryConfig` during `npm run build`. CI step needs
 `SENTRY_AUTH_TOKEN` (from org Settings → Auth Tokens, scopes:
 project:write + project:releases). Token rotation: annual.
 
@@ -3619,7 +3901,7 @@ cat >> worker/ARCHITECTURE.md <<'EOF'
 
 Each cron is implemented as a pure `(supabase, fetcher) → Promise<{processed, skipped}>`
 function for testability; the production fetchers are `make…Fetcher(apiKey)` factories
-in the same file. See `worker/src/__tests__/` for fixtures.
+in the same file. See `worker/src/tests/` for fixtures.
 
 ### Realtime broadcast
 
@@ -3647,16 +3929,19 @@ git commit -m "docs(worker): architecture — Phase 1 crons + realtime + Sentry 
 
 **Files:** none (operational)
 
-- [ ] **Step 1: Deploy migration 008 + 008b to production Supabase**
+- [ ] **Step 1: Deploy migration 008 to production Supabase**
 
 Use Supabase dashboard → SQL editor → paste contents of:
 
 ```bash
 cat supabase/migrations/008_worker_expansion.sql
-cat supabase/migrations/008b_top_symbols_rpc.sql
 ```
 
-Apply each in order. Re-run the verification queries from Task 1.1 Step 4–6.
+The RPC `top_symbols_by_volume` ships inside the same file (folded in Chunk 1 Task 1.1). Re-run the verification queries from Task 1.1 Step 4–6, then:
+
+```bash
+supabase db query "SELECT * FROM top_symbols_by_volume(5);"  # sanity-check the RPC
+```
 
 - [ ] **Step 2: Push secrets to Worker production**
 
@@ -3705,7 +3990,7 @@ Tick each item:
 - [ ] news_items Phase 3 columns present and nullable — `\d news_items` in psql shows all 7 classifier columns
 - [ ] Realtime channel working for at least 1 test portfolio — open `/dashboard`, observe price flicker after Worker fires
 - [ ] `/admin/metrics` shows real data — sign in as admin, verify cache ratios + Sentry issues + cron health populate
-- [ ] Playwright smoke passes locally and in CI nightly — `pnpm e2e` green; check Actions tab for nightly green
+- [ ] Playwright smoke passes locally and in CI nightly — `npm run e2e --` green; check Actions tab for nightly green
 - [ ] `docs/runbooks/health-checks.md` published — file exists on `master`
 
 - [ ] **Step 6: Tag release**
