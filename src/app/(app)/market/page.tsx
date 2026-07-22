@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Search, TrendingUp, TrendingDown, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import Link from 'next/link'
+import { SectorBrowser } from '@/components/market/sector-browser'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -290,6 +291,12 @@ export default function MarketPage() {
                   </CardContent>
                 </Card>
               </div>
+            </section>
+
+            {/* ── Browse by Sector ── */}
+            <section>
+              <h2 className="text-lg font-semibold mb-3">Explora por sector</h2>
+              <SectorBrowser />
             </section>
 
           </>

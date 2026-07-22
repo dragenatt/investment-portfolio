@@ -1,4 +1,6 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
+import { getDailyBaselines } from './baselines'
+import { positionDailyChange } from './pnl'
 
 export async function getUserPortfolios(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
@@ -82,18 +84,16 @@ export async function enrichPositionsWithPnL(
     sparkMap[h.symbol].push(h.close)
   }
 
-  // Get yesterday's close for daily change
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().split('T')[0]
-
+  // Daily change is anchored to the global previous-close baseline (shared across
+  // users, refreshed once per day — see services/baselines.ts). Falls back to the
+  // 2nd-to-last sparkline close when a baseline isn't available.
+  const baselines = await getDailyBaselines(symbols)
   const prevCloseMap: Record<string, number> = {}
   for (const sym of symbols) {
     const closes = sparkMap[sym] ?? []
-    // Find the close for yesterday or the most recent before today
-    if (closes.length >= 2) {
-      prevCloseMap[sym] = closes[closes.length - 2]
-    }
+    const sparkPrev = closes.length >= 2 ? closes[closes.length - 2] : undefined
+    const pc = baselines[sym]?.previousClose ?? sparkPrev
+    if (pc != null) prevCloseMap[sym] = pc
   }
 
   const now = Date.now()
@@ -111,9 +111,7 @@ export async function enrichPositionsWithPnL(
     const pnlAbsolute = marketValue - costBasis
     const pnlPercent = costBasis > 0 ? (pnlAbsolute / costBasis) * 100 : 0
 
-    const prevClose = prevCloseMap[pos.symbol]
-    const dailyChange = prevClose ? (currentPrice - prevClose) * pos.quantity : 0
-    const dailyChangePct = prevClose && prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0
+    const daily = positionDailyChange(pos.quantity, currentPrice, prevCloseMap[pos.symbol])
 
     return {
       ...pos,
@@ -121,8 +119,8 @@ export async function enrichPositionsWithPnL(
       market_value: Math.round(marketValue * 100) / 100,
       pnl_absolute: Math.round(pnlAbsolute * 100) / 100,
       pnl_percent: Math.round(pnlPercent * 100) / 100,
-      daily_change: Math.round(dailyChange * 100) / 100,
-      daily_change_pct: Math.round(dailyChangePct * 100) / 100,
+      daily_change: Math.round(daily.change * 100) / 100,
+      daily_change_pct: Math.round(daily.changePct * 100) / 100,
       sparkline_7d: sparkMap[pos.symbol] ?? [],
       is_stale: isStale,
     }

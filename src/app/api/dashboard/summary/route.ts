@@ -2,6 +2,8 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { getBatchQuotes } from '@/lib/services/market'
+import { getDailyBaselines } from '@/lib/services/baselines'
+import { aggregateDailyChange } from '@/lib/services/pnl'
 
 export async function GET() {
   const supabase = await createServerSupabase()
@@ -41,11 +43,11 @@ export async function GET() {
       const liveQuotes = await getBatchQuotes(symbols)
 
       // Build price map: live price takes priority, then current_prices table, then avg_cost
-      const priceMap: Record<string, { price: number; changePct: number; currency: string }> = {}
+      const priceMap: Record<string, { price: number; changePct: number; currency: string; previousClose: number | null }> = {}
       for (const sym of symbols) {
         const live = liveQuotes[sym] || liveQuotes[sym.toUpperCase()]
         if (live?.price != null) {
-          priceMap[sym] = { price: live.price, changePct: live.changePct ?? 0, currency: live.currency || 'USD' }
+          priceMap[sym] = { price: live.price, changePct: live.changePct ?? 0, currency: live.currency || 'USD', previousClose: live.previousClose ?? null }
         }
       }
 
@@ -57,7 +59,7 @@ export async function GET() {
           .select('symbol, price')
           .in('symbol', missingSymbols)
         for (const p of dbPrices ?? []) {
-          priceMap[p.symbol] = { price: p.price, changePct: 0, currency: 'USD' }
+          priceMap[p.symbol] = { price: p.price, changePct: 0, currency: 'USD', previousClose: null }
         }
       }
 
@@ -110,8 +112,29 @@ export async function GET() {
         if (wSnap) weekAgoTotal += wSnap.total_value
       }
 
-      const dailyChange = yesterdayTotal > 0 ? totalValue - yesterdayTotal : 0
-      const dailyChangePct = yesterdayTotal > 0 ? (dailyChange / yesterdayTotal) * 100 : 0
+      // Daily P&L is anchored to each asset's previous close (global baseline,
+      // shared across users, refreshed once/day) so it reflects the real market
+      // move of the day regardless of when the user logs in. Falls back to the
+      // yesterday snapshot only if no baseline resolved for any holding.
+      const baselines = await getDailyBaselines(symbols)
+      const dailyItems = positions.map((pos) => ({
+        quantity: pos.quantity,
+        currentPrice: priceMap[pos.symbol]?.price ?? pos.avg_cost,
+        previousClose: baselines[pos.symbol]?.previousClose ?? priceMap[pos.symbol]?.previousClose ?? null,
+      }))
+      const hasBaseline = dailyItems.some((i) => i.previousClose != null && i.previousClose > 0)
+
+      let dailyChange: number
+      let dailyChangePct: number
+      if (hasBaseline) {
+        const agg = aggregateDailyChange(dailyItems)
+        dailyChange = agg.change
+        dailyChangePct = agg.changePct
+      } else {
+        dailyChange = yesterdayTotal > 0 ? totalValue - yesterdayTotal : 0
+        dailyChangePct = yesterdayTotal > 0 ? (dailyChange / yesterdayTotal) * 100 : 0
+      }
+
       const weeklyChange = weekAgoTotal > 0 ? totalValue - weekAgoTotal : 0
       const weeklyChangePct = weekAgoTotal > 0 ? (weeklyChange / weekAgoTotal) * 100 : 0
 

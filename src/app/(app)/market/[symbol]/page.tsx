@@ -7,12 +7,14 @@ import { useWatchlists } from '@/lib/hooks/use-watchlist'
 import { useTranslation } from '@/lib/i18n'
 import type { Dictionary } from '@/lib/i18n/types'
 import { PriceChart } from '@/components/market/price-chart'
+import { TechnicalSignalCard } from '@/components/market/technical-signal'
 import { CompanyInfo } from '@/components/market/company-info'
 import { EventsTimeline } from '@/components/market/events-timeline'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
 import { useFundamentals } from '@/lib/hooks/use-fundamentals'
+import { useSignal } from '@/lib/hooks/use-signal'
 import { useEvents } from '@/lib/hooks/use-events'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Plus, Eye, AlertCircle, ArrowUp, ArrowDown, TrendingUp, Briefcase, GitCompareArrows } from 'lucide-react'
@@ -42,6 +44,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
   const decodedSymbol = decodeURIComponent(symbol)
   const { data: quote, isLoading, error } = useQuote(decodedSymbol)
   const { data: fundamentals } = useFundamentals(decodedSymbol)
+  const { data: signal } = useSignal(decodedSymbol)
   const { data: events } = useEvents(decodedSymbol)
   const { data: portfolios } = usePortfolios()
   const { data: watchlists } = useWatchlists()
@@ -161,6 +164,15 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
       <ErrorBoundary>
         <PriceChart symbol={decodedSymbol} onPriceHover={setHoverPrice} />
       </ErrorBoundary>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          2b. TECHNICAL SIGNAL — Computed buy/hold/sell suggestion
+          ═══════════════════════════════════════════════════════════════ */}
+      {signal && (
+        <ErrorBoundary>
+          <TechnicalSignalCard signal={signal} />
+        </ErrorBoundary>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════
           3. POSITION CARD — Only if user owns this stock

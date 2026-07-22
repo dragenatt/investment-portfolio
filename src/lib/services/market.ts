@@ -347,18 +347,33 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
  * falls back to Finnhub individual calls, then parallel Yahoo calls.
  * All results are cached in Redis and in-memory.
  */
+export type BatchQuote = {
+  price: number | null
+  previousClose?: number | null
+  change: number | null
+  changePct: number | null
+  currency: string
+  name?: string
+}
+
 export async function getBatchQuotes(
-  symbols: string[]
-): Promise<Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string; name?: string }>> {
-  const results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string; name?: string }> = {}
+  symbols: string[],
+  opts: { fresh?: boolean } = {}
+): Promise<Record<string, BatchQuote>> {
+  // `fresh` bypasses the caches so previousClose comes straight from a provider.
+  // The price caches only hold the price, so serving from them would return a null
+  // previousClose and mask the daily baseline anchor (see services/baselines.ts).
+  const fresh = opts.fresh === true
+  const results: Record<string, BatchQuote> = {}
   const uncached: string[] = []
 
-  // 1. Serve from in-memory cache first
+  // 1. Serve from in-memory cache first (skipped when fresh data is required)
   for (const s of symbols) {
-    const cached = getCached(s)
+    const cached = fresh ? null : getCached(s)
     if (cached) {
       results[cached.symbol || s] = {
         price: cached.price,
+        previousClose: cached.previousClose,
         change: cached.change,
         changePct: cached.changePct,
         currency: cached.currency,
@@ -371,8 +386,8 @@ export async function getBatchQuotes(
 
   if (uncached.length === 0) return results
 
-  // 2. Check Redis cache for remaining symbols
-  const redisCachedPrices = await getCachedBatchPrices(uncached)
+  // 2. Check Redis cache for remaining symbols (skipped when fresh)
+  const redisCachedPrices = fresh ? {} : await getCachedBatchPrices(uncached)
   const stillMissing: string[] = []
   for (const s of uncached) {
     const redisPrice = redisCachedPrices[s]
@@ -389,6 +404,7 @@ export async function getBatchQuotes(
       setCache(s, entry)
       results[s.toUpperCase()] = {
         price: entry.price,
+        previousClose: entry.previousClose,
         change: entry.change,
         changePct: entry.changePct,
         currency: entry.currency,
@@ -440,6 +456,7 @@ export async function getBatchQuotes(
           if (entry.price != null) cacheBatchPrices({ [original]: entry.price }, 300)
           results[original] = {
             price: entry.price,
+            previousClose: entry.previousClose,
             change: entry.change,
             changePct: entry.changePct,
             currency: entry.currency,
@@ -479,7 +496,7 @@ export async function getBatchQuotes(
 /** Helper: fetch multiple symbols via Finnhub in parallel */
 async function fetchFinnhubBatch(
   symbols: string[],
-  results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string; name?: string }>
+  results: Record<string, BatchQuote>
 ) {
   await Promise.all(
     symbols.map(async (s) => {
@@ -501,6 +518,7 @@ async function fetchFinnhubBatch(
           if (entry.price != null) cachePrice(s, entry.price, 300)
           results[q.symbol || s] = {
             price: entry.price,
+            previousClose: entry.previousClose,
             change: entry.change,
             changePct: entry.changePct,
             currency: entry.currency,
@@ -515,7 +533,7 @@ async function fetchFinnhubBatch(
 /** Helper: fetch multiple symbols via Yahoo in parallel */
 async function fetchYahooBatch(
   symbols: string[],
-  results: Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string; name?: string }>
+  results: Record<string, BatchQuote>
 ) {
   await Promise.all(
     symbols.map(async (s) => {
@@ -528,6 +546,7 @@ async function fetchYahooBatch(
           if (q.price != null) cachePrice(s, q.price, 300)
           results[q.symbol || s] = {
             price: q.price,
+            previousClose: q.previousClose,
             change: q.change,
             changePct: q.changePct,
             currency: q.currency,
