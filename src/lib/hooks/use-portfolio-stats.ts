@@ -104,15 +104,19 @@ export function usePortfolioStats(
           allocationMap[pos.asset_type] = (allocationMap[pos.asset_type] || 0) + value
 
           if (liveData) {
-            const change = liveData.change ?? 0
             const changePct = liveData.changePct ?? 0
-            const changeInDisplay = convert(change, priceCurrency)
-            todayReturn += pos.quantity * changeInDisplay
+            // Daily change is derived from the percentage move applied to today's
+            // value (already in the display currency). This is more reliable than
+            // the provider's absolute `change`, which is frequently null even when
+            // the percentage is present — and matches how the portfolio detail
+            // page computes its "today return".
+            const dayChangeDisplay = value * (changePct / 100)
+            todayReturn += dayChangeDisplay
             movers.push({
               symbol: pos.symbol,
               name: liveData.name || pos.symbol,
               price: livePriceInDisplay,
-              change: changeInDisplay,
+              change: pos.quantity > 0 ? dayChangeDisplay / pos.quantity : 0,
               changePct,
               currency: displayCurrency,
             })

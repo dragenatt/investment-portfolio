@@ -12,6 +12,8 @@ import { useQuote } from '@/lib/hooks/use-market'
 import { useSWRConfig } from 'swr'
 import { toast } from 'sonner'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
+import { useCurrency } from '@/lib/hooks/use-currency'
+import { convertCurrency } from '@/lib/utils/currency'
 import { useTrade } from '@/lib/contexts/trade-context'
 import { SymbolAutocomplete } from '@/components/trade/symbol-autocomplete'
 import { Loader2, ArrowRightLeft, TrendingUp, TrendingDown } from 'lucide-react'
@@ -59,6 +61,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
   const { initialOptions } = useTrade()
   const { data: portfolios } = usePortfolios()
   const { mutate } = useSWRConfig()
+  const { currency: displayCurrency, rates } = useCurrency()
 
   // Form state
   const [selectedSymbol, setSelectedSymbol] = useState<SelectedSymbol | null>(null)
@@ -70,7 +73,12 @@ function TradeForm({ onClose }: { onClose: () => void }) {
   const [quantity, setQuantity] = useState('')
   const [amount, setAmount] = useState('')
   const [fees, setFees] = useState('0')
-  const [currency, setCurrency] = useState('USD')
+  // Transaction currency defaults to the user's display currency (e.g. MXN) so the
+  // amounts they type are in the currency they think in.
+  const [currency, setCurrency] = useState(displayCurrency)
+  // Native currency the market quote is priced in (e.g. USD for a US stock). Used to
+  // convert the auto-filled market price into the transaction currency.
+  const [quoteCurrency, setQuoteCurrency] = useState('USD')
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0])
   const [loading, setLoading] = useState(false)
 
@@ -100,14 +108,44 @@ function TradeForm({ onClose }: { onClose: () => void }) {
     }
   }, [portfolios, portfolioId])
 
-  // Auto-fill price when quote loads
+  // Auto-fill price when quote loads. The market price comes in the asset's native
+  // currency (e.g. USD); convert it into the selected transaction currency so the
+  // "Amount" and "Price" fields are always in the same currency.
   useEffect(() => {
     if (quote?.price != null && selectedSymbol) {
-      const marketPrice = String(quote.price)
-      setPrice(marketPrice)
-      if (quote.currency) setCurrency(quote.currency)
+      const native = quote.currency || 'USD'
+      setQuoteCurrency(native)
+      const priceInTxnCurrency = convertCurrency(quote.price, native, currency, rates)
+      const rounded = priceInTxnCurrency.toFixed(priceInTxnCurrency >= 1 ? 2 : 6)
+      setPrice(rounded)
+      const p = parseFloat(rounded)
+      if (p > 0) {
+        if (lastEdited.current === 'amount') {
+          const amt = parseFloat(amount)
+          if (amt > 0) setQuantity((amt / p).toFixed(6))
+        } else {
+          const qty = parseFloat(quantity)
+          if (qty > 0) setAmount((qty * p).toFixed(2))
+        }
+      }
     }
+    // `currency`/`rates` are intentionally omitted: switching currency is handled by
+    // handleCurrencyChange, which reconverts price + amount, so reacting here too
+    // would double-apply the exchange rate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quote?.price, quote?.currency, selectedSymbol])
+
+  // Switching the transaction currency reprices the already-entered values into the
+  // new currency (keeping the same number of shares), so "5000 MXN" stays 5000 pesos
+  // instead of being reinterpreted as 5000 of the new currency.
+  function handleCurrencyChange(next: string | null) {
+    if (!next || next === currency) return
+    const p = parseFloat(price)
+    if (p > 0) setPrice(convertCurrency(p, currency, next, rates).toFixed(p >= 1 ? 2 : 6))
+    const amt = parseFloat(amount)
+    if (amt > 0) setAmount(convertCurrency(amt, currency, next, rates).toFixed(2))
+    setCurrency(next)
+  }
 
   // -- Linked field calculations (copied from transaction-modal.tsx lines 56-97) --
 
@@ -172,7 +210,8 @@ function TradeForm({ onClose }: { onClose: () => void }) {
     setQuantity('')
     setAmount('')
     setFees('0')
-    setCurrency('USD')
+    setCurrency(displayCurrency)
+    setQuoteCurrency('USD')
     setDate(new Date().toISOString().split('T')[0])
     lastEdited.current = 'amount'
   }
@@ -358,9 +397,14 @@ function TradeForm({ onClose }: { onClose: () => void }) {
             <span className="text-xs text-muted-foreground">
               Mercado:{' '}
               <span className="font-mono font-medium text-foreground">
-                ${quote.price.toFixed(2)}
+                {convertCurrency(quote.price, quoteCurrency, currency, rates).toFixed(2)}
               </span>{' '}
-              {quote.currency || currency}
+              {currency}
+              {quoteCurrency !== currency && (
+                <span className="ml-1 opacity-70">
+                  ({quote.price.toFixed(2)} {quoteCurrency})
+                </span>
+              )}
             </span>
           )}
         </div>
@@ -423,7 +467,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
         </div>
         <div className="space-y-2">
           <Label>{t.trade.currency}</Label>
-          <Select value={currency} onValueChange={v => v && setCurrency(v)}>
+          <Select value={currency} onValueChange={handleCurrencyChange}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
