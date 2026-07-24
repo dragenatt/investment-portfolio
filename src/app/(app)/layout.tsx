@@ -16,9 +16,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const locale = await getLocaleFromCookies()
   const dictionary = await getDictionary(locale)
 
+  // Seed the display currency from the user's saved preference so the whole app
+  // renders in their base currency on first paint (no flash of the default).
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('base_currency')
+    .eq('user_id', user.id)
+    .single()
+  const baseCurrency = profile?.base_currency ?? 'MXN'
+
   return (
     <SWRConfigProvider>
-      <CurrencyProvider>
+      <CurrencyProvider initialCurrency={baseCurrency}>
         <I18nProvider locale={locale} dictionary={dictionary}>
           <AppShell>
             {children}

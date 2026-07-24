@@ -93,14 +93,34 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
   if (isLoading) return <SkeletonCard />
 
   if (error) {
+    const notFound = /not found|no encontrad|404/i.test(error.message)
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-2xl">
-        <AlertCircle className="h-10 w-10 text-destructive" />
-        <p className="text-lg font-medium">No se pudo cargar {decodedSymbol}</p>
-        <p className="text-sm text-muted-foreground">{error.message}</p>
-        <Button className="rounded-xl" variant="outline" onClick={() => mutate(`/api/market/${encodeURIComponent(decodedSymbol)}`)}>
-          {t.common.retry}
-        </Button>
+      <div className="flex flex-col items-center justify-center py-20 gap-3 rounded-2xl text-center px-6">
+        <AlertCircle className={`h-10 w-10 ${notFound ? 'text-muted-foreground' : 'text-destructive'}`} />
+        <p className="text-lg font-medium">
+          {notFound ? `No encontramos datos para "${decodedSymbol}"` : `No se pudo cargar ${decodedSymbol}`}
+        </p>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          {notFound
+            ? 'Ese símbolo no está disponible en nuestros proveedores de datos. Revisa que esté bien escrito (usa el ticker oficial, p. ej. AAPL, TSLA o FEMSAUBD.MX) o busca el activo por su nombre.'
+            : error.message}
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
+          <Button
+            className="rounded-xl"
+            variant="outline"
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+          >
+            Buscar otro símbolo
+          </Button>
+          <Button
+            className="rounded-xl"
+            variant={notFound ? 'ghost' : 'outline'}
+            onClick={() => mutate(`/api/market/${encodeURIComponent(decodedSymbol)}`)}
+          >
+            {t.common.retry}
+          </Button>
+        </div>
       </div>
     )
   }

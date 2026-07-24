@@ -7,6 +7,8 @@ import { LogOut, Search, Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { useCurrency } from '@/lib/hooks/use-currency'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface TopbarProps {
   onMenuClick?: () => void
@@ -15,6 +17,7 @@ interface TopbarProps {
 export function Topbar({ onMenuClick }: TopbarProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { currency, setCurrency } = useCurrency()
   const [initials, setInitials] = useState('U')
 
   useEffect(() => {
@@ -63,6 +66,17 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
       {/* Right: actions */}
       <div className="flex items-center gap-1.5">
+        <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
+          <SelectTrigger className="w-[74px] h-8 rounded-full border-border text-xs font-medium" aria-label="Moneda de visualización">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="MXN">MXN</SelectItem>
+            <SelectItem value="USD">USD</SelectItem>
+            <SelectItem value="EUR">EUR</SelectItem>
+          </SelectContent>
+        </Select>
+
         <ThemeToggle />
 
         <DropdownMenu>

@@ -36,6 +36,16 @@ export default function DashboardPage() {
   const { data: livePrices } = useLivePrices(allSymbols)
   const stats = usePortfolioStats(portfolios, livePrices)
 
+  // Keep the last known daily return so a momentary empty live-price refresh
+  // doesn't make the "Hoy" figure vanish and then reappear. This is the React
+  // "adjust state during render" pattern — no effect needed.
+  const [stickyToday, setStickyToday] = useState<{ value?: number; pct?: number }>({})
+  if (stats.todayReturn != null && stats.todayReturn !== stickyToday.value) {
+    setStickyToday({ value: stats.todayReturn, pct: stats.todayReturnPct })
+  }
+  const todayReturn = stats.todayReturn ?? stickyToday.value
+  const todayReturnPct = stats.todayReturnPct ?? stickyToday.pct
+
   const hasPortfolio = (portfolios?.length ?? 0) > 0
   const hasPosition = allSymbols.length > 0
 
@@ -74,8 +84,8 @@ export default function DashboardPage() {
           totalReturnPct={stats.totalReturnPct}
           positionCount={stats.positionCount}
           bestPosition={stats.bestPosition}
-          todayReturn={stats.todayReturn}
-          todayReturnPct={stats.todayReturnPct}
+          todayReturn={todayReturn}
+          todayReturnPct={todayReturnPct}
           totalCost={stats.totalCost}
         />
       </ErrorBoundary>
