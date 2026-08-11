@@ -1,0 +1,25 @@
+id,rango_edad,segmento,experiencia_inversion,perfil_riesgo_asesor,cartera_sugerida,dispositivo_principal,herramienta_previa,dias_de_prueba,capital_inicial_mxn
+R01,18-24,Estudiante universitario,Principiante,Conservador,CETES 40 / Bonos 30 / ETF S&P500 20 / FIBRAS 10,Móvil,Ninguna,7,18000
+R02,25-34,Profesional de TI,Intermedio,Agresivo,ETF S&P500 40 / ETF Nasdaq 25 / ETF Emergentes 20 / FIBRAS 10 / Oro 5,Ambos,App del bróker,7,145000
+R03,25-34,Docente,Principiante,Moderado,CETES 20 / Bonos 20 / ETF S&P500 35 / ETF Nasdaq 15 / FIBRAS 10,Móvil,Hoja de cálculo,7,52000
+R04,35-44,Contador,Avanzado,Moderado,CETES 20 / Bonos 20 / ETF S&P500 35 / ETF Nasdaq 15 / FIBRAS 10,Escritorio,Hoja de cálculo,7,210000
+R05,25-34,Diseñadora,Principiante,Conservador,CETES 40 / Bonos 30 / ETF S&P500 20 / FIBRAS 10,Móvil,Ninguna,7,35000
+R06,45-59,Empresario,Intermedio,Moderado,CETES 20 / Bonos 20 / ETF S&P500 35 / ETF Nasdaq 15 / FIBRAS 10,Escritorio,Asesor financiero,7,380000
+R07,18-24,Estudiante universitario,Principiante,Agresivo,ETF S&P500 40 / ETF Nasdaq 25 / ETF Emergentes 20 / FIBRAS 10 / Oro 5,Móvil,Ninguna,7,15000
+R08,25-34,Ingeniero,Avanzado,Agresivo,ETF S&P500 40 / ETF Nasdaq 25 / ETF Emergentes 20 / FIBRAS 10 / Oro 5,Ambos,App del bróker,7,168000
+R09,35-44,Médica,Intermedio,Conservador,CETES 40 / Bonos 30 / ETF S&P500 20 / FIBRAS 10,Móvil,Fondo de inversión,7,240000
+R10,25-34,Analista de datos,Avanzado,Moderado,CETES 20 / Bonos 20 / ETF S&P500 35 / ETF Nasdaq 15 / FIBRAS 10,Escritorio,Hoja de cálculo,7,125000
+R11,45-59,Servidor público,Principiante,Conservador,CETES 40 / Bonos 30 / ETF S&P500 20 / FIBRAS 10,Móvil,Ninguna,7,96000
+R12,25-34,Emprendedora,Intermedio,Agresivo,ETF S&P500 40 / ETF Nasdaq 25 / ETF Emergentes 20 / FIBRAS 10 / Oro 5,Ambos,App del bróker,7,88000
+R13,35-44,Abogado,Principiante,Moderado,CETES 20 / Bonos 20 / ETF S&P500 35 / ETF Nasdaq 15 / FIBRAS 10,Escritorio,Ninguna,7,150000
+R14,18-24,Estudiante de posgrado,Intermedio,Agresivo,ETF S&P500 40 / ETF Nasdaq 25 / ETF Emergentes 20 / FIBRAS 10 / Oro 5,Móvil,App del bróker,7,28000
+R15,25-34,Enfermera,Principiante,Conservador,CETES 40 / Bonos 30 / ETF S&P500 20 / FIBRAS 10,Móvil,Ninguna,7,42000
+R16,35-44,Gerente de ventas,Intermedio,Moderado,CETES 20 / Bonos 20 / ETF S&P500 35 / ETF Nasdaq 15 / FIBRAS 10,Ambos,Hoja de cálculo,7,195000
+R17,45-59,Jubilado,Principiante,Conservador,CETES 40 / Bonos 30 / ETF S&P500 20 / FIBRAS 10,Escritorio,Fondo de inversión,7,320000
+R18,25-34,Científico de datos,Avanzado,Agresivo,ETF S&P500 40 / ETF Nasdaq 25 / ETF Emergentes 20 / FIBRAS 10 / Oro 5,Escritorio,Hoja de cálculo,7,260000
+R19,35-44,Arquitecta,Intermedio,Moderado,CETES 20 / Bonos 20 / ETF S&P500 35 / ETF Nasdaq 15 / FIBRAS 10,Móvil,App del bróker,7,115000
+R20,25-34,Community manager,Principiante,Moderado,CETES 20 / Bonos 20 / ETF S&P500 35 / ETF Nasdaq 15 / FIBRAS 10,Móvil,Ninguna,7,30000
+R21,45-59,Consultor,Avanzado,Moderado,CETES 20 / Bonos 20 / ETF S&P500 35 / ETF Nasdaq 15 / FIBRAS 10,Escritorio,Asesor financiero,7,410000
+R22,18-24,Estudiante universitario,Principiante,Agresivo,ETF S&P500 40 / ETF Nasdaq 25 / ETF Emergentes 20 / FIBRAS 10 / Oro 5,Móvil,Ninguna,7,12000
+R23,35-44,Farmacéutica,Intermedio,Conservador,CETES 40 / Bonos 30 / ETF S&P500 20 / FIBRAS 10,Ambos,Hoja de cálculo,7,175000
+R24,25-34,Ingeniero civil,Intermedio,Agresivo,ETF S&P500 40 / ETF Nasdaq 25 / ETF Emergentes 20 / FIBRAS 10 / Oro 5,Ambos,App del bróker,7,78000

@@ -1,0 +1,594 @@
+{
+  "meta": {
+    "origen": "DATOS SIMULADOS (sintéticos) — no provienen de personas reales",
+    "generado": "2026-08-11",
+    "participantes": 24,
+    "semana_observada": "2026-08-03 a 2026-08-09",
+    "observaciones_bitacora": 168
+  },
+  "tablero": [
+    {
+      "kpi": "SUS (usabilidad)",
+      "meta": "≥ 75",
+      "resultado": "82.3/100",
+      "estado": "🟢"
+    },
+    {
+      "kpi": "NPS",
+      "meta": "≥ +30",
+      "resultado": "+33.3",
+      "estado": "🟢"
+    },
+    {
+      "kpi": "CSAT top-2 (4-5)",
+      "meta": "≥ 80%",
+      "resultado": "87.5%",
+      "estado": "🟢"
+    },
+    {
+      "kpi": "CES (facilidad 1-7)",
+      "meta": "≥ 5.5",
+      "resultado": "5.38/7",
+      "estado": "🟡"
+    },
+    {
+      "kpi": "Tasa de éxito en tareas",
+      "meta": "≥ 90%",
+      "resultado": "92.5%",
+      "estado": "🟢"
+    },
+    {
+      "kpi": "Tiempo al primer valor (TTFV)",
+      "meta": "≤ 5 min",
+      "resultado": "3.02 min",
+      "estado": "🟢"
+    },
+    {
+      "kpi": "Adherencia al registro semanal",
+      "meta": "≥ 70%",
+      "resultado": "79.2%",
+      "estado": "🟢"
+    },
+    {
+      "kpi": "Retención semanal (≥5 de 7 días)",
+      "meta": "≥ 75%",
+      "resultado": "79.2%",
+      "estado": "🟢"
+    },
+    {
+      "kpi": "Intención de continuar (top-2)",
+      "meta": "≥ 75%",
+      "resultado": "79.2%",
+      "estado": "🟢"
+    },
+    {
+      "kpi": "Acción sobre alertas",
+      "meta": "≥ 50%",
+      "resultado": "69.6%",
+      "estado": "🟢"
+    },
+    {
+      "kpi": "Confianza en las cifras",
+      "meta": "≥ 4.0/5",
+      "resultado": "3.92/5",
+      "estado": "🟡"
+    },
+    {
+      "kpi": "Disposición a pagar",
+      "meta": "≥ 50%",
+      "resultado": "66.7%",
+      "estado": "🟢"
+    }
+  ],
+  "usabilidad_sus": {
+    "media": 82.3,
+    "mediana": 82.5,
+    "desvest": 9.7,
+    "ic95": [
+      78.19,
+      86.4
+    ],
+    "min": 57.5,
+    "max": 97.5,
+    "grado": "B (bueno)",
+    "pct_sobre_68": 95.8,
+    "por_experiencia": {
+      "Principiante": {
+        "n": 10,
+        "media": 78
+      },
+      "Intermedio": {
+        "n": 9,
+        "media": 85.8
+      },
+      "Avanzado": {
+        "n": 5,
+        "media": 84.5
+      }
+    },
+    "por_dispositivo": {
+      "Móvil": {
+        "n": 11,
+        "media": 80.2
+      },
+      "Ambos": {
+        "n": 6,
+        "media": 82.5
+      },
+      "Escritorio": {
+        "n": 7,
+        "media": 85.4
+      }
+    }
+  },
+  "satisfaccion": {
+    "nps": 33.3,
+    "promotores": 12,
+    "pasivos": 8,
+    "detractores": 4,
+    "pct_promotores": 50,
+    "pct_detractores": 16.7,
+    "nps_media_nota": 8,
+    "csat_media": 4.17,
+    "csat_top2_pct": 87.5,
+    "ces_media": 5.38,
+    "intencion_continuar_media": 4.08,
+    "intencion_top2_pct": 79.2,
+    "confianza_cifras_media": 3.92,
+    "claridad_visual_media": 4.42,
+    "velocidad_percibida_media": 4.13,
+    "disposicion_pago": {
+      "pct_dispuesto": 66.7,
+      "arpu_potencial_mxn": 38.9,
+      "ticket_medio_entre_dispuestos_mxn": 58.4
+    }
+  },
+  "adopcion_modulos": [
+    {
+      "clave": "dashboard",
+      "modulo": "Dashboard",
+      "adopcion_pct": 100,
+      "usuarios": 24,
+      "utilidad_media": 4.38,
+      "utilidad_top2_pct": 91.7,
+      "frecuencia_semanal_media": 5.8
+    },
+    {
+      "clave": "portafolios",
+      "modulo": "Portafolios y transacciones",
+      "adopcion_pct": 100,
+      "usuarios": 24,
+      "utilidad_media": 4.42,
+      "utilidad_top2_pct": 100,
+      "frecuencia_semanal_media": 5.9
+    },
+    {
+      "clave": "mercados",
+      "modulo": "Mercados",
+      "adopcion_pct": 83.3,
+      "usuarios": 20,
+      "utilidad_media": 4.35,
+      "utilidad_top2_pct": 95,
+      "frecuencia_semanal_media": 6.2
+    },
+    {
+      "clave": "analytics",
+      "modulo": "Analytics (riesgo y retornos)",
+      "adopcion_pct": 79.2,
+      "usuarios": 19,
+      "utilidad_media": 3.84,
+      "utilidad_top2_pct": 73.7,
+      "frecuencia_semanal_media": 4.8
+    },
+    {
+      "clave": "asesor",
+      "modulo": "Asesor (perfil + simulación)",
+      "adopcion_pct": 66.7,
+      "usuarios": 16,
+      "utilidad_media": 4.38,
+      "utilidad_top2_pct": 93.8,
+      "frecuencia_semanal_media": 5.9
+    },
+    {
+      "clave": "discover",
+      "modulo": "Discover / Social",
+      "adopcion_pct": 62.5,
+      "usuarios": 15,
+      "utilidad_media": 3.6,
+      "utilidad_top2_pct": 60,
+      "frecuencia_semanal_media": 4.8
+    },
+    {
+      "clave": "watchlist",
+      "modulo": "Watchlist",
+      "adopcion_pct": 58.3,
+      "usuarios": 14,
+      "utilidad_media": 4.21,
+      "utilidad_top2_pct": 92.9,
+      "frecuencia_semanal_media": 5.9
+    },
+    {
+      "clave": "alertas",
+      "modulo": "Alertas",
+      "adopcion_pct": 50,
+      "usuarios": 12,
+      "utilidad_media": 3.75,
+      "utilidad_top2_pct": 66.7,
+      "frecuencia_semanal_media": 5.3
+    }
+  ],
+  "eficiencia": {
+    "tasa_exito_global_pct": 92.5,
+    "intentos": 120,
+    "exitos": 111,
+    "errores_por_participante": 1.71,
+    "pct_sin_errores": 16.7,
+    "pidio_ayuda_pct": 12.5,
+    "ttfv_medio_seg": 181.4,
+    "ttfv_mediana_seg": 177.5,
+    "ttfv_medio_min": 3.02,
+    "ttfv_p90_seg": 240.2,
+    "por_tarea": [
+      {
+        "tarea": "T1",
+        "descripcion": "Crear un portafolio",
+        "tasa_exito_pct": 91.7,
+        "tiempo_medio_seg": 70.6,
+        "tiempo_mediana_seg": 70.5,
+        "p90_seg": 96.6,
+        "errores_medios": 0.42,
+        "pidio_ayuda_pct": 12.5
+      },
+      {
+        "tarea": "T2",
+        "descripcion": "Registrar una compra",
+        "tasa_exito_pct": 95.8,
+        "tiempo_medio_seg": 100.7,
+        "tiempo_mediana_seg": 110,
+        "p90_seg": 134.8,
+        "errores_medios": 0.46,
+        "pidio_ayuda_pct": 8.3
+      },
+      {
+        "tarea": "T3",
+        "descripcion": "Interpretar P&L y riesgo en Analytics",
+        "tasa_exito_pct": 91.7,
+        "tiempo_medio_seg": 161.9,
+        "tiempo_mediana_seg": 155,
+        "p90_seg": 247.4,
+        "errores_medios": 0.29,
+        "pidio_ayuda_pct": 12.5
+      },
+      {
+        "tarea": "T4",
+        "descripcion": "Crear una alerta de precio",
+        "tasa_exito_pct": 87.5,
+        "tiempo_medio_seg": 96.8,
+        "tiempo_mediana_seg": 96,
+        "p90_seg": 135,
+        "errores_medios": 0.29,
+        "pidio_ayuda_pct": 16.7
+      },
+      {
+        "tarea": "T5",
+        "descripcion": "Completar perfil del Asesor y leer la simulación",
+        "tasa_exito_pct": 95.8,
+        "tiempo_medio_seg": 189.8,
+        "tiempo_mediana_seg": 175,
+        "p90_seg": 317.6,
+        "errores_medios": 0.25,
+        "pidio_ayuda_pct": 12.5
+      }
+    ]
+  },
+  "engagement": {
+    "adherencia_registro_pct": 79.2,
+    "dias_registrados_medios": 5.54,
+    "usuarios_7_de_7": 6,
+    "usuarios_5_o_mas": 19,
+    "retencion_semana_pct": 79.2,
+    "dau_medio": 19,
+    "dau_wau_stickiness_pct": 79.2,
+    "activos_dia_1": 24,
+    "activos_dia_7": 6,
+    "caida_d1_d7_pct": -75,
+    "sesiones_por_usuario_semana": 13.46,
+    "minutos_por_usuario_semana": 51.7,
+    "minutos_por_sesion": 3.84,
+    "operaciones_totales": 86,
+    "operaciones_por_usuario": 3.58,
+    "aportaciones_totales_mxn": 110500,
+    "usuarios_que_aportaron": 13,
+    "tasa_aportacion_pct": 54.2,
+    "alertas_recibidas": 56,
+    "alertas_accionadas": 39,
+    "tasa_accion_alertas_pct": 69.6,
+    "actividad_habil_vs_fin_semana": {
+      "dau_dias_habiles": 22.6,
+      "dau_fin_de_semana": 10
+    },
+    "por_dia": [
+      {
+        "dia": 1,
+        "fecha": "2026-08-03",
+        "dia_semana": "Lunes",
+        "mercado": "Abierto",
+        "usuarios_activos": 24,
+        "dau_pct": 100,
+        "sesiones": 59,
+        "minutos": 223.3,
+        "minutos_por_activo": 9.3,
+        "operaciones": 22,
+        "aportaciones_mxn": 33900
+      },
+      {
+        "dia": 2,
+        "fecha": "2026-08-04",
+        "dia_semana": "Martes",
+        "mercado": "Abierto",
+        "usuarios_activos": 24,
+        "dau_pct": 100,
+        "sesiones": 56,
+        "minutos": 215.7,
+        "minutos_por_activo": 9,
+        "operaciones": 15,
+        "aportaciones_mxn": 0
+      },
+      {
+        "dia": 3,
+        "fecha": "2026-08-05",
+        "dia_semana": "Miércoles",
+        "mercado": "Abierto",
+        "usuarios_activos": 22,
+        "dau_pct": 91.7,
+        "sesiones": 52,
+        "minutos": 216.4,
+        "minutos_por_activo": 9.8,
+        "operaciones": 11,
+        "aportaciones_mxn": 0
+      },
+      {
+        "dia": 4,
+        "fecha": "2026-08-06",
+        "dia_semana": "Jueves",
+        "mercado": "Abierto",
+        "usuarios_activos": 21,
+        "dau_pct": 87.5,
+        "sesiones": 56,
+        "minutos": 199.7,
+        "minutos_por_activo": 9.5,
+        "operaciones": 13,
+        "aportaciones_mxn": 0
+      },
+      {
+        "dia": 5,
+        "fecha": "2026-08-07",
+        "dia_semana": "Viernes",
+        "mercado": "Abierto",
+        "usuarios_activos": 22,
+        "dau_pct": 91.7,
+        "sesiones": 59,
+        "minutos": 220.3,
+        "minutos_por_activo": 10,
+        "operaciones": 20,
+        "aportaciones_mxn": 71800
+      },
+      {
+        "dia": 6,
+        "fecha": "2026-08-08",
+        "dia_semana": "Sábado",
+        "mercado": "Cerrado",
+        "usuarios_activos": 14,
+        "dau_pct": 58.3,
+        "sesiones": 29,
+        "minutos": 97.8,
+        "minutos_por_activo": 7,
+        "operaciones": 3,
+        "aportaciones_mxn": 0
+      },
+      {
+        "dia": 7,
+        "fecha": "2026-08-09",
+        "dia_semana": "Domingo",
+        "mercado": "Cerrado",
+        "usuarios_activos": 6,
+        "dau_pct": 25,
+        "sesiones": 12,
+        "minutos": 67.5,
+        "minutos_por_activo": 11.3,
+        "operaciones": 2,
+        "aportaciones_mxn": 4800
+      }
+    ]
+  },
+  "portafolio_simulado": {
+    "capital_inicial_total_mxn": 3387000,
+    "capital_inicial_medio_mxn": 141125,
+    "aportaciones_total_mxn": 110500,
+    "valor_final_total_mxn": 3504812,
+    "pnl_total_mxn": 7312,
+    "rendimiento_twr_medio_pct": 0.263,
+    "rendimiento_twr_mediana_pct": 0.343,
+    "rendimiento_ic95": [
+      -0.11,
+      0.64
+    ],
+    "mejor_pct": 2.106,
+    "peor_pct": -2.728,
+    "pct_en_positivo": 75,
+    "volatilidad_anualizada_media_pct": 8.42,
+    "max_drawdown_medio_pct": -0.864,
+    "max_drawdown_peor_pct": -2.789,
+    "por_perfil": [
+      {
+        "perfil": "Agresivo",
+        "n": 8,
+        "rendimiento_medio_pct": -0.003,
+        "volatilidad_anualizada_pct": 13.62,
+        "max_drawdown_medio_pct": -1.623,
+        "sharpe_medio": 0.49,
+        "capital_medio_mxn": 99250,
+        "operaciones_medias": 3
+      },
+      {
+        "perfil": "Conservador",
+        "n": 7,
+        "rendimiento_medio_pct": 0.117,
+        "volatilidad_anualizada_pct": 3.76,
+        "max_drawdown_medio_pct": -0.337,
+        "sharpe_medio": 2.46,
+        "capital_medio_mxn": 132286,
+        "operaciones_medias": 3.57
+      },
+      {
+        "perfil": "Moderado",
+        "n": 9,
+        "rendimiento_medio_pct": 0.612,
+        "volatilidad_anualizada_pct": 7.43,
+        "max_drawdown_medio_pct": -0.599,
+        "sharpe_medio": 4.52,
+        "capital_medio_mxn": 185222,
+        "operaciones_medias": 4.11
+      }
+    ],
+    "mercado_por_dia": [
+      {
+        "dia": 1,
+        "fecha": "2026-08-03",
+        "dia_semana": "Lunes",
+        "mercado": "Abierto",
+        "retorno_medio_pct": 0.355,
+        "pnl_agregado_mxn": 14449,
+        "pct_usuarios_en_verde": 87.5
+      },
+      {
+        "dia": 2,
+        "fecha": "2026-08-04",
+        "dia_semana": "Martes",
+        "mercado": "Abierto",
+        "retorno_medio_pct": -0.551,
+        "pnl_agregado_mxn": -17656,
+        "pct_usuarios_en_verde": 4.2
+      },
+      {
+        "dia": 3,
+        "fecha": "2026-08-05",
+        "dia_semana": "Miércoles",
+        "mercado": "Abierto",
+        "retorno_medio_pct": 0.185,
+        "pnl_agregado_mxn": 4511,
+        "pct_usuarios_en_verde": 75
+      },
+      {
+        "dia": 4,
+        "fecha": "2026-08-06",
+        "dia_semana": "Jueves",
+        "mercado": "Abierto",
+        "retorno_medio_pct": -0.177,
+        "pnl_agregado_mxn": -8408,
+        "pct_usuarios_en_verde": 33.3
+      },
+      {
+        "dia": 5,
+        "fecha": "2026-08-07",
+        "dia_semana": "Viernes",
+        "mercado": "Abierto",
+        "retorno_medio_pct": 0.454,
+        "pnl_agregado_mxn": 14410,
+        "pct_usuarios_en_verde": 87.5
+      },
+      {
+        "dia": 6,
+        "fecha": "2026-08-08",
+        "dia_semana": "Sábado",
+        "mercado": "Cerrado",
+        "retorno_medio_pct": 0,
+        "pnl_agregado_mxn": 0,
+        "pct_usuarios_en_verde": 0
+      },
+      {
+        "dia": 7,
+        "fecha": "2026-08-09",
+        "dia_semana": "Domingo",
+        "mercado": "Cerrado",
+        "retorno_medio_pct": 0,
+        "pnl_agregado_mxn": 0,
+        "pct_usuarios_en_verde": 0
+      }
+    ]
+  },
+  "temas_de_mejora": [
+    {
+      "tema": "educacion_metricas",
+      "menciones": 3,
+      "pct": 12.5,
+      "ids": "R01 R13 R17"
+    },
+    {
+      "tema": "ux_movil",
+      "menciones": 3,
+      "pct": 12.5,
+      "ids": "R03 R11 R19"
+    },
+    {
+      "tema": "alertas_push",
+      "menciones": 2,
+      "pct": 8.3,
+      "ids": "R02 R16"
+    },
+    {
+      "tema": "densidad_analytics",
+      "menciones": 2,
+      "pct": 8.3,
+      "ids": "R06 R18"
+    },
+    {
+      "tema": "dividendos_impuestos",
+      "menciones": 2,
+      "pct": 8.3,
+      "ids": "R04 R21"
+    },
+    {
+      "tema": "importacion_csv",
+      "menciones": 2,
+      "pct": 8.3,
+      "ids": "R12 R22"
+    },
+    {
+      "tema": "multidivisa",
+      "menciones": 2,
+      "pct": 8.3,
+      "ids": "R09 R23"
+    },
+    {
+      "tema": "onboarding",
+      "menciones": 2,
+      "pct": 8.3,
+      "ids": "R05 R15"
+    },
+    {
+      "tema": "privacidad_social",
+      "menciones": 2,
+      "pct": 8.3,
+      "ids": "R07 R20"
+    },
+    {
+      "tema": "rendimiento_carga",
+      "menciones": 2,
+      "pct": 8.3,
+      "ids": "R14 R24"
+    },
+    {
+      "tema": "exportacion",
+      "menciones": 1,
+      "pct": 4.2,
+      "ids": "R10"
+    },
+    {
+      "tema": "frescura_precios",
+      "menciones": 1,
+      "pct": 4.2,
+      "ids": "R08"
+    }
+  ]
+}

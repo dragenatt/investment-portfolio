@@ -1,0 +1,121 @@
+id,tarea,descripcion,exito,segundos,errores,pidio_ayuda
+R01,T1,Crear un portafolio,1,60,0,No
+R01,T2,Registrar una compra,1,45,0,No
+R01,T3,Interpretar P&L y riesgo en Analytics,1,207,0,No
+R01,T4,Crear una alerta de precio,1,153,1,No
+R01,T5,Completar perfil del Asesor y leer la simulación,1,360,0,No
+R02,T1,Crear un portafolio,1,62,0,No
+R02,T2,Registrar una compra,1,86,1,No
+R02,T3,Interpretar P&L y riesgo en Analytics,1,224,0,No
+R02,T4,Crear una alerta de precio,1,96,0,No
+R02,T5,Completar perfil del Asesor y leer la simulación,1,111,1,No
+R03,T1,Crear un portafolio,0,86,2,No
+R03,T2,Registrar una compra,1,111,1,Sí
+R03,T3,Interpretar P&L y riesgo en Analytics,1,141,0,No
+R03,T4,Crear una alerta de precio,1,47,0,No
+R03,T5,Completar perfil del Asesor y leer la simulación,1,372,0,No
+R04,T1,Crear un portafolio,1,34,1,No
+R04,T2,Registrar una compra,1,74,1,No
+R04,T3,Interpretar P&L y riesgo en Analytics,1,250,0,No
+R04,T4,Crear una alerta de precio,1,117,0,No
+R04,T5,Completar perfil del Asesor y leer la simulación,1,229,1,Sí
+R05,T1,Crear un portafolio,1,72,1,Sí
+R05,T2,Registrar una compra,1,132,0,No
+R05,T3,Interpretar P&L y riesgo en Analytics,1,164,0,No
+R05,T4,Crear una alerta de precio,1,124,0,No
+R05,T5,Completar perfil del Asesor y leer la simulación,0,308,1,Sí
+R06,T1,Crear un portafolio,1,86,0,No
+R06,T2,Registrar una compra,1,135,0,No
+R06,T3,Interpretar P&L y riesgo en Analytics,1,152,1,No
+R06,T4,Crear una alerta de precio,0,90,1,Sí
+R06,T5,Completar perfil del Asesor y leer la simulación,1,264,0,No
+R07,T1,Crear un portafolio,1,88,0,No
+R07,T2,Registrar una compra,1,134,1,No
+R07,T3,Interpretar P&L y riesgo en Analytics,1,209,0,No
+R07,T4,Crear una alerta de precio,1,72,0,No
+R07,T5,Completar perfil del Asesor y leer la simulación,1,115,0,No
+R08,T1,Crear un portafolio,1,37,1,Sí
+R08,T2,Registrar una compra,1,84,0,No
+R08,T3,Interpretar P&L y riesgo en Analytics,1,85,0,No
+R08,T4,Crear una alerta de precio,1,96,0,No
+R08,T5,Completar perfil del Asesor y leer la simulación,1,133,0,No
+R09,T1,Crear un portafolio,1,68,0,No
+R09,T2,Registrar una compra,1,102,0,No
+R09,T3,Interpretar P&L y riesgo en Analytics,1,280,1,Sí
+R09,T4,Crear una alerta de precio,1,78,0,No
+R09,T5,Completar perfil del Asesor y leer la simulación,1,134,0,No
+R10,T1,Crear un portafolio,1,40,0,No
+R10,T2,Registrar una compra,1,111,0,No
+R10,T3,Interpretar P&L y riesgo en Analytics,1,78,0,No
+R10,T4,Crear una alerta de precio,1,76,1,No
+R10,T5,Completar perfil del Asesor y leer la simulación,1,198,0,No
+R11,T1,Crear un portafolio,1,97,0,No
+R11,T2,Registrar una compra,1,154,0,No
+R11,T3,Interpretar P&L y riesgo en Analytics,1,100,0,No
+R11,T4,Crear una alerta de precio,1,115,0,No
+R11,T5,Completar perfil del Asesor y leer la simulación,1,221,0,No
+R12,T1,Crear un portafolio,0,134,2,Sí
+R12,T2,Registrar una compra,1,71,0,No
+R12,T3,Interpretar P&L y riesgo en Analytics,1,156,0,No
+R12,T4,Crear una alerta de precio,1,96,1,Sí
+R12,T5,Completar perfil del Asesor y leer la simulación,1,218,0,No
+R13,T1,Crear un portafolio,1,122,0,No
+R13,T2,Registrar una compra,1,126,1,No
+R13,T3,Interpretar P&L y riesgo en Analytics,0,114,1,Sí
+R13,T4,Crear una alerta de precio,1,77,0,No
+R13,T5,Completar perfil del Asesor y leer la simulación,1,91,0,No
+R14,T1,Crear un portafolio,1,46,1,No
+R14,T2,Registrar una compra,1,139,1,Sí
+R14,T3,Interpretar P&L y riesgo en Analytics,1,118,0,No
+R14,T4,Crear una alerta de precio,1,90,0,No
+R14,T5,Completar perfil del Asesor y leer la simulación,1,230,0,No
+R15,T1,Crear un portafolio,1,87,0,No
+R15,T2,Registrar una compra,1,112,0,No
+R15,T3,Interpretar P&L y riesgo en Analytics,1,259,0,No
+R15,T4,Crear una alerta de precio,1,160,0,No
+R15,T5,Completar perfil del Asesor y leer la simulación,1,168,0,No
+R16,T1,Crear un portafolio,1,99,1,No
+R16,T2,Registrar una compra,1,52,0,No
+R16,T3,Interpretar P&L y riesgo en Analytics,1,67,0,No
+R16,T4,Crear una alerta de precio,1,135,0,No
+R16,T5,Completar perfil del Asesor y leer la simulación,1,91,0,No
+R17,T1,Crear un portafolio,1,68,1,No
+R17,T2,Registrar una compra,1,56,0,No
+R17,T3,Interpretar P&L y riesgo en Analytics,1,137,0,No
+R17,T4,Crear una alerta de precio,0,86,1,Sí
+R17,T5,Completar perfil del Asesor y leer la simulación,1,197,0,No
+R18,T1,Crear un portafolio,1,93,0,No
+R18,T2,Registrar una compra,1,70,0,No
+R18,T3,Interpretar P&L y riesgo en Analytics,1,99,1,No
+R18,T4,Crear una alerta de precio,1,65,0,No
+R18,T5,Completar perfil del Asesor y leer la simulación,1,143,1,Sí
+R19,T1,Crear un portafolio,1,69,0,No
+R19,T2,Registrar una compra,1,88,1,No
+R19,T3,Interpretar P&L y riesgo en Analytics,1,210,0,No
+R19,T4,Crear una alerta de precio,1,61,0,No
+R19,T5,Completar perfil del Asesor y leer la simulación,1,172,1,No
+R20,T1,Crear un portafolio,1,81,0,No
+R20,T2,Registrar una compra,1,115,0,No
+R20,T3,Interpretar P&L y riesgo en Analytics,1,154,0,No
+R20,T4,Crear una alerta de precio,1,82,0,No
+R20,T5,Completar perfil del Asesor y leer la simulación,1,175,0,No
+R21,T1,Crear un portafolio,1,47,0,No
+R21,T2,Registrar una compra,1,110,1,No
+R21,T3,Interpretar P&L y riesgo en Analytics,1,164,0,No
+R21,T4,Crear una alerta de precio,1,86,0,No
+R21,T5,Completar perfil del Asesor y leer la simulación,1,115,1,No
+R22,T1,Crear un portafolio,1,77,0,No
+R22,T2,Registrar una compra,0,263,3,No
+R22,T3,Interpretar P&L y riesgo en Analytics,0,393,2,Sí
+R22,T4,Crear una alerta de precio,0,233,2,Sí
+R22,T5,Completar perfil del Asesor y leer la simulación,1,331,0,No
+R23,T1,Crear un portafolio,1,78,0,No
+R23,T2,Registrar una compra,1,116,0,No
+R23,T3,Interpretar P&L y riesgo en Analytics,1,202,0,No
+R23,T4,Crear una alerta de precio,1,98,0,No
+R23,T5,Completar perfil del Asesor y leer la simulación,1,108,0,No
+R24,T1,Crear un portafolio,1,43,0,No
+R24,T2,Registrar una compra,1,93,0,No
+R24,T3,Interpretar P&L y riesgo en Analytics,1,106,1,No
+R24,T4,Crear una alerta de precio,1,108,0,No
+R24,T5,Completar perfil del Asesor y leer la simulación,1,189,0,No

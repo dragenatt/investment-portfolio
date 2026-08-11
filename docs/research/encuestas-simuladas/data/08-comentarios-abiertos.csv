@@ -1,0 +1,49 @@
+id,tipo,tema_codificado,comentario
+R01,Lo que más valoro,valor_percibido,El Asesor me dijo en dos minutos qué cartera me corresponde sin que yo supiera de finanzas.
+R01,Qué mejorarías,educacion_metricas,"No entendí qué es el drawdown ni el Sharpe; me gustaría un ""¿qué significa?"" junto a cada métrica."
+R02,Lo que más valoro,valor_percibido,Por fin veo todo mi portafolio junto y no repartido entre dos brókers.
+R02,Qué mejorarías,alertas_push,Las alertas solo se ven dentro de la app; necesito que lleguen al celular aunque esté cerrada.
+R03,Lo que más valoro,valor_percibido,Es mucho más rápido que mi hoja de Excel y las gráficas ya vienen hechas.
+R03,Qué mejorarías,ux_movil,En el celular la tabla de posiciones se corta y tengo que deslizar demasiado.
+R04,Lo que más valoro,valor_percibido,La exportación a CSV y el detalle de transacciones me sirven para conciliar con mi contabilidad.
+R04,Qué mejorarías,dividendos_impuestos,Registrar dividendos y la retención de impuestos sigue siendo manual.
+R05,Lo que más valoro,valor_percibido,La interfaz se ve limpia y el modo oscuro está muy bien logrado.
+R05,Qué mejorarías,onboarding,Me perdí en el primer uso; el tour debería explicar la diferencia entre portafolio y watchlist.
+R06,Lo que más valoro,valor_percibido,Ver mi rendimiento contra el S&P 500 en la misma gráfica es justo lo que le pedía a mi asesor.
+R06,Qué mejorarías,densidad_analytics,La pantalla de Analytics tiene demasiadas gráficas juntas; se leería mejor por secciones.
+R07,Lo que más valoro,valor_percibido,"Me enganchó el leaderboard, da curiosidad ver cómo le va a los demás."
+R07,Qué mejorarías,privacidad_social,No me quedó claro qué ven los demás de mi portafolio cuando lo hago público.
+R08,Lo que más valoro,valor_percibido,Los fundamentales y la señal técnica por símbolo evitan que abra otra aplicación.
+R08,Qué mejorarías,frescura_precios,Los precios a veces tardan en refrescar y no se ve la hora de la última actualización.
+R09,Lo que más valoro,valor_percibido,Las alertas de concentración me hicieron ver que tenía 40% en un solo activo.
+R09,Qué mejorarías,multidivisa,Manejo cuentas en dólares y pesos; la conversión no siempre queda clara en el total.
+R10,Lo que más valoro,valor_percibido,La atribución por posición (waterfall) explica el P&L sin que yo tenga que calcular nada.
+R10,Qué mejorarías,exportacion,"Me gustaría exportar también las métricas de Analytics, no solo posiciones y transacciones."
+R11,Lo que más valoro,valor_percibido,Las cifras grandes del panel me dicen en cinco segundos cómo voy.
+R11,Qué mejorarías,ux_movil,Los botones de la barra inferior son pequeños para mí.
+R12,Lo que más valoro,valor_percibido,Crear el portafolio y cargar doce operaciones me tomó menos de diez minutos.
+R12,Qué mejorarías,importacion_csv,El importador de CSV rechazó el archivo de mi bróker y no me dijo qué columna estaba mal.
+R13,Lo que más valoro,valor_percibido,El cuestionario del Asesor y la simulación Monte Carlo me dieron una meta concreta de aportación.
+R13,Qué mejorarías,educacion_metricas,La simulación debería advertir con más claridad que no es una promesa de rendimiento.
+R14,Lo que más valoro,valor_percibido,La búsqueda de símbolos es rápida y el autocompletado acierta.
+R14,Qué mejorarías,rendimiento_carga,La primera carga del dashboard con varios portafolios se siente lenta con datos móviles.
+R15,Lo que más valoro,valor_percibido,"Registrar una compra es simple: símbolo, cantidad, precio y listo."
+R15,Qué mejorarías,onboarding,Al inicio no sabía que había que crear un portafolio antes de registrar algo.
+R16,Lo que más valoro,valor_percibido,El comparador de portafolios contra un índice me ayudó a decidir dónde aportar.
+R16,Qué mejorarías,alertas_push,"Quiero un resumen semanal por correo, no tener que entrar a buscarlo."
+R17,Lo que más valoro,valor_percibido,Me tranquiliza ver el dinero invertido y la ganancia separada del capital.
+R17,Qué mejorarías,educacion_metricas,"Palabras como ""benchmark"" o ""volatilidad"" deberían estar en español o explicadas."
+R18,Lo que más valoro,valor_percibido,"Las métricas de riesgo (volatilidad, drawdown, Sharpe) coinciden con las que calculo yo aparte."
+R18,Qué mejorarías,densidad_analytics,Falta poder cambiar la ventana temporal de las métricas de riesgo (30/90/365 días).
+R19,Lo que más valoro,valor_percibido,La tarjeta de ganancia del día me hizo entrar todos los días.
+R19,Qué mejorarías,ux_movil,En móvil las gráficas de Analytics se ven apretadas y los tooltips tapan los datos.
+R20,Lo que más valoro,valor_percibido,El feed de Discover da ideas de qué está comprando la gente.
+R20,Qué mejorarías,privacidad_social,Debería poder seguir a alguien sin que aparezca mi nombre real.
+R21,Lo que más valoro,valor_percibido,El histórico de valor con snapshots diarios se ve confiable y cuadra con mis estados de cuenta.
+R21,Qué mejorarías,dividendos_impuestos,Los ingresos por dividendos no se proyectan a futuro; el módulo de income se queda corto.
+R22,Lo que más valoro,valor_percibido,Es gratis y no me pidió datos bancarios para empezar.
+R22,Qué mejorarías,importacion_csv,Cargar operaciones una por una desde el celular cansa y el CSV desde móvil no fue claro.
+R23,Lo que más valoro,valor_percibido,Las alertas de precio funcionaron: me avisó cuando mi ETF bajó al nivel que puse.
+R23,Qué mejorarías,multidivisa,Mis ETFs están en USD y el total en MXN cambia por el tipo de cambio; quisiera ver ambas cifras.
+R24,Lo que más valoro,valor_percibido,El registro semanal me hizo consciente de cuánto muevo la cartera sin necesidad.
+R24,Qué mejorarías,rendimiento_carga,Al cambiar entre portafolios se recarga todo y pierdo la posición del scroll.

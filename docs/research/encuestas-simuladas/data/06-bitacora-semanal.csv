@@ -1,0 +1,169 @@
+id,dia,fecha,dia_semana,mercado,registro_completado,sesiones,minutos_en_app,operaciones_registradas,aportacion_mxn,retorno_dia_pct,pnl_dia_mxn,valor_portafolio_mxn,pnl_acumulado_mxn,indice_twr,alertas_recibidas,alertas_accionadas,nota_del_participante
+R01,1,2026-08-03,Lunes,Abierto,Sí,3,7.1,3,0,0.332,60,18060,60,1.003323,1,1,Todo en verde; comparé contra el benchmark.
+R01,2,2026-08-04,Martes,Abierto,Sí,2,5.5,0,0,-0.432,-78,17982,-18,0.998988,0,0,"Día en rojo, entré solo a confirmar que no era error de la app."
+R01,3,2026-08-05,Miércoles,Abierto,Sí,3,14,0,0,0.001,0,17982,-18,0.999003,2,1,"Buen día, aproveché para revisar mi asignación."
+R01,4,2026-08-06,Jueves,Abierto,Sí,3,11.4,0,0,0.066,12,17994,-6,0.999664,2,1,Todo en verde; comparé contra el benchmark.
+R01,5,2026-08-07,Viernes,Abierto,Sí,4,8.6,2,900,0.042,8,18902,2,1.000089,3,2,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R01,6,2026-08-08,Sábado,Cerrado,Sí,1,5.7,0,0,0,0,18902,2,1.000089,0,0,"Mercado cerrado, solo revisé el resumen de la semana."
+R01,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,18902,2,1.000089,0,0,
+R02,1,2026-08-03,Lunes,Abierto,Sí,3,15.1,1,0,-0.368,-534,144466,-534,0.996318,1,1,"Día en rojo, entré solo a confirmar que no era error de la app."
+R02,2,2026-08-04,Martes,Abierto,Sí,2,9.9,0,0,-1.729,-2497,141969,-3031,0.979095,0,0,"Caída general, revisé la alerta de concentración."
+R02,3,2026-08-05,Miércoles,Abierto,Sí,3,11.8,1,0,0.377,536,142504,-2496,0.982789,2,1,Todo en verde; comparé contra el benchmark.
+R02,4,2026-08-06,Jueves,Abierto,Sí,3,9.4,1,0,-1.086,-1548,140956,-4044,0.972112,0,0,Rojo otra vez; leí la sección de riesgo para entenderlo.
+R02,5,2026-08-07,Viernes,Abierto,Sí,3,11.2,1,0,0.062,88,141044,-3956,0.972716,0,0,Todo en verde; comparé contra el benchmark.
+R02,6,2026-08-08,Sábado,Cerrado,Sí,1,9.2,0,0,0,0,141044,-3956,0.972716,0,0,"Mercado cerrado, solo revisé el resumen de la semana."
+R02,7,2026-08-09,Domingo,Cerrado,Sí,2,11.2,0,0,0,0,141044,-3956,0.972716,0,0,Fin de semana: registré una aportación programada.
+R03,1,2026-08-03,Lunes,Abierto,Sí,2,8,0,0,-0.422,-219,51781,-219,0.995783,0,0,"Día en rojo, entré solo a confirmar que no era error de la app."
+R03,2,2026-08-04,Martes,Abierto,Sí,3,11.7,0,0,-0.109,-57,51724,-276,0.994695,0,0,"Caída general, revisé la alerta de concentración."
+R03,3,2026-08-05,Miércoles,Abierto,Sí,3,11.1,1,0,0.629,325,52049,49,1.00095,0,0,"Día verde, revisé el panel a la hora de la comida."
+R03,4,2026-08-06,Jueves,Abierto,Sí,3,5.7,0,0,0.177,92,52142,142,1.002724,0,0,"Día verde, revisé el panel a la hora de la comida."
+R03,5,2026-08-07,Viernes,Abierto,Sí,3,8.3,0,0,0.515,269,52410,410,1.007888,0,0,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R03,6,2026-08-08,Sábado,Cerrado,Sí,2,7.7,0,0,0,0,52410,410,1.007888,0,0,"Mercado cerrado, solo revisé el resumen de la semana."
+R03,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,52410,410,1.007888,0,0,
+R04,1,2026-08-03,Lunes,Abierto,Sí,2,10.4,2,0,0.409,858,210858,858,1.004086,0,0,"Buen día, aproveché para revisar mi asignación."
+R04,2,2026-08-04,Martes,Abierto,Sí,2,9.6,1,0,0.113,238,211096,1096,1.005218,0,0,"Buen día, aproveché para revisar mi asignación."
+R04,3,2026-08-05,Miércoles,Abierto,Sí,1,10.9,0,0,0.577,1217,212313,2313,1.011014,0,0,Todo en verde; comparé contra el benchmark.
+R04,4,2026-08-06,Jueves,Abierto,Sí,3,15.3,0,0,-0.417,-885,211428,1428,1.006798,0,0,"Caída general, revisé la alerta de concentración."
+R04,5,2026-08-07,Viernes,Abierto,Sí,1,15.6,0,0,-0.329,-696,210732,732,1.003484,0,0,"Día en rojo, entré solo a confirmar que no era error de la app."
+R04,6,2026-08-08,Sábado,Cerrado,Sí,2,8.3,0,0,0,0,210732,732,1.003484,0,0,"Mercado cerrado, solo revisé el resumen de la semana."
+R04,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,210732,732,1.003484,0,0,
+R05,1,2026-08-03,Lunes,Abierto,Sí,3,7.1,1,0,0.064,22,35022,22,1.000636,0,0,Todo en verde; comparé contra el benchmark.
+R05,2,2026-08-04,Martes,Abierto,Sí,2,4.7,0,0,-0.019,-7,35016,16,1.000444,1,1,"Caída general, revisé la alerta de concentración."
+R05,3,2026-08-05,Miércoles,Abierto,Sí,3,5,0,0,0.363,127,35143,143,1.00408,0,0,"Buen día, aproveché para revisar mi asignación."
+R05,4,2026-08-06,Jueves,Abierto,Sí,2,7.5,0,0,0.102,36,35179,179,1.005106,1,1,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R05,5,2026-08-07,Viernes,Abierto,Sí,3,7.6,0,0,0.257,90,35269,269,1.007687,2,1,"Día verde, revisé el panel a la hora de la comida."
+R05,6,2026-08-08,Sábado,Cerrado,No,0,0,0,0,0,0,35269,269,1.007687,0,0,
+R05,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,35269,269,1.007687,0,0,
+R06,1,2026-08-03,Lunes,Abierto,Sí,2,10.3,0,0,0.4,1520,381520,1520,1.004001,1,1,"Buen día, aproveché para revisar mi asignación."
+R06,2,2026-08-04,Martes,Abierto,Sí,3,10.3,0,0,-0.688,-2624,378896,-1104,0.997096,0,0,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R06,3,2026-08-05,Miércoles,Abierto,Sí,2,9.8,1,0,-0.076,-288,378608,-1392,0.996337,0,0,"Caída general, revisé la alerta de concentración."
+R06,4,2026-08-06,Jueves,Abierto,Sí,3,10,0,0,-0.303,-1147,377461,-2539,0.993318,1,1,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R06,5,2026-08-07,Viernes,Abierto,Sí,4,12.9,1,0,0.515,1945,379406,-594,0.998437,1,1,"Día verde, revisé el panel a la hora de la comida."
+R06,6,2026-08-08,Sábado,Cerrado,Sí,2,7.6,0,0,0,0,379406,-594,0.998437,0,0,"Mercado cerrado, solo revisé el resumen de la semana."
+R06,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,379406,-594,0.998437,0,0,
+R07,1,2026-08-03,Lunes,Abierto,Sí,2,13.1,1,500,-0.25,-38,15462,-38,0.997495,0,0,"Caída general, revisé la alerta de concentración."
+R07,2,2026-08-04,Martes,Abierto,Sí,2,8.6,0,0,-0.914,-141,15321,-179,0.988375,0,0,"Caída general, revisé la alerta de concentración."
+R07,3,2026-08-05,Miércoles,Abierto,Sí,3,4.7,1,0,-0.278,-43,15279,-221,0.985632,0,0,"Día en rojo, entré solo a confirmar que no era error de la app."
+R07,4,2026-08-06,Jueves,Abierto,Sí,2,11.1,0,0,-0.331,-51,15228,-272,0.982369,0,0,"Caída general, revisé la alerta de concentración."
+R07,5,2026-08-07,Viernes,Abierto,Sí,3,9.7,0,0,1.367,208,15436,-64,0.9958,0,0,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R07,6,2026-08-08,Sábado,Cerrado,No,0,0,0,0,0,0,15436,-64,0.9958,0,0,
+R07,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,15436,-64,0.9958,0,0,
+R08,1,2026-08-03,Lunes,Abierto,Sí,1,9.2,1,0,0.042,71,168071,71,1.000425,0,0,Todo en verde; comparé contra el benchmark.
+R08,2,2026-08-04,Martes,Abierto,Sí,1,14,1,0,-2.082,-3499,164572,-3428,0.979597,0,0,"Caída general, revisé la alerta de concentración."
+R08,3,2026-08-05,Miércoles,Abierto,Sí,2,6.3,1,0,0.885,1456,166029,-1971,0.988265,0,0,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R08,4,2026-08-06,Jueves,Abierto,No,0,0,0,0,0.21,349,166378,-1622,0.990343,0,0,
+R08,5,2026-08-07,Viernes,Abierto,Sí,1,6.4,1,0,1.017,1692,168070,70,1.000414,0,0,"Buen día, aproveché para revisar mi asignación."
+R08,6,2026-08-08,Sábado,Cerrado,No,0,0,0,0,0,0,168070,70,1.000414,0,0,
+R08,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,168070,70,1.000414,0,0,
+R09,1,2026-08-03,Lunes,Abierto,Sí,3,12.6,0,0,0.169,406,240406,406,1.001692,2,2,Todo en verde; comparé contra el benchmark.
+R09,2,2026-08-04,Martes,Abierto,Sí,3,12.5,0,0,-0.27,-648,239758,-242,0.99899,0,0,Rojo otra vez; leí la sección de riesgo para entenderlo.
+R09,3,2026-08-05,Miércoles,Abierto,Sí,3,12.8,0,0,0.127,305,240063,63,1.000262,2,2,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R09,4,2026-08-06,Jueves,Abierto,Sí,2,9,0,0,-0.269,-646,239417,-583,0.997572,2,2,"Día en rojo, entré solo a confirmar que no era error de la app."
+R09,5,2026-08-07,Viernes,Abierto,Sí,3,11.8,1,12000,0.325,778,252196,196,1.000815,2,2,Todo en verde; comparé contra el benchmark.
+R09,6,2026-08-08,Sábado,Cerrado,Sí,3,8.5,2,0,0,0,252196,196,1.000815,0,0,Fin de semana: registré una aportación programada.
+R09,7,2026-08-09,Domingo,Cerrado,Sí,2,6.2,0,0,0,0,252196,196,1.000815,0,0,Aproveché para leer el módulo del Asesor.
+R10,1,2026-08-03,Lunes,Abierto,Sí,3,14.3,1,3800,0.243,304,129104,304,1.002433,0,0,"Buen día, aproveché para revisar mi asignación."
+R10,2,2026-08-04,Martes,Abierto,Sí,3,10.7,2,0,-0.599,-774,128331,-469,0.996427,1,1,"Día en rojo, entré solo a confirmar que no era error de la app."
+R10,3,2026-08-05,Miércoles,Abierto,Sí,3,12.5,0,0,-0.083,-106,128224,-576,0.995603,2,2,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R10,4,2026-08-06,Jueves,Abierto,Sí,3,11.9,1,0,0.265,340,128565,-235,0.998246,0,0,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R10,5,2026-08-07,Viernes,Abierto,Sí,2,17.8,2,6300,0.63,810,135675,575,1.004538,0,0,"Buen día, aproveché para revisar mi asignación."
+R10,6,2026-08-08,Sábado,Cerrado,Sí,2,9.9,0,0,0,0,135675,575,1.004538,0,0,"Mercado cerrado, solo revisé el resumen de la semana."
+R10,7,2026-08-09,Domingo,Cerrado,Sí,2,16.6,1,2500,0,0,138175,575,1.004538,0,0,"Mercado cerrado, solo revisé el resumen de la semana."
+R11,1,2026-08-03,Lunes,Abierto,Sí,2,6.3,2,2900,0.325,312,99212,312,1.003253,0,0,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R11,2,2026-08-04,Martes,Abierto,Sí,3,5.2,2,0,-0.244,-242,98970,70,1.000803,0,0,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R11,3,2026-08-05,Miércoles,Abierto,Sí,2,9.4,0,0,0.131,130,99100,200,1.002119,0,0,"Buen día, aproveché para revisar mi asignación."
+R11,4,2026-08-06,Jueves,Abierto,Sí,3,1.5,2,0,-0.04,-40,99060,160,1.001716,0,0,"Caída general, revisé la alerta de concentración."
+R11,5,2026-08-07,Viernes,Abierto,Sí,3,8.7,2,4800,0.166,165,104025,325,1.003381,0,0,"Buen día, aproveché para revisar mi asignación."
+R11,6,2026-08-08,Sábado,Cerrado,Sí,2,4.1,0,0,0,0,104025,325,1.003381,0,0,"Sin movimientos, día de descanso."
+R11,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,104025,325,1.003381,0,0,
+R12,1,2026-08-03,Lunes,Abierto,Sí,1,4.1,0,0,0.557,490,88490,490,1.005571,2,1,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R12,2,2026-08-04,Martes,Abierto,Sí,1,1.5,0,0,-1.08,-956,87535,-465,0.994711,2,1,"Día en rojo, entré solo a confirmar que no era error de la app."
+R12,3,2026-08-05,Miércoles,Abierto,No,0,0,0,0,-1.143,-1000,86534,-1466,0.983342,0,0,
+R12,4,2026-08-06,Jueves,Abierto,Sí,2,6.5,2,0,-0.344,-298,86236,-1764,0.979957,0,0,Rojo otra vez; leí la sección de riesgo para entenderlo.
+R12,5,2026-08-07,Viernes,Abierto,No,0,0,0,0,1.312,1132,87368,-632,0.992818,0,0,
+R12,6,2026-08-08,Sábado,Cerrado,No,0,0,0,0,0,0,87368,-632,0.992818,0,0,
+R12,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,87368,-632,0.992818,0,0,
+R13,1,2026-08-03,Lunes,Abierto,Sí,3,8,1,4500,0.59,885,155385,885,1.005902,0,0,"Buen día, aproveché para revisar mi asignación."
+R13,2,2026-08-04,Martes,Abierto,Sí,3,11.1,0,0,-0.751,-1167,154218,-282,0.998346,0,0,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R13,3,2026-08-05,Miércoles,Abierto,Sí,2,11.6,0,0,0.342,528,154746,246,1.001763,0,0,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R13,4,2026-08-06,Jueves,Abierto,Sí,3,12.8,1,0,-0.141,-218,154528,28,1.000351,0,0,"Día en rojo, entré solo a confirmar que no era error de la app."
+R13,5,2026-08-07,Viernes,Abierto,Sí,3,9.7,0,0,0.021,33,154560,60,1.000562,0,0,Todo en verde; comparé contra el benchmark.
+R13,6,2026-08-08,Sábado,Cerrado,Sí,2,5.8,0,0,0,0,154560,60,1.000562,0,0,"Sin movimientos, día de descanso."
+R13,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,154560,60,1.000562,0,0,
+R14,1,2026-08-03,Lunes,Abierto,Sí,3,8.4,1,800,0.457,128,28928,128,1.004569,1,0,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R14,2,2026-08-04,Martes,Abierto,Sí,3,12.9,2,0,-0.652,-189,28739,-61,0.998016,2,1,Rojo otra vez; leí la sección de riesgo para entenderlo.
+R14,3,2026-08-05,Miércoles,Abierto,Sí,3,6.9,1,0,0.822,236,28976,176,1.006221,1,0,"Día verde, revisé el panel a la hora de la comida."
+R14,4,2026-08-06,Jueves,Abierto,No,0,0,0,0,0.228,66,29042,242,1.008517,0,0,
+R14,5,2026-08-07,Viernes,Abierto,Sí,2,5.4,0,0,1.244,361,29403,603,1.021063,2,1,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R14,6,2026-08-08,Sábado,Cerrado,No,0,0,0,0,0,0,29403,603,1.021063,0,0,
+R14,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,29403,603,1.021063,0,0,
+R15,1,2026-08-03,Lunes,Abierto,Sí,4,8.9,1,0,0.211,88,42088,88,1.002106,0,0,"Día verde, revisé el panel a la hora de la comida."
+R15,2,2026-08-04,Martes,Abierto,Sí,2,5,3,0,-0.192,-81,42008,8,1.00018,0,0,"Caída general, revisé la alerta de concentración."
+R15,3,2026-08-05,Miércoles,Abierto,Sí,2,10,0,0,0.014,6,42013,13,1.000318,0,0,"Buen día, aproveché para revisar mi asignación."
+R15,4,2026-08-06,Jueves,Abierto,Sí,3,10.7,1,0,-0.423,-178,41836,-164,0.996086,0,0,"Día en rojo, entré solo a confirmar que no era error de la app."
+R15,5,2026-08-07,Viernes,Abierto,Sí,2,11.4,2,0,-0.019,-8,41828,-172,0.995896,0,0,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R15,6,2026-08-08,Sábado,Cerrado,Sí,2,4,0,0,0,0,41828,-172,0.995896,0,0,Aproveché para leer el módulo del Asesor.
+R15,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,41828,-172,0.995896,0,0,
+R16,1,2026-08-03,Lunes,Abierto,Sí,3,6.8,1,5900,0.663,1293,202193,1293,1.006632,2,1,Todo en verde; comparé contra el benchmark.
+R16,2,2026-08-04,Martes,Abierto,Sí,2,11.6,0,0,-0.294,-594,201599,699,1.003675,0,0,"Caída general, revisé la alerta de concentración."
+R16,3,2026-08-05,Miércoles,Abierto,Sí,3,9.3,1,0,0.218,440,202039,1139,1.005864,1,1,"Buen día, aproveché para revisar mi asignación."
+R16,4,2026-08-06,Jueves,Abierto,Sí,3,7.5,0,0,0.113,227,202266,1366,1.006997,0,0,"Día verde, revisé el panel a la hora de la comida."
+R16,5,2026-08-07,Viernes,Abierto,Sí,2,5.9,3,9800,0.285,576,212642,1942,1.009864,2,1,"Buen día, aproveché para revisar mi asignación."
+R16,6,2026-08-08,Sábado,Cerrado,Sí,2,7,0,0,0,0,212642,1942,1.009864,0,0,"Mercado cerrado, solo revisé el resumen de la semana."
+R16,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,212642,1942,1.009864,0,0,
+R17,1,2026-08-03,Lunes,Abierto,Sí,2,6.1,0,0,0.017,56,320056,56,1.000174,1,1,"Buen día, aproveché para revisar mi asignación."
+R17,2,2026-08-04,Martes,Abierto,Sí,3,3.4,0,0,-0.214,-686,319370,-630,0.998031,0,0,"Caída general, revisé la alerta de concentración."
+R17,3,2026-08-05,Miércoles,Abierto,Sí,2,10.2,0,0,0.196,627,319997,-3,0.99999,0,0,"Buen día, aproveché para revisar mi asignación."
+R17,4,2026-08-06,Jueves,Abierto,Sí,2,5.4,0,0,-0.133,-426,319570,-430,0.998657,0,0,"Caída general, revisé la alerta de concentración."
+R17,5,2026-08-07,Viernes,Abierto,Sí,3,10.1,1,16000,0.327,1043,336614,614,1.001918,0,0,"Buen día, aproveché para revisar mi asignación."
+R17,6,2026-08-08,Sábado,Cerrado,No,0,0,0,0,0,0,336614,614,1.001918,0,0,
+R17,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,336614,614,1.001918,0,0,
+R18,1,2026-08-03,Lunes,Abierto,Sí,3,12.5,1,0,1.373,3570,263570,3570,1.013732,0,0,Todo en verde; comparé contra el benchmark.
+R18,2,2026-08-04,Martes,Abierto,Sí,2,12.4,0,0,-0.581,-1531,262039,2039,1.007843,0,0,Rojo otra vez; leí la sección de riesgo para entenderlo.
+R18,3,2026-08-05,Miércoles,Abierto,Sí,3,14,0,0,-0.635,-1665,260374,374,1.001439,0,0,Rojo otra vez; leí la sección de riesgo para entenderlo.
+R18,4,2026-08-06,Jueves,Abierto,Sí,2,13.6,2,0,-0.436,-1135,259239,-761,0.997074,0,0,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R18,5,2026-08-07,Viernes,Abierto,Sí,3,13,0,0,0.809,2097,261336,1336,1.005139,0,0,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R18,6,2026-08-08,Sábado,Cerrado,Sí,3,7.3,0,0,0,0,261336,1336,1.005139,0,0,Aproveché para leer el módulo del Asesor.
+R18,7,2026-08-09,Domingo,Cerrado,Sí,1,14.5,0,0,0,0,261336,1336,1.005139,0,0,"Sin movimientos, día de descanso."
+R19,1,2026-08-03,Lunes,Abierto,Sí,3,11.2,0,0,0.406,467,115467,467,1.004057,0,0,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R19,2,2026-08-04,Martes,Abierto,Sí,2,13.8,1,0,-0.191,-221,115246,246,1.002136,0,0,"Caída general, revisé la alerta de concentración."
+R19,3,2026-08-05,Miércoles,Abierto,Sí,3,8.8,1,0,0.289,333,115579,579,1.005033,0,0,Todo en verde; comparé contra el benchmark.
+R19,4,2026-08-06,Jueves,Abierto,Sí,4,13.4,1,0,-0.052,-60,115519,519,1.004515,0,0,Rojo otra vez; leí la sección de riesgo para entenderlo.
+R19,5,2026-08-07,Viernes,Abierto,Sí,3,10.8,2,0,0.306,353,115873,873,1.007589,0,0,"Buen día, aproveché para revisar mi asignación."
+R19,6,2026-08-08,Sábado,Cerrado,Sí,2,5.1,1,0,0,0,115873,873,1.007589,0,0,"Mercado cerrado, solo revisé el resumen de la semana."
+R19,7,2026-08-09,Domingo,Cerrado,Sí,2,11.1,1,2300,0,0,118173,873,1.007589,0,0,Aproveché para leer el módulo del Asesor.
+R20,1,2026-08-03,Lunes,Abierto,Sí,2,6.4,2,900,0.967,290,31190,290,1.009665,1,1,"Buen día, aproveché para revisar mi asignación."
+R20,2,2026-08-04,Martes,Abierto,Sí,2,5.7,0,0,-0.588,-184,31006,106,1.003725,2,1,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R20,3,2026-08-05,Miércoles,Abierto,Sí,2,11.8,2,0,0.973,302,31308,408,1.013496,1,1,"Buen día, aproveché para revisar mi asignación."
+R20,4,2026-08-06,Jueves,Abierto,Sí,3,14.7,0,0,-0.202,-63,31245,345,1.011447,0,0,"Caída general, revisé la alerta de concentración."
+R20,5,2026-08-07,Viernes,Abierto,Sí,3,9.3,1,1500,0.14,44,32789,389,1.012863,2,1,"Día verde, revisé el panel a la hora de la comida."
+R20,6,2026-08-08,Sábado,Cerrado,No,0,0,0,0,0,0,32789,389,1.012863,0,0,
+R20,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,32789,389,1.012863,0,0,
+R21,1,2026-08-03,Lunes,Abierto,Sí,3,13.6,2,12300,0.81,3322,425622,3322,1.008103,2,1,Subió el ETF del S&P; la tarjeta de ganancia del día lo mostró al instante.
+R21,2,2026-08-04,Martes,Abierto,Sí,2,8.3,0,0,-0.136,-579,425044,2744,1.006733,1,1,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R21,3,2026-08-05,Miércoles,Abierto,Sí,1,13.3,0,0,0.174,740,425784,3484,1.008486,0,0,"Buen día, aproveché para revisar mi asignación."
+R21,4,2026-08-06,Jueves,Abierto,Sí,2,6,2,0,-0.548,-2334,423449,1149,1.002957,0,0,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R21,5,2026-08-07,Viernes,Abierto,Sí,3,9,1,20500,0.693,2933,446882,4082,1.009903,2,1,Todo en verde; comparé contra el benchmark.
+R21,6,2026-08-08,Sábado,Cerrado,No,0,0,0,0,0,0,446882,4082,1.009903,0,0,
+R21,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,446882,4082,1.009903,0,0,
+R22,1,2026-08-03,Lunes,Abierto,Sí,1,4.8,0,0,0.528,63,12063,63,1.005279,0,0,"Buen día, aproveché para revisar mi asignación."
+R22,2,2026-08-04,Martes,Abierto,Sí,2,6.4,1,0,-0.596,-72,11991,-9,0.999285,0,0,Rojo otra vez; leí la sección de riesgo para entenderlo.
+R22,3,2026-08-05,Miércoles,Abierto,No,0,0,0,0,0.536,64,12056,56,1.004644,0,0,
+R22,4,2026-08-06,Jueves,Abierto,Sí,2,1.5,0,0,-0.476,-57,11998,-2,0.999859,0,0,Rojo otra vez; leí la sección de riesgo para entenderlo.
+R22,5,2026-08-07,Viernes,Abierto,No,0,0,0,0,0.593,71,12069,69,1.005784,0,0,
+R22,6,2026-08-08,Sábado,Cerrado,No,0,0,0,0,0,0,12069,69,1.005784,0,0,
+R22,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,12069,69,1.005784,0,0,
+R23,1,2026-08-03,Lunes,Abierto,Sí,3,10.9,0,0,0.258,451,175451,451,1.00258,0,0,"Buen día, aproveché para revisar mi asignación."
+R23,2,2026-08-04,Martes,Abierto,Sí,4,12.4,0,0,-0.298,-523,174929,-71,0.999592,0,0,"Caída general, revisé la alerta de concentración."
+R23,3,2026-08-05,Miércoles,Abierto,Sí,2,10.7,0,0,0.25,437,175366,366,1.00209,0,0,"Buen día, aproveché para revisar mi asignación."
+R23,4,2026-08-06,Jueves,Abierto,Sí,3,14.8,0,0,-0.294,-516,174849,-151,0.999139,0,0,Rojo otra vez; leí la sección de riesgo para entenderlo.
+R23,5,2026-08-07,Viernes,Abierto,Sí,3,10.8,0,0,-0.076,-132,174717,-283,0.998383,0,0,"Caída general, revisé la alerta de concentración."
+R23,6,2026-08-08,Sábado,Cerrado,Sí,3,7.6,0,0,0,0,174717,-283,0.998383,0,0,Aproveché para leer el módulo del Asesor.
+R23,7,2026-08-09,Domingo,Cerrado,Sí,3,7.9,0,0,0,0,174717,-283,0.998383,0,0,Fin de semana: registré una aportación programada.
+R24,1,2026-08-03,Lunes,Abierto,Sí,2,8.1,1,2300,0.749,584,80884,584,1.007487,0,0,"Buen día, aproveché para revisar mi asignación."
+R24,2,2026-08-04,Martes,Abierto,Sí,2,8.5,2,0,-0.673,-544,80340,40,1.000705,0,0,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R24,3,2026-08-05,Miércoles,Abierto,Sí,1,1.5,1,0,-0.243,-196,80144,-156,0.99827,0,0,Bajó el mercado; me sirvió ver el drawdown para no vender.
+R24,4,2026-08-06,Jueves,Abierto,No,0,0,0,0,0.09,72,80216,-84,0.99917,0,0,
+R24,5,2026-08-07,Viernes,Abierto,Sí,2,6.3,0,0,0.686,550,80766,466,1.00602,0,0,"Buen día, aproveché para revisar mi asignación."
+R24,6,2026-08-08,Sábado,Cerrado,No,0,0,0,0,0,0,80766,466,1.00602,0,0,
+R24,7,2026-08-09,Domingo,Cerrado,No,0,0,0,0,0,0,80766,466,1.00602,0,0,

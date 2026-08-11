@@ -1,0 +1,193 @@
+id,modulo_clave,modulo,lo_uso,utilidad_1_5,frecuencia_semanal
+R01,dashboard,Dashboard,Sí,4,5
+R01,portafolios,Portafolios y transacciones,Sí,4,5
+R01,analytics,Analytics (riesgo y retornos),Sí,4,6
+R01,mercados,Mercados,Sí,5,7
+R01,watchlist,Watchlist,No,,0
+R01,alertas,Alertas,Sí,4,5
+R01,asesor,Asesor (perfil + simulación),Sí,4,5
+R01,discover,Discover / Social,Sí,3,5
+R02,dashboard,Dashboard,Sí,3,3
+R02,portafolios,Portafolios y transacciones,Sí,5,8
+R02,analytics,Analytics (riesgo y retornos),Sí,4,5
+R02,mercados,Mercados,Sí,5,7
+R02,watchlist,Watchlist,Sí,4,6
+R02,alertas,Alertas,Sí,3,5
+R02,asesor,Asesor (perfil + simulación),Sí,4,7
+R02,discover,Discover / Social,Sí,4,5
+R03,dashboard,Dashboard,Sí,5,6
+R03,portafolios,Portafolios y transacciones,Sí,4,5
+R03,analytics,Analytics (riesgo y retornos),Sí,4,7
+R03,mercados,Mercados,Sí,4,5
+R03,watchlist,Watchlist,Sí,4,5
+R03,alertas,Alertas,No,,0
+R03,asesor,Asesor (perfil + simulación),No,,0
+R03,discover,Discover / Social,No,,0
+R04,dashboard,Dashboard,Sí,4,5
+R04,portafolios,Portafolios y transacciones,Sí,5,7
+R04,analytics,Analytics (riesgo y retornos),No,,0
+R04,mercados,Mercados,No,,0
+R04,watchlist,Watchlist,Sí,4,6
+R04,alertas,Alertas,No,,0
+R04,asesor,Asesor (perfil + simulación),Sí,5,7
+R04,discover,Discover / Social,Sí,4,6
+R05,dashboard,Dashboard,Sí,5,7
+R05,portafolios,Portafolios y transacciones,Sí,4,5
+R05,analytics,Analytics (riesgo y retornos),No,,0
+R05,mercados,Mercados,No,,0
+R05,watchlist,Watchlist,No,,0
+R05,alertas,Alertas,Sí,3,4
+R05,asesor,Asesor (perfil + simulación),Sí,4,7
+R05,discover,Discover / Social,Sí,4,6
+R06,dashboard,Dashboard,Sí,5,6
+R06,portafolios,Portafolios y transacciones,Sí,5,9
+R06,analytics,Analytics (riesgo y retornos),No,,0
+R06,mercados,Mercados,Sí,4,6
+R06,watchlist,Watchlist,Sí,5,7
+R06,alertas,Alertas,Sí,4,6
+R06,asesor,Asesor (perfil + simulación),No,,0
+R06,discover,Discover / Social,Sí,4,5
+R07,dashboard,Dashboard,Sí,4,5
+R07,portafolios,Portafolios y transacciones,Sí,5,7
+R07,analytics,Analytics (riesgo y retornos),Sí,4,2
+R07,mercados,Mercados,Sí,4,5
+R07,watchlist,Watchlist,No,,0
+R07,alertas,Alertas,No,,0
+R07,asesor,Asesor (perfil + simulación),Sí,4,5
+R07,discover,Discover / Social,Sí,3,2
+R08,dashboard,Dashboard,Sí,3,6
+R08,portafolios,Portafolios y transacciones,Sí,4,6
+R08,analytics,Analytics (riesgo y retornos),Sí,4,5
+R08,mercados,Mercados,No,,0
+R08,watchlist,Watchlist,No,,0
+R08,alertas,Alertas,No,,0
+R08,asesor,Asesor (perfil + simulación),No,,0
+R08,discover,Discover / Social,No,,0
+R09,dashboard,Dashboard,Sí,5,6
+R09,portafolios,Portafolios y transacciones,Sí,5,6
+R09,analytics,Analytics (riesgo y retornos),Sí,3,3
+R09,mercados,Mercados,Sí,5,8
+R09,watchlist,Watchlist,No,,0
+R09,alertas,Alertas,Sí,4,5
+R09,asesor,Asesor (perfil + simulación),Sí,4,5
+R09,discover,Discover / Social,No,,0
+R10,dashboard,Dashboard,Sí,5,7
+R10,portafolios,Portafolios y transacciones,Sí,5,6
+R10,analytics,Analytics (riesgo y retornos),Sí,4,5
+R10,mercados,Mercados,Sí,5,7
+R10,watchlist,Watchlist,Sí,4,4
+R10,alertas,Alertas,Sí,4,6
+R10,asesor,Asesor (perfil + simulación),No,,0
+R10,discover,Discover / Social,Sí,4,6
+R11,dashboard,Dashboard,Sí,4,7
+R11,portafolios,Portafolios y transacciones,Sí,4,7
+R11,analytics,Analytics (riesgo y retornos),No,,0
+R11,mercados,Mercados,Sí,5,7
+R11,watchlist,Watchlist,Sí,4,7
+R11,alertas,Alertas,No,,0
+R11,asesor,Asesor (perfil + simulación),No,,0
+R11,discover,Discover / Social,Sí,3,5
+R12,dashboard,Dashboard,Sí,4,6
+R12,portafolios,Portafolios y transacciones,Sí,4,5
+R12,analytics,Analytics (riesgo y retornos),Sí,4,5
+R12,mercados,Mercados,Sí,4,4
+R12,watchlist,Watchlist,No,,0
+R12,alertas,Alertas,Sí,4,5
+R12,asesor,Asesor (perfil + simulación),Sí,4,3
+R12,discover,Discover / Social,Sí,3,3
+R13,dashboard,Dashboard,Sí,5,8
+R13,portafolios,Portafolios y transacciones,Sí,4,5
+R13,analytics,Analytics (riesgo y retornos),Sí,4,5
+R13,mercados,Mercados,Sí,5,8
+R13,watchlist,Watchlist,Sí,5,6
+R13,alertas,Alertas,No,,0
+R13,asesor,Asesor (perfil + simulación),Sí,4,6
+R13,discover,Discover / Social,Sí,4,5
+R14,dashboard,Dashboard,Sí,4,7
+R14,portafolios,Portafolios y transacciones,Sí,4,5
+R14,analytics,Analytics (riesgo y retornos),No,,0
+R14,mercados,Mercados,Sí,4,6
+R14,watchlist,Watchlist,No,,0
+R14,alertas,Alertas,Sí,5,8
+R14,asesor,Asesor (perfil + simulación),Sí,4,5
+R14,discover,Discover / Social,Sí,4,7
+R15,dashboard,Dashboard,Sí,4,5
+R15,portafolios,Portafolios y transacciones,Sí,4,4
+R15,analytics,Analytics (riesgo y retornos),Sí,3,3
+R15,mercados,Mercados,Sí,4,4
+R15,watchlist,Watchlist,Sí,4,5
+R15,alertas,Alertas,No,,0
+R15,asesor,Asesor (perfil + simulación),No,,0
+R15,discover,Discover / Social,No,,0
+R16,dashboard,Dashboard,Sí,5,7
+R16,portafolios,Portafolios y transacciones,Sí,5,7
+R16,analytics,Analytics (riesgo y retornos),Sí,3,4
+R16,mercados,Mercados,Sí,4,7
+R16,watchlist,Watchlist,Sí,4,6
+R16,alertas,Alertas,Sí,3,5
+R16,asesor,Asesor (perfil + simulación),Sí,5,6
+R16,discover,Discover / Social,No,,0
+R17,dashboard,Dashboard,Sí,4,5
+R17,portafolios,Portafolios y transacciones,Sí,4,7
+R17,analytics,Analytics (riesgo y retornos),Sí,4,5
+R17,mercados,Mercados,Sí,4,6
+R17,watchlist,Watchlist,No,,0
+R17,alertas,Alertas,Sí,3,3
+R17,asesor,Asesor (perfil + simulación),Sí,5,7
+R17,discover,Discover / Social,No,,0
+R18,dashboard,Dashboard,Sí,4,4
+R18,portafolios,Portafolios y transacciones,Sí,5,7
+R18,analytics,Analytics (riesgo y retornos),Sí,4,5
+R18,mercados,Mercados,Sí,5,7
+R18,watchlist,Watchlist,Sí,5,6
+R18,alertas,Alertas,No,,0
+R18,asesor,Asesor (perfil + simulación),Sí,5,9
+R18,discover,Discover / Social,No,,0
+R19,dashboard,Dashboard,Sí,5,6
+R19,portafolios,Portafolios y transacciones,Sí,5,6
+R19,analytics,Analytics (riesgo y retornos),Sí,4,5
+R19,mercados,Mercados,Sí,4,6
+R19,watchlist,Watchlist,Sí,4,7
+R19,alertas,Alertas,No,,0
+R19,asesor,Asesor (perfil + simulación),Sí,5,5
+R19,discover,Discover / Social,Sí,4,5
+R20,dashboard,Dashboard,Sí,4,4
+R20,portafolios,Portafolios y transacciones,Sí,4,5
+R20,analytics,Analytics (riesgo y retornos),Sí,4,5
+R20,mercados,Mercados,No,,0
+R20,watchlist,Watchlist,No,,0
+R20,alertas,Alertas,Sí,4,6
+R20,asesor,Asesor (perfil + simulación),No,,0
+R20,discover,Discover / Social,Sí,4,5
+R21,dashboard,Dashboard,Sí,5,7
+R21,portafolios,Portafolios y transacciones,Sí,4,5
+R21,analytics,Analytics (riesgo y retornos),Sí,5,7
+R21,mercados,Mercados,Sí,3,5
+R21,watchlist,Watchlist,Sí,4,6
+R21,alertas,Alertas,Sí,4,6
+R21,asesor,Asesor (perfil + simulación),Sí,5,6
+R21,discover,Discover / Social,No,,0
+R22,dashboard,Dashboard,Sí,4,5
+R22,portafolios,Portafolios y transacciones,Sí,4,5
+R22,analytics,Analytics (riesgo y retornos),Sí,3,4
+R22,mercados,Mercados,Sí,4,5
+R22,watchlist,Watchlist,Sí,3,5
+R22,alertas,Alertas,No,,0
+R22,asesor,Asesor (perfil + simulación),Sí,3,4
+R22,discover,Discover / Social,Sí,3,4
+R23,dashboard,Dashboard,Sí,5,7
+R23,portafolios,Portafolios y transacciones,Sí,5,5
+R23,analytics,Analytics (riesgo y retornos),Sí,5,6
+R23,mercados,Mercados,Sí,5,8
+R23,watchlist,Watchlist,Sí,5,7
+R23,alertas,Alertas,No,,0
+R23,asesor,Asesor (perfil + simulación),Sí,5,8
+R23,discover,Discover / Social,No,,0
+R24,dashboard,Dashboard,Sí,5,6
+R24,portafolios,Portafolios y transacciones,Sí,4,4
+R24,analytics,Analytics (riesgo y retornos),Sí,3,4
+R24,mercados,Mercados,Sí,4,5
+R24,watchlist,Watchlist,No,,0
+R24,alertas,Alertas,No,,0
+R24,asesor,Asesor (perfil + simulación),No,,0
+R24,discover,Discover / Social,Sí,3,3
