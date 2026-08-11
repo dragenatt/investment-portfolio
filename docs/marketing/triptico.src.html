@@ -1,0 +1,939 @@
+<title>InvestTracker — Tríptico</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/*FUENTES*/
+
+/* ── Identidad ────────────────────────────────────────────────────────────
+   Modernismo mexicano: cal, añil, rosa mexicano, ocre, jade.
+   Pieza impresa: compromete un solo mundo visual, no sigue el tema del visor.
+   ──────────────────────────────────────────────────────────────────────── */
+:root {
+  --tinta:      #191539;
+  --tinta-70:   #4A4568;
+  --anil:       #3B36C7;
+  --anil-osc:   #2A2695;
+  --rosa:       #E8336D;
+  --rosa-claro: #FBDCE6;
+  --ocre:       #F2A81D;
+  --ocre-claro: #FDEFD2;
+  --jade:       #0FA98C;
+  --jade-claro: #D6F2EB;
+  --cal:        #FBF6F1;
+  --cal-2:      #F2EAE0;
+  --cal-3:      #E4D8C9;
+  --mesa:       #14112E;
+
+  --display: "Big Shoulders", "Arial Narrow", sans-serif-condensed, sans-serif;
+  --texto:   "Work Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --dato:    "Red Hat Mono", ui-monospace, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--mesa);
+  color: var(--tinta);
+  font-family: var(--texto);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Espacio de trabajo en pantalla ──────────────────────────────────── */
+.taller { padding: 40px 24px 80px; }
+
+.intro {
+  max-width: 1123px;
+  margin: 0 auto 30px;
+  color: var(--cal);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.intro h1 {
+  font-family: var(--display);
+  font-size: 46px;
+  line-height: .92;
+  margin: 0;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+}
+.intro p { margin: 0; color: #B7B2D8; font-size: 15px; max-width: 62ch; line-height: 1.6; }
+.intro .pista {
+  font-family: var(--dato);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ocre);
+}
+
+.rotulo {
+  max-width: 1123px;
+  margin: 0 auto;
+  padding: 26px 0 10px;
+  font-family: var(--dato);
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: #8F89BE;
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+}
+.rotulo b { color: var(--cal); font-weight: 400; }
+
+.escala { max-width: 1123px; margin: 0 auto; }
+.lienzo { transform-origin: top left; }
+
+/* ── La hoja ─────────────────────────────────────────────────────────── */
+.hoja {
+  width: 297mm;
+  height: 210mm;
+  display: grid;
+  grid-template-columns: 99mm 99mm 99mm;
+  background: var(--cal);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 18px 60px -20px rgba(0, 0, 0, .8);
+}
+.hoja + .hoja { margin-top: 0; }
+
+.panel {
+  padding: 9mm;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+/* Nada se comprime en silencio: si algo no cabe, se ve en la verificación. */
+.panel > *:not(.crece) { flex-shrink: 0; }
+.panel + .panel { border-left: 1px dashed var(--cal-3); }
+.panel.oscuro { background: var(--anil); color: var(--cal); border-left-color: rgba(251, 246, 241, .25); }
+.panel.tinta  { background: var(--tinta); color: var(--cal); border-left-color: rgba(251, 246, 241, .2); }
+.panel.crema  { background: var(--cal-2); }
+
+/* ── Tipografía de la pieza ──────────────────────────────────────────── */
+.eyebrow {
+  font-family: var(--dato);
+  font-size: 7.6pt;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--rosa);
+  margin-bottom: 3mm;
+  display: block;
+}
+.panel.oscuro .eyebrow, .panel.tinta .eyebrow { color: var(--ocre); }
+
+h2.titulo {
+  font-family: var(--display);
+  font-size: 29pt;
+  line-height: .9;
+  letter-spacing: .005em;
+  text-transform: uppercase;
+  margin: 0 0 3.5mm;
+  text-wrap: balance;
+}
+h2.titulo em { font-style: normal; color: var(--rosa); }
+.panel.oscuro h2.titulo em, .panel.tinta h2.titulo em { color: var(--ocre); }
+
+h3.sub {
+  font-family: var(--display);
+  font-size: 15pt;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  margin: 0 0 1.5mm;
+}
+
+p { margin: 0; font-size: 9pt; line-height: 1.5; }
+.panel p.grande { font-size: 10.5pt; line-height: 1.45; }
+.tenue { color: var(--tinta-70); }
+.panel.oscuro .tenue, .panel.tinta .tenue { color: #C3BFE6; }
+
+.dato { font-family: var(--dato); font-variant-numeric: tabular-nums; }
+
+.crece { flex: 1; }
+.fila { display: flex; gap: 3mm; }
+.col { display: flex; flex-direction: column; }
+.gap2 { gap: 2mm; } .gap3 { gap: 3mm; } .gap4 { gap: 4mm; } .gap5 { gap: 5mm; }
+
+/* ── Componentes ─────────────────────────────────────────────────────── */
+.regla { height: 1.2mm; background: var(--rosa); width: 14mm; border-radius: 1mm; margin-bottom: 4mm; }
+.panel.oscuro .regla, .panel.tinta .regla { background: var(--ocre); }
+
+.marca { display: flex; align-items: center; gap: 2.4mm; }
+.marca .glifo { width: 8mm; height: 8mm; flex: 0 0 8mm; }
+.marca .nombre {
+  font-family: var(--display);
+  font-size: 17pt;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.marca .cola {
+  font-family: var(--dato);
+  font-size: 6.4pt;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--rosa);
+  display: block;
+  margin-top: .8mm;
+}
+.panel.oscuro .marca .cola, .panel.tinta .marca .cola { color: var(--ocre); }
+
+/* Lista de dolores / beneficios */
+.puntos { display: flex; flex-direction: column; gap: 2.9mm; }
+.punto { display: grid; grid-template-columns: 7mm 1fr; gap: 2.6mm; align-items: start; }
+.punto .ico { width: 7mm; height: 7mm; }
+.punto h4 { font-family: var(--texto); font-size: 9.2pt; font-weight: 700; margin: 0 0 .6mm; line-height: 1.25; }
+.punto p { font-size: 8.1pt; line-height: 1.42; }
+
+/* Tarjetas de módulo */
+.modulos { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8mm; }
+.modulo {
+  background: var(--cal);
+  border: .35mm solid var(--cal-3);
+  border-radius: 1.6mm;
+  padding: 2.2mm 2.2mm 2.4mm;
+  display: flex;
+  flex-direction: column;
+  gap: .9mm;
+}
+.modulo .cab { display: flex; align-items: center; gap: 1.6mm; }
+.modulo .ico { width: 4.4mm; height: 4.4mm; flex: 0 0 4.4mm; }
+.modulo b { font-size: 8pt; letter-spacing: -.01em; }
+.modulo span { font-size: 6.8pt; line-height: 1.3; color: var(--tinta-70); }
+
+/* Pasos numerados */
+.pasos { display: flex; flex-direction: column; gap: 2.4mm; counter-reset: p; }
+.paso { display: grid; grid-template-columns: 7.4mm 1fr; gap: 2.6mm; align-items: start; counter-increment: p; }
+.paso .n {
+  width: 7.4mm; height: 7.4mm;
+  border-radius: 50%;
+  background: var(--rosa);
+  color: var(--cal);
+  font-family: var(--display);
+  font-size: 12pt;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+.paso:nth-child(2) .n { background: var(--ocre); color: var(--tinta); }
+.paso:nth-child(3) .n { background: var(--jade); }
+.paso:nth-child(4) .n { background: var(--cal); color: var(--anil-osc); }
+.paso h4 { font-family: var(--display); font-size: 12.5pt; text-transform: uppercase; margin: 0 0 .6mm; line-height: .95; }
+.paso p { font-size: 7.8pt; line-height: 1.38; }
+.paso .seg { font-family: var(--dato); font-size: 6.8pt; letter-spacing: .1em; text-transform: uppercase; color: var(--rosa); }
+
+/* Antes / después */
+.comparativa { display: flex; flex-direction: column; gap: 2.6mm; }
+.caja {
+  border-radius: 2mm;
+  padding: 3.4mm;
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+}
+.caja.antes { background: var(--cal); border: .35mm dashed var(--cal-3); }
+.caja.despues { background: var(--tinta); color: var(--cal); }
+.caja .tag {
+  font-family: var(--dato);
+  font-size: 6.8pt;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.caja.antes .tag { color: var(--tinta-70); }
+.caja.despues .tag { color: var(--ocre); }
+.caja .frase { font-family: var(--display); font-size: 13pt; line-height: .98; text-transform: uppercase; }
+.caja.antes .frase { color: var(--tinta-70); }
+
+/* Cifra grande */
+.cifra { display: flex; flex-direction: column; gap: .6mm; }
+.cifra .v { font-family: var(--display); font-size: 23pt; line-height: .88; }
+.cifra .k { font-family: var(--dato); font-size: 6.8pt; letter-spacing: .14em; text-transform: uppercase; color: var(--tinta-70); }
+.panel.oscuro .cifra .k, .panel.tinta .cifra .k { color: #B4AFE0; }
+
+/* Perfiles */
+.perfiles { display: flex; gap: 3mm; }
+.perfil { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1.2mm; text-align: center; }
+.perfil svg { max-width: 15mm; }
+.grafico { display: block; width: 100%; height: auto; }
+.perfil b { font-family: var(--display); font-size: 10.5pt; text-transform: uppercase; line-height: 1; }
+.perfil span { font-family: var(--dato); font-size: 6.4pt; color: var(--tinta-70); letter-spacing: .04em; }
+.panel.oscuro .perfil span, .panel.tinta .perfil span { color: #C3BFE6; }
+
+/* Sellos de confianza */
+.sellos { display: flex; gap: 2.4mm; margin-bottom: 4mm; }
+.sello { flex: 1; display: flex; flex-direction: column; gap: 1.2mm; }
+.sello svg { width: 4.4mm; height: 4.4mm; }
+.sello span { font-size: 7.2pt; line-height: 1.3; font-weight: 700; }
+
+/* Llamada a la acción */
+.cta {
+  background: var(--rosa);
+  color: var(--cal);
+  border-radius: 2mm;
+  padding: 4mm;
+  display: flex;
+  flex-direction: column;
+  gap: 1.6mm;
+}
+.cta .grito { font-family: var(--display); font-size: 19pt; line-height: .92; text-transform: uppercase; }
+.cta .url { font-family: var(--dato); font-size: 8.4pt; letter-spacing: .02em; word-break: break-all; }
+
+.aviso {
+  border-top: .3mm solid var(--cal-3);
+  padding-top: 2.6mm;
+  font-size: 6.8pt;
+  line-height: 1.45;
+  color: var(--tinta-70);
+}
+.panel.oscuro .aviso, .panel.tinta .aviso { border-top-color: rgba(251, 246, 241, .25); color: #B4AFE0; }
+
+.pie {
+  font-family: var(--dato);
+  font-size: 6.6pt;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--tinta-70);
+}
+.panel.oscuro .pie, .panel.tinta .pie { color: #A9A3D8; }
+
+.franja { display: flex; gap: 0; height: 2.2mm; border-radius: 1.1mm; overflow: hidden; }
+.franja i { flex: 1; }
+
+/* ── Impresión ───────────────────────────────────────────────────────── */
+@page { size: A4 landscape; margin: 0; }
+
+@media print {
+  body { background: #fff; }
+  .taller { padding: 0; }
+  .intro, .rotulo, .nota-impresion { display: none !important; }
+  .escala { max-width: none; }
+  .lienzo { transform: none !important; }
+  .hoja { box-shadow: none; page-break-after: always; break-after: page; }
+  .hoja:last-of-type { page-break-after: auto; break-after: auto; }
+  .panel + .panel { border-left: none; }
+}
+</style>
+
+<div class="taller">
+
+  <div class="intro">
+    <span class="pista">Pieza impresa · A4 apaisado · doble cara · dos dobleces</span>
+    <h1>Tríptico InvestTracker</h1>
+    <p>
+      Listo para imprimir: A4 horizontal, doble cara, tres paneles de 99 mm por cara.
+      Imprime a doble cara volteando por el <strong style="color:var(--cal)">lado corto</strong>, dobla el
+      panel derecho hacia adentro y luego el izquierdo encima. Desde el navegador:
+      <strong style="color:var(--cal)">Imprimir → Guardar como PDF</strong>, tamaño real, sin márgenes.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       CARA EXTERIOR — lo que se ve con el tríptico cerrado
+       ══════════════════════════════════════════════════════════════════ -->
+  <div class="rotulo"><b>Cara exterior</b> <span>contraportada · solapa · portada</span></div>
+  <div class="escala">
+    <div class="lienzo">
+      <div class="hoja">
+
+        <!-- ── Panel 1 · CONTRAPORTADA ─────────────────────────────── -->
+        <div class="panel">
+          <span class="eyebrow">Empieza hoy</span>
+          <h2 class="titulo">Tu primer<br><em>portafolio</em><br>en 3 minutos</h2>
+          <p class="tenue" style="margin-bottom:5mm">
+            No necesitas saber de finanzas ni conectar tu banco. Solo lo que ya compraste.
+          </p>
+
+          <div class="pasos" style="margin-bottom:5mm">
+            <div class="paso">
+              <div class="n">1</div>
+              <div>
+                <h4>Crea tu cuenta</h4>
+                <p class="tenue">Correo y contraseña. Nada más.</p>
+              </div>
+            </div>
+            <div class="paso">
+              <div class="n">2</div>
+              <div>
+                <h4>Carga lo que tienes</h4>
+                <p class="tenue">Una por una o importando un CSV de tu bróker.</p>
+              </div>
+            </div>
+            <div class="paso">
+              <div class="n">3</div>
+              <div>
+                <h4>Mira tu panel</h4>
+                <p class="tenue">Valor, ganancia real, riesgo y comparación contra el mercado.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+
+          <div class="sellos">
+            <div class="sello">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#0FA98C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+              <span>Sin costo<br>para empezar</span>
+            </div>
+            <div class="sello">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#0FA98C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+              <span>Sin conectar<br>tu banco</span>
+            </div>
+            <div class="sello">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#0FA98C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+              <span>Sin tarjeta<br>de crédito</span>
+            </div>
+          </div>
+
+          <div class="cta">
+            <span class="dato" style="font-size:6.8pt;letter-spacing:.18em;text-transform:uppercase;opacity:.9">Crea tu cuenta gratis</span>
+            <span class="grito">Empieza<br>gratis hoy</span>
+            <span class="url">project-tri0w.vercel.app</span>
+          </div>
+
+          <p class="tenue" style="font-size:7.4pt;margin-top:3mm">
+            Funciona en el navegador y se instala como app en tu celular. Español e inglés · MXN, USD y EUR.
+          </p>
+
+          <div class="aviso" style="margin-top:4mm">
+            InvestTracker es una herramienta de seguimiento y análisis: <strong>no ejecuta operaciones,
+            no custodia tu dinero y no es asesoría de inversión</strong>. Las carteras sugeridas y las
+            simulaciones son ejercicios informativos basados en supuestos, no promesas de rendimiento.
+          </div>
+        </div>
+
+        <!-- ── Panel 2 · SOLAPA ────────────────────────────────────── -->
+        <div class="panel crema">
+          <span class="eyebrow">Lo que cambia</span>
+          <h2 class="titulo" style="font-size:26pt">De juntar<br>capturas a<br><em>entender</em></h2>
+
+          <div class="comparativa" style="margin:2mm 0 4mm">
+            <div class="caja antes">
+              <span class="tag">Hoy</span>
+              <span class="frase">«Creo que voy ganando… ¿o no?»</span>
+              <svg class="grafico" viewBox="0 0 200 74" role="img" aria-label="Cuatro fuentes de datos dispersas y desconectadas">
+                <g fill="none" stroke="#B9AC9A" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="3 3">
+                  <path d="M40 24 C 70 10, 90 44, 128 26"/>
+                  <path d="M36 50 C 74 62, 104 34, 140 52"/>
+                </g>
+                <g transform="rotate(-7 34 22)">
+                  <rect x="10" y="8" width="48" height="30" rx="3" fill="#fff" stroke="#D8C9B6" stroke-width="1.2"/>
+                  <rect x="15" y="14" width="26" height="2.6" rx="1.3" fill="#C9BAA6"/>
+                  <rect x="15" y="20" width="34" height="2.6" rx="1.3" fill="#E0D3C2"/>
+                  <rect x="15" y="26" width="20" height="2.6" rx="1.3" fill="#E0D3C2"/>
+                  <text x="15" y="36" font-family="Red Hat Mono, monospace" font-size="5" fill="#9C8D7B">Bróker A</text>
+                </g>
+                <g transform="rotate(5 130 24)">
+                  <rect x="106" y="6" width="46" height="30" rx="3" fill="#fff" stroke="#D8C9B6" stroke-width="1.2"/>
+                  <rect x="111" y="12" width="30" height="2.6" rx="1.3" fill="#C9BAA6"/>
+                  <rect x="111" y="18" width="18" height="2.6" rx="1.3" fill="#E0D3C2"/>
+                  <rect x="111" y="24" width="26" height="2.6" rx="1.3" fill="#E0D3C2"/>
+                  <text x="111" y="34" font-family="Red Hat Mono, monospace" font-size="5" fill="#9C8D7B">Bróker B</text>
+                </g>
+                <g transform="rotate(-3 40 58)">
+                  <rect x="18" y="42" width="52" height="26" rx="2" fill="#fff" stroke="#D8C9B6" stroke-width="1.2"/>
+                  <g stroke="#E6DACA" stroke-width="1">
+                    <path d="M18 50 H70 M18 58 H70 M35 42 V68 M52 42 V68"/>
+                  </g>
+                  <text x="21" y="48" font-family="Red Hat Mono, monospace" font-size="4.6" fill="#9C8D7B">hoja.xlsx</text>
+                </g>
+                <g transform="rotate(8 150 56)">
+                  <rect x="126" y="42" width="44" height="26" rx="3" fill="#fff" stroke="#D8C9B6" stroke-width="1.2"/>
+                  <path d="M133 60 L141 52 L148 57 L162 47" fill="none" stroke="#C9BAA6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <text x="131" y="50" font-family="Red Hat Mono, monospace" font-size="4.6" fill="#9C8D7B">captura</text>
+                </g>
+                <g transform="translate(176 30)">
+                  <text x="0" y="0" font-family="Big Shoulders, sans-serif" font-size="22" fill="#D8C9B6">?</text>
+                </g>
+              </svg>
+            </div>
+
+            <div class="caja despues">
+              <span class="tag">Con InvestTracker</span>
+              <span class="frase">«Voy +12.4% y sé exactamente por qué»</span>
+              <svg class="grafico" viewBox="0 0 200 74" role="img" aria-label="Un solo panel con valor total, ganancia y evolución">
+                <rect x="6" y="6" width="188" height="62" rx="4" fill="#221D4A" stroke="#3B36C7" stroke-width="1.2"/>
+                <text x="14" y="17" font-family="Red Hat Mono, monospace" font-size="5" fill="#8F89BE">VALOR TOTAL</text>
+                <text x="14" y="32" font-family="Big Shoulders, sans-serif" font-size="15" fill="#FBF6F1">$847,231</text>
+                <text x="14" y="42" font-family="Red Hat Mono, monospace" font-size="5.4" fill="#0FA98C">+12.4% ▲ este año</text>
+                <path d="M14 60 L34 56 L52 58 L70 49 L88 52 L106 44 L124 46 L142 38 L160 33 L182 26"
+                      fill="none" stroke="#0FA98C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M14 60 L34 56 L52 58 L70 49 L88 52 L106 44 L124 46 L142 38 L160 33 L182 26 L182 64 L14 64 Z"
+                      fill="#0FA98C" opacity=".16"/>
+                <circle cx="182" cy="26" r="2.6" fill="#0FA98C" stroke="#221D4A" stroke-width="1.2"/>
+              </svg>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+
+          <h3 class="sub">Lo que deja de pasar</h3>
+          <div class="puntos" style="margin-top:2mm">
+            <div class="punto">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#E8336D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 12h4l3-8 4 16 3-8h4"/>
+              </svg>
+              <div>
+                <h4>Confundir aportación con ganancia</h4>
+                <p class="tenue">Separa el dinero que metiste del que ganaste. Es el error más común.</p>
+              </div>
+            </div>
+            <div class="punto">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#F2A81D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>
+              </svg>
+              <div>
+                <h4>Actualizar precios a mano</h4>
+                <p class="tenue">Los precios de NYSE, NASDAQ y BMV se actualizan solos.</p>
+              </div>
+            </div>
+            <div class="punto">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#0FA98C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/>
+              </svg>
+              <div>
+                <h4>Adivinar cuánto riesgo traes</h4>
+                <p class="tenue">Concentración, volatilidad y caída máxima, calculadas y explicadas.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Panel 3 · PORTADA ───────────────────────────────────── -->
+        <div class="panel tinta">
+          <div class="marca">
+            <svg class="glifo" viewBox="0 0 32 32" role="img" aria-label="InvestTracker">
+              <rect x="1.2" y="1.2" width="29.6" height="29.6" rx="7" fill="none" stroke="#F2A81D" stroke-width="2"/>
+              <path d="M8 22 L13.5 15 L18 18.5 L24.5 9" fill="none" stroke="#FBF6F1" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="24.5" cy="9" r="3" fill="#E8336D"/>
+            </svg>
+            <div>
+              <div class="nombre">InvestTracker</div>
+              <span class="cola">Portfolio Intelligence</span>
+            </div>
+          </div>
+
+          <div style="height:8mm"></div>
+
+          <h2 class="titulo" style="font-size:36pt">Tu portafolio,<br>por fin en<br><em>un solo<br>lugar</em></h2>
+
+          <p class="grande tenue" style="max-width:60mm">
+            Registra lo que tienes, entiende cuánto ganaste de verdad y descubre el riesgo que
+            estás tomando — en pesos, dólares o euros.
+          </p>
+
+          <div class="crece"></div>
+
+          <!-- Composición: dona de asignación + barras -->
+          <svg class="grafico" viewBox="0 0 220 132" role="img" aria-label="Composición de un portafolio: distribución por activo y evolución mensual">
+            <defs>
+              <clipPath id="recorte"><rect x="0" y="0" width="220" height="132"/></clipPath>
+            </defs>
+            <g clip-path="url(#recorte)">
+              <circle cx="163" cy="42" r="62" fill="#3B36C7" opacity=".28"/>
+              <circle cx="196" cy="112" r="40" fill="#E8336D" opacity=".22"/>
+
+              <!-- Dona de asignación -->
+              <g transform="translate(46 46)">
+                <circle r="30" fill="none" stroke="#2A2560" stroke-width="13"/>
+                <circle r="30" fill="none" stroke="#E8336D" stroke-width="13"
+                        stroke-dasharray="70.7 117.9" transform="rotate(-90)" stroke-linecap="butt"/>
+                <circle r="30" fill="none" stroke="#F2A81D" stroke-width="13"
+                        stroke-dasharray="47.1 141.5" transform="rotate(45)" stroke-linecap="butt"/>
+                <circle r="30" fill="none" stroke="#0FA98C" stroke-width="13"
+                        stroke-dasharray="37.7 150.9" transform="rotate(135)" stroke-linecap="butt"/>
+                <circle r="30" fill="none" stroke="#7A76E0" stroke-width="13"
+                        stroke-dasharray="33.0 155.5" transform="rotate(207)" stroke-linecap="butt"/>
+                <text x="0" y="-2" text-anchor="middle" font-family="Red Hat Mono, monospace" font-size="6" fill="#8F89BE">TOTAL</text>
+                <text x="0" y="8" text-anchor="middle" font-family="Big Shoulders, sans-serif" font-size="13" fill="#FBF6F1">100%</text>
+              </g>
+
+              <!-- Barras de evolución -->
+              <g transform="translate(96 12)">
+                <g fill="#FBF6F1" opacity=".18">
+                  <rect x="0"  y="52" width="9" height="26" rx="2"/>
+                  <rect x="15" y="44" width="9" height="34" rx="2"/>
+                  <rect x="30" y="48" width="9" height="30" rx="2"/>
+                  <rect x="45" y="32" width="9" height="46" rx="2"/>
+                  <rect x="60" y="36" width="9" height="42" rx="2"/>
+                </g>
+                <rect x="75" y="18" width="9" height="60" rx="2" fill="#F2A81D"/>
+                <rect x="90" y="8"  width="9" height="70" rx="2" fill="#E8336D"/>
+                <path d="M4 50 L19 42 L34 46 L49 30 L64 34 L79 16 L94 6"
+                      fill="none" stroke="#0FA98C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="94" cy="6" r="3.4" fill="#0FA98C" stroke="#191539" stroke-width="1.4"/>
+              </g>
+
+              <!-- Tarjeta flotante -->
+              <g transform="translate(14 92)">
+                <rect x="0" y="0" width="92" height="34" rx="4" fill="#FBF6F1"/>
+                <text x="7" y="11" font-family="Red Hat Mono, monospace" font-size="5" fill="#4A4568">GANANCIA TOTAL</text>
+                <text x="85" y="11" text-anchor="end" font-family="Red Hat Mono, monospace" font-size="5.4" fill="#0FA98C">+12.4%</text>
+                <text x="7" y="27" font-family="Big Shoulders, sans-serif" font-size="17" fill="#191539">+$93,410</text>
+              </g>
+            </g>
+          </svg>
+
+          <div class="franja" style="margin-top:5mm">
+            <i style="background:#E8336D"></i>
+            <i style="background:#F2A81D"></i>
+            <i style="background:#0FA98C"></i>
+            <i style="background:#7A76E0"></i>
+          </div>
+          <p class="pie" style="margin-top:3mm">Gratis para empezar · project-tri0w.vercel.app</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       CARA INTERIOR — el desplegado
+       ══════════════════════════════════════════════════════════════════ -->
+  <div class="rotulo"><b>Cara interior</b> <span>por qué existe · qué es · cómo funciona</span></div>
+  <div class="escala">
+    <div class="lienzo">
+      <div class="hoja">
+
+        <!-- ── Panel 4 · POR QUÉ EXISTE ────────────────────────────── -->
+        <div class="panel">
+          <span class="eyebrow">Por qué existe</span>
+          <div class="regla"></div>
+          <h2 class="titulo">Invertir es<br>fácil. Saber<br><em>cómo vas</em><br>no lo es</h2>
+
+          <p class="grande tenue" style="margin-bottom:5mm">
+            Abrir una cuenta de inversión hoy toma cinco minutos. Responder «¿cuánto gané y por qué?»
+            puede tomar una tarde entera — y casi siempre acaba en una hoja de cálculo.
+          </p>
+
+          <div class="puntos">
+            <div class="punto">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#E8336D" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="4" width="8" height="7" rx="1.5"/><rect x="14" y="4" width="8" height="7" rx="1.5"/>
+                <rect x="2" y="14" width="8" height="7" rx="1.5"/><rect x="14" y="14" width="8" height="7" rx="1.5"/>
+              </svg>
+              <div>
+                <h4>Tu dinero vive en varias apps</h4>
+                <p class="tenue">Un bróker para acciones, otro para el fondo, el CETE por otro lado.
+                  Ninguna de las tres te da el total.</p>
+              </div>
+            </div>
+            <div class="punto">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#F2A81D" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 20h18"/><path d="M6 20V9"/><path d="M12 20V5"/><path d="M18 20v-7"/>
+              </svg>
+              <div>
+                <h4>El saldo no es el rendimiento</h4>
+                <p class="tenue">Tu bróker te dice cuánto tienes. No cuánto de eso lo pusiste tú y
+                  cuánto lo ganó el mercado.</p>
+              </div>
+            </div>
+            <div class="punto">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#0FA98C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+              </svg>
+              <div>
+                <h4>La hoja de cálculo se rompe</h4>
+                <p class="tenue">Aguanta hasta el primer dividendo, el primer split o el primer
+                  movimiento del tipo de cambio.</p>
+              </div>
+            </div>
+            <div class="punto">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#3B36C7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a2.9 2.9 0 1 1 3.8 3.5c-.7.3-1 .9-1 1.6"/><path d="M12 17.2h.01"/>
+              </svg>
+              <div>
+                <h4>Nadie te explica el riesgo</h4>
+                <p class="tenue">«Volatilidad», «drawdown», «benchmark». Palabras que deciden tu dinero
+                  y que casi nadie te traduce.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+
+          <div style="background:var(--tinta);color:var(--cal);border-radius:2mm;padding:3.6mm">
+            <span class="dato" style="font-size:6.6pt;letter-spacing:.16em;text-transform:uppercase;color:var(--ocre)">La idea</span>
+            <p style="font-family:var(--display);font-size:14pt;line-height:1;text-transform:uppercase;margin-top:1.6mm">
+              Que cualquiera pueda ver su dinero como lo ve un profesional
+            </p>
+          </div>
+        </div>
+
+        <!-- ── Panel 5 · QUÉ ES ────────────────────────────────────── -->
+        <div class="panel crema">
+          <span class="eyebrow">Qué es</span>
+          <div class="regla"></div>
+          <h2 class="titulo">Una sola<br>plataforma<br>para <em>todo tu<br>dinero</em></h2>
+
+          <p class="grande" style="margin-bottom:4mm">
+            Reúne tus inversiones, <strong>calcula tu rendimiento real</strong> y te explica el riesgo
+            que traes, con los datos del mercado ya integrados.
+          </p>
+
+          <h3 class="sub" style="margin-bottom:2.2mm">Ocho módulos, una sola cuenta</h3>
+          <div class="modulos">
+            <div class="modulo">
+              <div class="cab">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#3B36C7" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                  <rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/>
+                  <rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>
+                </svg>
+                <b>Dashboard</b>
+              </div>
+              <span>Valor, ganancia del día y del total, distribución y salud del portafolio.</span>
+            </div>
+            <div class="modulo">
+              <div class="cab">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#E8336D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M3 7h18v13H3z"/><path d="M8 7V4h8v3"/><path d="M3 12h18"/>
+                </svg>
+                <b>Portafolios</b>
+              </div>
+              <span>Varias carteras, compras y ventas, importación y exportación en CSV.</span>
+            </div>
+            <div class="modulo">
+              <div class="cab">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#0FA98C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>
+                </svg>
+                <b>Analytics</b>
+              </div>
+              <span>Retornos, volatilidad, caída máxima, atribución por posición y dividendos.</span>
+            </div>
+            <div class="modulo">
+              <div class="cab">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#F2A81D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/>
+                </svg>
+                <b>Mercados</b>
+              </div>
+              <span>Precios de NYSE, NASDAQ y BMV, fundamentales, sectores y comparador.</span>
+            </div>
+            <div class="modulo">
+              <div class="cab">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#3B36C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/>
+                </svg>
+                <b>Watchlist</b>
+              </div>
+              <span>Sigue activos que te interesan antes de comprarlos.</span>
+            </div>
+            <div class="modulo">
+              <div class="cab">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#E8336D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/>
+                </svg>
+                <b>Alertas</b>
+              </div>
+              <span>Avisos cuando un activo llega a tu precio o cuando te concentras de más.</span>
+            </div>
+            <div class="modulo">
+              <div class="cab">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#0FA98C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3l2.4 5.4 5.6.6-4.2 3.9 1.2 5.7L12 15.8 6.999 18.6l1.2-5.7L4 9.4l5.6-.6z"/>
+                </svg>
+                <b>Asesor</b>
+              </div>
+              <span>Tu perfil de riesgo, una cartera sugerida y simulación a futuro.</span>
+            </div>
+            <div class="modulo">
+              <div class="cab">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#F2A81D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6"/><path d="M18.5 19c0-2-.8-3.6-2.2-4.6"/>
+                </svg>
+                <b>Discover</b>
+              </div>
+              <span>Portafolios públicos y tabla de líderes, si quieres compartir el tuyo.</span>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+
+          <div class="fila gap4" style="margin-top:4mm;align-items:flex-end">
+            <div class="cifra">
+              <span class="v" style="color:var(--anil)">3</span>
+              <span class="k">Monedas</span>
+            </div>
+            <div class="cifra">
+              <span class="v" style="color:var(--rosa)">3</span>
+              <span class="k">Mercados</span>
+            </div>
+            <div class="cifra">
+              <span class="v" style="color:var(--jade)">2</span>
+              <span class="k">Idiomas</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Panel 6 · CÓMO FUNCIONA ─────────────────────────────── -->
+        <div class="panel oscuro">
+          <span class="eyebrow">Cómo funciona</span>
+          <div class="regla"></div>
+          <h2 class="titulo">Cuatro pasos<br>y ya <em>lo ves<br>todo</em></h2>
+
+          <div class="pasos" style="margin:3mm 0 4mm">
+            <div class="paso">
+              <div class="n">1</div>
+              <div>
+                <h4>Crea tu portafolio</h4>
+                <p class="tenue">Ponle nombre y elige la moneda. Puedes tener varios a la vez.</p>
+              </div>
+            </div>
+            <div class="paso">
+              <div class="n">2</div>
+              <div>
+                <h4>Registra o importa</h4>
+                <p class="tenue">Captura cada operación o sube el CSV de tu bróker. Los precios se
+                  actualizan solos.</p>
+              </div>
+            </div>
+            <div class="paso">
+              <div class="n">3</div>
+              <div>
+                <h4>La plataforma calcula</h4>
+                <p class="tenue">Ganancia real separada de tus aportaciones, distribución, riesgo y
+                  comparación contra un índice.</p>
+              </div>
+            </div>
+            <div class="paso">
+              <div class="n">4</div>
+              <div>
+                <h4>Decides con datos</h4>
+                <p class="tenue">Alertas a tu precio, avisos si te concentras de más y una cartera
+                  sugerida según tu perfil.</p>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="sub">El Asesor te ubica en un perfil</h3>
+          <p class="tenue" style="font-size:7.6pt;margin-bottom:3mm">
+            Ocho preguntas sobre tu edad, horizonte e ingresos. De ahí sale tu cartera sugerida.
+          </p>
+
+          <div class="perfiles">
+            <div class="perfil">
+              <svg class="grafico" viewBox="0 0 60 60" role="img" aria-label="Cartera conservadora: 40% CETES, 30% bonos, 20% ETF, 10% FIBRAS">
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#0FA98C" stroke-width="10" stroke-dasharray="52.8 79.2" transform="rotate(-90 30 30)"/>
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#7A76E0" stroke-width="10" stroke-dasharray="39.6 92.4" transform="rotate(54 30 30)"/>
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#F2A81D" stroke-width="10" stroke-dasharray="26.4 105.6" transform="rotate(162 30 30)"/>
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#E8336D" stroke-width="10" stroke-dasharray="13.2 118.8" transform="rotate(234 30 30)"/>
+              </svg>
+              <b>Conservador</b>
+              <span>4% anual objetivo</span>
+            </div>
+            <div class="perfil">
+              <svg class="grafico" viewBox="0 0 60 60" role="img" aria-label="Cartera moderada: 35% ETF S&P 500, 20% CETES, 20% bonos, 15% Nasdaq, 10% FIBRAS">
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#7A76E0" stroke-width="10" stroke-dasharray="46.2 85.8" transform="rotate(-90 30 30)"/>
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#0FA98C" stroke-width="10" stroke-dasharray="26.4 105.6" transform="rotate(36 30 30)"/>
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#F2A81D" stroke-width="10" stroke-dasharray="26.4 105.6" transform="rotate(108 30 30)"/>
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#E8336D" stroke-width="10" stroke-dasharray="19.8 112.2" transform="rotate(180 30 30)"/>
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#FBF6F1" stroke-width="10" stroke-dasharray="13.2 118.8" transform="rotate(234 30 30)"/>
+              </svg>
+              <b>Moderado</b>
+              <span>7% anual objetivo</span>
+            </div>
+            <div class="perfil">
+              <svg class="grafico" viewBox="0 0 60 60" role="img" aria-label="Cartera agresiva: 40% ETF S&P 500, 25% Nasdaq, 20% emergentes, 10% FIBRAS, 5% oro">
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#E8336D" stroke-width="10" stroke-dasharray="52.8 79.2" transform="rotate(-90 30 30)"/>
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#F2A81D" stroke-width="10" stroke-dasharray="33.0 99.0" transform="rotate(54 30 30)"/>
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#0FA98C" stroke-width="10" stroke-dasharray="26.4 105.6" transform="rotate(144 30 30)"/>
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#7A76E0" stroke-width="10" stroke-dasharray="13.2 118.8" transform="rotate(216 30 30)"/>
+                <circle cx="30" cy="30" r="21" fill="none" stroke="#FBF6F1" stroke-width="10" stroke-dasharray="6.6 125.4" transform="rotate(252 30 30)"/>
+              </svg>
+              <b>Agresivo</b>
+              <span>11% anual objetivo</span>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+
+          <!-- Abanico de escenarios -->
+          <div style="margin-top:3mm">
+            <h3 class="sub" style="margin-bottom:1.5mm">Y proyecta escenarios</h3>
+            <svg class="grafico" viewBox="0 0 220 58" role="img" aria-label="Abanico de escenarios: rango entre el peor y el mejor caso, con el escenario promedio al centro">
+              <path d="M8 48 C 60 42, 120 28, 212 6 L212 25 C 120 37, 60 44, 8 48 Z" fill="#F2A81D" opacity=".26"/>
+              <path d="M8 48 C 60 46, 120 41, 212 25 L212 39 C 120 44, 60 47, 8 48 Z" fill="#E8336D" opacity=".24"/>
+              <path d="M8 48 C 60 44, 120 35, 212 15" fill="none" stroke="#FBF6F1" stroke-width="1.8" stroke-linecap="round"/>
+              <g font-family="Red Hat Mono, monospace" font-size="5" fill="#C3BFE6">
+                <text x="178" y="5">mejor</text>
+                <text x="178" y="20">medio</text>
+                <text x="178" y="37">peor</text>
+              </g>
+              <line x1="8" y1="51" x2="212" y2="51" stroke="#FBF6F1" stroke-width=".6" opacity=".4"/>
+              <g font-family="Red Hat Mono, monospace" font-size="4.8" fill="#A9A3D8">
+                <text x="8" y="57">hoy</text>
+                <text x="190" y="57">10 años</text>
+              </g>
+            </svg>
+            <p class="tenue" style="font-size:6.8pt;margin-top:1mm">
+              Simulación con supuestos de rendimiento y volatilidad: un ejercicio, no una promesa.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="rotulo nota-impresion" style="padding-top:30px">
+    <span>Guía de doblez</span>
+  </div>
+  <div class="intro nota-impresion" style="margin-top:6px">
+    <svg viewBox="0 0 420 96" width="420" height="96" style="max-width:100%" role="img" aria-label="Guía de doblez: el panel derecho se dobla hacia adentro y el izquierdo encima">
+      <g font-family="Red Hat Mono, monospace" font-size="9" fill="#8F89BE">
+        <rect x="10" y="18" width="120" height="60" fill="none" stroke="#4A4578" stroke-width="1.4"/>
+        <rect x="130" y="18" width="120" height="60" fill="none" stroke="#4A4578" stroke-width="1.4" stroke-dasharray="4 4"/>
+        <rect x="250" y="18" width="120" height="60" fill="none" stroke="#4A4578" stroke-width="1.4" stroke-dasharray="4 4"/>
+        <text x="34" y="52" fill="#FBF6F1">Contra-</text>
+        <text x="34" y="64" fill="#FBF6F1">portada</text>
+        <text x="166" y="52" fill="#B7B2D8">Solapa</text>
+        <text x="286" y="52" fill="#F2A81D">Portada</text>
+        <path d="M366 88 C 330 96, 300 96, 264 88" fill="none" stroke="#E8336D" stroke-width="1.6" marker-end="url(#pf)"/>
+        <path d="M126 88 C 160 96, 190 96, 224 88" fill="none" stroke="#E8336D" stroke-width="1.6" marker-end="url(#pf)"/>
+        <text x="10" y="12" fill="#8F89BE">1er doblez: panel derecho hacia adentro · 2º doblez: panel izquierdo encima</text>
+      </g>
+      <defs>
+        <marker id="pf" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <path d="M0 0 L7 3.5 L0 7 z" fill="#E8336D"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+</div>
+
+<script>
+  (function () {
+    'use strict';
+    // Las hojas miden 297 mm de ancho real; en pantalla se escalan al contenedor.
+    function ajustar() {
+      document.querySelectorAll('.escala').forEach(function (caja) {
+        var lienzo = caja.querySelector('.lienzo');
+        var hoja = lienzo.querySelector('.hoja');
+        lienzo.style.transform = 'none';
+        var ancho = hoja.getBoundingClientRect().width;
+        var alto = hoja.getBoundingClientRect().height;
+        if (!ancho) return;
+        var s = Math.min(1, caja.clientWidth / ancho);
+        lienzo.style.transform = 'scale(' + s + ')';
+        caja.style.height = (alto * s) + 'px';
+      });
+    }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajustar);
+    window.addEventListener('resize', ajustar);
+    window.addEventListener('beforeprint', function () {
+      document.querySelectorAll('.lienzo').forEach(function (l) { l.style.transform = 'none'; });
+      document.querySelectorAll('.escala').forEach(function (c) { c.style.height = 'auto'; });
+    });
+    window.addEventListener('afterprint', ajustar);
+    ajustar();
+    setTimeout(ajustar, 300);
+  })();
+</script>
