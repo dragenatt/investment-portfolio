@@ -1,0 +1,927 @@
+<title>InvestTracker — Póster científico</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/*FUENTES*/
+
+/* ── Identidad (heredada del tríptico) ──────────────────────────────────── */
+:root {
+  --tinta:      #191539;
+  --tinta-70:   #4A4568;
+  --tinta-45:   #7B7799;
+  --anil:       #3B36C7;
+  --anil-osc:   #2A2695;
+  --anil-claro: #E5E4FA;
+  --rosa:       #E8336D;
+  --rosa-claro: #FBDCE6;
+  --ocre:       #F2A81D;
+  --ocre-claro: #FDEFD2;
+  --jade:       #0FA98C;
+  --jade-claro: #D6F2EB;
+  --cal:        #FBF6F1;
+  --cal-2:      #F2EAE0;
+  --cal-3:      #E4D8C9;
+  --mesa:       #14112E;
+
+  --display: "Big Shoulders", "Arial Narrow", sans-serif;
+  --texto:   "Work Sans", system-ui, -apple-system, sans-serif;
+  --dato:    "Red Hat Mono", ui-monospace, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--mesa);
+  color: var(--tinta);
+  font-family: var(--texto);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Espacio de trabajo en pantalla ─────────────────────────────────────── */
+.taller { padding: 40px 24px 80px; }
+.intro { max-width: 1000px; margin: 0 auto 26px; color: var(--cal); display: flex; flex-direction: column; gap: 10px; }
+.intro h1 { font-family: var(--display); font-size: 44px; line-height: .92; margin: 0; text-transform: uppercase; }
+.intro p { margin: 0; color: #B7B2D8; font-size: 15px; line-height: 1.6; max-width: 68ch; }
+.intro .pista { font-family: var(--dato); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ocre); }
+.escala { max-width: 1000px; margin: 0 auto; }
+.lienzo { transform-origin: top left; }
+
+/* ── La lámina: A0 vertical ─────────────────────────────────────────────── */
+.lamina {
+  width: 841mm;
+  height: 1189mm;
+  background: var(--cal);
+  padding: 32mm 30mm;
+  display: flex;
+  flex-direction: column;
+  gap: 14mm;
+  overflow: hidden;
+  box-shadow: 0 24px 90px -30px rgba(0, 0, 0, .9);
+}
+
+/* ── Cabecera ───────────────────────────────────────────────────────────── */
+.cabecera { display: flex; flex-direction: column; gap: 7mm; flex-shrink: 0; }
+
+.institucion {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--dato);
+  font-size: 15pt;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--tinta-45);
+  border-bottom: .8mm solid var(--tinta);
+  padding-bottom: 4mm;
+}
+.institucion .marca-linea { display: flex; align-items: center; gap: 4mm; color: var(--tinta); }
+.institucion .marca-linea svg { width: 11mm; height: 11mm; }
+.institucion .marca-linea b { font-family: var(--display); font-size: 24pt; letter-spacing: .02em; font-weight: 700; }
+
+h1.titulo {
+  font-family: var(--display);
+  font-size: 78pt;
+  line-height: .9;
+  letter-spacing: .002em;
+  text-transform: uppercase;
+  margin: 0;
+  max-width: 96%;
+}
+h1.titulo em { font-style: normal; color: var(--anil); }
+
+.subtitulo { font-size: 27pt; line-height: 1.32; color: var(--tinta-70); max-width: 88%; }
+.subtitulo strong { color: var(--tinta); font-weight: 700; }
+
+.autoria {
+  display: flex;
+  gap: 12mm;
+  flex-wrap: wrap;
+  font-size: 19pt;
+  color: var(--tinta-70);
+  border-top: .3mm solid var(--cal-3);
+  padding-top: 5mm;
+}
+.autoria .campo { display: flex; flex-direction: column; gap: 1.5mm; }
+.autoria .et { font-family: var(--dato); font-size: 13pt; letter-spacing: .14em; text-transform: uppercase; color: var(--tinta-45); }
+.autoria .relleno { color: var(--tinta-45); border-bottom: .3mm dashed var(--cal-3); min-width: 78mm; padding-bottom: 1mm; }
+
+/* ── Cuerpo en tres columnas ────────────────────────────────────────────── */
+.cuerpo { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12mm; flex: 1; min-height: 0; }
+.columna { display: flex; flex-direction: column; gap: 10mm; min-height: 0; }
+
+/* ── Bloques de sección ─────────────────────────────────────────────────── */
+.bloque { display: flex; flex-direction: column; }
+.bloque > * { flex-shrink: 0; }
+
+h2.seccion {
+  font-family: var(--display);
+  font-size: 40pt;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: .015em;
+  margin: 0 0 5mm;
+  padding-bottom: 3mm;
+  border-bottom: .8mm solid var(--rosa);
+  display: flex;
+  align-items: baseline;
+  gap: 4mm;
+}
+h2.seccion .num {
+  font-family: var(--dato);
+  font-size: 18pt;
+  color: var(--rosa);
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+h3.rotulo {
+  font-family: var(--dato);
+  font-size: 15pt;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--anil);
+  margin: 0 0 3mm;
+}
+h3.rotulo.rosa { color: var(--rosa); }
+
+p { margin: 0; font-size: 21pt; line-height: 1.42; }
+.tenue { color: var(--tinta-70); }
+
+ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3.4mm; }
+ul li { font-size: 21pt; line-height: 1.36; padding-left: 8mm; position: relative; }
+ul li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 3.2mm;
+  width: 3.4mm; height: 3.4mm;
+  border-radius: 50%;
+  background: var(--rosa);
+}
+ul.jade li::before { background: var(--jade); }
+ul.anil li::before { background: var(--anil); }
+ul li b { font-weight: 700; }
+ul.numerada { counter-reset: o; }
+ul.numerada li { padding-left: 11mm; }
+ul.numerada li::before {
+  counter-increment: o;
+  content: counter(o);
+  background: none;
+  color: var(--anil);
+  font-family: var(--dato);
+  font-size: 17pt;
+  font-weight: 400;
+  width: auto; height: auto;
+  top: .4mm;
+  border-radius: 0;
+}
+
+.separa { height: 6mm; }
+
+/* Caja destacada */
+.caja {
+  background: var(--cal-2);
+  border-radius: 3mm;
+  padding: 6mm 7mm;
+  display: flex;
+  flex-direction: column;
+  gap: 3mm;
+}
+.caja.anil { background: var(--anil); color: var(--cal); }
+.caja.anil .tenue { color: #C9C6F2; }
+.caja.tinta { background: var(--tinta); color: var(--cal); }
+.caja.tinta .tenue { color: #B9B5DC; }
+.caja .titulo-caja { font-family: var(--display); font-size: 26pt; text-transform: uppercase; line-height: 1.02; }
+
+/* ── Diagrama de flujo ──────────────────────────────────────────────────── */
+.flujo { display: flex; flex-direction: column; gap: 0; }
+.fase {
+  display: grid;
+  grid-template-columns: 13mm 1fr;
+  gap: 4mm;
+  background: var(--cal-2);
+  border-left: 1.6mm solid var(--anil);
+  border-radius: 0 2.5mm 2.5mm 0;
+  padding: 4.5mm 5mm;
+}
+.fase:nth-child(8n+3) { border-left-color: var(--rosa); }
+.fase:nth-child(8n+5) { border-left-color: var(--ocre); }
+.fase:nth-child(8n+7) { border-left-color: var(--jade); }
+.fase .id {
+  font-family: var(--display);
+  font-size: 30pt;
+  line-height: .9;
+  color: var(--anil);
+}
+.fase:nth-child(8n+3) .id { color: var(--rosa); }
+.fase:nth-child(8n+5) .id { color: var(--ocre); }
+.fase:nth-child(8n+7) .id { color: var(--jade); }
+.fase h4 { font-family: var(--texto); font-size: 21pt; font-weight: 700; margin: 0 0 1.6mm; line-height: 1.15; }
+.fase p { font-size: 18pt; line-height: 1.3; color: var(--tinta-70); }
+.fase .salida {
+  font-family: var(--dato);
+  font-size: 14pt;
+  color: var(--tinta-45);
+  margin-top: 1.6mm;
+  display: block;
+  line-height: 1.3;
+}
+.flecha { display: flex; justify-content: center; padding: 1.6mm 0; }
+.flecha svg { width: 5mm; height: 5mm; }
+
+/* ── Tablas ─────────────────────────────────────────────────────────────── */
+table { border-collapse: collapse; width: 100%; font-size: 18pt; }
+caption {
+  caption-side: top;
+  text-align: left;
+  font-family: var(--dato);
+  font-size: 14pt;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--tinta-45);
+  padding-bottom: 2.5mm;
+}
+th, td { text-align: left; padding: 2.6mm 3mm; border-bottom: .3mm solid var(--cal-3); }
+thead th {
+  font-family: var(--dato);
+  font-size: 13.5pt;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--tinta-45);
+  font-weight: 400;
+  border-bottom: .6mm solid var(--tinta);
+}
+tbody tr:last-child td { border-bottom: none; }
+td.n, th.n { text-align: right; font-family: var(--dato); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.kpi { font-weight: 700; }
+.res { font-family: var(--dato); font-weight: 700; }
+
+.estado { font-family: var(--dato); font-size: 13pt; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.estado::before { content: "●"; margin-right: 1.6mm; }
+.estado.ok { color: var(--jade); }
+.estado.medio { color: #B07100; }
+
+/* ── Gráficas ───────────────────────────────────────────────────────────── */
+.grafica { display: flex; flex-direction: column; gap: 3mm; }
+.grafica .pie-fig {
+  font-size: 15pt;
+  line-height: 1.3;
+  color: var(--tinta-70);
+  border-top: .3mm solid var(--cal-3);
+  padding-top: 2.5mm;
+}
+.grafica .pie-fig b { font-family: var(--dato); font-size: 14pt; letter-spacing: .06em; text-transform: uppercase; color: var(--tinta); font-weight: 400; }
+
+.barras { display: flex; flex-direction: column; gap: 2.2mm; }
+.barra { display: grid; grid-template-columns: 38mm 1fr 44mm; align-items: center; gap: 3mm; }
+.barra .et { font-size: 17pt; line-height: 1.1; }
+.barra .via { background: var(--cal-2); border-radius: 1.2mm; height: 6.5mm; display: block; }
+.mockup { display: block; width: 100%; height: auto; border-radius: 2mm; }
+.barra .relleno { display: block; height: 100%; border-radius: 1.2mm; background: var(--anil); }
+.barra .val { font-family: var(--dato); font-size: 16pt; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.columnas-dia { display: flex; align-items: flex-end; gap: 2.6mm; height: 48mm; }
+.dia { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2mm; height: 100%; }
+.dia .cifra { font-family: var(--dato); font-size: 15pt; text-align: center; }
+.dia .col { width: 68%; margin: 0 auto; background: var(--anil); border-radius: 1.2mm 1.2mm 0 0; }
+.dia.cerrado .col { background: var(--cal-3); }
+.eje-dias { display: flex; gap: 2.6mm; border-top: .5mm solid var(--tinta); padding-top: 2mm; }
+.eje-dias span { flex: 1; text-align: center; font-family: var(--dato); font-size: 14pt; color: var(--tinta-70); }
+.leyenda { display: flex; gap: 6mm; flex-wrap: wrap; font-size: 15pt; color: var(--tinta-70); }
+.leyenda .it { display: inline-flex; align-items: center; gap: 2mm; }
+.leyenda .mu { width: 4mm; height: 4mm; border-radius: .8mm; }
+
+/* Hallazgos clave */
+.hallazgo {
+  display: grid;
+  grid-template-columns: 15mm 1fr;
+  gap: 4mm;
+  padding: 5mm 0;
+  border-top: .3mm solid var(--cal-3);
+}
+.hallazgo:first-of-type { border-top: .6mm solid var(--tinta); }
+.hallazgo .marca { font-family: var(--display); font-size: 34pt; line-height: .85; color: var(--rosa); }
+.hallazgo:nth-of-type(2) .marca { color: var(--ocre); }
+.hallazgo:nth-of-type(3) .marca { color: var(--jade); }
+.hallazgo h4 { font-family: var(--texto); font-size: 21pt; font-weight: 700; margin: 0 0 2mm; line-height: 1.2; }
+.hallazgo p { font-size: 18pt; line-height: 1.34; color: var(--tinta-70); }
+.hallazgo .dato-clave { font-family: var(--dato); color: var(--tinta); }
+
+/* ── Banda inferior ─────────────────────────────────────────────────────── */
+.banda { display: grid; grid-template-columns: 1.55fr 1fr; gap: 12mm; flex-shrink: 0; }
+
+.referencias { display: flex; flex-direction: column; }
+.referencias ol { margin: 0; padding: 0; list-style: none; columns: 2; column-gap: 9mm; }
+.referencias li {
+  font-size: 14.5pt;
+  line-height: 1.3;
+  margin-bottom: 3mm;
+  padding-left: 5mm;
+  text-indent: -5mm;
+  break-inside: avoid;
+  color: var(--tinta-70);
+}
+.referencias li i { font-style: italic; }
+
+.recursos { display: flex; flex-direction: column; }
+.qr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm; }
+.qr-celda { display: flex; flex-direction: column; gap: 2.5mm; align-items: flex-start; }
+.qr-marco {
+  width: 100%;
+  aspect-ratio: 1;
+  background: #fff;
+  border: .4mm solid var(--cal-3);
+  border-radius: 2mm;
+  padding: 3mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qr-svg { width: 100%; height: 100%; display: block; }
+.qr-pendiente {
+  width: 100%; height: 100%;
+  border: .6mm dashed var(--tinta-45);
+  border-radius: 1.5mm;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center;
+}
+.qr-pendiente span { font-family: var(--dato); font-size: 13pt; line-height: 1.3; color: var(--tinta-45); }
+.qr-celda .nombre { font-family: var(--texto); font-size: 16pt; font-weight: 700; line-height: 1.15; }
+.qr-celda .destino { font-family: var(--dato); font-size: 12pt; color: var(--tinta-45); line-height: 1.25; word-break: break-all; }
+
+.creditos {
+  margin-top: 7mm;
+  border-top: .6mm solid var(--tinta);
+  padding-top: 4mm;
+  display: flex;
+  justify-content: space-between;
+  gap: 8mm;
+  font-family: var(--dato);
+  font-size: 13pt;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--tinta-45);
+}
+
+/* ── Impresión ──────────────────────────────────────────────────────────── */
+@page { size: 841mm 1189mm; margin: 0; }
+@media print {
+  body { background: #fff; }
+  .taller { padding: 0; }
+  .intro { display: none !important; }
+  .escala { max-width: none; }
+  .lienzo { transform: none !important; }
+  .lamina { box-shadow: none; }
+}
+</style>
+
+<div class="taller">
+
+  <div class="intro">
+    <span class="pista">Póster científico · A0 vertical · 84,1 × 118,9 cm</span>
+    <h1>Póster InvestTracker</h1>
+    <p>
+      Lámina única a tamaño real. Para exportar: <strong style="color:var(--cal)">Imprimir → Guardar como
+      PDF</strong>, tamaño 100 %, sin márgenes. Los campos de autoría e institución están en blanco
+      para que los llenes; el resto del contenido es definitivo.
+    </p>
+  </div>
+
+  <div class="escala">
+    <div class="lienzo">
+      <div class="lamina">
+
+        <!-- ══ CABECERA ══════════════════════════════════════════════════ -->
+        <header class="cabecera">
+          <div class="institucion">
+            <span>Ingeniería · Desarrollo de software · Investigación aplicada</span>
+            <span class="marca-linea">
+              <svg viewBox="0 0 32 32" role="img" aria-label="InvestTracker">
+                <rect x="1.4" y="1.4" width="29.2" height="29.2" rx="7" fill="none" stroke="#F2A81D" stroke-width="2.4"/>
+                <path d="M8 22 L13.5 15 L18 18.5 L24.5 9" fill="none" stroke="#191539" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="24.5" cy="9" r="3.2" fill="#E8336D"/>
+              </svg>
+              <b>InvestTracker</b>
+            </span>
+          </div>
+
+          <h1 class="titulo">
+            InvestTracker: desarrollo y evaluación de una plataforma web para el
+            <em>seguimiento, análisis de riesgo y toma de decisiones</em> en portafolios de inversión personal
+          </h1>
+
+          <p class="subtitulo">
+            Estudio piloto de validación de un instrumento de evaluación y un tablero de doce indicadores,
+            aplicado sobre un <strong>conjunto de datos simulado y reproducible</strong> de 24 participantes
+            anónimos con bitácora longitudinal de siete días.
+          </p>
+
+          <div class="autoria">
+            <span class="campo"><span class="et">Autores</span><span class="relleno">&nbsp;</span></span>
+            <span class="campo"><span class="et">Institución / Programa</span><span class="relleno">&nbsp;</span></span>
+            <span class="campo"><span class="et">Asesor</span><span class="relleno">&nbsp;</span></span>
+            <span class="campo"><span class="et">Fecha</span><span class="relleno">Agosto 2026</span></span>
+          </div>
+        </header>
+
+        <!-- ══ CUERPO ════════════════════════════════════════════════════ -->
+        <div class="cuerpo">
+
+          <!-- ── COLUMNA 1 ─────────────────────────────────────────────── -->
+          <div class="columna">
+
+            <section class="bloque">
+              <h2 class="seccion"><span class="num">01</span>Introducción</h2>
+
+              <h3 class="rotulo rosa">Problema identificado</h3>
+              <ul>
+                <li>El patrimonio del inversionista minorista se <b>fragmenta entre varias instituciones</b>
+                  y ninguna reporta la posición consolidada.</li>
+                <li>El estado de cuenta informa el <b>saldo</b>, no el rendimiento atribuible al mercado
+                  frente al capital aportado por el usuario.</li>
+                <li>La hoja de cálculo, herramienta de registro más frecuente, <b>no sostiene</b> dividendos,
+                  splits ni variación cambiaria sin mantenimiento manual.</li>
+                <li>Las métricas de riesgo —volatilidad, máxima pérdida acumulada, razón de Sharpe— se
+                  presentan <b>sin traducción</b> para usuarios no especializados.</li>
+              </ul>
+
+              <div class="separa"></div>
+
+              <h3 class="rotulo">Solución propuesta</h3>
+              <ul class="jade">
+                <li><b>Registro unificado</b> de operaciones en múltiples carteras y divisas (MXN, USD, EUR),
+                  con actualización automática de precios de NYSE, NASDAQ y BMV.</li>
+                <li><b>Separación explícita</b> entre aportación y rendimiento mediante rendimiento ponderado
+                  por tiempo (TWR), que aísla el efecto del dinero nuevo.</li>
+                <li><b>Riesgo calculado y explicado</b>: concentración por posición, volatilidad, máxima
+                  pérdida acumulada y comparación contra un índice de referencia.</li>
+                <li><b>Perfilamiento y proyección</b>: cuestionario de tolerancia al riesgo, cartera sugerida
+                  y simulación de escenarios por método de Monte Carlo.</li>
+              </ul>
+            </section>
+
+            <section class="bloque">
+              <h2 class="seccion"><span class="num">02</span>Objetivos</h2>
+
+              <div class="caja anil">
+                <span class="titulo-caja">Objetivo general</span>
+                <p>Desarrollar y evaluar una plataforma web que centralice el seguimiento de portafolios de
+                  inversión personal y traduzca su desempeño y riesgo a indicadores comprensibles, validando
+                  su usabilidad y adopción mediante un tablero de indicadores clave.</p>
+              </div>
+
+              <div class="separa"></div>
+
+              <h3 class="rotulo">Objetivos específicos</h3>
+              <ul class="numerada">
+                <li>Implementar una plataforma que registre operaciones en múltiples carteras y divisas, y
+                  calcule rendimiento real, riesgo y comparación contra un índice de referencia.</li>
+                <li>Diseñar un instrumento anónimo que combine escalas validadas —SUS, NPS, CSAT y CES— con
+                  métricas de desempeño en tareas y una bitácora longitudinal de siete días.</li>
+                <li>Construir un conjunto de datos simulado, reproducible y calibrado a rangos plausibles,
+                  que permita validar el tablero antes del levantamiento en campo.</li>
+                <li>Automatizar el cálculo de doce indicadores de forma independiente del origen de los
+                  datos, de modo que respuestas reales sustituyan a las simuladas sin modificar el código.</li>
+                <li>Identificar y priorizar oportunidades de mejora del producto a partir de la evidencia
+                  cuantitativa y cualitativa obtenida.</li>
+              </ul>
+            </section>
+
+            <section class="bloque grafica">
+              <h3 class="rotulo">Figura 1. Interfaz del panel principal</h3>
+              <svg class="mockup" viewBox="0 0 300 196" role="img"
+                   aria-label="Panel principal de InvestTracker: barra lateral con los ocho módulos, tarjetas de valor total, ganancia y riesgo, gráfica de evolución y distribución por activo">
+                <rect x="0" y="0" width="300" height="196" rx="4" fill="#FFFFFF" stroke="#E4D8C9" stroke-width="1"/>
+                <rect x="0" y="0" width="300" height="11" rx="4" fill="#F2EAE0"/>
+                <rect x="0" y="7" width="300" height="4" fill="#F2EAE0"/>
+                <g fill="#C9BAA6"><circle cx="7" cy="5.5" r="1.7"/><circle cx="13" cy="5.5" r="1.7"/><circle cx="19" cy="5.5" r="1.7"/></g>
+                <rect x="26" y="2.6" width="80" height="5.8" rx="2.9" fill="#E4D8C9"/>
+
+                <!-- Barra lateral: los ocho módulos -->
+                <rect x="0" y="11" width="62" height="185" fill="#191539"/>
+                <g transform="translate(7 19)">
+                  <rect x="0" y="0" width="7" height="7" rx="2" fill="none" stroke="#F2A81D" stroke-width="1.2"/>
+                  <path d="M1.6 5.2 L3 3.4 L4.2 4.3 L5.6 2.2" fill="none" stroke="#FBF6F1" stroke-width=".9" stroke-linecap="round"/>
+                  <text x="10.5" y="5.8" font-family="Big Shoulders, sans-serif" font-size="7.4" fill="#FBF6F1">INVESTTRACKER</text>
+                </g>
+                <g font-family="Work Sans, sans-serif" font-size="5.2" fill="#B9B5DC">
+                  <rect x="4" y="33" width="54" height="11" rx="2.5" fill="#3B36C7"/>
+                  <text x="11" y="40.6" fill="#FBF6F1">Dashboard</text>
+                  <text x="11" y="54">Portafolios</text>
+                  <text x="11" y="66">Analytics</text>
+                  <text x="11" y="78">Mercados</text>
+                  <text x="11" y="90">Watchlist</text>
+                  <text x="11" y="102">Alertas</text>
+                  <text x="11" y="114">Asesor</text>
+                  <text x="11" y="126">Discover</text>
+                </g>
+                <g fill="#6560A8">
+                  <circle cx="7.5" cy="52" r="1.6"/><circle cx="7.5" cy="64" r="1.6"/><circle cx="7.5" cy="76" r="1.6"/>
+                  <circle cx="7.5" cy="88" r="1.6"/><circle cx="7.5" cy="100" r="1.6"/><circle cx="7.5" cy="112" r="1.6"/>
+                  <circle cx="7.5" cy="124" r="1.6"/>
+                </g>
+                <circle cx="7.5" cy="38.5" r="1.6" fill="#F2A81D"/>
+
+                <!-- Tarjetas de indicadores -->
+                <g transform="translate(68 17)">
+                  <rect x="0" y="0" width="72" height="30" rx="3" fill="#FBF6F1" stroke="#E4D8C9" stroke-width=".8"/>
+                  <text x="5" y="9" font-family="Red Hat Mono, monospace" font-size="4" fill="#7B7799">VALOR TOTAL</text>
+                  <text x="5" y="20" font-family="Big Shoulders, sans-serif" font-size="12" fill="#191539">$847,231</text>
+                  <text x="5" y="26.5" font-family="Red Hat Mono, monospace" font-size="4.2" fill="#0FA98C">+2.4% hoy</text>
+
+                  <rect x="76" y="0" width="72" height="30" rx="3" fill="#FBF6F1" stroke="#E4D8C9" stroke-width=".8"/>
+                  <text x="81" y="9" font-family="Red Hat Mono, monospace" font-size="4" fill="#7B7799">GANANCIA TOTAL</text>
+                  <text x="81" y="20" font-family="Big Shoulders, sans-serif" font-size="12" fill="#0FA98C">+$93,410</text>
+                  <text x="81" y="26.5" font-family="Red Hat Mono, monospace" font-size="4.2" fill="#7B7799">+12.4% acumulado</text>
+
+                  <rect x="152" y="0" width="72" height="30" rx="3" fill="#FBF6F1" stroke="#E4D8C9" stroke-width=".8"/>
+                  <text x="157" y="9" font-family="Red Hat Mono, monospace" font-size="4" fill="#7B7799">RIESGO</text>
+                  <text x="157" y="20" font-family="Big Shoulders, sans-serif" font-size="12" fill="#191539">Moderado</text>
+                  <text x="157" y="26.5" font-family="Red Hat Mono, monospace" font-size="4.2" fill="#E8336D">2 alertas de concentración</text>
+                </g>
+
+                <!-- Evolución del portafolio -->
+                <g transform="translate(68 54)">
+                  <rect x="0" y="0" width="148" height="70" rx="3" fill="#FBF6F1" stroke="#E4D8C9" stroke-width=".8"/>
+                  <text x="5" y="10" font-family="Red Hat Mono, monospace" font-size="4.2" fill="#7B7799">EVOLUCIÓN · 12 MESES</text>
+                  <g stroke="#E4D8C9" stroke-width=".5">
+                    <path d="M5 22 H143 M5 36 H143 M5 50 H143"/>
+                  </g>
+                  <path d="M6 58 L18 54 L30 56 L42 47 L54 50 L66 41 L78 44 L90 35 L102 31 L114 33 L126 24 L142 16"
+                        fill="none" stroke="#3B36C7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M6 58 L18 54 L30 56 L42 47 L54 50 L66 41 L78 44 L90 35 L102 31 L114 33 L126 24 L142 16 L142 62 L6 62 Z"
+                        fill="#3B36C7" opacity=".12"/>
+                  <path d="M6 60 L18 58 L30 59 L42 55 L54 56 L66 52 L78 53 L90 49 L102 47 L114 48 L126 44 L142 40"
+                        fill="none" stroke="#7B7799" stroke-width="1.2" stroke-dasharray="3 2.5" stroke-linecap="round"/>
+                  <circle cx="142" cy="16" r="2.4" fill="#3B36C7" stroke="#FBF6F1" stroke-width="1"/>
+                  <g font-family="Red Hat Mono, monospace" font-size="3.8">
+                    <circle cx="94" cy="65.5" r="1.6" fill="#3B36C7"/><text x="98" y="67" fill="#4A4568">Portafolio</text>
+                    <circle cx="122" cy="65.5" r="1.6" fill="#7B7799"/><text x="126" y="67" fill="#4A4568">S&amp;P 500</text>
+                  </g>
+                </g>
+
+                <!-- Distribución por activo -->
+                <g transform="translate(222 54)">
+                  <rect x="0" y="0" width="72" height="70" rx="3" fill="#FBF6F1" stroke="#E4D8C9" stroke-width=".8"/>
+                  <text x="5" y="10" font-family="Red Hat Mono, monospace" font-size="4.2" fill="#7B7799">DISTRIBUCIÓN</text>
+                  <g transform="translate(36 40)">
+                    <circle r="18" fill="none" stroke="#3B36C7" stroke-width="9" stroke-dasharray="42.4 70.7" transform="rotate(-90)"/>
+                    <circle r="18" fill="none" stroke="#E8336D" stroke-width="9" stroke-dasharray="28.3 84.8" transform="rotate(45)"/>
+                    <circle r="18" fill="none" stroke="#F2A81D" stroke-width="9" stroke-dasharray="22.6 90.5" transform="rotate(135)"/>
+                    <circle r="18" fill="none" stroke="#0FA98C" stroke-width="9" stroke-dasharray="19.8 93.3" transform="rotate(207)"/>
+                  </g>
+                </g>
+
+                <!-- Tabla de posiciones -->
+                <g transform="translate(68 130)">
+                  <rect x="0" y="0" width="226" height="58" rx="3" fill="#FBF6F1" stroke="#E4D8C9" stroke-width=".8"/>
+                  <text x="5" y="9" font-family="Red Hat Mono, monospace" font-size="4.2" fill="#7B7799">POSICIONES</text>
+                  <g font-family="Red Hat Mono, monospace" font-size="3.6" fill="#7B7799">
+                    <text x="5" y="17">ACTIVO</text><text x="70" y="17">CANT.</text><text x="110" y="17">PRECIO</text>
+                    <text x="155" y="17">VALOR</text><text x="200" y="17">P&amp;L</text>
+                  </g>
+                  <g stroke="#E4D8C9" stroke-width=".5"><path d="M5 20 H221 M5 31 H221 M5 42 H221"/></g>
+                  <g font-family="Work Sans, sans-serif" font-size="4.4" fill="#191539">
+                    <text x="5" y="28">VOO</text><text x="70" y="28">24</text><text x="110" y="28">$487.20</text><text x="155" y="28">$11,692</text><text x="200" y="28" fill="#0FA98C">+8.2%</text>
+                    <text x="5" y="39">QQQ</text><text x="70" y="39">15</text><text x="110" y="39">$392.10</text><text x="155" y="39">$5,881</text><text x="200" y="39" fill="#0FA98C">+14.6%</text>
+                    <text x="5" y="50">FIBRAPL</text><text x="70" y="50">300</text><text x="110" y="50">$48.30</text><text x="155" y="50">$14,490</text><text x="200" y="50" fill="#E8336D">−2.1%</text>
+                  </g>
+                </g>
+              </svg>
+              <p class="pie-fig"><b>Nota.</b> Panel principal con los ocho módulos en la barra lateral,
+                indicadores de valor y ganancia separados, evolución contra índice de referencia,
+                distribución por activo y detalle de posiciones.</p>
+            </section>
+
+          </div>
+
+          <!-- ── COLUMNA 2 ─────────────────────────────────────────────── -->
+          <div class="columna">
+
+            <section class="bloque">
+              <h2 class="seccion"><span class="num">03</span>Metodología</h2>
+
+              <div class="flujo">
+                <div class="fase">
+                  <span class="id">01</span>
+                  <div>
+                    <h4>Análisis del problema</h4>
+                    <p>Revisión de herramientas existentes y definición de requerimientos funcionales.</p>
+                    <span class="salida">→ Requerimientos y alcance</span>
+                  </div>
+                </div>
+                <div class="flecha"><svg viewBox="0 0 24 24" fill="none" stroke="#7B7799" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M6 14l6 6 6-6"/></svg></div>
+
+                <div class="fase">
+                  <span class="id">02</span>
+                  <div>
+                    <h4>Desarrollo de la plataforma</h4>
+                    <p>Next.js 16 y React 19 sobre Supabase (PostgreSQL y autenticación), con un worker de
+                      precios en Cloudflare, caché en Redis, PWA e internacionalización.</p>
+                    <span class="salida">→ Ocho módulos funcionales</span>
+                  </div>
+                </div>
+                <div class="flecha"><svg viewBox="0 0 24 24" fill="none" stroke="#7B7799" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M6 14l6 6 6-6"/></svg></div>
+
+                <div class="fase">
+                  <span class="id">03</span>
+                  <div>
+                    <h4>Diseño del instrumento</h4>
+                    <p>Cuestionario anónimo de siete secciones: SUS de diez reactivos, NPS, CSAT, CES,
+                      adopción por módulo, cinco tareas cronometradas y bitácora diaria.</p>
+                    <span class="salida">→ Instrumento y protocolo</span>
+                  </div>
+                </div>
+                <div class="flecha"><svg viewBox="0 0 24 24" fill="none" stroke="#7B7799" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M6 14l6 6 6-6"/></svg></div>
+
+                <div class="fase">
+                  <span class="id">04</span>
+                  <div>
+                    <h4>Generación del conjunto de datos</h4>
+                    <p>Simulación determinista con semilla fija: 24 participantes con factor latente de
+                      satisfacción, factor de mercado común a la semana y 168 fichas-día.</p>
+                    <span class="salida">→ Ocho archivos CSV reproducibles</span>
+                  </div>
+                </div>
+                <div class="flecha"><svg viewBox="0 0 24 24" fill="none" stroke="#7B7799" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M6 14l6 6 6-6"/></svg></div>
+
+                <div class="fase">
+                  <span class="id">05</span>
+                  <div>
+                    <h4>Cálculo de indicadores</h4>
+                    <p>Rutina desacoplada del origen de los datos: lee los CSV y produce doce indicadores
+                      con meta, resultado y semáforo.</p>
+                    <span class="salida">→ Tablero de KPI</span>
+                  </div>
+                </div>
+                <div class="flecha"><svg viewBox="0 0 24 24" fill="none" stroke="#7B7799" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M6 14l6 6 6-6"/></svg></div>
+
+                <div class="fase">
+                  <span class="id">06</span>
+                  <div>
+                    <h4>Análisis y priorización</h4>
+                    <p>Cortes por módulo, tarea, día y perfil de riesgo; codificación de respuestas abiertas
+                      y ordenamiento de mejoras por impacto sobre esfuerzo.</p>
+                    <span class="salida">→ Backlog priorizado</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="bloque">
+              <h2 class="seccion"><span class="num">04</span>Resultados</h2>
+
+              <table>
+                <caption>Tabla 1. Tablero de indicadores (n = 24)</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Indicador</th>
+                    <th scope="col" class="n">Meta</th>
+                    <th scope="col" class="n">Resultado</th>
+                    <th scope="col">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td class="kpi">Usabilidad (SUS)</td><td class="n">≥ 75</td><td class="n res">82.3</td><td><span class="estado ok">Cumple</span></td></tr>
+                  <tr><td class="kpi">NPS</td><td class="n">≥ +30</td><td class="n res">+33.3</td><td><span class="estado ok">Cumple</span></td></tr>
+                  <tr><td class="kpi">CSAT top-2</td><td class="n">≥ 80 %</td><td class="n res">87.5 %</td><td><span class="estado ok">Cumple</span></td></tr>
+                  <tr><td class="kpi">CES (facilidad)</td><td class="n">≥ 5.5</td><td class="n res">5.38</td><td><span class="estado medio">Parcial</span></td></tr>
+                  <tr><td class="kpi">Éxito en tareas</td><td class="n">≥ 90 %</td><td class="n res">92.5 %</td><td><span class="estado ok">Cumple</span></td></tr>
+                  <tr><td class="kpi">Tiempo al primer valor</td><td class="n">≤ 5 min</td><td class="n res">3.02 min</td><td><span class="estado ok">Cumple</span></td></tr>
+                  <tr><td class="kpi">Adherencia al registro</td><td class="n">≥ 70 %</td><td class="n res">79.2 %</td><td><span class="estado ok">Cumple</span></td></tr>
+                  <tr><td class="kpi">Retención semanal</td><td class="n">≥ 75 %</td><td class="n res">79.2 %</td><td><span class="estado ok">Cumple</span></td></tr>
+                  <tr><td class="kpi">Intención de continuar</td><td class="n">≥ 75 %</td><td class="n res">79.2 %</td><td><span class="estado ok">Cumple</span></td></tr>
+                  <tr><td class="kpi">Acción sobre alertas</td><td class="n">≥ 50 %</td><td class="n res">69.6 %</td><td><span class="estado ok">Cumple</span></td></tr>
+                  <tr><td class="kpi">Confianza en las cifras</td><td class="n">≥ 4.0</td><td class="n res">3.92</td><td><span class="estado medio">Parcial</span></td></tr>
+                  <tr><td class="kpi">Disposición a pagar</td><td class="n">≥ 50 %</td><td class="n res">66.7 %</td><td><span class="estado ok">Cumple</span></td></tr>
+                </tbody>
+              </table>
+
+              <div class="separa"></div>
+
+              <div class="grafica">
+                <table>
+                  <caption>Tabla 2. Desempeño del portafolio simulado por perfil de riesgo</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Perfil</th>
+                      <th scope="col" class="n">n</th>
+                      <th scope="col" class="n">Rend. TWR</th>
+                      <th scope="col" class="n">Volatilidad</th>
+                      <th scope="col" class="n">Pérdida máx.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Conservador</td><td class="n">7</td><td class="n">+0.051 %</td><td class="n">3.05 %</td><td class="n">−0.33 %</td></tr>
+                    <tr><td>Moderado</td><td class="n">9</td><td class="n">+0.258 %</td><td class="n">9.65 %</td><td class="n">−1.04 %</td></tr>
+                    <tr><td>Agresivo</td><td class="n">8</td><td class="n">+0.327 %</td><td class="n">13.80 %</td><td class="n">−1.38 %</td></tr>
+                  </tbody>
+                </table>
+                <p class="pie-fig"><b>Nota.</b> Rendimiento semanal ponderado por tiempo; volatilidad
+                  anualizada a partir de cinco retornos diarios. El ordenamiento riesgo-rendimiento se
+                  cumple en las tres dimensiones.</p>
+              </div>
+            </section>
+
+          </div>
+
+          <!-- ── COLUMNA 3 ─────────────────────────────────────────────── -->
+          <div class="columna">
+
+            <section class="bloque">
+              <h2 class="seccion"><span class="num">05</span>Resultados<br>(continuación)</h2>
+
+              <div class="grafica">
+                <h3 class="rotulo">Figura 2. Adopción y utilidad por módulo</h3>
+                <div class="barras">
+                  <div class="barra"><span class="et">Portafolios</span><span class="via"><span class="relleno" style="width:100%"></span></span><span class="val">100 % · 4.42</span></div>
+                  <div class="barra"><span class="et">Dashboard</span><span class="via"><span class="relleno" style="width:100%"></span></span><span class="val">100 % · 4.38</span></div>
+                  <div class="barra"><span class="et">Mercados</span><span class="via"><span class="relleno" style="width:83.3%"></span></span><span class="val">83.3 % · 4.35</span></div>
+                  <div class="barra"><span class="et">Analytics</span><span class="via"><span class="relleno" style="width:79.2%;background:var(--rosa)"></span></span><span class="val">79.2 % · 3.84</span></div>
+                  <div class="barra"><span class="et">Asesor</span><span class="via"><span class="relleno" style="width:66.7%"></span></span><span class="val">66.7 % · 4.38</span></div>
+                  <div class="barra"><span class="et">Discover</span><span class="via"><span class="relleno" style="width:62.5%;background:var(--rosa)"></span></span><span class="val">62.5 % · 3.60</span></div>
+                  <div class="barra"><span class="et">Watchlist</span><span class="via"><span class="relleno" style="width:58.3%"></span></span><span class="val">58.3 % · 4.21</span></div>
+                  <div class="barra"><span class="et">Alertas</span><span class="via"><span class="relleno" style="width:50%;background:var(--rosa)"></span></span><span class="val">50 % · 3.75</span></div>
+                </div>
+                <div class="leyenda">
+                  <span class="it"><span class="mu" style="background:var(--anil)"></span>Utilidad ≥ 4.0 / 5</span>
+                  <span class="it"><span class="mu" style="background:var(--rosa)"></span>Utilidad &lt; 4.0 / 5</span>
+                </div>
+                <p class="pie-fig"><b>Nota.</b> Barra: porcentaje de participantes que usó el módulo.
+                  Cifra a la derecha: adopción y utilidad media declarada (escala 1–5).</p>
+              </div>
+
+              <div class="separa"></div>
+
+              <div class="grafica">
+                <h3 class="rotulo">Figura 3. Participantes activos por día</h3>
+                <div class="columnas-dia">
+                  <div class="dia"><span class="cifra">24</span><span class="col" style="height:100%"></span></div>
+                  <div class="dia"><span class="cifra">24</span><span class="col" style="height:100%"></span></div>
+                  <div class="dia"><span class="cifra">22</span><span class="col" style="height:91.7%"></span></div>
+                  <div class="dia"><span class="cifra">21</span><span class="col" style="height:87.5%"></span></div>
+                  <div class="dia"><span class="cifra">22</span><span class="col" style="height:91.7%"></span></div>
+                  <div class="dia cerrado"><span class="cifra">14</span><span class="col" style="height:58.3%"></span></div>
+                  <div class="dia cerrado"><span class="cifra">6</span><span class="col" style="height:25%"></span></div>
+                </div>
+                <div class="eje-dias">
+                  <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+                </div>
+                <p class="pie-fig"><b>Nota.</b> De 24 participantes. Barras claras: fin de semana con mercado
+                  cerrado. El martes, día de mayor caída (−0.55 %), mantuvo el 100 % de actividad.</p>
+              </div>
+
+              <div class="separa"></div>
+
+              <h3 class="rotulo rosa">Hallazgos clave</h3>
+
+              <div class="hallazgo">
+                <span class="marca">01</span>
+                <div>
+                  <h4>La usabilidad base está resuelta</h4>
+                  <p>El puntaje SUS de <span class="dato-clave">82.3</span> (IC 95 % 78.2–86.4) supera el
+                    valor de referencia de la industria (68), con <span class="dato-clave">92.5 %</span> de
+                    éxito en tareas y activación completa en <span class="dato-clave">3.02 min</span>.</p>
+                </div>
+              </div>
+
+              <div class="hallazgo">
+                <span class="marca">02</span>
+                <div>
+                  <h4>El cuello de botella es interpretativo, no operativo</h4>
+                  <p>Analytics registra la menor utilidad entre los módulos usados
+                    (<span class="dato-clave">3.84/5</span>) y la tarea más lenta
+                    (<span class="dato-clave">161.9 s</span>; P90 247.4 s). De ahí provienen los dos únicos
+                    indicadores parciales: CES 5.38/7 y confianza en las cifras 3.92/5.</p>
+                </div>
+              </div>
+
+              <div class="hallazgo">
+                <span class="marca">03</span>
+                <div>
+                  <h4>La adherencia depende del mercado abierto</h4>
+                  <p>La actividad media pasa de <span class="dato-clave">22.6/24</span> participantes en días
+                    hábiles a <span class="dato-clave">10/24</span> en fin de semana
+                    (<span class="dato-clave">−75 %</span> del lunes al domingo), pese a que la adherencia
+                    global al registro alcanzó 79.2 %.</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="bloque">
+              <h2 class="seccion"><span class="num">06</span>Discusión y conclusiones</h2>
+
+              <div class="caja tinta">
+                <span class="titulo-caja">El Tablero como producto metodológico</span>
+                <p class="tenue">La contribución central no es una cifra aislada sino el <b>Tablero</b>: doce
+                  indicadores con meta declarada, resultado y semáforo, calculados por una rutina
+                  independiente del origen de los datos. Diez indicadores cumplen su meta, dos quedan
+                  parciales y ninguno reprueba. Al estar desacoplado, el mismo tablero acepta respuestas
+                  reales sin modificar una línea de código.</p>
+              </div>
+
+              <div class="separa"></div>
+
+              <ul class="anil">
+                <li>La plataforma resuelve el problema operativo —consolidar, calcular y comparar— pero el
+                  valor percibido se detiene en la <b>capa interpretativa</b>: los usuarios llegan al dato y
+                  no siempre lo entienden.</li>
+                <li>Los dos indicadores parciales convergen en la misma causa; el <b>backlog priorizado</b>
+                  sitúa el glosario contextual, la marca de tiempo del dato y la visibilidad de alertas como
+                  acciones de menor esfuerzo y mayor impacto.</li>
+                <li><b>Limitaciones.</b> Los datos son sintéticos y calibrados a rangos plausibles: validan
+                  el instrumento y el tablero, no el comportamiento de usuarios reales. Con n = 24 y una
+                  sola semana, los intervalos son amplios y las métricas anualizadas resultan ilustrativas.</li>
+                <li><b>Trabajo futuro.</b> Levantamiento en campo con la misma estructura de datos, bitácora
+                  de cuatro semanas e instrumentación de los indicadores dentro del producto para reducir la
+                  dependencia de la autodeclaración.</li>
+              </ul>
+            </section>
+
+          </div>
+        </div>
+
+        <!-- ══ BANDA INFERIOR ════════════════════════════════════════════ -->
+        <div class="banda">
+
+          <section class="referencias">
+            <h2 class="seccion"><span class="num">07</span>Referencias</h2>
+            <ol>
+              <li>Bangor, A., Kortum, P. T., &amp; Miller, J. T. (2008). An empirical evaluation of the System Usability Scale. <i>International Journal of Human–Computer Interaction, 24</i>(6), 574–594.</li>
+              <li>Brooke, J. (1996). SUS: A "quick and dirty" usability scale. En P. W. Jordan, B. Thomas, B. A. Weerdmeester &amp; I. L. McClelland (Eds.), <i>Usability Evaluation in Industry</i> (pp. 189–194). Taylor &amp; Francis.</li>
+              <li>CFA Institute. (2020). <i>Global Investment Performance Standards (GIPS) for Firms</i>. CFA Institute.</li>
+              <li>Dixon, M., Freeman, K., &amp; Toman, N. (2010). Stop trying to delight your customers. <i>Harvard Business Review, 88</i>(7–8), 116–122.</li>
+              <li>International Organization for Standardization. (2018). <i>ISO 9241-11:2018. Ergonomics of human-system interaction — Part 11: Usability: Definitions and concepts</i>. ISO.</li>
+              <li>Lewis, J. R., &amp; Sauro, J. (2009). The factor structure of the System Usability Scale. En M. Kurosu (Ed.), <i>Human Centered Design</i> (pp. 94–103). Springer.</li>
+              <li>Markowitz, H. (1952). Portfolio selection. <i>The Journal of Finance, 7</i>(1), 77–91.</li>
+              <li>Metropolis, N., &amp; Ulam, S. (1949). The Monte Carlo method. <i>Journal of the American Statistical Association, 44</i>(247), 335–341.</li>
+              <li>Nielsen, J., &amp; Landauer, T. K. (1993). A mathematical model of the finding of usability problems. <i>Proceedings of INTERCHI '93</i>, 206–213.</li>
+              <li>Reichheld, F. F. (2003). The one number you need to grow. <i>Harvard Business Review, 81</i>(12), 46–54.</li>
+              <li>Sauro, J., &amp; Lewis, J. R. (2016). <i>Quantifying the User Experience: Practical Statistics for User Research</i> (2.ª ed.). Morgan Kaufmann.</li>
+              <li>Sharpe, W. F. (1966). Mutual fund performance. <i>The Journal of Business, 39</i>(1), 119–138.</li>
+              <li>Tullis, T., &amp; Albert, W. (2013). <i>Measuring the User Experience: Collecting, Analyzing, and Presenting Usability Metrics</i> (2.ª ed.). Morgan Kaufmann.</li>
+            </ol>
+          </section>
+
+          <section class="recursos">
+            <h2 class="seccion"><span class="num">08</span>Recursos</h2>
+            <div class="qr-grid">
+              <div class="qr-celda">
+                <span class="qr-marco"><!--QR:repositorio--></span>
+                <span class="nombre">Repositorio</span>
+                <span class="destino">github.com/dragenatt/investment-portfolio</span>
+              </div>
+              <div class="qr-celda">
+                <span class="qr-marco"><!--QR:aplicacion--></span>
+                <span class="nombre">Plataforma en vivo</span>
+                <span class="destino">project-tri0w.vercel.app</span>
+              </div>
+              <div class="qr-celda">
+                <span class="qr-marco"><!--QR:presentacion--></span>
+                <span class="nombre">Presentación ejecutiva</span>
+                <span class="destino">Pendiente de publicar</span>
+              </div>
+              <div class="qr-celda">
+                <span class="qr-marco"><!--QR:documento--></span>
+                <span class="nombre">Documento y tríptico</span>
+                <span class="destino">Pendiente de publicar</span>
+              </div>
+            </div>
+
+            <div class="creditos">
+              <span>Datos: conjunto simulado · semilla 20260811 · n = 24 · 168 fichas-día</span>
+              <span>A0 · 84,1 × 118,9 cm</span>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    'use strict';
+    function ajustar() {
+      var caja = document.querySelector('.escala');
+      var lienzo = caja.querySelector('.lienzo');
+      var lamina = lienzo.querySelector('.lamina');
+      lienzo.style.transform = 'none';
+      var r = lamina.getBoundingClientRect();
+      if (!r.width) return;
+      var s = Math.min(1, caja.clientWidth / r.width);
+      lienzo.style.transform = 'scale(' + s + ')';
+      caja.style.height = (r.height * s) + 'px';
+    }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajustar);
+    window.addEventListener('resize', ajustar);
+    window.addEventListener('beforeprint', function () {
+      document.querySelector('.lienzo').style.transform = 'none';
+      document.querySelector('.escala').style.height = 'auto';
+    });
+    window.addEventListener('afterprint', ajustar);
+    ajustar();
+    setTimeout(ajustar, 300);
+  })();
+</script>
