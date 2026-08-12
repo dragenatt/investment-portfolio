@@ -97,7 +97,9 @@ Dos mediciones independientes que coinciden refuerzan ambas.
 
 - **Paleta y tipografías heredadas del tríptico** (`docs/marketing/`), para que las dos piezas
   se lean como una sola familia.
-- **Cuerpo de texto a 21 pt** sobre A0: legible a ~2 m, que es la distancia habitual de lectura
-  de un póster en sesión de carteles.
-- **Figuras y tablas numeradas** (Figuras 1–3, Tablas 1–2) con nota al pie, en formato académico.
-- Todas las cifras provienen de `docs/research/encuestas-simuladas/data/kpis.json`.
+- **Cuerpo de texto a 22 pt** sobre A0: legible a ~2 m, la distancia habitual de lectura de un
+  póster en sesión de carteles.
+- **Figuras numeradas con nota al pie**: 1 motor de Monte Carlo · 2 interfaz del panel ·
+  3 adopción por módulo.
+- Las cifras de la vía B vienen del entregable; las de la vía C, de
+  `docs/research/encuestas-simuladas/data/kpis.json`.
