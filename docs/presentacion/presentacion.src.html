@@ -1,0 +1,1767 @@
+<title>InvestTracker — Presentación ejecutiva y técnica</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/*FUENTES*/
+
+/* ── Identidad (heredada del tríptico y el póster) ──────────────────────── */
+:root {
+  --tinta:      #191539;
+  --tinta-70:   #4A4568;
+  --tinta-45:   #7B7799;
+  --anil:       #3B36C7;
+  --anil-osc:   #2A2695;
+  --anil-claro: #E5E4FA;
+  --rosa:       #E8336D;
+  --rosa-claro: #FBDCE6;
+  --ocre:       #F2A81D;
+  --ocre-claro: #FDEFD2;
+  --jade:       #0FA98C;
+  --jade-claro: #D6F2EB;
+  --cal:        #FBF6F1;
+  --cal-2:      #F2EAE0;
+  --cal-3:      #E4D8C9;
+  --mesa:       #14112E;
+
+  --display: "Big Shoulders", "Arial Narrow", sans-serif;
+  --texto:   "Work Sans", system-ui, -apple-system, sans-serif;
+  --dato:    "Red Hat Mono", ui-monospace, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--mesa); color: var(--tinta); font-family: var(--texto); -webkit-font-smoothing: antialiased; }
+
+/* ── Espacio de trabajo ─────────────────────────────────────────────────── */
+.taller { padding: 40px 24px 80px; }
+.intro { max-width: 1180px; margin: 0 auto 30px; color: var(--cal); display: flex; flex-direction: column; gap: 10px; }
+.intro h1 { font-family: var(--display); font-size: 44px; line-height: .92; margin: 0; text-transform: uppercase; }
+.intro p { margin: 0; color: #B7B2D8; font-size: 15px; line-height: 1.6; max-width: 70ch; }
+.intro .pista { font-family: var(--dato); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ocre); }
+.mazo { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
+.marco { display: flex; flex-direction: column; gap: 8px; }
+.marco > .escala { position: relative; }
+.lienzo { transform-origin: top left; }
+
+/* ── La diapositiva: 16:9 ───────────────────────────────────────────────── */
+.dia {
+  width: 1280px;
+  height: 720px;
+  background: var(--cal);
+  padding: 34px 52px 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.dia > * { flex-shrink: 0; }
+
+.cinta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--dato);
+  font-size: 13px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--tinta-45);
+  border-bottom: 2px solid var(--cal-3);
+  padding-bottom: 9px;
+  margin-bottom: 18px;
+}
+.cinta .parte { color: var(--rosa); }
+.dia.oscura .cinta { color: #A9A3D8; border-bottom-color: #332E62; }
+.dia.oscura .cinta .parte { color: var(--ocre); }
+
+h2.tit {
+  font-family: var(--display);
+  font-size: 50px;
+  line-height: .94;
+  text-transform: uppercase;
+  letter-spacing: .004em;
+  margin: 0 0 6px;
+  text-wrap: balance;
+}
+h2.tit em { font-style: normal; color: var(--anil); }
+.dia.oscura h2.tit em { color: var(--ocre); }
+.bajada { font-size: 17.5px; line-height: 1.38; color: var(--tinta-70); max-width: 96ch; margin: 0 0 15px; }
+.dia.oscura { background: var(--tinta); color: var(--cal); }
+.dia.oscura .bajada, .dia.oscura .tenue { color: #C3BFE6; }
+.dia.anil { background: var(--anil); color: var(--cal); }
+.dia.anil .bajada, .dia.anil .tenue { color: #D5D3F7; }
+
+p { margin: 0; font-size: 16.5px; line-height: 1.4; }
+.tenue { color: var(--tinta-70); }
+.dato { font-family: var(--dato); font-variant-numeric: tabular-nums; }
+.crece { flex: 1; min-height: 0; }
+
+/* ── Rejillas ───────────────────────────────────────────────────────────── */
+.dos { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+.dos-a { display: grid; grid-template-columns: 1.25fr 1fr; gap: 26px; }
+.tres { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+
+h3.et {
+  font-family: var(--dato);
+  font-size: 11.5px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--anil);
+  margin: 0 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1.5px solid var(--anil-claro);
+}
+h3.et.rosa { color: var(--rosa); border-bottom-color: var(--rosa-claro); }
+h3.et.jade { color: var(--jade); border-bottom-color: var(--jade-claro); }
+.dia.oscura h3.et, .dia.anil h3.et { color: var(--ocre); border-bottom-color: rgba(242,168,29,.35); }
+
+ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+ul li { font-size: 16px; line-height: 1.36; padding-left: 18px; position: relative; }
+ul li::before { content: ""; position: absolute; left: 0; top: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--rosa); }
+ul.jade li::before { background: var(--jade); }
+ul.anil li::before { background: var(--anil); }
+ul.ocre li::before { background: var(--ocre); }
+.dia.oscura ul li::before, .dia.anil ul li::before { background: var(--ocre); }
+ul li b { font-weight: 700; }
+
+ol.pasos { margin: 0; padding: 0; list-style: none; counter-reset: p; display: flex; flex-direction: column; gap: 8px; }
+ol.pasos li {
+  counter-increment: p;
+  font-size: 15.5px;
+  line-height: 1.34;
+  padding-left: 30px;
+  position: relative;
+  min-height: 22px;
+}
+ol.pasos li::before {
+  counter-increment: none;
+  content: counter(p);
+  position: absolute;
+  left: 0; top: 1px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--anil);
+  color: var(--cal);
+  font-family: var(--dato);
+  font-size: 11.5px;
+  display: flex; align-items: center; justify-content: center;
+}
+.dia.oscura ol.pasos li::before, .dia.anil ol.pasos li::before { background: var(--ocre); color: var(--tinta); }
+ol.pasos li code {
+  font-family: var(--dato);
+  font-size: 15px;
+  background: var(--cal-2);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.dia.oscura ol.pasos li code, .dia.anil ol.pasos li code { background: rgba(251,246,241,.15); }
+
+/* ── Cajas ──────────────────────────────────────────────────────────────── */
+.caja { background: var(--cal-2); border-radius: 9px; padding: 14px 17px; display: flex; flex-direction: column; gap: 8px; }
+.caja.tinta { background: var(--tinta); color: var(--cal); }
+.caja.tinta .tenue { color: #B9B5DC; }
+.caja.anilf { background: var(--anil); color: var(--cal); }
+.caja.anilf .tenue { color: #D5D3F7; }
+.caja.borde { background: none; border: 2px solid var(--cal-3); }
+.dia.oscura .caja, .dia.anil .caja { background: rgba(251,246,241,.1); }
+.caja .cabeza { font-family: var(--display); font-size: 23px; text-transform: uppercase; line-height: 1; }
+
+.cifra { display: flex; flex-direction: column; gap: 2px; }
+.cifra .v { font-family: var(--display); font-size: 46px; line-height: .9; }
+.cifra .k { font-family: var(--dato); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--tinta-45); }
+.dia.oscura .cifra .k, .dia.anil .cifra .k { color: #A9A3D8; }
+
+/* ── Banda de analogía ──────────────────────────────────────────────────── */
+.analogia {
+  margin: auto -52px 0;
+  background: var(--ocre);
+  color: var(--tinta);
+  padding: 13px 52px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 68px;
+}
+.analogia.rosa { background: var(--rosa); color: var(--cal); }
+.analogia.jade { background: var(--jade); color: var(--cal); }
+.analogia .icono { width: 34px; height: 34px; flex: 0 0 34px; }
+.analogia .et {
+  font-family: var(--dato);
+  font-size: 11px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  opacity: .75;
+  display: block;
+  margin-bottom: 4px;
+}
+.analogia .frase { font-family: var(--display); font-size: 25px; line-height: 1.04; text-transform: uppercase; }
+
+/* ── Portada ────────────────────────────────────────────────────────────── */
+.portada { padding: 0; display: grid; grid-template-columns: 1.35fr 1fr; }
+.portada .izq { padding: 58px; display: flex; flex-direction: column; }
+.portada .der { background: var(--anil); position: relative; overflow: hidden; }
+.marca { display: flex; align-items: center; gap: 14px; }
+.marca svg { width: 46px; height: 46px; }
+.marca .nom { font-family: var(--display); font-size: 34px; text-transform: uppercase; line-height: 1; }
+.marca .cola { font-family: var(--dato); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--ocre); display: block; margin-top: 4px; }
+.portada h1 { font-family: var(--display); font-size: 100px; line-height: .84; text-transform: uppercase; margin: 0; letter-spacing: .002em; }
+.portada .sub { font-size: 24px; line-height: 1.28; color: var(--tinta-70); margin-top: 16px; max-width: 26ch; }
+.ficha { display: flex; flex-direction: column; gap: 13px; }
+.ficha .campo { display: flex; flex-direction: column; gap: 3px; }
+.ficha .et { font-family: var(--dato); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--tinta-45); }
+.ficha .val { font-size: 18px; border-bottom: 1.5px dashed var(--cal-3); padding-bottom: 4px; color: var(--tinta-45); max-width: 400px; min-height: 26px; }
+.ficha .val.puesto { color: var(--tinta); border-bottom-style: solid; }
+
+/* ── Divisor de parte ───────────────────────────────────────────────────── */
+.divisor { justify-content: center; padding: 58px; }
+.divisor .rot { font-family: var(--dato); font-size: 15px; letter-spacing: .3em; text-transform: uppercase; color: var(--ocre); margin-bottom: 20px; }
+.divisor h2 { font-family: var(--display); font-size: 96px; line-height: .88; text-transform: uppercase; margin: 0 0 20px; }
+.divisor p { font-size: 22px; max-width: 62ch; }
+.indice { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
+.indice span {
+  font-family: var(--dato); font-size: 13px; letter-spacing: .06em;
+  border: 1.5px solid rgba(251,246,241,.4); border-radius: 999px; padding: 7px 15px; color: var(--cal);
+}
+
+/* ── Diagrama de arquitectura ───────────────────────────────────────────── */
+.arq { display: flex; flex-direction: column; gap: 6px; }
+.capa { border-radius: 9px; padding: 10px 14px; display: grid; grid-template-columns: 118px 1fr; gap: 14px; align-items: center; }
+.capa .nom { font-family: var(--dato); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+.capa .piezas { display: flex; gap: 8px; flex-wrap: wrap; }
+.capa .pieza { font-size: 13.5px; background: rgba(255,255,255,.9); color: var(--tinta); border-radius: 5px; padding: 4px 9px; }
+.capa.c1 { background: var(--tinta); color: var(--cal); }
+.capa.c2 { background: var(--anil); color: var(--cal); }
+.capa.c3 { background: var(--jade); color: var(--cal); }
+.capa.c4 { background: var(--rosa); color: var(--cal); }
+.capa.c5 { background: var(--cal-2); color: var(--tinta); }
+.capa.c5 .pieza { background: #fff; }
+.flechita { text-align: center; font-family: var(--dato); font-size: 15px; color: var(--tinta-45); line-height: .6; }
+
+/* ── Tablas ─────────────────────────────────────────────────────────────── */
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 6.5px 9px; border-bottom: 1px solid var(--cal-3); }
+thead th { font-family: var(--dato); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--tinta-45); font-weight: 400; border-bottom: 2px solid var(--tinta); }
+tbody tr:last-child td { border-bottom: none; }
+td.n, th.n { text-align: right; font-family: var(--dato); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dia.oscura th, .dia.oscura td { border-bottom-color: #332E62; }
+.dia.oscura thead th { border-bottom-color: var(--cal); color: #A9A3D8; }
+
+/* ── Maqueta de pantalla ────────────────────────────────────────────────── */
+.pantalla { display: block; width: 100%; height: auto; border-radius: 8px; }
+
+/* ── Rótulo de diapositiva en pantalla ──────────────────────────────────── */
+.rotulo {
+  font-family: var(--dato); font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: #8F89BE; display: flex; gap: 12px; align-items: baseline;
+}
+.rotulo b { color: var(--cal); font-weight: 400; }
+
+/* ── QR ─────────────────────────────────────────────────────────────────── */
+.qr-fila { display: flex; gap: 26px; }
+.qr-celda { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; width: 150px; }
+.qr-marco { width: 150px; height: 150px; background: #fff; border-radius: 8px; padding: 10px; }
+.qr-svg { width: 100%; height: 100%; display: block; }
+.qr-pendiente { width: 100%; height: 100%; border: 2px dashed var(--tinta-45); border-radius: 6px; display: flex; align-items: center; justify-content: center; text-align: center; }
+.qr-pendiente span { font-family: var(--dato); font-size: 12px; color: var(--tinta-45); line-height: 1.3; }
+.qr-celda .nombre { font-size: 15px; font-weight: 700; line-height: 1.15; }
+.qr-celda .destino { font-family: var(--dato); font-size: 11px; color: var(--tinta-45); line-height: 1.25; word-break: break-all; }
+.dia.oscura .qr-celda .destino { color: #A9A3D8; }
+
+/* ── Impresión: una diapositiva por página ──────────────────────────────── */
+@page { size: 1280px 720px; margin: 0; }
+@media print {
+  body { background: #fff; }
+  .taller { padding: 0; }
+  .intro, .rotulo { display: none !important; }
+  .mazo { max-width: none; gap: 0; }
+  .marco { gap: 0; }
+  .lienzo { transform: none !important; }
+  .escala { height: auto !important; }
+  .dia { page-break-after: always; break-after: page; }
+}
+</style>
+
+<div class="taller">
+
+  <div class="intro">
+    <span class="pista">Presentación ejecutiva y técnica · 24 diapositivas · 16:9</span>
+    <h1>InvestTracker</h1>
+    <p>
+      Parte 1 (diapositivas 1–5): contexto del proyecto. Parte 2 (6–24): guía de usuario paso a paso.
+      Cada diapositiva de la Parte 2 lleva propósito, instrucciones, valor financiero-técnico y una
+      analogía al pie. Para exportar: <strong style="color:var(--cal)">Imprimir → Guardar como PDF</strong>,
+      sin márgenes.
+    </p>
+  </div>
+
+  <div class="mazo">
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         PARTE 1 · INTRODUCCIÓN Y CONTEXTO
+         ══════════════════════════════════════════════════════════════════ -->
+
+    <!-- ── 01 · Portada ──────────────────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>01</b><span>Portada e identidad institucional</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia portada">
+          <div class="izq">
+            <div class="marca">
+              <svg viewBox="0 0 32 32" role="img" aria-label="InvestTracker">
+                <rect x="1.4" y="1.4" width="29.2" height="29.2" rx="7" fill="none" stroke="#F2A81D" stroke-width="2.4"/>
+                <path d="M8 22 L13.5 15 L18 18.5 L24.5 9" fill="none" stroke="#191539" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="24.5" cy="9" r="3.2" fill="#E8336D"/>
+              </svg>
+              <div>
+                <div class="nom">InvestTracker</div>
+                <span class="cola">Portfolio Intelligence</span>
+              </div>
+            </div>
+
+            <div class="crece" style="display:flex;flex-direction:column;justify-content:center">
+              <h1>Invest<br>Tracker</h1>
+              <p class="sub">Plataforma web de monitoreo y simulación de portafolios financieros</p>
+            </div>
+
+            <div class="ficha">
+              <span class="campo"><span class="et">Autor / Equipo</span><span class="val"></span></span>
+              <span class="campo"><span class="et">Institución</span><span class="val"></span></span>
+              <span class="campo"><span class="et">Carrera / Programa</span><span class="val puesto">Ingeniería Financiera</span></span>
+              <span class="campo"><span class="et">Fecha</span><span class="val puesto">Agosto 2026</span></span>
+            </div>
+          </div>
+
+          <div class="der">
+            <svg viewBox="0 0 545 720" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" role="img"
+                 aria-label="Composición: distribución del portafolio y evolución del valor">
+              <circle cx="470" cy="120" r="210" fill="#2A2695" opacity=".55"/>
+              <circle cx="70" cy="640" r="170" fill="#E8336D" opacity=".26"/>
+              <g transform="translate(272 216)">
+                <circle r="104" fill="none" stroke="#2A2695" stroke-width="42"/>
+                <circle r="104" fill="none" stroke="#E8336D" stroke-width="42" stroke-dasharray="245.0 408.4" transform="rotate(-90)"/>
+                <circle r="104" fill="none" stroke="#F2A81D" stroke-width="42" stroke-dasharray="163.4 490.1" transform="rotate(45)"/>
+                <circle r="104" fill="none" stroke="#0FA98C" stroke-width="42" stroke-dasharray="130.7 522.8" transform="rotate(135)"/>
+                <circle r="104" fill="none" stroke="#FBF6F1" stroke-width="42" stroke-dasharray="114.3 539.2" transform="rotate(207)"/>
+              </g>
+              <g transform="translate(0 372)">
+                <path d="M46 150 L110 128 L174 138 L238 96 L302 110 L366 66 L430 80 L500 22"
+                      fill="none" stroke="#FBF6F1" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M46 150 L110 128 L174 138 L238 96 L302 110 L366 66 L430 80 L500 22 L500 200 L46 200 Z"
+                      fill="#FBF6F1" opacity=".16"/>
+                <circle cx="500" cy="22" r="12" fill="#F2A81D" stroke="#3B36C7" stroke-width="5"/>
+              </g>
+              <g transform="translate(46 596)">
+                <rect x="0" y="0" width="270" height="86" rx="12" fill="#FBF6F1"/>
+                <text x="20" y="30" font-family="Red Hat Mono, monospace" font-size="12" fill="#4A4568">VALOR DEL PORTAFOLIO</text>
+                <text x="20" y="66" font-family="Big Shoulders, sans-serif" font-size="40" fill="#191539">$847,231</text>
+                <text x="200" y="66" font-family="Red Hat Mono, monospace" font-size="15" fill="#0FA98C">+2.4%</text>
+              </g>
+            </svg>
+          </div>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 02 · Planteamiento del problema ───────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>02</b><span>Planteamiento del problema</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Parte 1</span> · Contexto del proyecto</span><span>02 / 24</span></div>
+          <h2 class="tit">El problema no es invertir.<br>Es <em>saber cómo vas</em></h2>
+          <p class="bajada">Cuatro fricciones que enfrentan por igual el inversionista minorista y el estudiante
+            de finanzas que quiere practicar sin arriesgar capital.</p>
+
+          <div class="dos" style="gap:28px">
+            <div class="col">
+              <div class="caja">
+                <h3 class="et rosa">Fricción 01 · Medición</h3>
+                <p><b>La variación del día se mide contra puntos distintos.</b> Una app compara contra el
+                  cierre anterior, otra contra tu precio de compra y otra contra el momento en que abriste
+                  sesión. Tres respuestas para la misma pregunta: «¿cómo voy hoy?».</p>
+              </div>
+              <div class="caja">
+                <h3 class="et rosa">Fricción 02 · Simulación</h3>
+                <p><b>Practicar cuesta dinero o cuesta programar.</b> Las herramientas de simulación y
+                  proyección viven en terminales profesionales de pago o en hojas de cálculo que el usuario
+                  debe construir y mantener él mismo.</p>
+              </div>
+            </div>
+            <div class="col">
+              <div class="caja">
+                <h3 class="et rosa">Fricción 03 · Complejidad</h3>
+                <p><b>Los tableros tradicionales abruman.</b> Densidad de terminal profesional para alguien
+                  que tiene cinco posiciones. El resultado es que se abre una vez y no se vuelve.</p>
+              </div>
+              <div class="caja">
+                <h3 class="et rosa">Fricción 04 · Lenguaje</h3>
+                <p><b>Las métricas no están traducidas.</b> <i>Drawdown</i>, <i>Sharpe</i>,
+                  <i>benchmark</i>: palabras que deciden sobre el dinero de alguien y que casi ninguna
+                  herramienta se detiene a explicar.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+
+          <div class="caja tinta" style="margin-bottom:34px">
+            <p><b>Consecuencia medible.</b> En la evaluación del proyecto, la capa analítica fue el módulo
+              peor calificado entre los que sí se usaron (3.84 / 5) y la tarea más lenta del protocolo
+              (161.9 s). El usuario llega al dato; el problema es interpretarlo.</p>
+          </div>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 03 · Propuesta de valor ───────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>03</b><span>Propuesta de valor y solución</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Parte 1</span> · Contexto del proyecto</span><span>03 / 24</span></div>
+          <h2 class="tit">Qué es <em>InvestTracker</em></h2>
+          <p class="bajada">Una plataforma web que reúne las posiciones de un inversionista, calcula su
+            rendimiento real separándolo de las aportaciones, traduce el riesgo que está tomando y permite
+            simular escenarios antes de comprometer dinero.</p>
+
+          <div class="tres">
+            <div class="caja borde">
+              <span class="cabeza" style="color:var(--anil)">Un punto cero<br>auditable</span>
+              <p class="tenue">La variación del día se calcula contra una <b>línea base diaria</b> —el cierre
+                anterior— almacenada una sola vez para todos los usuarios. La misma pregunta siempre da la
+                misma respuesta, sin importar a qué hora entres.</p>
+            </div>
+            <div class="caja borde">
+              <span class="cabeza" style="color:var(--rosa)">Arquitectura<br>ligera</span>
+              <p class="tenue">Renderizado en servidor, caché por capas y un worker dedicado a precios. El
+                cliente recibe páginas ya resueltas en lugar de disparar decenas de llamadas al mercado.</p>
+            </div>
+            <div class="caja borde">
+              <span class="cabeza" style="color:var(--jade)">Métricas clave,<br>no todas</span>
+              <p class="tenue">Valor, ganancia separada del capital, concentración, volatilidad, pérdida
+                máxima y comparación contra un índice. Cada una con su explicación al lado.</p>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+
+          <div class="caja anilf" style="margin-bottom:34px">
+            <span class="cabeza">Y una capa de simulación al alcance de cualquiera</span>
+            <p>Ocho preguntas producen un perfil de riesgo, una cartera sugerida y una proyección por método
+              de Monte Carlo con escenario pesimista, medio y optimista. Sin instalar nada, sin programar y
+              sin arriesgar un peso.</p>
+          </div>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 04 · Objetivos ────────────────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>04</b><span>Objetivos del proyecto</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Parte 1</span> · Contexto del proyecto</span><span>04 / 24</span></div>
+          <h2 class="tit">Objetivos</h2>
+
+          <div class="caja anilf" style="margin-bottom:24px">
+            <h3 class="et">Objetivo general</h3>
+            <p style="font-size:22px;line-height:1.32">Desarrollar y evaluar una plataforma web que
+              centralice el seguimiento de portafolios de inversión personal y traduzca su desempeño y riesgo
+              a indicadores comprensibles, validando su usabilidad y adopción mediante un tablero de
+              indicadores clave.</p>
+          </div>
+
+          <h3 class="et">Objetivos específicos</h3>
+          <div class="dos" style="gap:30px">
+            <ul class="anil">
+              <li><b>Centralizar y calcular.</b> Registrar operaciones en múltiples carteras y divisas, y
+                calcular rendimiento real, riesgo y comparación contra un índice de referencia.</li>
+              <li><b>Anclar la medición.</b> Establecer una línea base diaria única y compartida que sirva
+                como punto cero verificable del rendimiento intradía.</li>
+              <li><b>Hacer accesible la simulación.</b> Traducir un perfil de riesgo en una cartera sugerida
+                y una proyección de escenarios.</li>
+            </ul>
+            <ul class="anil">
+              <li><b>Evaluar con método.</b> Diseñar un instrumento anónimo con escalas validadas —SUS, NPS,
+                CSAT y CES—, métricas de tarea y una bitácora longitudinal.</li>
+              <li><b>Automatizar el tablero.</b> Calcular doce indicadores de forma independiente del origen
+                de los datos, de modo que respuestas reales sustituyan a las simuladas sin tocar el código.</li>
+              <li><b>Priorizar la mejora.</b> Ordenar las oportunidades detectadas por impacto sobre
+                esfuerzo, con evidencia cuantitativa y cualitativa.</li>
+            </ul>
+          </div>
+
+          <div class="crece"></div>
+          <div style="height:34px"></div>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 05 · Stack y arquitectura ─────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>05</b><span>Stack tecnológico y arquitectura</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Parte 1</span> · Contexto del proyecto</span><span>05 / 24</span></div>
+          <h2 class="tit">Stack y <em>arquitectura</em></h2>
+          <p class="bajada">Cinco capas. El dato entra por abajo, se normaliza y se cachea antes de llegar
+            al usuario: ninguna pantalla golpea directamente a un proveedor de precios.</p>
+
+          <div class="dos-a">
+            <div class="arq">
+              <div class="capa c1">
+                <span class="nom">Cliente</span>
+                <span class="piezas"><span class="pieza">PWA instalable</span><span class="pieza">Tema claro / oscuro</span><span class="pieza">Español · Inglés</span></span>
+              </div>
+              <div class="flechita">▲</div>
+              <div class="capa c2">
+                <span class="nom">Aplicación</span>
+                <span class="piezas"><span class="pieza">Next.js 16 · App Router</span><span class="pieza">React 19 · RSC</span><span class="pieza">TypeScript</span><span class="pieza">Tailwind v4</span><span class="pieza">Recharts</span></span>
+              </div>
+              <div class="flechita">▲</div>
+              <div class="capa c3">
+                <span class="nom">API · Node.js</span>
+                <span class="piezas"><span class="pieza">Route Handlers</span><span class="pieza">Zod</span><span class="pieza">Upstash Redis</span><span class="pieza">Cron de Vercel</span></span>
+              </div>
+              <div class="flechita">▲</div>
+              <div class="capa c4">
+                <span class="nom">Datos</span>
+                <span class="piezas"><span class="pieza">Supabase · PostgreSQL</span><span class="pieza">Auth</span><span class="pieza">RLS por usuario</span></span>
+              </div>
+              <div class="flechita">▲</div>
+              <div class="capa c5">
+                <span class="nom">Mercado</span>
+                <span class="piezas"><span class="pieza">Cloudflare Worker</span><span class="pieza">Twelve Data</span><span class="pieza">Finnhub (respaldo)</span></span>
+              </div>
+            </div>
+
+            <div class="col">
+              <div class="caja">
+                <h3 class="et">Por qué un worker aparte para precios</h3>
+                <p class="tenue">Los proveedores gratuitos limitan a <span class="dato">8</span> y
+                  <span class="dato">60</span> peticiones por minuto. El worker centraliza el consumo, aplica
+                  control de tasa y encadena un proveedor de respaldo, de modo que el límite se administra en
+                  un solo punto y no por usuario conectado.</p>
+              </div>
+              <div class="caja">
+                <h3 class="et">Trabajos programados</h3>
+                <table>
+                  <tbody>
+                    <tr><td>Líneas base diarias</td><td class="n dato">14:35 UTC · L-V</td></tr>
+                    <tr><td>Instantáneas de valor</td><td class="n dato">01:00 UTC · diario</td></tr>
+                  </tbody>
+                </table>
+                <p class="tenue" style="font-size:14px">El primero fija el punto cero del día; el segundo
+                  guarda el cierre de cada portafolio para el histórico.</p>
+              </div>
+              <div class="caja">
+                <h3 class="et">Despliegue</h3>
+                <p class="tenue"><b>Vercel</b> para la aplicación y los trabajos programados,
+                  <b>Cloudflare Workers</b> para el motor de precios y <b>Supabase</b> gestionado para datos
+                  y autenticación.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+          
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         PARTE 2 · GUÍA DE USUARIO
+         ══════════════════════════════════════════════════════════════════ -->
+
+    <!-- ── 06 · Divisor ──────────────────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>06</b><span>Divisor · Parte 2</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia oscura divisor">
+          <span class="rot">Parte 2</span>
+          <h2>Guía de uso,<br>pantalla por pantalla</h2>
+          <p class="tenue">Recorrido completo de la plataforma. Cada diapositiva responde cuatro preguntas:
+            qué hace la función, cómo se usa paso a paso, por qué importa en términos financieros y técnicos,
+            y con qué comparación cotidiana se recuerda.</p>
+          <div class="indice">
+            <span>1 · Acceso</span><span>2 · Tablero</span><span>3 · Portafolio y activos</span>
+            <span>4 · Intradía</span><span>5 · Operaciones y P&amp;L</span><span>6 · Simulación</span>
+            <span>+ Alertas, mercados y comunidad</span>
+          </div>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 07 · Módulo 1 · Login ─────────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>07</b><span>Módulo 1 · Login y autenticación</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 1</span> · Login y autenticación</span><span>07 / 24</span></div>
+          <h2 class="tit">Entrar a <em>tu</em> cuenta</h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Crear la identidad del usuario y aislar sus datos. Todo lo que se registre después
+                  —portafolios, operaciones, alertas— queda amarrado a esa identidad y es invisible para
+                  cualquier otra cuenta.</p>
+              </div>
+              <div>
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue">El aislamiento <b>no se implementa en la interfaz sino en la base de datos</b>:
+                  cada tabla lleva el identificador del dueño y una política de seguridad a nivel de fila
+                  (RLS) que rechaza cualquier lectura ajena. Aunque una pantalla pidiera datos de otro
+                  usuario, la base no los entrega. Para un producto financiero, esa garantía es el
+                  cimiento: sin ella, ninguna cifra posterior merece confianza.</p>
+              </div>
+              <div class="caja">
+                <p class="tenue" style="font-size:16px"><b>Nota de alcance.</b> La plataforma nunca pide
+                  datos bancarios ni credenciales del bróker: el usuario registra sus operaciones, no
+                  conecta su cuenta de dinero real.</p>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et rosa">Instrucciones paso a paso</h3>
+              <ol class="pasos">
+                <li>Abrir la plataforma y elegir <code>Registrarse</code> en la barra superior.</li>
+                <li>Escribir un correo y una contraseña. No se solicita ningún otro dato personal.</li>
+                <li>Confirmar el registro; el sistema crea la sesión y redirige al panel principal.</li>
+                <li>En visitas posteriores, entrar con <code>Iniciar sesión</code>. La sesión se mantiene
+                  entre visitas.</li>
+                <li>Opcional: desde el navegador móvil, <code>Agregar a pantalla de inicio</code> instala la
+                  aplicación como app.</li>
+              </ol>
+              <div class="caja borde">
+                <h3 class="et">Qué ver en pantalla</h3>
+                <p class="tenue" style="font-size:16px">Si las credenciales fallan, el mensaje de error
+                  aparece bajo el formulario. Al entrar correctamente, la barra lateral muestra los ocho
+                  módulos y el panel queda vacío hasta crear el primer portafolio.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="8" cy="12" r="4"/><path d="M12 12h9l-2.5 2.5M17 12v3"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es como la llave de tu caja fuerte personal: abre solo la tuya, y quien
+                revisa la llave es la bóveda, no el vigilante de la entrada</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 08 · Módulo 2 · Dashboard ─────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>08</b><span>Módulo 2 · Visión general del tablero</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 2</span> · Tablero principal</span><span>08 / 24</span></div>
+          <h2 class="tit">El tablero en <em>un vistazo</em></h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Responder en cinco segundos las tres preguntas que todo inversionista se hace al abrir la
+                  app: cuánto tengo, cuánto gané y en qué estoy concentrado.</p>
+              </div>
+              <div>
+                <h3 class="et rosa">Instrucciones paso a paso</h3>
+                <ol class="pasos">
+                  <li>Al iniciar sesión se abre en <code>Dashboard</code>; también se llega desde el primer
+                    ícono de la barra lateral.</li>
+                  <li>Leer la fila superior de tarjetas: valor del portafolio, ganancia del día y ganancia
+                    total.</li>
+                  <li>Bajar a la gráfica de evolución y activar la casilla del índice de referencia para
+                    superponerlo.</li>
+                  <li>Revisar la dona de distribución: cada segmento es un activo o una clase de activo.</li>
+                  <li>Atender los avisos de concentración si aparecen en rojo bajo la distribución.</li>
+                  <li>Usar el botón del ojo para ocultar los montos si se presenta en público.</li>
+                </ol>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et jade">Valor financiero y técnico</h3>
+              <p class="tenue">La pantalla concentra en una vista lo que normalmente exige abrir tres
+                aplicaciones. Técnicamente se sirve con <b>renderizado en servidor</b>: la página llega
+                calculada y no dispara una petición por posición, que es lo que hace lentos a los tableros
+                tradicionales. El aviso de concentración implementa una regla básica de gestión de riesgo
+                —vigilar el peso de una sola posición— sin que el usuario tenga que calcularlo.</p>
+              <svg class="pantalla" viewBox="0 0 520 226" role="img" aria-label="Tablero: tarjetas de valor, ganancia del día y ganancia total, con gráfica de evolución y dona de distribución">
+                <rect x="0" y="0" width="520" height="226" rx="8" fill="#F2EAE0"/>
+                <g>
+                  <rect x="12" y="12" width="158" height="56" rx="6" fill="#FFF"/>
+                  <text x="24" y="30" font-family="Red Hat Mono, monospace" font-size="8" fill="#7B7799">VALOR DEL PORTAFOLIO</text>
+                  <text x="24" y="54" font-family="Big Shoulders, sans-serif" font-size="26" fill="#191539">$847,231</text>
+                  <rect x="180" y="12" width="158" height="56" rx="6" fill="#FFF"/>
+                  <text x="192" y="30" font-family="Red Hat Mono, monospace" font-size="8" fill="#7B7799">GANANCIA DE HOY</text>
+                  <text x="192" y="54" font-family="Big Shoulders, sans-serif" font-size="26" fill="#0FA98C">+$19,842</text>
+                  <rect x="348" y="12" width="160" height="56" rx="6" fill="#FFF"/>
+                  <text x="360" y="30" font-family="Red Hat Mono, monospace" font-size="8" fill="#7B7799">GANANCIA TOTAL</text>
+                  <text x="360" y="54" font-family="Big Shoulders, sans-serif" font-size="26" fill="#0FA98C">+$93,410</text>
+                </g>
+                <rect x="12" y="78" width="326" height="136" rx="6" fill="#FFF"/>
+                <text x="24" y="96" font-family="Red Hat Mono, monospace" font-size="8" fill="#7B7799">EVOLUCIÓN VS. S&amp;P 500</text>
+                <path d="M24 190 L60 178 L96 184 L132 160 L168 168 L204 142 L240 150 L276 124 L312 104"
+                      fill="none" stroke="#3B36C7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M24 194 L60 188 L96 190 L132 176 L168 180 L204 166 L240 170 L276 154 L312 144"
+                      fill="none" stroke="#7B7799" stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round"/>
+                <circle cx="312" cy="104" r="4" fill="#3B36C7"/>
+                <rect x="348" y="78" width="160" height="136" rx="6" fill="#FFF"/>
+                <text x="360" y="96" font-family="Red Hat Mono, monospace" font-size="8" fill="#7B7799">DISTRIBUCIÓN</text>
+                <g transform="translate(428 152)">
+                  <circle r="36" fill="none" stroke="#3B36C7" stroke-width="17" stroke-dasharray="84.8 141.4" transform="rotate(-90)"/>
+                  <circle r="36" fill="none" stroke="#E8336D" stroke-width="17" stroke-dasharray="56.5 169.6" transform="rotate(45)"/>
+                  <circle r="36" fill="none" stroke="#F2A81D" stroke-width="17" stroke-dasharray="45.2 180.9" transform="rotate(135)"/>
+                  <circle r="36" fill="none" stroke="#0FA98C" stroke-width="17" stroke-dasharray="39.6 187.3" transform="rotate(207)"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 14a9 9 0 0 1 18 0"/><path d="M12 14l4-4"/><circle cx="12" cy="14" r="1.6"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es como el tablero de instrumentos de un auto: velocidad y gasolina de un
+                vistazo, sin abrir el cofre</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 09 · Módulo 2b · Anatomía de las cifras ───────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>09</b><span>Módulo 2 · Cómo leer cada cifra</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 2</span> · Anatomía de las cifras</span><span>09 / 24</span></div>
+          <h2 class="tit">Cuatro cifras que <em>no significan lo mismo</em></h2>
+          <p class="bajada">Confundirlas es el error más común entre principiantes y la razón por la que el
+            tablero las presenta separadas.</p>
+
+          <table>
+            <thead>
+              <tr><th>Cifra</th><th>Qué mide</th><th>Cómo se calcula</th><th>Error frecuente</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>Capital aportado</b></td>
+                <td>El dinero que tú metiste</td>
+                <td class="dato">Σ (compras − ventas)</td>
+                <td>Creer que subió el portafolio cuando solo depositaste</td>
+              </tr>
+              <tr>
+                <td><b>Valor de mercado</b></td>
+                <td>Lo que valen hoy tus posiciones</td>
+                <td class="dato">Σ (cantidad × precio actual)</td>
+                <td>Tomarlo como ganancia</td>
+              </tr>
+              <tr>
+                <td><b>Ganancia del día</b></td>
+                <td>Movimiento de la jornada</td>
+                <td class="dato">Σ cant. × (precio − línea base)</td>
+                <td>Compararlo contra el precio de compra</td>
+              </tr>
+              <tr>
+                <td><b>Ganancia total</b></td>
+                <td>Resultado acumulado</td>
+                <td class="dato">Valor de mercado − capital aportado</td>
+                <td>Mezclarla con el rendimiento porcentual</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="crece"></div>
+
+          <div class="caja tinta" style="margin-bottom:16px">
+            <p><b>Regla para recordar.</b> Aportar cambia el <i>valor</i> pero no la <i>ganancia</i>. Si al
+              depositar dinero tu ganancia sube, la cifra está mal calculada. Por eso la plataforma separa el
+              capital del rendimiento y, en analítica, usa <b>rendimiento ponderado por tiempo</b>, que anula
+              por completo el efecto de las aportaciones.</p>
+          </div>
+
+          <footer class="analogia jade">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h6M9 14h6"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">El odómetro no es el tanque: uno dice cuánto avanzaste, el otro cuánto
+                cargaste</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 10 · Módulo 3 · Crear portafolio ──────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>10</b><span>Módulo 3 · Creación de portafolio</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 3</span> · Configuración del portafolio</span><span>10 / 24</span></div>
+          <h2 class="tit">Crear el <em>contenedor</em></h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Definir la unidad de análisis. Un portafolio agrupa posiciones que comparten un objetivo y
+                  una moneda de referencia; todas las métricas —rendimiento, riesgo, comparación— se calculan
+                  dentro de ese contenedor.</p>
+              </div>
+              <div>
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue">Separar carteras evita el error de promediar objetivos distintos: mezclar un
+                  fondo de emergencia con una apuesta especulativa produce un perfil de riesgo que no
+                  describe a ninguno de los dos. La <b>moneda de referencia</b> se fija aquí porque determina
+                  cómo se convierten posiciones en dólares o euros al calcular el total, y cambiarla después
+                  reexpresaría todo el histórico.</p>
+              </div>
+              <div class="caja">
+                <p class="tenue" style="font-size:16px"><b>Buena práctica.</b> Un portafolio por objetivo:
+                  «Largo plazo», «Fondo de emergencia», «Experimentos». No por bróker.</p>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et rosa">Instrucciones paso a paso</h3>
+              <ol class="pasos">
+                <li>Entrar a <code>Portafolios</code> en la barra lateral.</li>
+                <li>Pulsar <code>Nuevo portafolio</code>, arriba a la derecha.</li>
+                <li>Escribir un nombre que describa el <b>objetivo</b>, no el bróker.</li>
+                <li>Elegir la moneda de referencia: <code>MXN</code>, <code>USD</code> o <code>EUR</code>.
+                  Es la moneda en la que se mostrará el total.</li>
+                <li>Guardar. El portafolio aparece en la lista con valor cero.</li>
+                <li>Repetir para cada objetivo distinto; el tablero consolida todos.</li>
+              </ol>
+              <div class="caja borde">
+                <h3 class="et">Después de crearlo</h3>
+                <p class="tenue" style="font-size:16px">Cada portafolio tiene tres pestañas propias:
+                  <b>Posiciones</b> (qué tienes ahora), <b>Transacciones</b> (qué hiciste) y
+                  <b>Analytics</b> (cómo te fue). Desde ahí también se exportan los datos y se decide si la
+                  cartera es privada o pública.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 7h7l2 3h9v10H3z"/><path d="M3 7V4h6v3"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es como abrir una carpeta nueva en el archivero: cada una guarda un plan
+                distinto y no se revuelven</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 11 · Módulo 3b · Selección de activos ─────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>11</b><span>Módulo 3 · Búsqueda y alta de activos</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 3</span> · Selección de activos</span><span>11 / 24</span></div>
+          <h2 class="tit">Armar la <em>cartera</em></h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Registrar cada compra o venta con los cuatro datos que definen una posición: símbolo,
+                  cantidad, precio y fecha. A partir de ahí la plataforma actualiza el precio sola.</p>
+              </div>
+              <div>
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue">El precio de compra es lo que fija el <b>costo promedio</b>, y el costo
+                  promedio es la base de todo cálculo de ganancia. Registrar la fecha permite además
+                  reconstruir el histórico y calcular el rendimiento por periodo. El buscador consulta un
+                  catálogo de instrumentos de <b>NYSE, NASDAQ y BMV</b> con autocompletado, de modo que el
+                  símbolo quede normalizado y el motor de precios pueda resolverlo.</p>
+              </div>
+              <div class="caja">
+                <p class="tenue" style="font-size:16px"><b>Ventas.</b> Se registran igual, eligiendo
+                  <code>Venta</code>. La plataforma descuenta la cantidad de la posición y conserva la
+                  operación en el historial para el cálculo de resultados realizados.</p>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et rosa">Instrucciones paso a paso</h3>
+              <ol class="pasos">
+                <li>Abrir el portafolio y pulsar <code>Nueva transacción</code>.</li>
+                <li>Escribir el ticker o el nombre en el buscador: <code>VOO</code>, <code>Apple</code>,
+                  <code>FIBRAPL</code>. El autocompletado propone coincidencias.</li>
+                <li>Seleccionar el instrumento correcto de la lista.</li>
+                <li>Elegir el tipo: <code>Compra</code> o <code>Venta</code>.</li>
+                <li>Capturar <b>cantidad</b> y <b>precio por unidad</b>. Si se deja vacío, se sugiere el
+                  precio de mercado del momento.</li>
+                <li>Ajustar la <b>fecha</b> si la operación no fue hoy.</li>
+                <li>Guardar. La posición aparece en la tabla y el tablero se recalcula.</li>
+              </ol>
+              <div class="caja borde">
+                <p class="tenue" style="font-size:16px"><b>Verificación.</b> Si el valor de mercado no
+                  coincide con tu bróker, revisa cantidad y precio en <code>Transacciones</code>: casi
+                  siempre es un dígito de más en la captura.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"/><path d="M20 20l-4.2-4.2"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es como armar tu equipo titular: eliges jugadores por su desempeño, no por
+                el orden en que llegaron</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 12 · Módulo 3c · Importación CSV ──────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>12</b><span>Módulo 3 · Carga masiva e histórico</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 3</span> · Importación y exportación</span><span>12 / 24</span></div>
+          <h2 class="tit">Cargar el <em>histórico completo</em></h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Migrar de golpe el historial que ya existe en el bróker o en una hoja de cálculo, en lugar
+                  de capturar decenas de operaciones una por una. Y en sentido inverso, sacar los datos
+                  cuando se necesiten fuera de la plataforma.</p>
+              </div>
+              <div>
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue">Sin histórico, el rendimiento empieza a contar desde hoy y se pierde toda la
+                  trayectoria previa: la gráfica arranca plana y las métricas de riesgo no tienen suficientes
+                  observaciones. Cargar el pasado es lo que hace que <b>volatilidad, pérdida máxima y
+                  comparación contra índice</b> signifiquen algo desde el primer día. La exportación, además,
+                  garantiza que el usuario no queda atrapado: sus datos salen en formatos abiertos.</p>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et rosa">Instrucciones paso a paso</h3>
+              <ol class="pasos">
+                <li>En <code>Portafolios</code>, pulsar <code>Importar CSV</code>.</li>
+                <li>Preparar el archivo con una fila por operación y las columnas de símbolo, tipo,
+                  cantidad, precio y fecha.</li>
+                <li>Seleccionar el archivo y revisar la previsualización antes de confirmar.</li>
+                <li>Corregir las filas señaladas como inválidas y volver a cargar.</li>
+                <li>Confirmar la importación; las operaciones se suman al portafolio elegido.</li>
+                <li>Para exportar: <code>Exportar datos</code> ofrece posiciones y transacciones en CSV, o
+                  todo el conjunto en JSON.</li>
+              </ol>
+              <div class="caja">
+                <h3 class="et">Detectado en la evaluación</h3>
+                <p class="tenue" style="font-size:16px">Dos participantes reportaron que el importador
+                  rechazaba su archivo sin indicar qué columna fallaba. La mejora —mensajes de validación por
+                  columna— está en el backlog priorizado del proyecto.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v3h16v-3"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es pasar lista al salón entero de una vez, en vez de nombre por nombre</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 13 · Módulo 4 · Motor intradía ────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>13</b><span>Módulo 4 · Monitor de variaciones intradía</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 4</span> · Variaciones intradía</span><span>13 / 24</span></div>
+          <h2 class="tit">El <em>punto cero</em> del día</h2>
+          <p class="bajada">La función más técnica de la plataforma y la que resuelve la primera fricción del
+            planteamiento: que «¿cómo voy hoy?» tenga una sola respuesta.</p>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Fijar un origen de medición único para la jornada. La variación del día se calcula siempre
+                  contra el <b>cierre anterior del mercado</b> —el punto cero que usa la bolsa— y nunca
+                  contra el momento en que el usuario abrió sesión.</p>
+              </div>
+              <div>
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue">Un trabajo programado corre <b>de lunes a viernes a las 14:35 UTC</b>, poco
+                  después de la apertura de Nueva York, y guarda el cierre anterior de cada símbolo que
+                  alguien tenga en cartera o en seguimiento. Se almacena <b>una fila por símbolo y día
+                  bursátil, compartida por todos los usuarios</b>. Esto tiene dos efectos: la cifra es
+                  idéntica para todos y auditable, y el consumo de las APIs de mercado deja de crecer con el
+                  número de usuarios conectados. Si aparece un símbolo nuevo, se resuelve al vuelo y se
+                  guarda.</p>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et rosa">Cómo se lee en pantalla</h3>
+              <ol class="pasos">
+                <li>La tarjeta <code>Ganancia de hoy</code> del tablero muestra la variación en dinero y en
+                  porcentaje.</li>
+                <li>En la tabla de posiciones, la columna del día aplica el mismo origen a cada activo.</li>
+                <li>El indicador <code>Mercado abierto</code> / <code>Mercado cerrado</code> señala si la
+                  cifra sigue moviéndose.</li>
+                <li>Con el mercado cerrado, la variación queda congelada hasta la siguiente sesión.</li>
+              </ol>
+              <div class="caja tinta">
+                <h3 class="et">La fórmula</h3>
+                <p class="dato" style="font-size:17px">ganancia_día = Σ cantidad × (precio_actual −
+                  cierre_anterior)</p>
+                <p class="tenue" style="font-size:15px">El precio de compra no entra en esta cuenta. Por eso
+                  una posición puede estar en verde en el día y en rojo en el acumulado, o al revés.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="analogia rosa">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 3v18M5 4h13l-2.5 4L18 12H5"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es medir la carrera desde el silbatazo del árbitro, no desde que llegaste a
+                la tribuna</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 14 · Módulo 4b · Ejemplo trabajado ────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>14</b><span>Módulo 4 · Por qué importa el origen</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 4</span> · Ejemplo trabajado</span><span>14 / 24</span></div>
+          <h2 class="tit">Tres orígenes, <em>tres respuestas</em></h2>
+          <p class="bajada">Misma posición, mismo instante, misma pregunta. Solo cambia contra qué se compara.
+            <b>10 acciones compradas en $480.00</b>; cierre de ayer <b>$492.00</b>; el usuario entró a las
+            11:00 con el precio en <b>$488.00</b>; ahora vale <b>$495.00</b>.</p>
+
+          <table>
+            <thead>
+              <tr><th>Origen de medición</th><th class="n">Cálculo</th><th class="n">Resultado</th><th>Qué está respondiendo en realidad</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>Cierre anterior</b> · el que usa InvestTracker</td>
+                <td class="n">10 × (495 − 492)</td>
+                <td class="n" style="color:var(--jade);font-weight:700">+$30.00</td>
+                <td>Cómo se movió el mercado hoy</td>
+              </tr>
+              <tr>
+                <td>Momento de inicio de sesión</td>
+                <td class="n">10 × (495 − 488)</td>
+                <td class="n">+$70.00</td>
+                <td>Qué pasó desde que abrí la app</td>
+              </tr>
+              <tr>
+                <td>Precio de compra</td>
+                <td class="n">10 × (495 − 480)</td>
+                <td class="n">+$150.00</td>
+                <td>Cuánto llevo ganado en total</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="crece"></div>
+
+          <div class="dos" style="margin-bottom:16px">
+            <div class="caja">
+              <h3 class="et">Ninguno está mal</h3>
+              <p class="tenue">Las tres cifras son correctas; responden preguntas distintas. El problema
+                aparece cuando una herramienta muestra una y la etiqueta como si fuera otra.</p>
+            </div>
+            <div class="caja tinta">
+              <h3 class="et">Qué hace la plataforma</h3>
+              <p class="tenue">Muestra la primera como <b>ganancia del día</b> y la tercera como
+                <b>ganancia total</b>, con etiquetas distintas y en tarjetas separadas. La segunda no se
+                muestra nunca: depende de a qué hora entraste y no es comparable entre usuarios.</p>
+            </div>
+          </div>
+
+          <footer class="analogia rosa">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">El marcador del partido no se reinicia porque tú llegaste al medio tiempo</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 15 · Módulo 5 · Historial ─────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>15</b><span>Módulo 5 · Historial de operaciones</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 5</span> · Historial de operaciones</span><span>15 / 24</span></div>
+          <h2 class="tit">Todo lo que <em>hiciste</em></h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Conservar el registro auditable de cada compra y venta. Es la fuente de verdad de la que
+                  se derivan el costo promedio, el capital aportado y, por diferencia, toda ganancia.</p>
+              </div>
+              <div>
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue">Sin bitácora de operaciones no hay contabilidad posible: el saldo por sí
+                  solo no distingue entre haber ganado y haber depositado. El historial permite además
+                  <b>conciliar con el estado de cuenta del bróker</b>, corregir capturas equivocadas y
+                  sostener el cálculo de resultados realizados frente a no realizados —la diferencia entre lo
+                  que ya cobraste y lo que solo existe en papel.</p>
+              </div>
+              <div class="caja">
+                <p class="tenue" style="font-size:16px"><b>Corregir.</b> Cada fila se edita o se elimina; al
+                  guardar, la posición y todas las métricas se recalculan.</p>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et rosa">Instrucciones paso a paso</h3>
+              <ol class="pasos">
+                <li>Abrir el portafolio y entrar a la pestaña <code>Transacciones</code>.</li>
+                <li>Leer la tabla: fecha, tipo, símbolo, cantidad, precio e importe.</li>
+                <li>Ordenar o filtrar para aislar un activo o un periodo.</li>
+                <li>Pulsar una fila para <code>Editar</code> o <code>Eliminar</code>.</li>
+                <li>Exportar a CSV cuando se necesite conciliar fuera de la plataforma.</li>
+                <li>Volver a <code>Posiciones</code> para ver el efecto consolidado.</li>
+              </ol>
+              <div class="caja borde">
+                <h3 class="et">Realizado vs. no realizado</h3>
+                <p class="tenue" style="font-size:16px"><b>Realizado</b> es la ganancia de lo que ya vendiste:
+                  quedó fija. <b>No realizado</b> es la de lo que sigues teniendo: cambia cada día con el
+                  precio y puede desaparecer.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es el estado de cuenta que te dice si cerraste el mes en verde o en rojo</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 16 · Módulo 5b · P&L y atribución ─────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>16</b><span>Módulo 5 · Métricas de rendimiento</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 5</span> · Rendimiento y atribución</span><span>16 / 24</span></div>
+          <h2 class="tit">No solo cuánto: <em>por qué</em></h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Descomponer el resultado del portafolio en las posiciones que lo produjeron, y compararlo
+                  contra un índice de referencia para saber si el desempeño viene de la habilidad o del
+                  mercado.</p>
+              </div>
+              <div>
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue">La <b>atribución</b> convierte un número opaco en una explicación: la
+                  gráfica de cascada parte del valor inicial y suma o resta la contribución de cada posición
+                  hasta llegar al valor final. La comparación contra índice responde la pregunta que de
+                  verdad importa: <i>¿me habría ido mejor comprando el índice y no haciendo nada?</i> El
+                  <b>rendimiento ponderado por tiempo</b> se usa aquí precisamente para que las aportaciones
+                  no ensucien esa comparación.</p>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et rosa">Instrucciones paso a paso</h3>
+              <ol class="pasos">
+                <li>Abrir el portafolio y entrar a <code>Analytics</code>.</li>
+                <li>En <b>Retornos</b>, elegir el periodo: mes, trimestre, año o desde el inicio.</li>
+                <li>Leer el rendimiento del portafolio junto al del índice; la diferencia es el exceso.</li>
+                <li>Bajar a la <b>cascada de atribución</b>: barras verdes suman, rojas restan.</li>
+                <li>Identificar las dos o tres posiciones que explican la mayor parte del movimiento.</li>
+                <li>Revisar el calendario de retornos para ver si el resultado es constante o viene de un
+                  solo mes.</li>
+              </ol>
+              <div class="caja tinta">
+                <p class="tenue" style="font-size:16px"><b>Lectura correcta.</b> Ganar 8 % cuando el índice
+                  ganó 12 % no es un buen año: es un rezago de cuatro puntos con el riesgo ya asumido.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 20h18"/><path d="M6 20V11M11 20V6M16 20v-6M21 20V9"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es la cuenta del restaurante desglosada: no solo el total, sino qué platillo
+                costó qué</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 17 · Módulo 5c · Riesgo ───────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>17</b><span>Módulo 5 · Métricas de riesgo</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 5</span> · Riesgo</span><span>17 / 24</span></div>
+          <h2 class="tit">Qué tan <em>accidentado</em> fue el camino</h2>
+          <p class="bajada">Dos portafolios pueden terminar en el mismo lugar habiendo pasado por sustos muy
+            distintos. Estas tres métricas describen el trayecto, no el destino.</p>
+
+          <div class="tres">
+            <div class="caja borde">
+              <span class="cabeza" style="color:var(--anil)">Volatilidad</span>
+              <p class="tenue"><b>Qué mide.</b> Cuánto se mueve el valor día a día, expresado en términos
+                anuales.</p>
+              <p class="tenue"><b>Cómo leerla.</b> Más alta significa oscilaciones más amplias en ambos
+                sentidos. No es «malo»: es el precio de admisión al rendimiento esperado.</p>
+            </div>
+            <div class="caja borde">
+              <span class="cabeza" style="color:var(--rosa)">Pérdida máxima</span>
+              <p class="tenue"><b>Qué mide.</b> La caída más grande desde un máximo hasta el fondo
+                siguiente, antes de recuperarse.</p>
+              <p class="tenue"><b>Cómo leerla.</b> Es la prueba de estómago: la respuesta honesta a
+                «¿habría aguantado sin vender?».</p>
+            </div>
+            <div class="caja borde">
+              <span class="cabeza" style="color:var(--jade)">Razón de Sharpe</span>
+              <p class="tenue"><b>Qué mide.</b> Cuánto rendimiento obtuviste por cada unidad de riesgo
+                asumido.</p>
+              <p class="tenue"><b>Cómo leerla.</b> Permite comparar carteras distintas en la misma escala.
+                Necesita histórico suficiente para ser confiable.</p>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+
+          <div class="dos" style="margin-bottom:16px">
+            <div>
+              <h3 class="et rosa">Instrucciones paso a paso</h3>
+              <ol class="pasos">
+                <li>En <code>Analytics</code>, ir a la sección <b>Riesgo</b>.</li>
+                <li>Leer las tres tarjetas y, debajo, la gráfica de caídas acumuladas.</li>
+                <li>Contrastar con la alerta de concentración: mucha volatilidad suele venir de un solo
+                  activo pesando de más.</li>
+              </ol>
+            </div>
+            <div class="caja">
+              <h3 class="et">Advertencia metodológica</h3>
+              <p class="tenue" style="font-size:16px">Estas métricas necesitan historia. Con pocas semanas de
+                registro son ilustrativas, no concluyentes: la plataforma las muestra desde el inicio, pero
+                su valor estadístico crece con el tiempo.</p>
+            </div>
+          </div>
+
+          <footer class="analogia jade">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 17c3-8 6 4 9-3s6 2 9-4"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">El velocímetro dice qué tan rápido vas; el riesgo, qué tan cerrada viene la
+                curva</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 18 · Módulo 6 · Asesor ────────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>18</b><span>Módulo 6 · Perfil de riesgo</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 6</span> · Asesor · Perfil</span><span>18 / 24</span></div>
+          <h2 class="tit">Antes de simular: <em>quién eres</em></h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Traducir la situación y el temperamento del usuario en un perfil de riesgo, y de ahí en
+                  una cartera sugerida con pesos concretos por clase de activo.</p>
+              </div>
+              <div>
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue">El perfil combina dos dimensiones que la teoría financiera trata por
+                  separado: la <b>capacidad</b> de tomar riesgo —edad, ingreso, horizonte, estabilidad
+                  laboral, proporción invertida— y la <b>tolerancia</b> psicológica —experiencia previa y
+                  reacción declarada ante una caída—. Alguien puede tener capacidad alta y tolerancia baja;
+                  la cartera sugerida se ajusta a la más restrictiva de las dos, que es la práctica
+                  responsable.</p>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et rosa">Instrucciones paso a paso</h3>
+              <ol class="pasos">
+                <li>Entrar a <code>Asesor</code> en la barra lateral.</li>
+                <li>Responder las ocho preguntas: edad, ingreso mensual, tolerancia al riesgo (1–10),
+                  horizonte en años, experiencia, estabilidad de ingresos, reacción ante una caída y
+                  porcentaje del ingreso que se destinaría a invertir.</li>
+                <li>Pulsar <code>Ver mi perfil</code>.</li>
+                <li>Leer el perfil asignado —<b>Conservador</b>, <b>Moderado</b> o <b>Agresivo</b>— y su
+                  descripción.</li>
+                <li>Revisar la dona de la cartera sugerida con el peso de cada clase de activo.</li>
+                <li>Contrastar esos pesos con la distribución real del portafolio en el tablero.</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="tres" style="margin-top:6px">
+            <div class="caja"><p class="tenue" style="font-size:15px"><b>Conservador · 4 % anual objetivo</b><br>
+              CETES 40 · Bonos 30 · ETF S&amp;P 500 20 · FIBRAS 10</p></div>
+            <div class="caja"><p class="tenue" style="font-size:15px"><b>Moderado · 7 % anual objetivo</b><br>
+              S&amp;P 500 35 · CETES 20 · Bonos 20 · Nasdaq 15 · FIBRAS 10</p></div>
+            <div class="caja"><p class="tenue" style="font-size:15px"><b>Agresivo · 11 % anual objetivo</b><br>
+              S&amp;P 500 40 · Nasdaq 25 · Emergentes 20 · FIBRAS 10 · Oro 5</p></div>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3l2.4 5.4 5.6.6-4.2 3.9 1.2 5.7L12 15.8 6.999 18.6l1.2-5.7L4 9.4l5.6-.6z"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es la consulta antes de la receta: primero las preguntas, después el
+                tratamiento</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 19 · Módulo 6b · Monte Carlo ──────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>19</b><span>Módulo 6 · Simulación y proyecciones</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Módulo 6</span> · Simulación</span><span>19 / 24</span></div>
+          <h2 class="tit">Probar el futuro <em>sin arriesgar nada</em></h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Proyectar cómo evolucionaría un plan de inversión bajo miles de trayectorias posibles, y
+                  responder tres preguntas concretas: cuánto tendría, con qué probabilidad alcanzo mi meta y
+                  cuánto debería aportar para lograrla.</p>
+              </div>
+              <div>
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue">Una proyección de rendimiento fijo miente por construcción: los mercados no
+                  entregan el mismo porcentaje todos los años. El <b>método de Monte Carlo</b> genera muchas
+                  trayectorias aleatorias con el rendimiento esperado y la volatilidad del perfil, y de esa
+                  distribución extrae un escenario pesimista, uno medio y uno optimista. El resultado deja de
+                  ser una promesa y pasa a ser un <b>rango con probabilidad</b>, que es la forma honesta de
+                  hablar del futuro financiero.</p>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et rosa">Instrucciones paso a paso</h3>
+              <ol class="pasos">
+                <li>Con el perfil ya calculado, bajar a la sección de simulación.</li>
+                <li>Capturar el <b>capital inicial</b> y la <b>aportación mensual</b>.</li>
+                <li>Fijar el <b>horizonte</b> en años.</li>
+                <li>Opcional: escribir una <b>meta</b> en pesos para calcular su probabilidad.</li>
+                <li>Leer el abanico de escenarios: banda superior optimista, línea central media, banda
+                  inferior pesimista.</li>
+                <li>Contrastar el <b>capital aportado</b> con la <b>ganancia</b> en el resumen: revela cuánto
+                  del resultado viene del interés compuesto y cuánto de tu bolsillo.</li>
+                <li>Ajustar la aportación y repetir hasta que el escenario pesimista sea aceptable.</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+
+          <div class="caja tinta" style="margin-bottom:16px">
+            <p><b>Cómo presentarlo.</b> Nunca leer el escenario medio como una expectativa. La lectura
+              correcta es la del escenario pesimista: si ese resultado ya sirve para el objetivo, el plan es
+              robusto. La simulación es un ejercicio con supuestos, no una promesa de rendimiento.</p>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 18c4-2 6-9 9-9s5 5 9 3"/><path d="M3 21h18"/><circle cx="12" cy="6" r="2"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es un simulador de vuelo: pruebas maniobras antes de despegar con dinero
+                real</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 20 · Alertas ──────────────────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>20</b><span>Complemento · Alertas</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Complemento</span> · Alertas</span><span>20 / 24</span></div>
+          <h2 class="tit">Que la plataforma <em>te busque a ti</em></h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Convertir la vigilancia en algo automático. Dos tipos: <b>alertas de precio</b>, que se
+                  disparan cuando un activo cruza un umbral definido por el usuario, y <b>avisos de
+                  concentración</b>, que se generan solos cuando una posición pesa demasiado.</p>
+              </div>
+              <div>
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue">Definir el umbral <b>antes</b> de que el mercado se mueva es una defensa
+                  contra la decisión emocional: el precio de salida se fija en frío. El aviso de
+                  concentración aplica el principio más elemental de la diversificación sin exigir que el
+                  usuario recalcule pesos cada semana. En la evaluación fue el módulo con mayor desperdicio:
+                  solo la mitad lo configuró, pero quienes lo hicieron actuaron sobre el <b>69.6 %</b> de las
+                  alertas recibidas.</p>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et rosa">Instrucciones paso a paso</h3>
+              <ol class="pasos">
+                <li>Entrar a <code>Alertas</code> y pulsar <code>Nueva alerta</code>.</li>
+                <li>Elegir el activo con el buscador.</li>
+                <li>Seleccionar la condición: precio <b>por encima</b> o <b>por debajo</b> de un valor.</li>
+                <li>Escribir el precio objetivo y guardar.</li>
+                <li>Activar o desactivar cada regla con su interruptor, sin borrarla.</li>
+                <li>Revisar los avisos de concentración en el tablero: aparecen solos, no se configuran.</li>
+              </ol>
+              <div class="caja">
+                <p class="tenue" style="font-size:16px"><b>Limitación actual.</b> Las alertas se consultan
+                  dentro de la aplicación. El envío por notificación push y el resumen semanal por correo
+                  están identificados como mejora prioritaria.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es el detector de humo: no apaga el fuego, pero te despierta a tiempo</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 21 · Mercados y watchlist ─────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>21</b><span>Complemento · Mercados y watchlist</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Complemento</span> · Mercados y watchlist</span><span>21 / 24</span></div>
+          <h2 class="tit">Investigar <em>antes</em> de comprar</h2>
+
+          <div class="dos">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito · Mercados</h3>
+                <p>Consultar la ficha completa de cualquier instrumento sin salir de la plataforma: precio,
+                  gráfica histórica, fundamentales, eventos próximos, señal técnica y desempeño por sector.</p>
+              </div>
+              <div>
+                <h3 class="et rosa">Paso a paso</h3>
+                <ol class="pasos">
+                  <li>Entrar a <code>Mercados</code> y buscar por nombre o ticker.</li>
+                  <li>Abrir la ficha del instrumento y revisar precio, rango de 52 semanas y múltiplos.</li>
+                  <li>Usar <code>Comparar</code> para superponer hasta cinco símbolos en una misma gráfica
+                    normalizada a porcentaje.</li>
+                  <li>Explorar <b>Por sector</b> para ver qué parte del mercado se está moviendo.</li>
+                </ol>
+              </div>
+            </div>
+
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito · Watchlist</h3>
+                <p>Seguir instrumentos que interesan pero que aún no se compran, separando la intención del
+                  compromiso.</p>
+              </div>
+              <div>
+                <h3 class="et rosa">Paso a paso</h3>
+                <ol class="pasos">
+                  <li>Desde la ficha de un activo, pulsar <code>Agregar a watchlist</code>.</li>
+                  <li>Consultar la lista completa en <code>Watchlist</code>.</li>
+                  <li>Combinarla con una alerta de precio para no tener que revisarla a diario.</li>
+                </ol>
+              </div>
+              <div class="caja">
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue" style="font-size:16px">Comparar en una gráfica <b>normalizada a
+                  porcentaje</b> —y no en precio absoluto— es lo que permite contrastar instrumentos de
+                  precios muy distintos. Los símbolos en watchlist también se incluyen en el trabajo diario
+                  de líneas base, así que su variación se mide con el mismo origen que las posiciones.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es la lista del súper antes de entrar: decides qué mirar antes de sacar la
+                cartera</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 22 · Discover y privacidad ────────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>22</b><span>Complemento · Comunidad y privacidad</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Complemento</span> · Comunidad</span><span>22 / 24</span></div>
+          <h2 class="tit">Aprender de <em>otros</em>, sin exponerte</h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <div>
+                <h3 class="et">Propósito de la función</h3>
+                <p>Permitir que un usuario publique su portafolio, siga a otros y consulte una tabla de
+                  desempeño. Todo es <b>opcional y desactivado por defecto</b>: una cartera nace privada.</p>
+              </div>
+              <div>
+                <h3 class="et jade">Valor financiero y técnico</h3>
+                <p class="tenue">El valor pedagógico es alto —ver composiciones reales enseña más que un
+                  manual— pero el riesgo de privacidad también: un portafolio revela patrimonio y conducta.
+                  Por eso la visibilidad es una decisión explícita por cartera, y no una configuración global
+                  de la cuenta. En la evaluación, dos participantes pidieron ver <b>una vista previa de lo
+                  que otros verán</b> antes de publicar; es una mejora priorizada.</p>
+              </div>
+            </div>
+
+            <div class="col">
+              <h3 class="et rosa">Instrucciones paso a paso</h3>
+              <ol class="pasos">
+                <li>Entrar a <code>Discover</code> para explorar portafolios públicos y la tabla de
+                  desempeño.</li>
+                <li>Abrir un perfil y pulsar <code>Seguir</code> para verlo en tu feed.</li>
+                <li>Para publicar el tuyo: abrir el portafolio y cambiar su visibilidad a
+                  <code>Público</code>.</li>
+                <li>Revisar en <code>Configuración › Privacidad</code> qué se comparte y qué no.</li>
+                <li>Revertir en cualquier momento volviendo a <code>Privado</code>.</li>
+              </ol>
+              <div class="caja tinta">
+                <p class="tenue" style="font-size:16px"><b>Recomendación de uso.</b> Publicar composición y
+                  rendimiento porcentual aporta al aprendizaje colectivo; publicar montos absolutos no aporta
+                  nada y sí expone.</p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="analogia">
+            <svg class="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6"/>
+            </svg>
+            <div>
+              <span class="et">Analogía</span>
+              <span class="frase">Es ver la jugada del otro equipo desde la tribuna: aprendes sin enseñar tu
+                alineación</span>
+            </div>
+          </footer>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 23 · Resultados de la evaluación ──────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>23</b><span>Cierre · Resultados de la evaluación</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia">
+          <div class="cinta"><span><span class="parte">Cierre</span> · Evaluación de la plataforma</span><span>23 / 24</span></div>
+          <h2 class="tit">Cómo se <em>evaluó</em></h2>
+          <p class="bajada">Estudio piloto con instrumento anónimo de siete secciones y bitácora de siete
+            días, aplicado sobre un conjunto de datos simulado y reproducible de 24 participantes. Diez de
+            doce indicadores cumplen su meta.</p>
+
+          <div class="dos-a">
+            <div>
+              <div class="tres" style="gap:20px;margin-bottom:20px">
+                <div class="cifra"><span class="v" style="color:var(--anil)">82.3</span><span class="k">SUS · usabilidad</span></div>
+                <div class="cifra"><span class="v" style="color:var(--rosa)">+33</span><span class="k">NPS</span></div>
+                <div class="cifra"><span class="v" style="color:var(--jade)">92.5%</span><span class="k">Éxito en tareas</span></div>
+              </div>
+              <div class="tres" style="gap:20px">
+                <div class="cifra"><span class="v">3.02<span style="font-size:22px"> min</span></span><span class="k">Tiempo al primer valor</span></div>
+                <div class="cifra"><span class="v">79.2%</span><span class="k">Adherencia al registro</span></div>
+                <div class="cifra"><span class="v">69.6%</span><span class="k">Acción sobre alertas</span></div>
+              </div>
+            </div>
+
+            <div class="col">
+              <div class="caja">
+                <h3 class="et">Los dos indicadores parciales</h3>
+                <p class="tenue" style="font-size:16px"><b>Facilidad percibida 5.38 / 7</b> y <b>confianza en
+                  las cifras 3.92 / 5</b>. Ambos apuntan al mismo lugar: la capa analítica. El usuario llega
+                  al dato y le cuesta interpretarlo.</p>
+              </div>
+              <div class="caja borde">
+                <h3 class="et rosa">Tres mejoras priorizadas</h3>
+                <ul style="gap:7px">
+                  <li style="font-size:16px">Glosario contextual en cada métrica</li>
+                  <li style="font-size:16px">Marca de tiempo del dato en cada precio</li>
+                  <li style="font-size:16px">Alertas accesibles desde la ficha del activo</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+          <div style="height:22px"></div>
+        </section>
+      </div></div>
+    </div>
+
+    <!-- ── 24 · Conclusiones y recursos ──────────────────────────────── -->
+    <div class="marco">
+      <div class="rotulo"><b>24</b><span>Conclusiones, trabajo futuro y recursos</span></div>
+      <div class="escala"><div class="lienzo">
+        <section class="dia oscura">
+          <div class="cinta"><span><span class="parte">Cierre</span> · Conclusiones</span><span>24 / 24</span></div>
+          <h2 class="tit">Conclusiones y <em>trabajo futuro</em></h2>
+
+          <div class="dos-a">
+            <div class="col">
+              <ul>
+                <li>La plataforma resuelve el problema <b>operativo</b> —consolidar, calcular y comparar— y
+                  lo hace rápido: activación completa en tres minutos.</li>
+                <li>El límite está en la capa <b>interpretativa</b>. Traducir las métricas es la línea de
+                  trabajo con mayor impacto por unidad de esfuerzo.</li>
+                <li>La <b>línea base diaria compartida</b> demostró ser una decisión acertada de arquitectura:
+                  da una cifra idéntica para todos y desacopla el costo de las APIs del número de usuarios.</li>
+                <li><b>Trabajo futuro.</b> Levantamiento en campo con usuarios reales, bitácora de cuatro
+                  semanas, notificaciones push y glosario contextual embebido.</li>
+              </ul>
+            </div>
+
+            <div class="col">
+              <h3 class="et">Recursos del proyecto</h3>
+              <div class="qr-fila">
+                <div class="qr-celda">
+                  <span class="qr-marco"><!--QR:repositorio--></span>
+                  <span class="nombre">Repositorio</span>
+                  <span class="destino">github.com/dragenatt/investment-portfolio</span>
+                </div>
+                <div class="qr-celda">
+                  <span class="qr-marco"><!--QR:aplicacion--></span>
+                  <span class="nombre">Plataforma en vivo</span>
+                  <span class="destino">project-tri0w.vercel.app</span>
+                </div>
+              </div>
+              <p class="tenue" style="font-size:15px">Documentación completa del estudio, instrumento,
+                conjunto de datos y tablero de indicadores en el repositorio, carpeta
+                <span class="dato">docs/research/</span>.</p>
+            </div>
+          </div>
+
+          <div class="crece"></div>
+
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:26px">
+            <div class="marca">
+              <svg viewBox="0 0 32 32" role="img" aria-label="InvestTracker">
+                <rect x="1.4" y="1.4" width="29.2" height="29.2" rx="7" fill="none" stroke="#F2A81D" stroke-width="2.4"/>
+                <path d="M8 22 L13.5 15 L18 18.5 L24.5 9" fill="none" stroke="#FBF6F1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="24.5" cy="9" r="3.2" fill="#E8336D"/>
+              </svg>
+              <div>
+                <div class="nom">Gracias</div>
+                <span class="cola">Preguntas</span>
+              </div>
+            </div>
+            <p class="tenue" style="font-size:15px;max-width:52ch;text-align:right">InvestTracker es una
+              herramienta de seguimiento y análisis. No ejecuta operaciones, no custodia dinero y no
+              constituye asesoría de inversión.</p>
+          </div>
+        </section>
+      </div></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  (function () {
+    'use strict';
+    function ajustar() {
+      document.querySelectorAll('.escala').forEach(function (caja) {
+        var lienzo = caja.querySelector('.lienzo');
+        var dia = lienzo.querySelector('.dia');
+        lienzo.style.transform = 'none';
+        var r = dia.getBoundingClientRect();
+        if (!r.width) return;
+        var s = Math.min(1, caja.clientWidth / r.width);
+        lienzo.style.transform = 'scale(' + s + ')';
+        caja.style.height = (r.height * s) + 'px';
+      });
+    }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajustar);
+    window.addEventListener('resize', ajustar);
+    window.addEventListener('beforeprint', function () {
+      document.querySelectorAll('.lienzo').forEach(function (l) { l.style.transform = 'none'; });
+      document.querySelectorAll('.escala').forEach(function (c) { c.style.height = 'auto'; });
+    });
+    window.addEventListener('afterprint', ajustar);
+    ajustar();
+    setTimeout(ajustar, 300);
+  })();
+</script>
