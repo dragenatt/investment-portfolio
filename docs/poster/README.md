@@ -11,10 +11,30 @@ discusión y conclusiones, referencias y recursos con códigos QR.
 | `poster.src.html` | Plantilla editable. **Edita este archivo**, no el anterior. |
 | `qr/*.svg` | Códigos QR generados y verificados. |
 
-## Campos por llenar
+## Datos de identificación
 
-La cabecera tiene cuatro campos en blanco: **autores**, **institución / programa**, **asesor**
-y **fecha**. Están en `poster.src.html`, en el bloque `.autoria`.
+Ya están puestos, tomados de `InvestTracker_Entregable.docx`: Universidad Politécnica de Pachuca,
+Ingeniería Financiera, Proyecto Integrador I (INFI0304); autores Anguiano Samaniego Diego Gael,
+Brito González Rolando Angello y Hernández Estrada Gerardo; asesor Dr. Omar Santillán Díaz.
+Están en `poster.src.html`, bloque `.autoria`.
+
+## Sistema de identidad por sección
+
+Cada sección es una ficha de papel con **canto superior de color** y una **ficha numerada** del
+mismo color, para que se distingan a distancia sin romper la armonía:
+
+| Sección | Color |
+| --- | --- |
+| 01 Introducción | rosa mexicano `#E8336D` |
+| 02 Objetivos | añil `#3B36C7` |
+| 03 Metodología | ocre `#F2A81D` |
+| 04 Resultados | jade `#0FA98C` |
+| 05 Conclusiones | lila `#7A76E0` |
+| 06 Referencias · 07 Recursos | tinta `#191539` |
+
+Los **seis objetivos específicos** van en cuadrícula 2×3, cada uno con su color de la misma paleta
+y su fondo claro correspondiente. El numeral de cada ficha usa cal o tinta según cuál dé más
+contraste sobre su color.
 
 ## Cómo editarlo
 
@@ -49,16 +69,29 @@ exacta, falla en vez de producir un código ilegible. Los destinos se editan en 
 
 Mientras un destino sea `null`, el póster dibuja un marcador punteado en su lugar.
 
-## Sobre el encuadre del estudio
+## Metodología: validación por triangulación
 
-El póster presenta el trabajo como **estudio piloto de validación de instrumento y tablero
-sobre un conjunto de datos simulado**, y lo dice en el subtítulo, en la fase 04 de la
-metodología, en las limitaciones y en el pie de la lámina.
+La sección 03 toma la metodología del entregable (apartado 3.10, *Técnicas de Prueba y
+Validación*) y la organiza en tres vías independientes:
 
-No es un adorno de cautela: en un documento con sección de referencias, declarar el origen de
-los datos es lo que separa un piloto metodológico de un resultado empírico. Además hace más
-sólido el trabajo — la aportación es el tablero reproducible, no las cifras concretas. Si
-alguien pregunta «¿son usuarios reales?», la respuesta ya está impresa.
+| Vía | Técnica | Origen |
+| --- | --- | --- |
+| **A** | Grupo de expertos | Entregable 3.10 a — asesor, coordinador de la licenciatura y grupo académico |
+| **B** | Pruebas con usuarios · beta (n = 8) | Entregable 3.10 b — abril a junio de 2026, SUS 82/100 |
+| **C** | Tablero de indicadores (n = 24, simulado) | Complemento — instrumento ampliado, `docs/research/` |
+
+**La vía C es el complemento añadido.** El entregable ya tenía dos técnicas de validación; lo que
+faltaba era el marco que las une. Encuadrarlas como triangulación —juicio disciplinar, conducta
+observada e instrumento de medición— convierte tres ejercicios sueltos en un diseño metodológico,
+y hace que el conjunto simulado tenga un papel claro: validar el instrumento antes del
+levantamiento ampliado, no sustituir a los usuarios reales.
+
+El origen simulado de la vía C se declara en la propia vía, en los resultados y en las
+limitaciones. Con sección de referencias en la lámina, declarar la procedencia de los datos es lo
+que separa un piloto metodológico de un resultado empírico.
+
+Dato notable para la defensa: la beta real dio **SUS 82/100** y el tablero ampliado **82.3/100**.
+Dos mediciones independientes que coinciden refuerzan ambas.
 
 ## Decisiones de diseño
 
