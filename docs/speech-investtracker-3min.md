@@ -1,78 +1,145 @@
 # InvestTracker — Speech de presentación (≤ 3 minutos)
 
-**Duración objetivo:** 2:55 · ~400 palabras · ritmo ~140 palabras/min
+**Duración objetivo:** ~2:55 · ~400 palabras · ritmo ~140 palabras/min
 **Formato:** presentación de producto (demo, pitch interno, entrega de proyecto)
+**Nota:** todas las cifras están verificadas contra fuente primaria. Ver
+[Banco de datos](#banco-de-datos--fuentes-verificadas) al final.
 
 ---
 
-## Apertura — el problema *(0:00 – 0:25)*
+## 1. Apertura — el dato que abre *(0:00 – 0:30)*
 
-¿Cuánto ganaste realmente con tus inversiones el año pasado?
+En México, según la Encuesta Nacional de Inclusión Financiera del INEGI y la
+CNBV, solo el **3.4 % de los adultos** tiene un fondo de inversión o un depósito
+a plazo. Tres punto cuatro por ciento.
 
-La mayoría no lo sabe. Tenemos acciones en una app, cripto en otra, CETES en el
-banco, y un Excel que nadie actualiza. **InvestTracker** nace justo de ahí: de la
-pregunta más simple y peor respondida de las finanzas personales — *¿cómo voy?*
+Y al mismo tiempo, la AMIB reportó que los inversionistas activos en fondos
+pasaron de **menos de tres millones a 13.1 millones en cinco años**.
 
-## Qué es *(0:25 – 0:55)*
+O sea: casi nadie invierte todavía, pero los que empiezan están llegando en
+masa. Y llegan sin herramientas.
 
-InvestTracker es una plataforma web que reúne todo tu patrimonio invertido en un
-solo lugar. Soporta **seis tipos de activo** — acciones, ETFs, cripto, bonos y
-CETES, divisas y commodities — de la Bolsa Mexicana y de mercados de Estados
-Unidos, y **todo se convierte automáticamente a tu moneda base**: pesos, dólares
-o euros.
+## 2. El problema — con evidencia *(0:30 – 1:10)*
 
-Registras tus operaciones, o importas tu historial por CSV, y el sistema calcula
-tu costo promedio, tu posición actual y tu rendimiento real.
+¿Y qué pasa cuando inviertes sin medir? Hay dos estudios que lo responden.
 
-## Qué hace — el recorrido *(0:55 – 1:45)*
+Morningstar publicó *Mind the Gap* en 2025: en diez años, los fondos en Estados
+Unidos rindieron **8.2 % anual**, pero el dinero de los inversionistas solo ganó
+**7.0 %**. Un punto dos porcentuales al año, perdidos — no por malos fondos,
+sino por mal *timing*. Y el detalle que importa: entre quienes más movían su
+dinero, la brecha crecía a **1.8 puntos**; entre quienes estaban diversificados,
+casi desaparecía: **0.1**.
 
-En el dashboard ves lo esencial: valor total, ganancia del día, rendimiento
-acumulado, mejor y peor posición.
+Barber y Odean, en el *Journal of Finance*, lo vieron aún más crudo: de 66 mil
+hogares, los que más operaban ganaron **11.4 % anual** mientras el mercado daba
+**17.9 %**.
 
-Pero lo interesante está un nivel más abajo, en **analítica**: rendimiento
-ponderado por tiempo y por dinero —TWR y MWR, como lo miden los profesionales—,
-volatilidad, Sharpe, máximo drawdown, comparación contra un benchmark,
-atribución por activo y por sector, y análisis de dividendos.
+El enemigo no es el mercado. Es no saber cómo vas.
 
-Encima de eso hay tres capas:
+## 3. Qué es InvestTracker *(1:10 – 2:00)*
 
-1. **Alertas** de precio y de concentración, que te avisan cuando un activo pesa
-   demasiado en tu cartera.
-2. Un **asesor** que te perfila —conservador, moderado o agresivo— y simula si
-   vas a alcanzar tu meta usando Monte Carlo.
-3. Una capa **social**: portafolios públicos, leaderboard y comparación entre
-   carteras, siempre con control de privacidad.
+**InvestTracker** ataca exactamente eso.
 
-## Cómo está construido *(1:45 – 2:25)*
+Reúne todo tu patrimonio en un solo lugar: seis tipos de activo —acciones,
+ETFs, cripto, bonos y CETES, divisas y commodities—, de la Bolsa Mexicana y de
+Estados Unidos, todo en tu moneda base.
 
-Por dentro: **Next.js 16 con React 19** desplegado en Vercel. **Supabase** como
-base de datos, con Row Level Security: cada usuario solo ve lo suyo. Un **Worker
-en Cloudflare** que actualiza precios por cron y funciona como motor de datos.
-**Caché en Redis** para que las pantallas carguen rápido sin quemar cuotas de
-API. Y **tres proveedores de mercado** —Yahoo Finance, Finnhub y Twelve Data—
-con *fallback* entre ellos: si uno falla, la aplicación sigue en pie.
+Y calcula lo que casi ninguna app muestra: **rendimiento ponderado por tiempo y
+por dinero — TWR y MWR**. Esa diferencia *es* la brecha de
+Morningstar. InvestTracker te la pone en pantalla.
 
-Todo con pruebas automatizadas, modo oscuro, PWA y soporte en español e inglés.
+Encima de eso: volatilidad, Sharpe, máximo *drawdown*, comparación contra
+*benchmark* y atribución por activo y sector. **Alertas de concentración**, que
+avisan cuando un activo pesa demasiado — el problema exacto que Morningstar
+midió. Y un asesor que te perfila y simula tu meta con Monte Carlo.
 
-## Cierre — hacia dónde va *(2:25 – 2:55)*
+## 4. Cómo está construido *(2:00 – 2:30)*
 
-¿Qué sigue? Un **motor cuantitativo en Python** —optimización de portafolio y
-rebalanceo inteligente— y una **capa de inteligencia** que detecte anomalías y
-clasifique noticias del mercado.
+Por dentro: **Next.js 16 y React 19** en Vercel. **Supabase** con Row Level
+Security: cada usuario solo ve lo suyo. Un **Worker en Cloudflare** que actualiza
+precios por cron, **caché en Redis**, y **tres proveedores de mercado** —Yahoo,
+Finnhub y Twelve Data— con *fallback*: si uno falla, la aplicación sigue en pie.
 
-En una frase: InvestTracker convierte un Excel disperso en una respuesta clara a
-*«¿cómo voy, y qué debería hacer?»*.
+## 5. Cierre *(2:30 – 2:55)*
+
+La misma ENIF encontró algo más: de quienes llevan registro de sus gastos, solo
+el **19.5 %** usa una herramienta digital. El resto: memoria, papel o Excel.
+
+InvestTracker es esa herramienta que falta, para el lado de las inversiones.
+Porque no puedes mejorar lo que no mides.
 
 Gracias.
 
 ---
 
+## Banco de datos — fuentes verificadas
+
+### 1. INEGI / CNBV — Encuesta Nacional de Inclusión Financiera (ENIF) 2024
+*Comunicado de prensa 49/25, 13 de marzo de 2025. Base: población de 18 a 70 años.*
+
+| Dato | Cifra |
+|---|---|
+| Población con **depósito a plazo fijo o fondo de inversión** | **3.4 %** (era 2.1 % en 2021) |
+| Población con al menos una cuenta de ahorro formal | 63.0 % (+18.9 pp desde 2015) |
+| Población con al menos un producto financiero | 76.5 % |
+| Población que llevó registro de sus gastos | 65.3 % |
+| — de ese grupo, quienes usan **apps o herramientas de administración financiera** | **19.5 %** |
+| — de ese grupo, quienes llevan un presupuesto formal | 23.9 % |
+
+→ https://www.inegi.org.mx/contenidos/saladeprensa/boletines/2025/enif/ENIF2024_CP.pdf
+
+### 2. AMIB — Foro de Fondos 2025
+*Álvaro García Pimentel, presidente de la AMIB, 27 de mayo de 2025.*
+
+- Personas activas en fondos de inversión: **de menos de 3 millones a 13.1 millones en 5 años** (+400 %).
+- Total de inversionistas en el sistema bursátil mexicano: **31 millones**.
+- Activos bajo administración: **4.5 billones de pesos** (el doble que 2.4 billones).
+
+→ https://es-us.noticias.yahoo.com/foro-fondos-amib-2025-31-160000945.html
+
+### 3. Morningstar — *Mind the Gap* 2025
+*Publicado agosto 2025. Periodo: 10 años terminados el 31 de diciembre de 2024.
+Universo: fondos mutuos y ETFs de EE. UU.*
+
+- Retorno del inversionista (ponderado por dinero): **7.0 % anual**.
+- Retorno total del fondo (ponderado por tiempo): **8.2 % anual**.
+- **Brecha: –1.2 puntos porcentuales al año.**
+- Por volatilidad de flujos (proxy de cuánto operan): del quintil que menos opera
+  **–0.8 pp** al que más opera **–1.8 pp**.
+- Por estilo: fondos de **asignación / diversificados –0.1 pp** (capturan ~97 % del
+  rendimiento); **sector equity –1.5 pp**; bonos, solo la mitad del rendimiento.
+
+→ https://www.morningstar.com/business/insights/research/mind-the-gap
+
+### 4. Barber & Odean (2000) — *Trading Is Hazardous to Your Wealth*
+*The Journal of Finance, Vol. LV, No. 2, abril 2000. Cita textual del abstract.*
+
+> "Of 66,465 households with accounts at a large discount broker during 1991 to
+> 1996, those that trade most earn an annual return of 11.4 percent, while the
+> market returns 17.9 percent. The average household earns an annual return of
+> 16.4 percent […] and turns over 75 percent of its portfolio annually."
+
+→ https://onlinelibrary.wiley.com/doi/abs/10.1111/0022-1082.00226
+
+---
+
 ## Notas de entrega
 
-- **Si te sobra tiempo:** agrega un ejemplo real ("aquí ves que Apple aporta el
-  40% del rendimiento pero también el 30% del riesgo").
-- **Si te falta tiempo:** recorta la sección social y el roadmap; la apertura y
-  analítica son el corazón del mensaje.
-- **Pausa fuerte** después de la pregunta inicial y antes de "En una frase".
-- **Evita** entrar en detalle técnico durante la sección de arquitectura: son
-  40 segundos, es un inventario, no una explicación.
+- **Si te preguntan por Morningstar:** existe una réplica académica (Fulkerson,
+  Jordan, Riley & Yan, *Financial Analysts Journal*) que cuestiona el encuadre de
+  "los inversionistas pierden 15 % de sus rendimientos". La brecha de **1.2 pp
+  anuales** no está en disputa; lo debatido es cómo se traduce a un porcentaje del
+  rendimiento total. Por eso el speech cita los puntos porcentuales, no el 15 %.
+- **Barber & Odean es de 2000.** Si alguien objeta la antigüedad: es el estudio
+  seminal y sigue siendo la referencia canónica; Morningstar 2025 confirma el
+  mismo patrón con datos actuales. Ese es el argumento, no la fecha.
+- **La AMIB es fuente secundaria** (cobertura del evento con cita directa del
+  presidente). Si el público es técnico, atribúyelo como "según la AMIB", no como
+  dato oficial de la CNBV.
+- **Pausa fuerte** después de "Tres punto cuatro por ciento", después de "Es no
+  saber cómo vas", y antes de "Gracias".
+- **Si te falta tiempo:** recorta la arquitectura (sección 4) a una sola frase.
+  La evidencia (sección 2) es el corazón del argumento — no la toques.
+- **Si te sobra tiempo:** el puente más fuerte es TWR vs MWR. Explícalo con un
+  ejemplo: "si metiste más dinero justo antes de una caída, tu MWR será peor que
+  tu TWR — y esa distancia es tu costo por mal timing".
