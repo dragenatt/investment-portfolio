@@ -8,15 +8,23 @@ import { getHistory } from '@/lib/services/market'
 
 type PriceRow = { symbol: string; date: string; close: number }
 
-const WEEKS = 52
-const SIMULATIONS = 1500
+/** One trading year of closes — the window the covariance matrix is estimated on. */
+const LOOKBACK_DAYS = 252
 
 /** Minimum aligned observations before a covariance matrix is worth estimating. */
 const MIN_OBSERVATIONS = 10
 
+const DEFAULT_WEEKS = 52
+const MIN_WEEKS = 4
+const MAX_WEEKS = 260
+const SIMULATIONS = 1500
+
 /**
  * Fetch price history from Supabase, falling back to Yahoo Finance
  * when the price_history table is empty or insufficient.
+ *
+ * Rows come back newest-first and are then flipped: the covariance matrix cares
+ * about the *latest* LOOKBACK_DAYS, so a row cap must never trim the recent end.
  */
 async function fetchPriceHistory(
   supabase: Awaited<ReturnType<typeof createServerSupabase>>,
@@ -27,11 +35,11 @@ async function fetchPriceHistory(
     .from('price_history')
     .select('symbol, date, close')
     .in('symbol', symbols)
-    .order('date', { ascending: true })
-    .limit(2000)
+    .order('date', { ascending: false })
+    .limit(Math.min(symbols.length * (LOOKBACK_DAYS + 60), 5000))
 
   if (dbHistory && dbHistory.length >= 10) {
-    return dbHistory
+    return dbHistory.slice().reverse()
   }
 
   // 2. Fallback: fetch from Yahoo Finance for each symbol
@@ -99,29 +107,39 @@ function indexBySymbol(history: PriceRow[]): Map<string, Map<string, number>> {
 }
 
 /**
- * Dates every symbol traded on, ascending. The covariance matrix is only
- * meaningful when element t of each return series is the same trading day, so
- * symbols are intersected rather than padded.
+ * The latest LOOKBACK_DAYS dates every symbol traded on, ascending. The
+ * covariance matrix is only meaningful when element t of each return series is
+ * the same trading day, so symbols are intersected rather than padded.
  */
-function commonDates(bySymbol: Map<string, Map<string, number>>, symbols: string[]): string[] {
+function alignedDates(bySymbol: Map<string, Map<string, number>>, symbols: string[]): string[] {
   if (symbols.length === 0) return []
   const first = bySymbol.get(symbols[0])
   if (!first) return []
   return [...first.keys()]
     .filter((date) => symbols.every((s) => bySymbol.get(s)?.has(date)))
     .sort((a, b) => a.localeCompare(b))
+    .slice(-LOOKBACK_DAYS)
+}
+
+/** Horizon in weeks, from ?weeks=, clamped to something a browser can chart. */
+function parseWeeks(url: string): number {
+  const raw = Number(new URL(url).searchParams.get('weeks'))
+  if (!Number.isFinite(raw)) return DEFAULT_WEEKS
+  return Math.min(Math.max(Math.floor(raw), MIN_WEEKS), MAX_WEEKS)
 }
 
 const round2 = (value: number) => Math.round(value * 100) / 100
 
-export async function GET(_req: Request, { params }: { params: Promise<{ pid: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ pid: string }> }) {
   const { pid } = await params
+  const weeks = parseWeeks(req.url)
+
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
   const data = await withCache(
-    `${CACHE_KEYS.ANALYTICS_MONTE_CARLO}${pid}`,
+    `${CACHE_KEYS.ANALYTICS_MONTE_CARLO}${pid}:${weeks}`,
     300,
     async () => {
       // Get portfolio positions
@@ -145,7 +163,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
 
       const bySymbol = indexBySymbol(history)
       const covered = symbols.filter(s => bySymbol.has(s))
-      const dates = commonDates(bySymbol, covered)
+      const dates = alignedDates(bySymbol, covered)
 
       if (covered.length === 0 || dates.length < MIN_OBSERVATIONS) {
         return { message: 'Not enough price history' }
@@ -175,7 +193,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
 
       const simulation = simulatePortfolioGBM({
         assets,
-        weeks: WEEKS,
+        weeks,
         numSimulations: SIMULATIONS,
       })
 
@@ -189,7 +207,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
 
       return {
         current_value: round2(currentValue),
-        weeks: WEEKS,
+        weeks,
         simulations: SIMULATIONS,
         bands,
         expected_value: bands.length > 0 ? bands[bands.length - 1].p50 : round2(currentValue),
@@ -201,6 +219,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
           symbol: a.symbol,
           weight: round2(a.weight * 100),
         })),
+        lookback_days: dates.length,
         dataPoints: dates.length,
       }
     }

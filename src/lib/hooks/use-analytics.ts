@@ -77,9 +77,9 @@ export type MonteCarloData = {
   message?: string
 }
 
-export function useMonteCarlo(pid: string | null) {
+export function useMonteCarlo(pid: string | null, weeks = 52) {
   return useSWR<MonteCarloData>(
-    pid ? `/api/analytics/${pid}/monte-carlo` : null,
+    pid ? `/api/analytics/${pid}/monte-carlo?weeks=${weeks}` : null,
     apiFetcher,
     { refreshInterval: 600_000 }
   )

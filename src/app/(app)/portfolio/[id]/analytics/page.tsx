@@ -20,11 +20,12 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [tab, setTab] = useState('overview')
+  const [horizonWeeks, setHorizonWeeks] = useState(52)
   const { currency } = useCurrency()
 
   const { data: returns, isLoading: returnsLoading } = useReturns(id)
   const { data: risk, isLoading: riskLoading } = useRisk(id)
-  const { data: monteCarlo, isLoading: monteCarloLoading } = useMonteCarlo(id)
+  const { data: monteCarlo, isLoading: monteCarloLoading } = useMonteCarlo(id, horizonWeeks)
   const { data: attribution, isLoading: attrLoading } = useAttribution(id)
   const { data: income, isLoading: incomeLoading } = useIncome(id)
   const { data: allocation, isLoading: allocLoading } = useAllocation(id)
@@ -137,6 +138,8 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
                 currency={currency}
                 var95={monteCarlo?.var_95}
                 simulations={monteCarlo?.simulations}
+                horizonWeeks={horizonWeeks}
+                onHorizonChange={setHorizonWeeks}
                 isLoading={monteCarloLoading}
               />
             )}
