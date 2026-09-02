@@ -57,6 +57,34 @@ export function useRisk(pid: string | null) {
   )
 }
 
+// --- Monte Carlo ---
+export type MonteCarloBandData = {
+  week: number
+  p10: number
+  p50: number
+  p90: number
+}
+
+export type MonteCarloData = {
+  current_value: number
+  weeks: number
+  simulations: number
+  bands: MonteCarloBandData[]
+  expected_value: number
+  var_95: { pct: number; amount: number }
+  assets: Array<{ symbol: string; weight: number }>
+  dataPoints: number
+  message?: string
+}
+
+export function useMonteCarlo(pid: string | null) {
+  return useSWR<MonteCarloData>(
+    pid ? `/api/analytics/${pid}/monte-carlo` : null,
+    apiFetcher,
+    { refreshInterval: 600_000 }
+  )
+}
+
 // --- Attribution ---
 export type AttributionSector = {
   sector: string

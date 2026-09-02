@@ -11,16 +11,20 @@ import { DrawdownChart } from '@/components/analytics/drawdown-chart'
 import { RiskDashboard } from '@/components/analytics/risk-dashboard'
 import { AttributionWaterfall } from '@/components/analytics/attribution-waterfall'
 import { IncomeDashboard } from '@/components/analytics/income-dashboard'
+import { MonteCarloChart } from '@/components/analytics/monte-carlo-chart'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useReturns, useRisk, useAttribution, useIncome, useAllocation } from '@/lib/hooks/use-analytics'
+import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation } from '@/lib/hooks/use-analytics'
+import { useCurrency } from '@/lib/hooks/use-currency'
 
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [tab, setTab] = useState('overview')
+  const { currency } = useCurrency()
 
   const { data: returns, isLoading: returnsLoading } = useReturns(id)
   const { data: risk, isLoading: riskLoading } = useRisk(id)
+  const { data: monteCarlo, isLoading: monteCarloLoading } = useMonteCarlo(id)
   const { data: attribution, isLoading: attrLoading } = useAttribution(id)
   const { data: income, isLoading: incomeLoading } = useIncome(id)
   const { data: allocation, isLoading: allocLoading } = useAllocation(id)
@@ -117,6 +121,25 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               maxDrawdownDate={risk?.current?.max_drawdown_date ?? ''}
               isLoading={riskLoading}
             />
+          </ErrorBoundary>
+
+          <ErrorBoundary>
+            {monteCarlo?.message ? (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  {monteCarlo.message}
+                </CardContent>
+              </Card>
+            ) : (
+              <MonteCarloChart
+                bands={monteCarlo?.bands ?? []}
+                currentValue={monteCarlo?.current_value ?? 0}
+                currency={currency}
+                var95={monteCarlo?.var_95}
+                simulations={monteCarlo?.simulations}
+                isLoading={monteCarloLoading}
+              />
+            )}
           </ErrorBoundary>
         </TabsContent>
 

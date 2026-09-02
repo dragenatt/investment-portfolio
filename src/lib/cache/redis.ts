@@ -37,6 +37,7 @@ export const CACHE_KEYS = {
   ANALYTICS_RETURNS: 'analytics:returns:',
   ANALYTICS_ATTRIBUTION: 'analytics:attribution:',
   ANALYTICS_INCOME: 'analytics:income:',
+  ANALYTICS_MONTE_CARLO: 'analytics:montecarlo:',
   BENCHMARK: 'benchmark:',
 } as const
 
