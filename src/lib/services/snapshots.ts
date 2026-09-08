@@ -13,6 +13,8 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { getBenchmarkSeries } from './benchmarks'
+import { calculateBetaAlpha, calculateDailyReturns, type BetaAlpha } from './analytics'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -57,7 +59,7 @@ type SnapshotResult = {
 
 const RISK_FREE_RATE = 0.0425 // ~4.25% annual (US T-Bills approximate)
 const TRADING_DAYS_PER_YEAR = 252
-const BENCHMARK_ANNUAL_RETURN = 0.10 // S&P 500 historical ~10%
+const BENCHMARK_SYMBOL = 'SPY'
 
 // ─── Supabase Admin Client ──────────────────────────────────────────────────
 
@@ -272,6 +274,50 @@ function computeRiskScore(
   return Math.min(10, Math.max(1, score))
 }
 
+/**
+ * Beta and alpha for this portfolio against the S&P 500, from the benchmark
+ * closes already stored in benchmark_prices.
+ *
+ * The two return series have to line up day by day or the covariance means
+ * nothing, so the snapshot dates are intersected with the dates the benchmark
+ * actually has and both sides are turned into returns the same way. That matters
+ * here: snapshot history is sparse (one row per cron run) and the benchmark
+ * table has its own gaps.
+ *
+ * Returns null when the overlap is too short — the caller reports "no
+ * disponible" rather than inventing a number.
+ */
+async function computeBenchmarkStats(
+  supabase: SupabaseClient,
+  history: HistoricalSnapshot[]
+): Promise<BetaAlpha | null> {
+  const sorted = [...history]
+    .filter((h) => h.total_value > 0)
+    .sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date))
+  if (sorted.length < 2) return null
+
+  const series = await getBenchmarkSeries(
+    supabase,
+    BENCHMARK_SYMBOL,
+    sorted[0].snapshot_date,
+    sorted[sorted.length - 1].snapshot_date
+  )
+  if (series.dates.length < 2) return null
+
+  // getBenchmarkSeries normalises the series to start at 100, which leaves daily
+  // returns untouched.
+  const closeByDate = new Map(series.dates.map((date, i) => [date, series.values[i]]))
+  const aligned = sorted.filter((h) => closeByDate.has(h.snapshot_date))
+  if (aligned.length < 2) return null
+
+  const portfolioReturns = calculateDailyReturns(aligned.map((h) => h.total_value))
+  const benchmarkReturns = calculateDailyReturns(
+    aligned.map((h) => closeByDate.get(h.snapshot_date)!)
+  )
+
+  return calculateBetaAlpha(portfolioReturns, benchmarkReturns, RISK_FREE_RATE)
+}
+
 // ─── Snapshot Computation ───────────────────────────────────────────────────
 
 export async function computePortfolioSnapshot(
@@ -447,17 +493,18 @@ export async function computePortfolioSnapshot(
     const positivedays = returns.filter(r => r > 0).length
     winRateVal = Math.round((positivedays / returns.length) * 10000) / 10000
 
-    // Beta and Alpha (vs benchmark assumed S&P 500)
-    // Simplified: assume benchmark has BENCHMARK_ANNUAL_RETURN with daily vol of ~1%
-    const benchmarkDailyReturn = BENCHMARK_ANNUAL_RETURN / TRADING_DAYS_PER_YEAR
-    // Without actual benchmark data, estimate beta from correlation assumption
-    // Beta ≈ portfolio_vol / benchmark_vol (simplified approximation)
-    const benchmarkDailyVol = 0.01 // ~16% annual vol for S&P 500
-    betaVal = Math.round((volatilityVal / benchmarkDailyVol) * 100) / 100
-
-    // Alpha = actual annual return - (risk-free + beta * (benchmark return - risk-free))
-    const expectedReturn = RISK_FREE_RATE + betaVal * (BENCHMARK_ANNUAL_RETURN - RISK_FREE_RATE)
-    alphaVal = Math.round((annualReturn - expectedReturn) * 10000) / 10000
+    // Beta and Alpha against the real S&P 500 series, aligned to this
+    // portfolio's own snapshot dates. Both stay null when there is not enough
+    // overlapping benchmark history: the previous approximation
+    // (portfolio_vol / an assumed 1% daily benchmark vol) implied a correlation
+    // of 1 with the market and overstated beta for any diversified portfolio,
+    // which is worse than showing nothing.
+    const benchmarkStats = await computeBenchmarkStats(supabase, fullHistory)
+    if (benchmarkStats) {
+      betaVal = Math.round(benchmarkStats.beta * 100) / 100
+      // calculateBetaAlpha returns percentage points; this column holds a fraction.
+      alphaVal = Math.round((benchmarkStats.alpha / 100) * 10000) / 10000
+    }
 
     // Diversification (HHI-based)
     const weights = positionValues.map(pv => pv.weight)

@@ -557,10 +557,16 @@ export default function ComparePage() {
                       {/* Beta */}
                       <MetricRow
                         label="Beta"
-                        tooltip="Sensibilidad vs mercado. 1.0 = igual al mercado"
+                        tooltip="Sensibilidad vs mercado. 1.0 = igual al mercado. Necesita historial del benchmark."
                         metrics={comparison.metrics}
                         getValue={(m) => m.beta}
-                        format={(v) => <span className="font-medium">{v !== null ? v.toFixed(2) : '—'}</span>}
+                        format={(v) =>
+                          v !== null ? (
+                            <span className="font-medium">{v.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Beta no disponible</span>
+                          )
+                        }
                         {...getBestWorst('beta', false)}
                       />
 

@@ -1,6 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { calculateVolatility, calculateSharpeRatio, calculateMaxDrawdown, calculateDailyReturns } from '@/lib/services/analytics'
+import { calculateVolatility, calculateSharpeRatio, calculateMaxDrawdown, calculateDailyReturns, calculateBetaAlpha } from '@/lib/services/analytics'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
@@ -195,46 +195,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
       const var95Index = Math.floor(returns.length * 0.05)
       const var95 = sortedReturns[var95Index] ? Math.abs(sortedReturns[var95Index]) * 100 : 0
 
-      // Beta and Alpha (relative to SPY benchmark)
-      let beta = 1
-      let alpha = 0
-      let trackingError = 0
-      let informationRatio = 0
-
-      if (benchmarkReturns.length >= 10) {
-        // Align returns length (use the shorter of the two)
-        const minLen = Math.min(returns.length, benchmarkReturns.length)
-        const pReturns = returns.slice(-minLen)
-        const bReturns = benchmarkReturns.slice(-minLen)
-
-        // Beta = Cov(portfolio, benchmark) / Var(benchmark)
-        const pMean = pReturns.reduce((a, b) => a + b, 0) / pReturns.length
-        const bMean = bReturns.reduce((a, b) => a + b, 0) / bReturns.length
-        let covariance = 0
-        let benchVariance = 0
-        for (let i = 0; i < minLen; i++) {
-          covariance += (pReturns[i] - pMean) * (bReturns[i] - bMean)
-          benchVariance += (bReturns[i] - bMean) ** 2
-        }
-        covariance /= minLen - 1
-        benchVariance /= minLen - 1
-
-        beta = benchVariance > 0 ? covariance / benchVariance : 1
-
-        // Alpha = annualized(portfolio return - beta * benchmark return)
-        const pAnnual = pMean * TRADING_DAYS * 100
-        const bAnnual = bMean * TRADING_DAYS * 100
-        alpha = pAnnual - beta * bAnnual
-
-        // Tracking Error = std dev of excess returns, annualized
-        const excessReturns = pReturns.map((r, i) => r - bReturns[i])
-        const exMean = excessReturns.reduce((a, b) => a + b, 0) / excessReturns.length
-        const exVar = excessReturns.reduce((a, b) => a + (b - exMean) ** 2, 0) / (excessReturns.length - 1)
-        trackingError = Math.sqrt(exVar) * Math.sqrt(TRADING_DAYS) * 100
-
-        // Information Ratio = alpha / tracking error
-        informationRatio = trackingError > 0 ? alpha / trackingError : 0
-      }
+      // Beta and Alpha (relative to SPY benchmark).
+      // The risk-free rate is passed as 0 on purpose: this endpoint has always
+      // reported the plain excess-return alpha (Rp - beta*Rm), and Jensen's alpha
+      // reduces to exactly that when the risk-free rate is zero. Snapshots pass
+      // the real rate because it stores Jensen's alpha.
+      const benchmarkStats = calculateBetaAlpha(returns, benchmarkReturns, 0)
+      const beta = benchmarkStats?.beta ?? 1
+      const alpha = benchmarkStats?.alpha ?? 0
+      const trackingError = benchmarkStats?.trackingError ?? 0
+      const informationRatio = benchmarkStats?.informationRatio ?? 0
 
       // Composite risk score
       const riskScore = calculateRiskScore(volatility, maxDrawdown, sharpe)
