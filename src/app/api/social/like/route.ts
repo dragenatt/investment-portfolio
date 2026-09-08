@@ -1,8 +1,9 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { rateLimit } from '@/lib/api/rate-limit'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -23,3 +24,5 @@ export async function POST(req: Request) {
   if (dbError) return error(dbError.message, 500)
   return success(data)
 }
+
+export const POST = apiHandler(postHandler)

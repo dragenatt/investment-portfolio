@@ -2,6 +2,7 @@ import { AppShell } from '@/components/layout/app-shell'
 import { CurrencyProvider } from '@/providers/currency-provider'
 import { SWRConfigProvider } from '@/lib/api/swr-config'
 import { SymbolSearch } from '@/components/market/symbol-search'
+import { AnalyticsInit } from '@/components/analytics/analytics-init'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { I18nProvider } from '@/lib/i18n'
@@ -32,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <AppShell>
             {children}
             <SymbolSearch />
+            <AnalyticsInit userId={user.id} />
           </AppShell>
         </I18nProvider>
       </CurrencyProvider>

@@ -1,7 +1,8 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string; symbol: string }> }) {
+async function deleteHandler(_req: Request, { params }: { params: Promise<{ id: string; symbol: string }> }) {
   const { id, symbol } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -26,3 +27,5 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (dbError) return error(dbError.message, 500)
   return success(null)
 }
+
+export const DELETE = apiHandler(deleteHandler)

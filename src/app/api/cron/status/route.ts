@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createAdminSupabase } from '@/lib/services/snapshots'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(req: Request) {
+async function getHandler(req: Request) {
   const authHeader = req.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
@@ -30,3 +31,5 @@ export async function GET(req: Request) {
     recentRuns: runs,
   })
 }
+
+export const GET = apiHandler(getHandler)

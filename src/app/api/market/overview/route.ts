@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { getQuote } from '@/lib/services/market'
+import { apiHandler } from '@/lib/api/handler'
 
 const INDICES = [
   { symbol: '^GSPC', name: 'S&P 500', region: 'US' },
@@ -43,7 +44,7 @@ const POPULAR_SYMBOLS = [
   { symbol: 'INTC', name: 'Intel Corp.' },
 ]
 
-export async function GET() {
+async function getHandler() {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -103,3 +104,5 @@ export async function GET() {
     losers,
   })
 }
+
+export const GET = apiHandler(getHandler)

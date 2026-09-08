@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { useTranslation } from '@/lib/i18n'
+import { FUNNEL_EVENTS } from '@/lib/analytics/events'
 
 export default function RegisterPage() {
   const { t } = useTranslation()
@@ -43,6 +44,16 @@ export default function RegisterPage() {
       setLoading(false)
       return
     }
+
+    // Recorded from here because signUp only happens in the browser. The
+    // session already exists at this point, so the endpoint can attribute the
+    // event; with email confirmation on there is no session and the early
+    // return above means this step is not counted.
+    await fetch('/api/analytics/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: FUNNEL_EVENTS.ACCOUNT_CREATED }),
+    }).catch(() => {})
 
     router.push('/dashboard')
   }

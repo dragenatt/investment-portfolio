@@ -4,6 +4,8 @@ import { apiHandler } from '@/lib/api/handler'
 import { validate } from '@/lib/api/validate'
 import { CreatePortfolioSchema } from '@/lib/schemas/portfolio'
 import { getUserPortfolios } from '@/lib/services/portfolio'
+import { recordFunnelEvent } from '@/lib/analytics/funnel'
+import { FUNNEL_EVENTS } from '@/lib/analytics/events'
 
 export const GET = apiHandler(async () => {
   const supabase = await createServerSupabase()
@@ -33,5 +35,8 @@ export const POST = apiHandler(async (req: Request) => {
     .single()
 
   if (dbError) return error(dbError.message, 500)
+
+  await recordFunnelEvent(FUNNEL_EVENTS.PORTFOLIO_CREATED, user.id)
+
   return success(data, undefined, 201)
 })

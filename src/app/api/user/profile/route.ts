@@ -2,8 +2,9 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { validate } from '@/lib/api/validate'
 import { UpdateProfileSchema } from '@/lib/schemas/user'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET() {
+async function getHandler() {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -18,7 +19,7 @@ export async function GET() {
   return success({ ...data, email: user.email })
 }
 
-export async function PATCH(req: Request) {
+async function patchHandler(req: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -37,3 +38,6 @@ export async function PATCH(req: Request) {
   if (dbError) return error(dbError.message, 500)
   return success(data)
 }
+
+export const GET = apiHandler(getHandler)
+export const PATCH = apiHandler(patchHandler)

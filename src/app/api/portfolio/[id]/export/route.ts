@@ -3,8 +3,9 @@ import { error } from '@/lib/api/response'
 import { getPortfolioDetail } from '@/lib/services/portfolio'
 import { transactionsToCSV, positionsToCSV } from '@/lib/utils/export'
 import type { ExportTransaction, ExportPosition } from '@/lib/utils/export'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -74,3 +75,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   return error('Formato no válido. Use: csv_transactions, csv_positions o json', 400)
 }
+
+export const GET = apiHandler(getHandler)

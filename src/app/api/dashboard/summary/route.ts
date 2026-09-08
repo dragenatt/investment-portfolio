@@ -4,8 +4,9 @@ import { withCache } from '@/lib/cache/with-cache'
 import { getBatchQuotes } from '@/lib/services/market'
 import { getDailyBaselines } from '@/lib/services/baselines'
 import { aggregateDailyChange } from '@/lib/services/pnl'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET() {
+async function getHandler() {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -154,3 +155,5 @@ export async function GET() {
   )
   return success(data)
 }
+
+export const GET = apiHandler(getHandler)

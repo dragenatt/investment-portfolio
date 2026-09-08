@@ -4,8 +4,9 @@ import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { computeAttribution, SP500_SECTOR_WEIGHTS } from '@/lib/services/attribution'
 import { getBatchQuotes } from '@/lib/services/market'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(req: Request, { params }: { params: Promise<{ pid: string }> }) {
+async function getHandler(req: Request, { params }: { params: Promise<{ pid: string }> }) {
   const { pid } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -98,3 +99,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ pid: str
 
   return success(data)
 }
+
+export const GET = apiHandler(getHandler)

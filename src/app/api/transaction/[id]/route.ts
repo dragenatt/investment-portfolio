@@ -3,8 +3,9 @@ import { success, error } from '@/lib/api/response'
 import { validate } from '@/lib/api/validate'
 import { recalculatePosition } from '@/lib/services/transaction'
 import { UpdateTransactionSchema } from '@/lib/schemas/transaction'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function deleteHandler(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -38,7 +39,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   return success({ deleted: true })
 }
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function putHandler(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -81,3 +82,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   return success({ updated: true })
 }
+
+export const PUT = apiHandler(putHandler)
+export const DELETE = apiHandler(deleteHandler)

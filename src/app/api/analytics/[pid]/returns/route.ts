@@ -4,8 +4,9 @@ import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { calculateSimpleReturn, calculateTWR, calculateMWR } from '@/lib/services/returns'
 import { getHistory } from '@/lib/services/market'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(req: Request, { params }: { params: Promise<{ pid: string }> }) {
+async function getHandler(req: Request, { params }: { params: Promise<{ pid: string }> }) {
   const { pid } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -195,3 +196,5 @@ function buildCalendarReturns(snapshots: Array<{ date: string; value: number }>)
     total: months.reduce((sum: number, m) => sum + (m ?? 0), 0),
   }))
 }
+
+export const GET = apiHandler(getHandler)

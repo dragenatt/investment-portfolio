@@ -3,6 +3,7 @@ import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
+import { apiHandler } from '@/lib/api/handler'
 
 type PriceRow = { symbol: string; date: string; close: number }
 
@@ -46,7 +47,7 @@ async function getPriceHistory(
   return allHistory.sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export async function GET(req: Request, { params }: { params: Promise<{ pid: string }> }) {
+async function getHandler(req: Request, { params }: { params: Promise<{ pid: string }> }) {
   const { pid } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -74,3 +75,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ pid: str
   )
   return success(data)
 }
+
+export const GET = apiHandler(getHandler)

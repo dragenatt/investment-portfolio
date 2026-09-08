@@ -3,8 +3,9 @@ import { success, error } from '@/lib/api/response'
 import { getHistory } from '@/lib/services/market'
 import { computeTechnicalSignal } from '@/lib/services/signal'
 import { withCache } from '@/lib/cache/with-cache'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(
+async function getHandler(
   _req: Request,
   { params }: { params: Promise<{ symbol: string }> }
 ) {
@@ -27,3 +28,5 @@ export async function GET(
 
   return success(data)
 }
+
+export const GET = apiHandler(getHandler)

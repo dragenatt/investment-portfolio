@@ -3,8 +3,9 @@ import { success, error } from '@/lib/api/response'
 import { getQuote } from '@/lib/services/market'
 import { withCacheStaleWhileRevalidate } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(
+async function getHandler(
   _req: Request,
   { params }: { params: Promise<{ symbol: string }> }
 ) {
@@ -58,3 +59,5 @@ export async function GET(
   if (!data) return error('Symbol not found', 404)
   return success(data)
 }
+
+export const GET = apiHandler(getHandler)

@@ -1,8 +1,9 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { getHistory } from '@/lib/services/market'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(req: Request, { params }: { params: Promise<{ pid: string }> }) {
+async function getHandler(req: Request, { params }: { params: Promise<{ pid: string }> }) {
   const { pid } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -27,3 +28,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ pid: str
 
   return success(results)
 }
+
+export const GET = apiHandler(getHandler)

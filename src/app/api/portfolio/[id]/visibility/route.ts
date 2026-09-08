@@ -2,8 +2,9 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { validate } from '@/lib/api/validate'
 import { UpdateVisibilitySchema } from '@/lib/schemas/social'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function patchHandler(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -43,3 +44,5 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
   return success(data)
 }
+
+export const PATCH = apiHandler(patchHandler)

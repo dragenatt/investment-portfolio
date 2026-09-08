@@ -4,8 +4,9 @@ import { getQuote } from '@/lib/services/market'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { NextResponse } from 'next/server'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(_req: Request, { params }: { params: Promise<{ symbol: string }> }) {
+async function getHandler(_req: Request, { params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -39,3 +40,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
   res.headers.set('Cache-Control', 's-maxage=30, stale-while-revalidate=60')
   return res
 }
+
+export const GET = apiHandler(getHandler)

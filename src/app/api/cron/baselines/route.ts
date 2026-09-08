@@ -16,6 +16,7 @@ import { NextResponse } from 'next/server'
 import { createAdminSupabase, startCronRun, finishCronRun } from '@/lib/services/snapshots'
 import { refreshBaselines, tradingDayString } from '@/lib/services/baselines'
 import { UNIVERSE_SYMBOLS } from '@/lib/data/asset-universe'
+import { apiHandler } from '@/lib/api/handler'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -28,7 +29,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out
 }
 
-export async function GET(req: Request) {
+async function getHandler(req: Request) {
   const authHeader = req.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
@@ -91,3 +92,5 @@ export async function GET(req: Request) {
     )
   }
 }
+
+export const GET = apiHandler(getHandler)

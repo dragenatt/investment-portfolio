@@ -2,8 +2,9 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { validate } from '@/lib/api/validate'
 import { UpdateAlertSchema } from '@/lib/schemas/alert'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function patchHandler(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -24,7 +25,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   return success(data)
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function deleteHandler(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -34,3 +35,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (dbError) return error(dbError.message, 500)
   return success({ deleted: true })
 }
+
+export const PATCH = apiHandler(patchHandler)
+export const DELETE = apiHandler(deleteHandler)

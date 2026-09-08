@@ -1,8 +1,9 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { getCachedLeaderboard, cacheLeaderboard } from '@/lib/cache/redis'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(req: Request) {
+async function getHandler(req: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -33,3 +34,5 @@ export async function GET(req: Request) {
 
   return success(rankings)
 }
+
+export const GET = apiHandler(getHandler)

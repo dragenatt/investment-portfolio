@@ -2,8 +2,9 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { validate } from '@/lib/api/validate'
 import { AddWatchlistItemSchema } from '@/lib/schemas/watchlist'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -37,3 +38,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (dbError) return error(dbError.message, 500)
   return success(data, undefined, 201)
 }
+
+export const POST = apiHandler(postHandler)

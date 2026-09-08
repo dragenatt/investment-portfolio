@@ -4,8 +4,9 @@ import { rateLimit } from '@/lib/api/rate-limit'
 import { validate } from '@/lib/api/validate'
 import { CreateTransactionSchema } from '@/lib/schemas/transaction'
 import { recalculatePosition } from '@/lib/services/transaction'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(req: Request) {
+async function getHandler(req: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -44,7 +45,7 @@ export async function GET(req: Request) {
   return success(data)
 }
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -136,3 +137,6 @@ export async function POST(req: Request) {
 
   return success(savedTxn, undefined, 201)
 }
+
+export const GET = apiHandler(getHandler)
+export const POST = apiHandler(postHandler)

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminSupabase, computePortfolioSnapshot } from '@/lib/services/snapshots'
+import { apiHandler } from '@/lib/api/handler'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const authHeader = req.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
@@ -64,3 +65,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ processed, errors, dates: dates.length, portfolios: portfolioIds.length })
 }
+
+export const POST = apiHandler(postHandler)

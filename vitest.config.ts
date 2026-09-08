@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, configDefaults } from 'vitest/config'
 import path from 'path'
 
 export default defineConfig({
@@ -6,9 +6,14 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup.ts'],
+    // Git worktrees live under .claude/worktrees, and their copy of the suite
+    // would otherwise be collected and run alongside this one.
+    exclude: [...configDefaults.exclude, '.claude/**'],
   },
   resolve: {
     alias: {
+      // The real SDK loads bundler-specific code that throws under vitest.
+      '@sentry/nextjs': path.resolve(__dirname, './tests/stubs/sentry.ts'),
       '@': path.resolve(__dirname, './src'),
     },
   },

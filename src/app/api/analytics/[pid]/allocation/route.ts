@@ -2,8 +2,9 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(_req: Request, { params }: { params: Promise<{ pid: string }> }) {
+async function getHandler(_req: Request, { params }: { params: Promise<{ pid: string }> }) {
   const { pid } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -83,3 +84,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
   )
   return success(data)
 }
+
+export const GET = apiHandler(getHandler)

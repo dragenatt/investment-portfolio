@@ -1,7 +1,8 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(_req: Request, { params }: { params: Promise<{ username: string }> }) {
+async function getHandler(_req: Request, { params }: { params: Promise<{ username: string }> }) {
   const { username } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -41,3 +42,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ usernam
     recent_snapshots: recentSnapshots || [],
   })
 }
+
+export const GET = apiHandler(getHandler)

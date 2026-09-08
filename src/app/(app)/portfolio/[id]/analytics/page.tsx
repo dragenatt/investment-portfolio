@@ -1,6 +1,7 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useEffect, useRef, useState } from 'react'
+import { FUNNEL_EVENTS } from '@/lib/analytics/events'
 import { AllocationDonut } from '@/components/dashboard/allocation-donut'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
@@ -26,6 +27,21 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
   const { data: returns, isLoading: returnsLoading } = useReturns(id)
   const { data: risk, isLoading: riskLoading } = useRisk(id)
   const { data: monteCarlo, isLoading: monteCarloLoading } = useMonteCarlo(id, horizonWeeks)
+
+  // First Monte Carlo the user actually sees. The once-per-user index in
+  // migration 012 does the real deduplication; this ref only avoids re-posting
+  // on every render of the same visit.
+  const reportedFirstSimulation = useRef(false)
+  useEffect(() => {
+    if (reportedFirstSimulation.current) return
+    if (!monteCarlo?.bands?.length) return
+    reportedFirstSimulation.current = true
+    fetch('/api/analytics/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: FUNNEL_EVENTS.FIRST_MONTE_CARLO }),
+    }).catch(() => {})
+  }, [monteCarlo])
   const { data: attribution, isLoading: attrLoading } = useAttribution(id)
   const { data: income, isLoading: incomeLoading } = useIncome(id)
   const { data: allocation, isLoading: allocLoading } = useAllocation(id)

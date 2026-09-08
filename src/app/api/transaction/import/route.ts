@@ -3,6 +3,7 @@ import { success, error } from '@/lib/api/response'
 import { rateLimit } from '@/lib/api/rate-limit'
 import { recalculatePosition } from '@/lib/services/transaction'
 import { z } from 'zod'
+import { apiHandler } from '@/lib/api/handler'
 
 const ASSET_TYPES = ['stock', 'etf', 'crypto', 'bond', 'forex', 'commodity', 'index'] as const
 
@@ -33,7 +34,7 @@ const ImportBodySchema = z.object({
   rows: z.array(ImportRowSchema).min(1).max(500),
 })
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -170,3 +171,5 @@ export async function POST(req: Request) {
 
   return success({ imported, errors })
 }
+
+export const POST = apiHandler(postHandler)

@@ -1,7 +1,8 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
+import { apiHandler } from '@/lib/api/handler'
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -19,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return success(data)
 }
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function patchHandler(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -49,7 +50,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   return success(data)
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function deleteHandler(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -73,3 +74,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (dbError) return error(dbError.message, 500)
   return success(null)
 }
+
+export const GET = apiHandler(getHandler)
+export const PATCH = apiHandler(patchHandler)
+export const DELETE = apiHandler(deleteHandler)

@@ -3,6 +3,7 @@ import { success, error } from '@/lib/api/response'
 import { validate } from '@/lib/api/validate'
 import { SaveComparisonSchema } from '@/lib/schemas/social'
 import { getCachedComparison, cacheComparison, CACHE_KEYS } from '@/lib/cache/redis'
+import { apiHandler } from '@/lib/api/handler'
 
 type Period = '1M' | '3M' | '6M' | '1Y' | '5Y' | 'ALL'
 
@@ -15,7 +16,7 @@ function getPeriodDays(period: string): number {
   return map[period] || 365
 }
 
-export async function GET(req: Request) {
+async function getHandler(req: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -161,7 +162,7 @@ export async function GET(req: Request) {
   return success(response)
 }
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -183,3 +184,6 @@ export async function POST(req: Request) {
   if (dbError) return error(dbError.message, 500)
   return success(data, undefined, 201)
 }
+
+export const GET = apiHandler(getHandler)
+export const POST = apiHandler(postHandler)

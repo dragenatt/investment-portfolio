@@ -4,6 +4,7 @@ import { rateLimit } from '@/lib/api/rate-limit'
 import { cacheGet, cacheSet } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
 import { computeDailyPositions, buildDailyTimeline } from '@/lib/services/portfolio-history'
+import { apiHandler } from '@/lib/api/handler'
 
 const RANGE_MAP: Record<string, string> = {
   '1': '1d',
@@ -14,7 +15,7 @@ const RANGE_MAP: Record<string, string> = {
   'max': 'max',
 }
 
-export async function GET(req: Request) {
+async function getHandler(req: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -197,3 +198,5 @@ export async function GET(req: Request) {
 
   return success(filtered)
 }
+
+export const GET = apiHandler(getHandler)
