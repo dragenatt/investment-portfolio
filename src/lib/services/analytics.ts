@@ -1,3 +1,9 @@
+/**
+ * Annualised volatility below this is float dust from a flat series, not risk.
+ * A 0.01% daily move already annualises to roughly 0.0016.
+ */
+const MIN_MEANINGFUL_VOLATILITY = 1e-10
+
 export function calculateVolatility(returns: number[]): number {
   if (returns.length < 2) return 0
   const mean = returns.reduce((a, b) => a + b, 0) / returns.length
@@ -6,12 +12,22 @@ export function calculateVolatility(returns: number[]): number {
   return Math.sqrt(variance) * Math.sqrt(252) // Annualized
 }
 
+/**
+ * Annualised excess return over annualised volatility.
+ *
+ * The zero-volatility guard is a threshold rather than an equality test. A
+ * genuinely flat series does not produce a variance of exactly 0 — summing and
+ * re-dividing identical floats leaves dust around 1e-17 — so `=== 0` never
+ * fires and the ratio divides by that dust, turning a portfolio that did not
+ * move into a Sharpe of -15.96. Same reasoning as MIN_BENCHMARK_VARIANCE below;
+ * any real daily series sits far above this floor.
+ */
 export function calculateSharpeRatio(returns: number[], riskFreeRate: number): number {
   if (returns.length < 2) return 0
   const meanReturn = returns.reduce((a, b) => a + b, 0) / returns.length
   const annualizedReturn = meanReturn * 252
   const volatility = calculateVolatility(returns)
-  if (volatility === 0) return 0
+  if (!(volatility > MIN_MEANINGFUL_VOLATILITY)) return 0
   return (annualizedReturn - riskFreeRate) / volatility
 }
 
