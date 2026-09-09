@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { calculateVolatility, calculateSharpeRatio, calculateMaxDrawdown, calculateDailyReturns, calculateBetaAlpha } from '@/lib/services/analytics'
+import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
@@ -112,6 +113,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
     `${CACHE_KEYS.ANALYTICS_RISK}${pid}`,
     300,
     async () => {
+      // The portfolio's own currency decides which risk-free rate it has to beat.
+      const { data: portfolio } = await supabase
+        .from('portfolios')
+        .select('currency')
+        .eq('id', pid)
+        .single()
+
       // Get portfolio positions
       const { data: positions } = await supabase
         .from('positions')
@@ -162,8 +170,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
         return { message: 'No positions' }
       }
 
-      // Use CETES 28-day rate as risk-free rate (approx 10% annual in MXN, ~5% USD)
-      const riskFreeRate = 0.10
+      // Previously a flat 10% for every portfolio, which flattered dollar books
+      // and punished peso ones. Now resolved per currency from the publishing
+      // central bank or treasury, with the source reported alongside.
+      const riskFree = await getRiskFreeRate(portfolio?.currency ?? 'USD')
+      const riskFreeRate = riskFree.rate
       const TRADING_DAYS = 252
 
       // Core metrics
@@ -229,6 +240,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
           var_95: Math.round(var95 * 100) / 100,
           tracking_error: Math.round(trackingError * 100) / 100,
           information_ratio: Math.round(informationRatio * 100) / 100,
+        },
+        risk_free_rate: {
+          currency: riskFree.currency,
+          annual_pct: Math.round(riskFree.rate * 10000) / 100,
+          source: riskFree.source,
+          as_of: riskFree.asOf,
+          is_fallback: riskFree.isFallback,
         },
         drawdown_series: {
           dates,

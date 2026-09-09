@@ -15,6 +15,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getBenchmarkSeries } from './benchmarks'
 import { calculateBetaAlpha, calculateDailyReturns, type BetaAlpha } from './analytics'
+import { getRiskFreeRate } from './risk-free-rate'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -57,7 +58,6 @@ type SnapshotResult = {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const RISK_FREE_RATE = 0.0425 // ~4.25% annual (US T-Bills approximate)
 const TRADING_DAYS_PER_YEAR = 252
 const BENCHMARK_SYMBOL = 'SPY'
 
@@ -289,7 +289,8 @@ function computeRiskScore(
  */
 async function computeBenchmarkStats(
   supabase: SupabaseClient,
-  history: HistoricalSnapshot[]
+  history: HistoricalSnapshot[],
+  riskFreeRate: number
 ): Promise<BetaAlpha | null> {
   const sorted = [...history]
     .filter((h) => h.total_value > 0)
@@ -315,7 +316,7 @@ async function computeBenchmarkStats(
     aligned.map((h) => closeByDate.get(h.snapshot_date)!)
   )
 
-  return calculateBetaAlpha(portfolioReturns, benchmarkReturns, RISK_FREE_RATE)
+  return calculateBetaAlpha(portfolioReturns, benchmarkReturns, riskFreeRate)
 }
 
 // ─── Snapshot Computation ───────────────────────────────────────────────────
@@ -463,6 +464,11 @@ export async function computePortfolioSnapshot(
   let diversificationVal: number | null = null
   let riskScoreVal: number | null = null
 
+  // The rate to beat is the one an investor in this portfolio's currency could
+  // get risk-free: CETES for a peso book, T-Bills for a dollar one. Resolved
+  // once per snapshot and reused for Sharpe, Sortino and Jensen's alpha.
+  const riskFree = await getRiskFreeRate(portfolio.currency)
+
   if (returns.length >= 5) {
     // Daily volatility
     volatilityVal = stdDev(returns)
@@ -476,13 +482,13 @@ export async function computePortfolioSnapshot(
 
     // Sharpe Ratio = (annualized return - risk-free rate) / annualized volatility
     sharpeVal = annualVol > 0
-      ? Math.round(((annualReturn - RISK_FREE_RATE) / annualVol) * 100) / 100
+      ? Math.round(((annualReturn - riskFree.rate) / annualVol) * 100) / 100
       : 0
 
     // Sortino Ratio = (annualized return - risk-free rate) / downside deviation
     const annualDownside = downsideDev(returns) * Math.sqrt(TRADING_DAYS_PER_YEAR)
     sortinoVal = annualDownside > 0
-      ? Math.round(((annualReturn - RISK_FREE_RATE) / annualDownside) * 100) / 100
+      ? Math.round(((annualReturn - riskFree.rate) / annualDownside) * 100) / 100
       : 0
 
     // Max Drawdown
@@ -499,7 +505,7 @@ export async function computePortfolioSnapshot(
     // (portfolio_vol / an assumed 1% daily benchmark vol) implied a correlation
     // of 1 with the market and overstated beta for any diversified portfolio,
     // which is worse than showing nothing.
-    const benchmarkStats = await computeBenchmarkStats(supabase, fullHistory)
+    const benchmarkStats = await computeBenchmarkStats(supabase, fullHistory, riskFree.rate)
     if (benchmarkStats) {
       betaVal = Math.round(benchmarkStats.beta * 100) / 100
       // calculateBetaAlpha returns percentage points; this column holds a fraction.
