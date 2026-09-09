@@ -25,12 +25,6 @@ export type SimulacionResult = {
   rentabilidadTotal: number // total return %
 }
 
-export type MonteCarloResult = {
-  peor: number // worst case
-  promedio: number // average
-  mejor: number // best case
-}
-
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 export const PERFIL_NOMBRES: Record<PerfilNivel, PerfilNombre> = {
@@ -72,13 +66,25 @@ export const RENDIMIENTOS: Record<PerfilNivel, number> = {
   2: 0.11, // 11%
 }
 
-// ── Helper ─────────────────────────────────────────────────────────────────────
-
-function gaussianRandom(mean: number, stddev: number): number {
-  const u1 = Math.random() || Number.MIN_VALUE
-  const u2 = Math.random() || Number.MIN_VALUE
-  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
-  return mean + z * stddev
+/**
+ * Annual standard deviation assumed for each profile's model portfolio.
+ *
+ * The previous engine used a flat 0.10 for all three, which is the one number
+ * that cannot be right for all of them: it made the conservative portfolio look
+ * twice as risky as it is and the aggressive one roughly half.
+ *
+ * These are modelling assumptions, not measurements, and are recorded as such
+ * in docs/FINANCIAL_ASSUMPTIONS.md. The reasoning is the composition in
+ * CARTERAS: a book that is 70% short-term government debt cannot swing like an
+ * equity one, and an all-equity book carrying emerging markets swings more than
+ * a balanced one. They are the parameters most worth replacing with a figure
+ * computed from the real holdings once the covariance engine reaches the
+ * advisor.
+ */
+export const VOLATILIDADES: Record<PerfilNivel, number> = {
+  0: 0.05, // mostly CETES and bonds
+  1: 0.10, // balanced
+  2: 0.16, // all equity, including emerging markets
 }
 
 // ── Functions ──────────────────────────────────────────────────────────────────
@@ -169,60 +175,19 @@ export function simulacionInversion(
   return { historial, capitalAportado, ganancia, valorFinal, rentabilidadTotal }
 }
 
-export function simulacionMonteCarlo(
-  inicial: number,
-  mensual: number,
-  años: number,
-  rendimientoPromedio: number,
-  numSimulaciones: number = 200,
-): MonteCarloResult {
-  const totalMeses = años * 12
-  const resultados: number[] = []
-
-  for (let sim = 0; sim < numSimulaciones; sim++) {
-    let valor = inicial
-    for (let mes = 1; mes <= totalMeses; mes++) {
-      const rendAnual = gaussianRandom(rendimientoPromedio, 0.1)
-      const tasaMensual = Math.pow(1 + rendAnual, 1 / 12) - 1
-      valor = valor * (1 + tasaMensual) + mensual
-    }
-    resultados.push(valor)
-  }
-
-  resultados.sort((a, b) => a - b)
-
-  const peor = resultados[0]
-  const mejor = resultados[resultados.length - 1]
-  const promedio =
-    resultados.reduce((sum, v) => sum + v, 0) / resultados.length
-
-  return { peor, promedio, mejor }
-}
-
-export function probabilidadMeta(
-  inicial: number,
-  mensual: number,
-  años: number,
-  rendimientoPromedio: number,
-  meta: number,
-  numSimulaciones: number = 500,
-): number {
-  const totalMeses = años * 12
-  let exitos = 0
-
-  for (let sim = 0; sim < numSimulaciones; sim++) {
-    let valor = inicial
-    for (let mes = 1; mes <= totalMeses; mes++) {
-      const rendAnual = gaussianRandom(rendimientoPromedio, 0.1)
-      const tasaMensual = Math.pow(1 + rendAnual, 1 / 12) - 1
-      valor = valor * (1 + tasaMensual) + mensual
-    }
-    if (valor >= meta) exitos++
-  }
-
-  return (exitos / numSimulaciones) * 100
-}
-
+/**
+ * The DETERMINISTIC contribution: the annuity payment that lands exactly on the
+ * goal if the expected return is realised every single month.
+ *
+ * This is a legitimate figure and P0-22 asks for it to be shown, but it is NOT
+ * a recommendation. Landing exactly on the mean is roughly a coin flip, so
+ * recommending this amount and then scoring it with a simulation is what
+ * produced the circular advice the roadmap describes: the advisor suggested an
+ * amount and then called that amount insufficient.
+ *
+ * For a recommendation use aporteParaProbabilidadMeta in services/advisor.ts,
+ * which solves against the same simulated paths the probability is measured on.
+ */
 export function aporteNecesario(
   meta: number,
   inicial: number,
@@ -240,19 +205,40 @@ export function aporteNecesario(
   return Math.max(0, aporte)
 }
 
+/**
+ * Wording for the probability result.
+ *
+ * `aporteSugerido` is the contribution solved against the SAME simulated paths
+ * the probability came from, so the two can never contradict each other the way
+ * the deterministic annuity solution did. Null means no reachable contribution
+ * gets there.
+ *
+ * Everything here is phrased as an estimate under the current assumptions. The
+ * model produces a distribution of scenarios, not a forecast, and the wording
+ * has to keep saying so.
+ */
 export function obtenerRecomendacion(
   prob: number,
   aporteActual: number,
-  aporteNecesarioVal: number,
+  aporteSugerido: number | null,
 ): string {
+  const p = prob.toFixed(0)
+
+  if (aporteSugerido === null) {
+    return `Bajo estos supuestos el modelo estima ${p}% de probabilidad, y ningun aporte razonable alcanza la meta en este plazo. Considera ampliar el horizonte o ajustar la meta.`
+  }
+
+  if (aporteSugerido <= aporteActual) {
+    return `Con tu aporte actual el modelo estima ${p}% de probabilidad de alcanzar la meta. Ya es suficiente para el objetivo de confianza: no necesitas aportar mas.`
+  }
+
   if (prob < 50) {
-    if (aporteActual < aporteNecesarioVal) {
-      return `Tu probabilidad actual es baja (${prob.toFixed(0)}%). Necesitarías aportar al menos $${aporteNecesarioVal.toFixed(0)} mensuales. Considera aumentar tu aporte o extender tu horizonte de inversión.`
-    }
-    return `Tu probabilidad actual es baja (${prob.toFixed(0)}%). Considera diversificar tu portafolio o ajustar tu meta a un monto más realista.`
+    return `El modelo estima ${p}% de probabilidad bajo los supuestos actuales, que es baja. Aportar alrededor de $${aporteSugerido.toFixed(0)} al mes llevaria esa probabilidad al objetivo; extender el plazo o ajustar la meta tiene el mismo efecto.`
   }
+
   if (prob < 75) {
-    return 'Tu meta es alcanzable, pero con riesgo moderado.'
+    return `El modelo estima ${p}% de probabilidad: la meta es alcanzable, pero con un margen estrecho. Aportar alrededor de $${aporteSugerido.toFixed(0)} al mes reduciria esa dependencia del escenario favorable.`
   }
-  return 'Alta probabilidad de alcanzar tu meta.'
+
+  return `El modelo estima ${p}% de probabilidad de alcanzar la meta bajo los supuestos actuales. Recuerda que es una simulacion, no una garantia.`
 }

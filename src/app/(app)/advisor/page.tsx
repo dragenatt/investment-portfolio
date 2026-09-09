@@ -17,19 +17,22 @@ import {
 } from 'recharts'
 import {
   obtenerPerfilFinal,
-  simulacionInversion,
-  simulacionMonteCarlo,
-  probabilidadMeta,
-  aporteNecesario,
   obtenerRecomendacion,
   PERFIL_DESCRIPCIONES,
   CARTERAS,
   RENDIMIENTOS,
+  VOLATILIDADES,
   type PerfilNivel,
   type PerfilNombre,
-  type SimulacionResult,
-  type MonteCarloResult,
 } from '@/lib/utils/investment-profile'
+import {
+  buildScenarios,
+  evaluarPlan,
+  aporteParaProbabilidadMeta,
+  validarEntradasAdvisor,
+  type PlanOutcome,
+  type CampoProblema,
+} from '@/lib/services/advisor'
 import {
   Shield,
   Scale,
@@ -136,11 +139,77 @@ interface FormState {
 interface ResultsState {
   nivel: PerfilNivel
   nombre: PerfilNombre
-  simulacion: SimulacionResult
-  monteCarlo: MonteCarloResult
+  plan: PlanOutcome
+  /** Valid but worth questioning — e.g. a contribution that swallows the income. */
+  avisos: CampoProblema[]
   prob: number
-  aporteNec: number
+  /** Contribution that reaches PROBABILIDAD_OBJETIVO on the same scenarios. */
+  aporteNec: number | null
   recomendacion: string
+}
+
+type Distribucion = PlanOutcome['distribucion']
+
+/**
+ * Deciles rather than the single best and worst paths. The extremes of a
+ * simulation are the least stable statistics it produces — the "worst case"
+ * moves every run and says more about the number of draws than about risk.
+ */
+const PERCENTIL_BANDS: Array<{
+  label: string
+  hint: string
+  className: string
+  pick: (d: Distribucion) => number
+}> = [
+  {
+    label: 'P10',
+    hint: '1 de cada 10 escenarios termina por debajo de esta cifra',
+    className: 'bg-red-500/10 border-red-500/20',
+    pick: (d) => d.p10,
+  },
+  {
+    label: 'P25',
+    hint: '1 de cada 4 escenarios termina por debajo',
+    className: 'bg-amber-500/10 border-amber-500/20',
+    pick: (d) => d.p25,
+  },
+  {
+    label: 'Mediana',
+    hint: 'la mitad de los escenarios termina por encima y la mitad por debajo',
+    className: 'bg-sky-500/10 border-sky-500/20',
+    pick: (d) => d.p50,
+  },
+  {
+    label: 'P75',
+    hint: '1 de cada 4 escenarios termina por encima',
+    className: 'bg-emerald-500/10 border-emerald-500/20',
+    pick: (d) => d.p75,
+  },
+  {
+    label: 'P90',
+    hint: '1 de cada 10 escenarios termina por encima',
+    className: 'bg-green-500/10 border-green-500/20',
+    pick: (d) => d.p90,
+  },
+]
+
+/** The confidence the recommended contribution is solved for. */
+const PROBABILIDAD_OBJETIVO = 75
+
+/** Scenarios per run: enough for stable deciles without stalling the browser. */
+const SIMULACIONES = 1000
+
+/**
+ * A seed derived from the plan itself, so re-running the same questionnaire
+ * gives the same answer while two different plans still get different draws.
+ */
+function seedFor(...parts: number[]): number {
+  let hash = 2166136261
+  for (const part of parts) {
+    hash ^= Math.round(part * 100)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -181,14 +250,24 @@ export default function AdvisorPage() {
         return form.experiencia > 0 && form.reaccion > 0
       case 2:
         return Number(form.horizonte) >= 1 && form.estabilidad > 0
-      case 3:
-        return (
-          Number(form.capitalInicial) >= 0 &&
-          form.capitalInicial !== '' &&
-          Number(form.aportacionMensual) >= 0 &&
-          form.aportacionMensual !== '' &&
-          Number(form.meta) > 0
-        )
+      case 3: {
+        // The whole questionnaire is known by now, so validate it as a whole
+        // rather than re-checking three fields by hand.
+        if (form.capitalInicial === '' || form.aportacionMensual === '') return false
+        return validarEntradasAdvisor({
+          edad: Number(form.edad),
+          ingresos: Number(form.ingresos),
+          horizonte: Number(form.horizonte),
+          capitalInicial: Number(form.capitalInicial),
+          aportacionMensual: Number(form.aportacionMensual),
+          meta: Number(form.meta),
+          porcentajeInversion: form.porcentajeInversion,
+          riesgo: form.riesgo,
+          experiencia: form.experiencia,
+          estabilidad: form.estabilidad,
+          reaccion: form.reaccion,
+        }).valid
+      }
       default:
         return false
     }
@@ -204,6 +283,26 @@ export default function AdvisorPage() {
       const aportacionMensual = Number(form.aportacionMensual)
       const meta = Number(form.meta)
 
+      const validacion = validarEntradasAdvisor({
+        edad,
+        ingresos,
+        horizonte,
+        capitalInicial,
+        aportacionMensual,
+        meta,
+        porcentajeInversion: form.porcentajeInversion,
+        riesgo: form.riesgo,
+        experiencia: form.experiencia,
+        estabilidad: form.estabilidad,
+        reaccion: form.reaccion,
+      })
+      if (!validacion.valid) {
+        // The step gate should have caught this; refuse rather than simulate
+        // against numbers the model cannot use.
+        setLoading(false)
+        return
+      }
+
       const perfil = obtenerPerfilFinal({
         edad,
         ingresos,
@@ -215,18 +314,39 @@ export default function AdvisorPage() {
         porcentajeInversion: form.porcentajeInversion,
       })
 
-      const rend = RENDIMIENTOS[perfil.nivel]
-      const simulacion = simulacionInversion(capitalInicial, aportacionMensual, horizonte, rend)
-      const monteCarlo = simulacionMonteCarlo(capitalInicial, aportacionMensual, horizonte, rend)
-      const prob = probabilidadMeta(capitalInicial, aportacionMensual, horizonte, rend, meta)
-      const aporteNec = aporteNecesario(meta, capitalInicial, horizonte, rend)
+      const planParams = {
+        capitalInicial,
+        aportacionMensual,
+        años: horizonte,
+        rendimientoAnual: RENDIMIENTOS[perfil.nivel],
+        volatilidadAnual: VOLATILIDADES[perfil.nivel],
+      }
+
+      // One scenario set answers every question about this plan, so the
+      // recommended contribution is scored against the same simulated paths it
+      // was solved on. That is what stops the advisor recommending an amount
+      // and then calling that same amount insufficient.
+      const scenarios = buildScenarios({
+        months: horizonte * 12,
+        simulations: SIMULACIONES,
+        seed: seedFor(capitalInicial, aportacionMensual, horizonte, meta, perfil.nivel),
+      })
+
+      const plan = evaluarPlan(planParams, meta, scenarios)
+      const prob = plan.probabilidadMetaPct ?? 0
+      const aporteNec = aporteParaProbabilidadMeta(
+        planParams,
+        meta,
+        PROBABILIDAD_OBJETIVO,
+        scenarios,
+      )
       const recomendacion = obtenerRecomendacion(prob, aportacionMensual, aporteNec)
 
       setResults({
         nivel: perfil.nivel,
         nombre: perfil.nombre,
-        simulacion,
-        monteCarlo,
+        plan,
+        avisos: validacion.warnings,
         prob,
         aporteNec,
         recomendacion,
@@ -286,7 +406,7 @@ export default function AdvisorPage() {
       value: Math.round(value * 100),
     }))
 
-    const chartData = results.simulacion.historial.map((val, i) => ({
+    const chartData = results.plan.proyeccionDeterminista.historial.map((val, i) => ({
       name: `${t.advisor.years} ${i + 1}`,
       valor: Math.round(val),
     }))
@@ -483,21 +603,21 @@ export default function AdvisorPage() {
               <DollarSign className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
               <p className="text-xs text-muted-foreground mb-1">Capital aportado</p>
               <p className="font-serif font-bold text-lg">
-                <span className="font-mono">{fmt.format(results.simulacion.capitalAportado)}</span>
+                <span className="font-mono">{fmt.format(results.plan.proyeccionDeterminista.capitalAportado)}</span>
               </p>
             </div>
             <div className="text-center p-4 rounded-xl bg-secondary">
               <TrendingUp className="h-5 w-5 mx-auto mb-2 text-gain" />
               <p className="text-xs text-muted-foreground mb-1">Rendimiento generado</p>
               <p className="font-serif font-bold text-lg text-gain">
-                <span className="font-mono">{fmt.format(results.simulacion.ganancia)}</span>
+                <span className="font-mono">{fmt.format(results.plan.proyeccionDeterminista.ganancia)}</span>
               </p>
             </div>
             <div className="text-center p-4 rounded-xl bg-secondary">
               <BarChart3 className="h-5 w-5 mx-auto mb-2 text-primary" />
               <p className="text-xs text-muted-foreground mb-1">Valor final del portafolio</p>
               <p className="font-serif font-bold text-lg">
-                <span className="font-mono">{fmt.format(results.simulacion.valorFinal)}</span>
+                <span className="font-mono">{fmt.format(results.plan.proyeccionDeterminista.valorFinal)}</span>
               </p>
             </div>
             <div className="text-center p-4 rounded-xl bg-secondary">
@@ -505,7 +625,7 @@ export default function AdvisorPage() {
               <p className="text-xs text-muted-foreground mb-1">Rentabilidad total</p>
               <p className="font-serif font-bold text-lg">
                 <span className="font-mono">
-                  {results.simulacion.rentabilidadTotal.toFixed(1)}%
+                  {results.plan.proyeccionDeterminista.rentabilidadTotalPct.toFixed(1)}%
                 </span>
               </p>
             </div>
@@ -520,32 +640,29 @@ export default function AdvisorPage() {
           >
             Análisis de Escenarios (Monte Carlo)
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-xl p-4 bg-red-500/10 border border-red-500/20 text-center">
-              <p className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">
-                Pesimista
-              </p>
-              <p className="font-serif font-bold text-xl">
-                <span className="font-mono">{fmt.format(results.monteCarlo.peor)}</span>
-              </p>
-            </div>
-            <div className="rounded-xl p-4 bg-amber-500/10 border border-amber-500/20 text-center">
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">
-                Promedio
-              </p>
-              <p className="font-serif font-bold text-xl">
-                <span className="font-mono">{fmt.format(results.monteCarlo.promedio)}</span>
-              </p>
-            </div>
-            <div className="rounded-xl p-4 bg-green-500/10 border border-green-500/20 text-center">
-              <p className="text-sm font-medium text-green-600 dark:text-green-400 mb-1">
-                Optimista
-              </p>
-              <p className="font-serif font-bold text-xl">
-                <span className="font-mono">{fmt.format(results.monteCarlo.mejor)}</span>
-              </p>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {PERCENTIL_BANDS.map((band) => (
+              <div
+                key={band.label}
+                title={band.hint}
+                className={"rounded-xl p-3 text-center border " + band.className}
+              >
+                <p className="text-xs font-medium text-muted-foreground mb-1">{band.label}</p>
+                <p className="font-serif font-bold text-lg">
+                  <span className="font-mono">
+                    {fmt.format(band.pick(results.plan.distribucion))}
+                  </span>
+                </p>
+              </div>
+            ))}
           </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            La simulacion proyecta {results.plan.modelo.simulaciones.toLocaleString('es-MX')}{' '}
+            escenarios bajo los supuestos actuales:{' '}
+            {(results.plan.modelo.rendimientoAnual * 100).toFixed(0)}% de rendimiento esperado y{' '}
+            {(results.plan.modelo.volatilidadAnual * 100).toFixed(0)}% de volatilidad anual. Son
+            escenarios simulados, no predicciones garantizadas.
+          </p>
         </div>
 
         {/* G. Goal Analysis */}
@@ -574,10 +691,24 @@ export default function AdvisorPage() {
             </div>
           </div>
           <p className="text-sm text-muted-foreground">{results.recomendacion}</p>
-          {results.prob < 50 && results.aporteNec > 0 && (
+          {results.avisos.map((aviso) => (
+            <p
+              key={aviso.field}
+              className="text-sm mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2"
+            >
+              {aviso.message}
+            </p>
+          ))}
+          {results.aporteNec !== null && results.aporteNec > 0 && (
             <p className="text-sm mt-2 font-medium">
-              Aporte mensual sugerido:{' '}
+              Aporte mensual para llegar a {PROBABILIDAD_OBJETIVO}% de probabilidad:{' '}
               <span className="font-mono text-primary">{fmt.format(results.aporteNec)}</span>
+            </p>
+          )}
+          {results.aporteNec === null && (
+            <p className="text-sm mt-2 text-muted-foreground">
+              Ningun aporte razonable alcanza {PROBABILIDAD_OBJETIVO}% de probabilidad con esta
+              meta y este plazo. Amplia el horizonte o ajusta la meta.
             </p>
           )}
         </div>

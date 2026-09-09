@@ -4,8 +4,6 @@ import {
   capacidadFinanciera,
   obtenerPerfilFinal,
   simulacionInversion,
-  simulacionMonteCarlo,
-  probabilidadMeta,
   aporteNecesario,
   obtenerRecomendacion,
   PERFIL_NOMBRES,
@@ -289,75 +287,6 @@ describe('Investment Profile Scoring', () => {
     })
   })
 
-  describe('simulacionMonteCarlo', () => {
-    it('returns worst, average, and best case values', () => {
-      const result = simulacionMonteCarlo(10000, 100, 5, 0.07)
-      expect(result.peor).toBeLessThanOrEqual(result.promedio)
-      expect(result.promedio).toBeLessThanOrEqual(result.mejor)
-    })
-
-    it('worst case is less than or equal to best case', () => {
-      const result = simulacionMonteCarlo(10000, 100, 5, 0.07, 200)
-      expect(result.peor).toBeLessThan(result.mejor)
-    })
-
-    it('average case is within worst and best', () => {
-      const result = simulacionMonteCarlo(10000, 100, 5, 0.07, 200)
-      expect(result.promedio).toBeGreaterThanOrEqual(result.peor)
-      expect(result.promedio).toBeLessThanOrEqual(result.mejor)
-    })
-
-    it('uses all simulations', () => {
-      const numSims = 100
-      const result = simulacionMonteCarlo(10000, 100, 5, 0.07, numSims)
-      // Can't directly verify, but check that results are reasonable
-      expect(result.peor).toBeGreaterThan(0)
-      expect(result.mejor).toBeGreaterThan(result.peor)
-    })
-
-    it('handles low volatility (deterministic behavior)', () => {
-      const result1 = simulacionMonteCarlo(10000, 0, 5, 0.05, 1000)
-      // With many simulations and fixed return, variance should be lower
-      const variance = result1.mejor - result1.peor
-      expect(variance).toBeGreaterThan(0)
-    })
-  })
-
-  describe('probabilidadMeta', () => {
-    it('returns percentage between 0 and 100', () => {
-      const result = probabilidadMeta(10000, 100, 5, 0.07, 20000)
-      expect(result).toBeGreaterThanOrEqual(0)
-      expect(result).toBeLessThanOrEqual(100)
-    })
-
-    it('returns high probability for achievable goal', () => {
-      const result = probabilidadMeta(10000, 1000, 10, 0.08, 50000)
-      expect(result).toBeGreaterThan(50)
-    })
-
-    it('returns low probability for unrealistic goal', () => {
-      const result = probabilidadMeta(1000, 10, 1, 0.05, 1000000)
-      expect(result).toBeLessThan(50)
-    })
-
-    it('higher contribution increases probability', () => {
-      const lowContribution = probabilidadMeta(10000, 100, 5, 0.07, 50000, 100)
-      const highContribution = probabilidadMeta(10000, 500, 5, 0.07, 50000, 100)
-      expect(highContribution).toBeGreaterThanOrEqual(lowContribution)
-    })
-
-    it('longer horizon increases probability', () => {
-      const shortHorizon = probabilidadMeta(10000, 100, 2, 0.07, 50000, 100)
-      const longHorizon = probabilidadMeta(10000, 100, 10, 0.07, 50000, 100)
-      expect(longHorizon).toBeGreaterThanOrEqual(shortHorizon)
-    })
-
-    it('goal equal to current value has high probability', () => {
-      const result = probabilidadMeta(10000, 0, 5, 0.07, 10000, 100)
-      expect(result).toBeGreaterThan(95)
-    })
-  })
-
   describe('aporteNecesario', () => {
     it('calculates monthly contribution needed', () => {
       const aporte = aporteNecesario(50000, 10000, 5, 0.07)
@@ -394,39 +323,59 @@ describe('Investment Profile Scoring', () => {
   })
 
   describe('obtenerRecomendacion', () => {
-    it('recommends increasing contribution for low probability and insufficient aporte', () => {
+    // The third argument is the contribution solved against the SAME simulated
+    // paths the probability came from, so "suggested <= current" and "the goal
+    // is unlikely" can no longer both be true. The old tests passed exactly
+    // that pairing, which is the contradiction the roadmap calls the circular
+    // recommendation.
+
+    it('names the shortfall when a bigger contribution is needed', () => {
       const rec = obtenerRecomendacion(30, 100, 500)
       expect(rec).toContain('baja')
-      expect(rec).toContain('aportar')
+      expect(rec).toContain('500')
     })
 
-    it('recommends diversification for low probability', () => {
-      const rec = obtenerRecomendacion(30, 500, 500)
-      expect(rec).toContain('baja')
-      expect(rec).toContain('diversificar')
+    it('says the current contribution is already enough rather than asking for more', () => {
+      const rec = obtenerRecomendacion(82, 500, 500)
+      expect(rec.toLowerCase()).toContain('suficiente')
+      expect(rec.toLowerCase()).not.toContain('necesitar')
     })
 
-    it('recommends caution for moderate probability', () => {
-      const rec = obtenerRecomendacion(60, 100, 100)
-      expect(rec.toLowerCase()).toContain('moderado')
+    it('calls a mid-range probability a narrow margin, not a promise', () => {
+      const rec = obtenerRecomendacion(60, 100, 400)
+      expect(rec.toLowerCase()).toMatch(/estrecho|margen/)
     })
 
-    it('recommends confidence for high probability', () => {
-      const rec = obtenerRecomendacion(85, 100, 100)
-      expect(rec.toLowerCase()).toContain('alta')
+    it('still hedges a high probability', () => {
+      const rec = obtenerRecomendacion(85, 100, 50)
+      expect(rec.toLowerCase()).toContain('suficiente')
     })
 
-    it('boundary at 50% probability', () => {
-      const lowProb = obtenerRecomendacion(49, 100, 500)
-      const highProb = obtenerRecomendacion(50, 100, 500)
-      expect(lowProb.toLowerCase()).toContain('baja')
-      // highProb might be moderate or warning
+    it('says so plainly when no contribution reaches the goal', () => {
+      const rec = obtenerRecomendacion(12, 100, null)
+      expect(rec.toLowerCase()).toMatch(/ningun|ning\u00fan/)
+      expect(rec.toLowerCase()).toMatch(/horizonte|meta/)
     })
 
-    it('boundary at 75% probability', () => {
-      const lowProb = obtenerRecomendacion(74, 100, 100)
-      const highProb = obtenerRecomendacion(75, 100, 100)
-      expect(highProb.toLowerCase()).toContain('alta')
+    it('always frames the number as an estimate under assumptions', () => {
+      const messages = [
+        obtenerRecomendacion(30, 100, 500),
+        obtenerRecomendacion(60, 100, 400),
+        obtenerRecomendacion(85, 100, 50),
+        obtenerRecomendacion(12, 100, null),
+      ]
+      for (const message of messages) {
+        expect(message.toLowerCase()).toMatch(/estima|supuestos/)
+      }
+    })
+
+    it('never promises an outcome', () => {
+      // Roadmap rule #7: no "ganaras", "obtendras", "alcanzaras", "tu dinero sera"
+      const banned = /ganar[a\u00e1]s|obtendr[a\u00e1]s|alcanzar[a\u00e1]s|tu dinero ser[a\u00e1]/i
+      for (const prob of [10, 30, 60, 85, 99]) {
+        expect(obtenerRecomendacion(prob, 100, 500)).not.toMatch(banned)
+        expect(obtenerRecomendacion(prob, 100, null)).not.toMatch(banned)
+      }
     })
   })
 })
