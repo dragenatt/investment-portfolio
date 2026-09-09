@@ -51,4 +51,4 @@ const maskablePath = path.join(iconsDir, 'icon-maskable-512.svg');
 fs.writeFileSync(maskablePath, maskableSVG);
 console.log(`Created ${maskablePath}`);
 
-console.log('All SVG icons created. SVG files can be 
+console.log('All SVG icons created. SVG files can be used directly or converted to PNG using external tools.');

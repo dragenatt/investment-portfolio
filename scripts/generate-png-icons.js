@@ -95,4 +95,6 @@ console.log(`Created ${png512Path}`);
 const maskable512 = drawCircle(512, 'IT');
 const maskablePath = path.join(iconsDir, 'icon-maskable-512.png');
 fs.createWriteStream(maskablePath).write(PNG.sync.write(maskable512));
-console.log(`Created ${maskablePat
+console.log(`Created ${maskablePath}`);
+
+console.log('All PNG icons created successfully!');

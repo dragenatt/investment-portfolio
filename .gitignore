@@ -43,3 +43,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
+
+# local scratch and CLI temp
+supabase/.temp/
+vercel-deploy.log
+commit-msg.txt
+.claude/settings.local.json
+.superpowers/

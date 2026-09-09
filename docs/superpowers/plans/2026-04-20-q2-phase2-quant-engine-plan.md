@@ -1408,9 +1408,20 @@ async def hmac_middleware(request: Request, call_next):
     except QuantError as exc:
         return JSONResponse(status_code=exc.status_code, content=to_envelope(exc))
 
-    # Re-inject the body so the endpoint can read it again.
-    # Starlette's Request body is cached after the first read in middleware,
-    # so the downstream handler's `await request.json()` still works.
+    # Starlette consumes the request body stream on the first `await request.body()`,
+    # and does NOT automatically re-expose it to downstream handlers. We have to
+    # monkey-patch `request._body` AND replace the receive channel so that
+    # `await request.json()` inside the endpoint reads from our already-consumed
+    # bytes instead of hanging on an exhausted stream. This is the documented
+    # workaround for HMAC-validating middleware (see
+    # https://github.com/encode/starlette/issues/495 and the FastAPI discussion
+    # on middleware body reads). Both assignments are load-bearing — removing
+    # either one will hang or 500 the downstream handler.
+    request._body = body  # cached body for future .body() / .json() calls
+    async def _replay_receive() -> dict:
+        return {"type": "http.request", "body": body, "more_body": False}
+    request._receive = _replay_receive  # replay once for the ASGI lifecycle
+
     return await call_next(request)
 
 
@@ -1524,7 +1535,11 @@ import modal
 app = modal.App("investtracker-quant")
 
 # Build an image with our deps. Cached by pyproject.toml hash — rebuild only
-# when pyproject changes.
+# when pyproject changes. `add_local_python_source` takes the top-level *module
+# name* (importable path), not a filesystem path — `src` here matches the
+# `src/` directory under quant-service/ which is on sys.path via the
+# `pyproject.toml` `[tool.setuptools.packages.find]` table. Modal traverses
+# the module's file tree and uploads it with the image.
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install_from_pyproject("pyproject.toml")
@@ -1642,15 +1657,16 @@ optimization tests. HMAC-header helper for TestClient-based api tests."
 
 **Design contract (frozen in spec §4.1.1):**
 - Inputs: `symbols[], returns{}` (per-symbol daily returns list), `method ∈ {mean_variance, risk_parity, hrp}`, `constraints` (see `Constraints` Pydantic model in Chunk 2).
-- Output (TypedDict `OptimizeResult`):
+- Output (TypedDict `OptimizeResult`, matches spec §4.1.1):
   ```python
   {
-      "weights": dict[str, float],          # sums to 1.0 ± 1e-6
+      "optimal_weights": dict[str, float],  # sums to 1.0 ± 1e-6
       "expected_return": float,             # annualized
       "expected_volatility": float,         # annualized
       "sharpe_ratio": float,                # (μ − rf)/σ, rf passed in (default 0)
-      "frontier": list[{"return": float, "volatility": float, "weights": dict}],
-      "meta": {"method": str, "solver": str, "iterations": int | None},
+      "frontier": list[{"return": float, "vol": float, "weights": dict}],
+      "computed_at": str,                   # ISO-8601 UTC, populated by endpoint
+      "elapsed_ms": int,                    # populated by endpoint
   }
   ```
 - **Annualization:** multiply daily mean by 252; multiply daily stdev by √252; all returns/volatilities reported annualized.
@@ -1715,12 +1731,12 @@ def test_markowitz_two_asset_analytic_match() -> None:
 
     # Analytic: σ_A² w_A² + σ_B² (1−w_A)² minimized s.t. μ_A w_A + μ_B (1−w_A) = 0.15
     # Lagrangian gives w_A = 0.5 exactly.
-    assert abs(result["weights"]["A"] - 0.5) < 0.02  # 2% tolerance for sample noise
-    assert abs(result["weights"]["B"] - 0.5) < 0.02
-    assert abs(sum(result["weights"].values()) - 1.0) < 1e-6
+    assert abs(result["optimal_weights"]["A"] - 0.5) < 0.02  # 2% tolerance for sample noise
+    assert abs(result["optimal_weights"]["B"] - 0.5) < 0.02
+    assert abs(sum(result["optimal_weights"].values()) - 1.0) < 1e-6
     assert result["expected_return"] == pytest.approx(0.15, abs=5e-3)
-    assert result["meta"]["method"] == "mean_variance"
-    assert result["meta"]["solver"] == "CLARABEL"
+    # Note: `computed_at` and `elapsed_ms` are populated by the endpoint, not the
+    # library function — the service layer wraps the call in a perf_counter timer.
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -1753,25 +1769,31 @@ _ANN = 252  # trading days / year
 _WEIGHTS_TOL = 1e-6
 
 
-class FrontierPoint(TypedDict):
-    return_: float  # key "return" in JSON; aliased on emit
-    volatility: float
-    weights: dict[str, float]
-
-
-class OptimizeMeta(TypedDict):
-    method: str
-    solver: str
-    iterations: int | None
+# FrontierPoint uses the spec §4.1.1 keys literally: "return", "vol", "weights".
+# We use the functional TypedDict syntax because `return` is a Python reserved
+# word and cannot be a class attribute. Callers emit these dicts directly as
+# JSON — no aliasing layer — which keeps serialization obvious.
+FrontierPoint = TypedDict(
+    "FrontierPoint",
+    {"return": float, "vol": float, "weights": dict[str, float]},
+)
 
 
 class OptimizeResult(TypedDict):
-    weights: dict[str, float]
+    """Response body for `POST /optimize` — matches spec §4.1.1 exactly.
+
+    `computed_at` and `elapsed_ms` are filled by the FastAPI endpoint wrapper
+    (Task 3.5), not by the optimizer functions. The math functions in this
+    module leave those fields empty/0 and the endpoint patches them in.
+    """
+
+    optimal_weights: dict[str, float]
     expected_return: float
     expected_volatility: float
     sharpe_ratio: float
-    frontier: list[dict]
-    meta: OptimizeMeta
+    frontier: list[FrontierPoint]
+    computed_at: str           # ISO 8601 UTC timestamp; set by endpoint wrapper
+    elapsed_ms: int            # wall-time of the call; set by endpoint wrapper
 
 
 def _build_returns_matrix(
@@ -1858,8 +1880,7 @@ def mean_variance(
                 details={"solver_status": prob.status, "method": "mean_variance"},
             )
         w_val = y.value / y.value.sum()
-        return _pack_result(symbols, w_val, mu, cov, risk_free_rate, "mean_variance",
-                            solver="CLARABEL", iterations=None)
+        return _pack_result(symbols, w_val, mu, cov, risk_free_rate)
 
     prob = cp.Problem(obj, cons)
     prob.solve(solver=cp.CLARABEL)
@@ -1868,8 +1889,7 @@ def mean_variance(
             f"Markowitz infeasible at target_return={target_return}: {prob.status}",
             details={"solver_status": prob.status, "target_return": target_return},
         )
-    return _pack_result(symbols, w.value, mu, cov, risk_free_rate,
-                        "mean_variance", solver="CLARABEL", iterations=None)
+    return _pack_result(symbols, w.value, mu, cov, risk_free_rate)
 
 
 def _pack_result(
@@ -1878,30 +1898,34 @@ def _pack_result(
     mu: np.ndarray,
     cov: np.ndarray,
     risk_free_rate: float,
-    method: str,
-    solver: str,
-    iterations: int | None,
 ) -> OptimizeResult:
+    """Assemble the spec §4.1.1 response.
+
+    `computed_at` and `elapsed_ms` are zero-valued here — the endpoint
+    wrapper (Task 3.5) overwrites them with real values before returning
+    to the client.
+    """
     w_val = np.asarray(w_val).flatten()
     # Clamp numerical dust and renormalize.
     w_val = np.where(np.abs(w_val) < 1e-9, 0.0, w_val)
-    s = w_val.sum()
-    if abs(s - 1.0) > 1e-3:
+    total = w_val.sum()
+    if abs(total - 1.0) > 1e-3:
         raise WeightsDoNotSumToOneError(
-            f"Solver returned weights summing to {s:.6f}",
-            details={"sum": float(s)},
+            f"Solver returned weights summing to {total:.6f}",
+            details={"sum": float(total)},
         )
-    w_val = w_val / s
+    w_val = w_val / total
     port_ret = float(mu @ w_val)
     port_vol = float(np.sqrt(w_val @ cov @ w_val))
     sharpe = (port_ret - risk_free_rate) / port_vol if port_vol > 0 else 0.0
     return {
-        "weights": {s: float(w) for s, w in zip(symbols, w_val)},
+        "optimal_weights": {sym: float(w) for sym, w in zip(symbols, w_val)},
         "expected_return": port_ret,
         "expected_volatility": port_vol,
         "sharpe_ratio": float(sharpe),
-        "frontier": [],
-        "meta": {"method": method, "solver": solver, "iterations": iterations},
+        "frontier": [],            # filled by endpoint if frontier_points > 0
+        "computed_at": "",         # filled by endpoint
+        "elapsed_ms": 0,           # filled by endpoint
     }
 ```
 
@@ -1939,7 +1963,7 @@ def test_risk_parity_equal_contribution(synth_returns) -> None:
     (approximately) equally to portfolio variance."""
     symbols = list(synth_returns.keys())
     result = risk_parity(symbols=symbols, returns=synth_returns, constraints=None)
-    w = np.array([result["weights"][s] for s in symbols])
+    w = np.array([result["optimal_weights"][s] for s in symbols])
 
     # Sanity: weights sum to 1, all positive (long-only default).
     assert abs(w.sum() - 1.0) < 1e-6
@@ -1955,7 +1979,6 @@ def test_risk_parity_equal_contribution(synth_returns) -> None:
     rc_normalized = rc / rc.sum()
     # Each of 5 assets should be ~0.2 of total risk; tolerance 5pp.
     assert np.allclose(rc_normalized, 0.2, atol=0.05)
-    assert result["meta"]["method"] == "risk_parity"
     assert result["frontier"] == []  # no frontier for risk-parity
 ```
 
@@ -2014,8 +2037,7 @@ def risk_parity(
             details={"method": "risk_parity"},
         )
     w_val = w_df.values.flatten()
-    return _pack_result(symbols, w_val, mu, cov, 0.0,
-                        "risk_parity", solver="riskfolio-MV", iterations=None)
+    return _pack_result(symbols, w_val, mu, cov, 0.0)
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**
@@ -2049,11 +2071,10 @@ from src.optimize import hrp
 def test_hrp_weights_valid(synth_returns) -> None:
     symbols = list(synth_returns.keys())
     result = hrp(symbols=symbols, returns=synth_returns, constraints=None)
-    w = np.array([result["weights"][s] for s in symbols])
+    w = np.array([result["optimal_weights"][s] for s in symbols])
     assert abs(w.sum() - 1.0) < 1e-6
     assert (w >= 0).all()
     assert (w <= 1).all()
-    assert result["meta"]["method"] == "hrp"
     assert result["frontier"] == []
 
 
@@ -2073,7 +2094,7 @@ def test_hrp_handles_high_correlation(rng) -> None:
     result = hrp(symbols=["CORR_1", "CORR_2", "INDEP"], returns=returns, constraints=None)
     # INDEP should get at least 40% since the cluster's combined risk
     # is dampened by HRP's recursive bisection.
-    assert result["weights"]["INDEP"] > 0.40
+    assert result["optimal_weights"]["INDEP"] > 0.40
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -2130,8 +2151,7 @@ def hrp(
         w_val = np.clip(w_val, lo, hi)
         w_val = w_val / w_val.sum()
 
-    return _pack_result(symbols, w_val, mu, cov, 0.0,
-                        "hrp", solver="riskfolio-HRP", iterations=None)
+    return _pack_result(symbols, w_val, mu, cov, 0.0)
 ```
 
 - [ ] **Step 4: Run the tests to verify they pass**
@@ -2175,7 +2195,7 @@ def test_efficient_frontier_monotone_tradeoff(synth_returns) -> None:
     )
     assert len(frontier) == 20
     rets = [p["return"] for p in frontier]
-    vols = [p["volatility"] for p in frontier]
+    vols = [p["vol"] for p in frontier]
     # Returns strictly increasing (within float noise)
     assert all(rets[i] < rets[i + 1] + 1e-9 for i in range(len(rets) - 1))
     # Volatilities non-decreasing within 1e-4 tolerance (convex frontier,
@@ -2202,9 +2222,10 @@ def efficient_frontier(
     returns: dict[str, list[float]],
     n_points: int = 20,
     constraints: Constraints | None = None,
-) -> list[dict]:
+) -> list[FrontierPoint]:
     """Sweep target returns between the global min-variance return and
-    the max-mean return. Returns a list of {return, volatility, weights}.
+    the max-mean return. Returns a list of FrontierPoint dicts with the
+    spec §4.1.1 keys `{"return", "vol", "weights"}`.
     """
     ret_mat = _build_returns_matrix(symbols, returns)
     mu, cov = _mu_and_cov(ret_mat)
@@ -2227,7 +2248,7 @@ def efficient_frontier(
         return []
 
     targets = np.linspace(r_min, r_max, n_points)
-    frontier: list[dict] = []
+    frontier: list[FrontierPoint] = []
     for t in targets:
         try:
             res = mean_variance(
@@ -2241,8 +2262,8 @@ def efficient_frontier(
             continue  # skip infeasible points silently
         frontier.append({
             "return": res["expected_return"],
-            "volatility": res["expected_volatility"],
-            "weights": res["weights"],
+            "vol": res["expected_volatility"],
+            "weights": res["optimal_weights"],
         })
     return frontier
 ```
@@ -2348,10 +2369,14 @@ Expected: FAIL — the Chunk 2 stub raises QuantError("Not implemented yet").
 In `src/api.py`, replace the stub body with:
 
 ```python
+import time
+from datetime import datetime, timezone
+
 from src import optimize as _optimize
 
 @app.post("/optimize")
 async def optimize_endpoint(req: OptimizeRequest) -> OptimizeResult:
+    t0 = time.perf_counter()
     if req.method == "mean_variance":
         result = _optimize.mean_variance(
             symbols=req.symbols,
@@ -2360,29 +2385,36 @@ async def optimize_endpoint(req: OptimizeRequest) -> OptimizeResult:
             risk_free_rate=req.risk_free_rate or 0.0,
             constraints=req.constraints,
         )
-        # Attach frontier only when explicitly requested.
-        if req.include_frontier:
+        # Attach frontier only when `frontier_points > 0` (spec §4.1.1).
+        if req.frontier_points > 0:
             result["frontier"] = _optimize.efficient_frontier(
                 symbols=req.symbols,
                 returns=req.returns,
-                n_points=20,
+                n_points=req.frontier_points,
                 constraints=req.constraints,
             )
-        return result
-    if req.method == "risk_parity":
-        return _optimize.risk_parity(
+        else:
+            result["frontier"] = []
+    elif req.method == "risk_parity":
+        result = _optimize.risk_parity(
             symbols=req.symbols,
             returns=req.returns,
             constraints=req.constraints,
         )
-    if req.method == "hrp":
-        return _optimize.hrp(
+    elif req.method == "hrp":
+        result = _optimize.hrp(
             symbols=req.symbols,
             returns=req.returns,
             constraints=req.constraints,
         )
-    # schemas.py validator should have caught unknown methods, but guard anyway:
-    raise ValidationError(f"Unknown optimization method: {req.method}")
+    else:
+        # schemas.py validator should have caught unknown methods, but guard anyway:
+        raise ValidationError(f"Unknown optimization method: {req.method}")
+
+    # Populate endpoint-owned fields per spec §4.1.1.
+    result["computed_at"] = datetime.now(timezone.utc).isoformat()
+    result["elapsed_ms"] = int((time.perf_counter() - t0) * 1000)
+    return result
 ```
 
 - [ ] **Step 4: Run tests to verify pass**
@@ -2397,7 +2429,8 @@ git add quant-service/src/api.py quant-service/tests/test_api.py
 git commit -m "feat(quant): wire /optimize endpoint to optimize.py
 
 Dispatches on method ∈ {mean_variance, risk_parity, hrp}. Frontier
-returned only when include_frontier=true (keeps p50 payload small)."
+returned only when frontier_points > 0 (keeps p50 payload small).
+Endpoint populates computed_at + elapsed_ms per spec §4.1.1."
 ```
 
 ### Task 3.6: Property tests (Hypothesis) for optimizer invariants
@@ -2432,7 +2465,7 @@ def test_markowitz_weights_always_sum_to_one(
     except (CovarianceNotPositiveDefiniteError, InfeasibleError):
         # Acceptable — our guard raised cleanly. Property: never crash.
         return
-    weights_sum = sum(result["weights"].values())
+    weights_sum = sum(result["optimal_weights"].values())
     assert abs(weights_sum - 1.0) < 1e-6, f"sum = {weights_sum}"
 
 
@@ -2459,7 +2492,7 @@ def test_markowitz_respects_max_weight_constraint(
                                target_return=None, risk_free_rate=0.0, constraints=cons)
     except (CovarianceNotPositiveDefiniteError, InfeasibleError):
         return
-    for sym, w in result["weights"].items():
+    for sym, w in result["optimal_weights"].items():
         assert w <= max_w + 1e-5, f"{sym} weight {w} exceeds max_w {max_w}"
 ```
 
@@ -2487,9 +2520,39 @@ Both properties must hold even when solver raises — property is 'never crash'.
 
 **Design contracts (frozen in spec §4.1.2 – §4.1.4):**
 
-- **Monte Carlo (`/monte-carlo`):** GBM simulation of portfolio value over `horizon_days` with `n_simulations` paths. Returns percentile trajectories (p5/p25/p50/p75/p95), terminal-value distribution, VaR and CVaR at the requested confidence level.
-- **Factors (`/factors`):** OLS regression of portfolio excess returns on Fama-French 5-factor + momentum (MKT, SMB, HML, RMW, CMA, MOM). Returns betas, alpha (annualized), R², t-stats, factor contributions to total return.
-- **Rebalance (`/rebalance`):** Greedy integer-share allocation from current weights to target weights, minimizing tracking error subject to a cash constraint and per-trade transaction costs. Returns an ordered list of `{symbol, action: "buy"|"sell", shares, estimated_cost}`.
+- **Monte Carlo (`/monte-carlo`, spec §4.1.2):** GBM simulation of portfolio value over `horizon_days` with `n_simulations` paths. Inputs are `current_value`, `weights`, `expected_returns` (annualized per asset), `covariance` (annualized N×N matrix). Response:
+  ```
+  {
+      "trajectories": {"p5": [...], "p50": [...], "p95": [...]},  # length horizon_days+1
+      "final_distribution": {"mean": float, "std": float, "var_95": float, "cvar_95": float},
+      "probability_loss": float,   # P(terminal < current_value)
+      "elapsed_ms": int            # populated by endpoint
+  }
+  ```
+- **Factors (`/factors`, spec §4.1.3):** OLS regression of portfolio excess returns on Fama-French 5 + momentum (MKT, SMB, HML, RMW, CMA, MOM). Response:
+  ```
+  {
+      "loadings": {"MKT": float, ...},          # all 6 factors
+      "alpha": float,                            # daily (matches spec §4.1.3 example 0.0008)
+      "alpha_t_stat": float,
+      "r_squared": float,
+      "interpretation": {
+          "tilt": "growth" | "value" | "neutral",
+          "size_bias": "large_cap" | "small_cap" | "neutral",
+          "quality": "high" | "low" | "neutral"
+      }
+  }
+  ```
+- **Rebalance (`/rebalance`, spec §4.1.4):** Greedy integer-share allocation from current holdings to target weights under a cash constraint, with per-trade minimum value and basis-point transaction costs. Response:
+  ```
+  {
+      "trades": [{"symbol": str, "action": "buy"|"sell", "shares": int, "estimated_cost": float, "post_weight": float}],
+      "total_turnover": float,          # Σ |shares * price| across all trades
+      "estimated_costs": float,         # Σ fees (transaction_cost_bps * gross / 10000)
+      "drift_before": float,            # L1 weight distance to target BEFORE trades
+      "drift_after": float              # L1 weight distance to target AFTER trades
+  }
+  ```
 
 ### Task 4.1: Monte Carlo simulation (GBM + VaR/CVaR)
 
@@ -2501,69 +2564,81 @@ Both properties must hold even when solver raises — property is 'never crash'.
 
 ```python
 # quant-service/tests/test_monte_carlo.py
-"""Tests for Monte Carlo GBM simulation."""
+"""Tests for Monte Carlo GBM simulation. Response shape frozen in spec §4.1.2."""
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from src.errors import InsufficientHistoryError, MonteCarloDegenerateError
+from src.errors import MonteCarloDegenerateError
 from src.monte_carlo import simulate
 
 
-def test_gbm_mean_terminal_value_matches_analytic(rng) -> None:
+def test_gbm_mean_terminal_matches_analytic() -> None:
     """For GBM with drift μ and vol σ, E[S_T] = S_0 · exp(μT).
-    Simulation mean should match within Monte Carlo error (≈ σ/√N)."""
+    Portfolio with annual μ = 0.08, σ = 0.15 → analytic E[S_T] ≈ S_0·exp(0.08) ≈ 108_328.
+    Simulation mean should match within Monte Carlo error."""
     symbols = ["A", "B"]
     weights = {"A": 0.5, "B": 0.5}
-    # Synthesize 2 assets with known μ=0.08 annualized, σ=0.15 annualized.
-    daily_mu = 0.08 / 252
-    daily_sigma = 0.15 / np.sqrt(252)
-    n_days = 1000
-    returns = {
-        "A": rng.normal(daily_mu, daily_sigma, n_days).tolist(),
-        "B": rng.normal(daily_mu, daily_sigma, n_days).tolist(),
-    }
+    # Construct annualized inputs directly (spec §4.1.2 signature).
+    expected_returns = {"A": 0.08, "B": 0.08}
+    # Uncorrelated, each σ = 0.15 annualized → diagonal covariance = 0.0225.
+    covariance = [[0.0225, 0.0], [0.0, 0.0225]]
     result = simulate(
-        symbols=symbols,
-        returns=returns,
+        current_value=100_000.0,
         weights=weights,
-        initial_value=100_000.0,
+        expected_returns=expected_returns,
+        covariance=covariance,
         horizon_days=252,
         n_simulations=5_000,
-        confidence_level=0.95,
+        percentiles=[5, 25, 50, 75, 95],
         seed=123,
     )
-    # Analytic: E[S_T] ≈ S_0 · exp(0.08 · 1) = 108_328.7
-    mean_terminal = np.mean(result["terminal_values"])
+    # Spec §4.1.2: response has `final_distribution.mean`, not `terminal_values`.
+    mean_terminal = result["final_distribution"]["mean"]
     assert 104_000 < mean_terminal < 113_000, f"got mean = {mean_terminal}"
-    # Percentile trajectories: p50 should end near analytic median.
-    p50_terminal = result["percentiles"]["p50"][-1]
+    # Trajectories: spec keys are only p5/p50/p95 (regardless of input percentiles).
+    assert set(result["trajectories"].keys()) == {"p5", "p50", "p95"}
+    p50_terminal = result["trajectories"]["p50"][-1]
     assert 95_000 < p50_terminal < 115_000
-    # VaR at 95% should be positive (loss amount).
-    assert result["var_95"] > 0
-    assert result["cvar_95"] >= result["var_95"]  # CVaR ≥ VaR by definition
+    # VaR / CVaR are dollar losses at 95% level.
+    assert result["final_distribution"]["var_95"] > 0
+    assert result["final_distribution"]["cvar_95"] >= result["final_distribution"]["var_95"]
+    # probability_loss ∈ [0, 1].
+    assert 0.0 <= result["probability_loss"] <= 1.0
+    # `elapsed_ms` is populated by the endpoint wrapper — not by the library.
+    assert "elapsed_ms" not in result
 
 
-def test_mc_rejects_zero_simulations() -> None:
-    with pytest.raises(Exception):  # Pydantic validator catches before we get here
-        simulate(symbols=["A"], returns={"A": [0.01]},
-                 weights={"A": 1.0}, initial_value=1000,
-                 horizon_days=30, n_simulations=0, confidence_level=0.95, seed=1)
+def test_mc_trajectories_length_equals_horizon_plus_one() -> None:
+    """Each trajectory array has horizon_days + 1 points (including S_0)."""
+    result = simulate(
+        current_value=50_000.0,
+        weights={"A": 1.0},
+        expected_returns={"A": 0.10},
+        covariance=[[0.04]],
+        horizon_days=30,
+        n_simulations=500,
+        percentiles=[5, 25, 50, 75, 95],
+        seed=1,
+    )
+    for key in ("p5", "p50", "p95"):
+        assert len(result["trajectories"][key]) == 31
+        # First element = S_0 by construction.
+        assert result["trajectories"][key][0] == pytest.approx(50_000.0, abs=1e-6)
 
 
-def test_mc_degenerate_zero_variance(rng) -> None:
-    """All-zero daily returns → zero volatility → degenerate paths."""
-    returns = {"A": [0.0] * 500, "B": [0.0] * 500}
+def test_mc_degenerate_zero_variance() -> None:
+    """Zero covariance → zero portfolio volatility → degenerate."""
     with pytest.raises(MonteCarloDegenerateError):
         simulate(
-            symbols=["A", "B"],
-            returns=returns,
+            current_value=100_000.0,
             weights={"A": 0.5, "B": 0.5},
-            initial_value=100_000.0,
+            expected_returns={"A": 0.08, "B": 0.08},
+            covariance=[[0.0, 0.0], [0.0, 0.0]],  # degenerate
             horizon_days=252,
             n_simulations=1000,
-            confidence_level=0.95,
+            percentiles=[5, 50, 95],
             seed=1,
         )
 ```
@@ -2577,104 +2652,126 @@ Expected: `ImportError: cannot import name 'simulate' from 'src.monte_carlo'`
 
 ```python
 # quant-service/src/monte_carlo.py
-"""Geometric Brownian Motion Monte Carlo simulation."""
+"""Geometric Brownian Motion Monte Carlo simulation.
+
+Signature and response shape match spec §4.1.2 exactly. `elapsed_ms` is
+populated by the endpoint wrapper (not by this library) so the library
+stays pure/deterministic.
+"""
 from __future__ import annotations
 
 from typing import TypedDict
 
 import numpy as np
 
-from src.errors import (
-    InsufficientHistoryError,
-    MonteCarloDegenerateError,
-)
+from src.errors import MonteCarloDegenerateError
 
 _ANN = 252
-_MIN_HISTORY_DAYS = 60
+
+
+class FinalDistribution(TypedDict):
+    mean: float
+    std: float
+    var_95: float   # dollar amount of loss at 95% confidence
+    cvar_95: float  # expected loss conditional on exceeding var_95
+
+
+class Trajectories(TypedDict):
+    p5: list[float]
+    p50: list[float]
+    p95: list[float]
 
 
 class MonteCarloResult(TypedDict):
-    percentiles: dict[str, list[float]]  # p5, p25, p50, p75, p95 → list of length horizon_days+1
-    terminal_values: list[float]          # length n_simulations
-    var_95: float                         # dollar amount of loss at confidence_level
-    cvar_95: float                        # expected loss conditional on exceeding VaR
-    mean_terminal: float
-    meta: dict
+    trajectories: Trajectories
+    final_distribution: FinalDistribution
+    probability_loss: float
 
 
 def simulate(
-    symbols: list[str],
-    returns: dict[str, list[float]],
+    current_value: float,
     weights: dict[str, float],
-    initial_value: float,
+    expected_returns: dict[str, float],
+    covariance: list[list[float]],
     horizon_days: int,
     n_simulations: int,
-    confidence_level: float = 0.95,
+    percentiles: list[int] | None = None,
     seed: int | None = None,
 ) -> MonteCarloResult:
+    """Simulate portfolio value via univariate GBM on the portfolio return.
+
+    Derives portfolio drift μ_p = wᵀ μ and variance σ_p² = wᵀ Σ w from
+    the caller-provided annualized mean vector and annualized covariance,
+    then runs GBM on the scalar portfolio value. This is cheaper and
+    more numerically stable than simulating each asset separately and
+    is standard for risk/VaR applications when only portfolio-level
+    percentiles are reported.
+    """
+    if percentiles is None:
+        percentiles = [5, 25, 50, 75, 95]
+    symbols = sorted(weights.keys())
+    if set(expected_returns.keys()) != set(symbols):
+        raise ValueError("weights and expected_returns must share symbols")
     w = np.array([weights[s] for s in symbols], dtype=float)
     if abs(w.sum() - 1.0) > 1e-3:
         raise ValueError(f"weights sum to {w.sum()}, expected 1.0")
-
-    # Stack returns; align on shortest tail.
-    cols = [np.asarray(returns[s], dtype=float) for s in symbols]
-    n_days = min(len(c) for c in cols)
-    if n_days < _MIN_HISTORY_DAYS:
-        raise InsufficientHistoryError(
-            f"Need at least {_MIN_HISTORY_DAYS} days of history; got {n_days}",
-            details={"min_required": _MIN_HISTORY_DAYS, "provided": n_days},
+    mu_vec = np.array([expected_returns[s] for s in symbols], dtype=float)
+    Sigma = np.asarray(covariance, dtype=float)
+    if Sigma.shape != (len(symbols), len(symbols)):
+        raise ValueError(
+            f"covariance shape {Sigma.shape} does not match {len(symbols)}×{len(symbols)}"
         )
-    ret_mat = np.column_stack([c[-n_days:] for c in cols])
 
-    # Portfolio-level daily log-returns from weighted sum.
-    port_returns = ret_mat @ w
-    mu = port_returns.mean()
-    sigma = port_returns.std(ddof=1)
-    if sigma < 1e-9:
+    # Portfolio-level annualized drift and variance.
+    mu_p_ann = float(w @ mu_vec)
+    var_p_ann = float(w @ Sigma @ w)
+    if var_p_ann <= 1e-12:
         raise MonteCarloDegenerateError(
-            "Portfolio volatility is zero; Monte Carlo is degenerate",
-            details={"sigma": float(sigma)},
+            "Portfolio variance is zero; Monte Carlo is degenerate",
+            details={"variance": var_p_ann},
         )
+    sigma_p_ann = np.sqrt(var_p_ann)
+
+    # Convert to daily parameters.
+    mu_d = mu_p_ann / _ANN
+    sigma_d = sigma_p_ann / np.sqrt(_ANN)
 
     rng = np.random.default_rng(seed)
-    # GBM: S_{t+1} = S_t · exp((μ − σ²/2) + σ · Z)
-    dt_mu = mu - 0.5 * sigma**2
+    # GBM: S_{t+1} = S_t · exp((μ − σ²/2)·Δt + σ·√Δt·Z). Δt = 1 day.
+    drift_d = mu_d - 0.5 * sigma_d**2
     shocks = rng.normal(0.0, 1.0, size=(horizon_days, n_simulations))
-    log_returns = dt_mu + sigma * shocks
-    cum_log = np.cumsum(log_returns, axis=0)
-    # Prepend zero row for initial value S_0.
+    log_step = drift_d + sigma_d * shocks
+    cum_log = np.cumsum(log_step, axis=0)
     cum_log = np.vstack([np.zeros((1, n_simulations)), cum_log])
-    paths = initial_value * np.exp(cum_log)  # shape (horizon_days+1, n_simulations)
+    paths = current_value * np.exp(cum_log)  # (horizon_days+1, n_simulations)
 
-    percentiles = {
+    # Spec §4.1.2: trajectories has ONLY p5/p50/p95 keys regardless of input.
+    trajectories: Trajectories = {
         "p5": np.percentile(paths, 5, axis=1).tolist(),
-        "p25": np.percentile(paths, 25, axis=1).tolist(),
         "p50": np.percentile(paths, 50, axis=1).tolist(),
-        "p75": np.percentile(paths, 75, axis=1).tolist(),
         "p95": np.percentile(paths, 95, axis=1).tolist(),
     }
+
     terminal = paths[-1, :]
-    # VaR: loss at the (1 − α) quantile of the P/L distribution.
-    pnl = terminal - initial_value
-    alpha = 1.0 - confidence_level
-    var_threshold = np.percentile(pnl, alpha * 100)  # negative = loss
-    var_dollars = float(max(-var_threshold, 0.0))
-    cvar_dollars = float(max(-pnl[pnl <= var_threshold].mean(), 0.0)) if (pnl <= var_threshold).any() else var_dollars
+    pnl = terminal - current_value
+    # VaR/CVaR at fixed 95% level (spec uses literal key names var_95/cvar_95).
+    var_threshold = np.percentile(pnl, 5.0)  # 5th percentile of P/L
+    var_95 = float(max(-var_threshold, 0.0))
+    tail_mask = pnl <= var_threshold
+    cvar_95 = float(max(-pnl[tail_mask].mean(), 0.0)) if tail_mask.any() else var_95
+
+    final_distribution: FinalDistribution = {
+        "mean": float(terminal.mean()),
+        "std": float(terminal.std(ddof=1)),
+        "var_95": var_95,
+        "cvar_95": cvar_95,
+    }
+    prob_loss = float((terminal < current_value).mean())
 
     return {
-        "percentiles": percentiles,
-        "terminal_values": terminal.tolist(),
-        "var_95": var_dollars,
-        "cvar_95": cvar_dollars,
-        "mean_terminal": float(terminal.mean()),
-        "meta": {
-            "n_simulations": n_simulations,
-            "horizon_days": horizon_days,
-            "confidence_level": confidence_level,
-            "seed": seed,
-            "drift_daily": float(mu),
-            "vol_daily": float(sigma),
-        },
+        "trajectories": trajectories,
+        "final_distribution": final_distribution,
+        "probability_loss": prob_loss,
     }
 ```
 
@@ -2689,10 +2786,11 @@ Expected: all 3 tests PASS.
 git add quant-service/src/monte_carlo.py quant-service/tests/test_monte_carlo.py
 git commit -m "feat(quant): GBM Monte Carlo simulation with VaR/CVaR
 
-Portfolio-level GBM from weighted daily returns, p5/p25/p50/p75/p95
-trajectories, VaR and CVaR at requested confidence. Raises
-MonteCarloDegenerateError on zero-vol portfolio; InsufficientHistoryError
-when n_days < 60."
+Response shape frozen in spec §4.1.2: trajectories (p5/p50/p95) +
+final_distribution (mean/std/var_95/cvar_95) + probability_loss.
+Driven by annualized (μ, Σ), reduced to univariate portfolio GBM.
+Raises MonteCarloDegenerateError on zero-variance portfolio.
+elapsed_ms populated by endpoint wrapper, not the library."
 ```
 
 ### Task 4.2: Factor regression (Fama-French 5 + MOM)
@@ -2705,7 +2803,7 @@ when n_days < 60."
 
 ```python
 # quant-service/tests/test_factors.py
-"""Tests for factor regression."""
+"""Tests for factor regression. Response shape frozen in spec §4.1.3."""
 from __future__ import annotations
 
 import numpy as np
@@ -2715,9 +2813,9 @@ from src.errors import DimensionMismatchError, InsufficientHistoryError
 from src.factors import regress
 
 
-def test_factor_regression_recovers_known_betas(rng) -> None:
+def test_factor_regression_recovers_known_loadings(rng) -> None:
     """Synthesize portfolio returns as a known linear combination of factors,
-    then check that regression recovers the betas."""
+    then check that regression recovers the loadings (spec calls them `loadings`)."""
     n = 500
     factors = {
         "MKT": rng.normal(0.0004, 0.01, n).tolist(),
@@ -2727,16 +2825,15 @@ def test_factor_regression_recovers_known_betas(rng) -> None:
         "CMA": rng.normal(0.0001, 0.005, n).tolist(),
         "MOM": rng.normal(0.0002, 0.006, n).tolist(),
     }
-    # True betas:
-    true_betas = {"MKT": 1.1, "SMB": 0.3, "HML": -0.2, "RMW": 0.0, "CMA": 0.0, "MOM": 0.15}
+    true_loadings = {"MKT": 1.1, "SMB": 0.3, "HML": -0.2, "RMW": 0.0, "CMA": 0.0, "MOM": 0.15}
     true_alpha = 0.0001  # daily
     noise = rng.normal(0, 0.001, n)
     port_returns = (
         true_alpha
-        + true_betas["MKT"] * np.array(factors["MKT"])
-        + true_betas["SMB"] * np.array(factors["SMB"])
-        + true_betas["HML"] * np.array(factors["HML"])
-        + true_betas["MOM"] * np.array(factors["MOM"])
+        + true_loadings["MKT"] * np.array(factors["MKT"])
+        + true_loadings["SMB"] * np.array(factors["SMB"])
+        + true_loadings["HML"] * np.array(factors["HML"])
+        + true_loadings["MOM"] * np.array(factors["MOM"])
         + noise
     ).tolist()
 
@@ -2745,13 +2842,19 @@ def test_factor_regression_recovers_known_betas(rng) -> None:
         factor_returns=factors,
         risk_free_rate_daily=0.0,
     )
-    # Tolerate ±0.1 beta recovery (small sample, noise).
-    for f, true_b in true_betas.items():
-        got = result["betas"][f]
-        assert abs(got - true_b) < 0.15, f"{f}: got {got}, expected {true_b}"
-    # R² should be > 0.95 given our low noise.
+    # Spec §4.1.3: key is `loadings`, not `betas`.
+    for f, true_load in true_loadings.items():
+        got = result["loadings"][f]
+        assert abs(got - true_load) < 0.15, f"{f}: got {got}, expected {true_load}"
     assert result["r_squared"] > 0.90
-    assert set(result["betas"].keys()) == {"MKT", "SMB", "HML", "RMW", "CMA", "MOM"}
+    assert set(result["loadings"].keys()) == {"MKT", "SMB", "HML", "RMW", "CMA", "MOM"}
+    # Spec requires scalar alpha_t_stat (not a map).
+    assert isinstance(result["alpha_t_stat"], float)
+    # Spec §4.1.3 interpretation fields.
+    interp = result["interpretation"]
+    assert interp["tilt"] in {"growth", "value", "neutral"}
+    assert interp["size_bias"] in {"large_cap", "small_cap", "neutral"}
+    assert interp["quality"] in {"high", "low", "neutral"}
 
 
 def test_factor_regression_rejects_mismatched_length() -> None:
@@ -2768,6 +2871,30 @@ def test_factor_regression_rejects_mismatched_length() -> None:
             },
             risk_free_rate_daily=0.0,
         )
+
+
+def test_factor_regression_interpretation_growth_large_high() -> None:
+    """Loadings HML=-0.5 (growth), SMB=-0.3 (large cap), RMW=+0.4 (high quality) →
+    interpretation {tilt:growth, size_bias:large_cap, quality:high}."""
+    rng = np.random.default_rng(42)
+    n = 400
+    factors = {
+        f: rng.normal(0.0002, 0.01, n).tolist()
+        for f in ["MKT", "SMB", "HML", "RMW", "CMA", "MOM"]
+    }
+    true_loadings = {"MKT": 1.0, "SMB": -0.30, "HML": -0.50, "RMW": 0.40, "CMA": 0.0, "MOM": 0.10}
+    port = np.zeros(n)
+    for f, b in true_loadings.items():
+        port += b * np.asarray(factors[f])
+    port += rng.normal(0, 0.0005, n)
+    result = regress(
+        portfolio_returns=port.tolist(),
+        factor_returns=factors,
+        risk_free_rate_daily=0.0,
+    )
+    assert result["interpretation"]["tilt"] == "growth"
+    assert result["interpretation"]["size_bias"] == "large_cap"
+    assert result["interpretation"]["quality"] == "high"
 ```
 
 - [ ] **Step 2: Run to verify fail**
@@ -2779,30 +2906,71 @@ Expected: `ImportError: cannot import name 'regress'`
 
 ```python
 # quant-service/src/factors.py
-"""OLS factor regression: portfolio excess return ~ Fama-French 5 + MOM."""
+"""OLS factor regression: portfolio excess return ~ Fama-French 5 + MOM.
+
+Response shape is frozen in spec §4.1.3:
+  { loadings, alpha, alpha_t_stat, r_squared, interpretation }
+
+Alpha is returned as a DAILY coefficient (matches spec example value 0.0008).
+"""
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 import numpy as np
-from scipy import stats
 
 from src.errors import DimensionMismatchError, InsufficientHistoryError
 from src.schemas import REQUIRED_FACTORS
 
 _MIN_HISTORY_DAYS = 60
-_ANN = 252
+
+
+class Interpretation(TypedDict):
+    tilt: Literal["growth", "value", "neutral"]
+    size_bias: Literal["large_cap", "small_cap", "neutral"]
+    quality: Literal["high", "low", "neutral"]
 
 
 class FactorsResult(TypedDict):
-    alpha: float               # annualized
-    alpha_tstat: float
-    betas: dict[str, float]
-    beta_tstats: dict[str, float]
+    loadings: dict[str, float]  # MKT / SMB / HML / RMW / CMA / MOM
+    alpha: float                 # DAILY (spec §4.1.3)
+    alpha_t_stat: float          # spec key, not `alpha_tstat`
     r_squared: float
-    adj_r_squared: float
-    factor_contributions: dict[str, float]  # annualized contribution to mean return
-    residual_vol: float                     # annualized
+    interpretation: Interpretation
+
+
+def _interpret(loadings: dict[str, float]) -> Interpretation:
+    """Heuristic translation of loadings into human-readable factor tilts.
+
+    Thresholds chosen conservatively (±0.25) so "neutral" is the default for
+    small exposures; adjust if we find users want more sensitive labels.
+    """
+    hml = loadings.get("HML", 0.0)
+    smb = loadings.get("SMB", 0.0)
+    rmw = loadings.get("RMW", 0.0)
+
+    if hml > 0.25:
+        tilt: Literal["growth", "value", "neutral"] = "value"
+    elif hml < -0.25:
+        tilt = "growth"
+    else:
+        tilt = "neutral"
+
+    if smb > 0.25:
+        size_bias: Literal["large_cap", "small_cap", "neutral"] = "small_cap"
+    elif smb < -0.25:
+        size_bias = "large_cap"
+    else:
+        size_bias = "neutral"
+
+    if rmw > 0.25:
+        quality: Literal["high", "low", "neutral"] = "high"
+    elif rmw < -0.25:
+        quality = "low"
+    else:
+        quality = "neutral"
+
+    return {"tilt": tilt, "size_bias": size_bias, "quality": quality}
 
 
 def regress(
@@ -2843,10 +3011,9 @@ def regress(
     sse = float(resid @ resid)
     sst = float(((y - y.mean()) ** 2).sum())
     r2 = 1.0 - sse / sst if sst > 0 else 0.0
-    k = X.shape[1]  # params
-    adj_r2 = 1.0 - (1.0 - r2) * (n - 1) / (n - k) if n - k > 0 else r2
+    k = X.shape[1]
 
-    # Standard errors and t-stats
+    # Standard errors and t-stats.
     sigma2 = sse / (n - k) if n - k > 0 else 0.0
     var_beta = sigma2 * np.diag(XtX_inv)
     se_beta = np.sqrt(np.maximum(var_beta, 0.0))
@@ -2854,27 +3021,14 @@ def regress(
                        where=se_beta > 0)
 
     alpha_daily = float(beta[0])
-    alpha_ann = alpha_daily * _ANN
-    betas = {f: float(beta[i + 1]) for i, f in enumerate(REQUIRED_FACTORS)}
-    beta_ts = {f: float(tstats[i + 1]) for i, f in enumerate(REQUIRED_FACTORS)}
-
-    factor_means_ann = {
-        f: float(np.asarray(factor_returns[f]).mean() * _ANN)
-        for f in REQUIRED_FACTORS
-    }
-    contributions = {f: betas[f] * factor_means_ann[f] for f in REQUIRED_FACTORS}
-
-    residual_vol_ann = float(np.std(resid, ddof=1) * np.sqrt(_ANN))
+    loadings = {f: float(beta[i + 1]) for i, f in enumerate(REQUIRED_FACTORS)}
 
     return {
-        "alpha": alpha_ann,
-        "alpha_tstat": float(tstats[0]),
-        "betas": betas,
-        "beta_tstats": beta_ts,
+        "loadings": loadings,
+        "alpha": alpha_daily,  # spec §4.1.3 returns DAILY alpha
+        "alpha_t_stat": float(tstats[0]),
         "r_squared": float(r2),
-        "adj_r_squared": float(adj_r2),
-        "factor_contributions": contributions,
-        "residual_vol": residual_vol_ann,
+        "interpretation": _interpret(loadings),
     }
 ```
 
@@ -2889,9 +3043,10 @@ Expected: both tests PASS.
 git add quant-service/src/factors.py quant-service/tests/test_factors.py
 git commit -m "feat(quant): OLS factor regression (Fama-French 5 + MOM)
 
-Returns annualized alpha, per-factor betas, t-stats, R², adjusted R²,
-factor contributions to mean return, and residual volatility. Validates
-all 6 required factors present and equal-length."
+Response shape per spec §4.1.3: loadings, alpha (daily),
+alpha_t_stat, r_squared, interpretation (tilt/size_bias/quality).
+Validates all 6 required factors present and equal-length.
+Interpretation heuristics use ±0.25 thresholds on HML/SMB/RMW."
 ```
 
 ### Task 4.3: Rebalance (greedy integer-share with costs)
@@ -2904,7 +3059,9 @@ all 6 required factors present and equal-length."
 
 ```python
 # quant-service/tests/test_rebalance.py
-"""Tests for rebalance.py (greedy integer-share allocator)."""
+"""Tests for rebalance.py (greedy integer-share allocator).
+Response shape frozen in spec §4.1.4.
+"""
 from __future__ import annotations
 
 import pytest
@@ -2912,32 +3069,34 @@ import pytest
 from src.rebalance import compute_trades
 
 
-def test_rebalance_simple_two_asset_increase() -> None:
+def test_rebalance_already_balanced_returns_empty() -> None:
     """Portfolio: 10 AAPL @ $150, 5 MSFT @ $300. Target: 50/50.
-    Current value = 1500 + 1500 = 3000. Target 1500 each (already balanced).
-    Trades should be empty or near-zero."""
+    Current value = 1500 + 1500 = 3000. Already balanced → no trades."""
     result = compute_trades(
         current_holdings={"AAPL": 10, "MSFT": 5},
-        prices={"AAPL": 150.0, "MSFT": 300.0},
+        current_prices={"AAPL": 150.0, "MSFT": 300.0},
         target_weights={"AAPL": 0.5, "MSFT": 0.5},
         cash_available=0.0,
+        min_trade_value=100.0,
         transaction_cost_bps=5.0,
     )
     total_abs_shares = sum(abs(t["shares"]) for t in result["trades"])
-    assert total_abs_shares == 0  # already balanced
+    assert total_abs_shares == 0
+    # Spec §4.1.4: drift_before should already be near zero.
+    assert result["drift_before"] < 0.02
+    assert result["drift_after"] < 0.02
+    assert result["total_turnover"] == pytest.approx(0.0)
 
 
-def test_rebalance_buy_more_of_underweight() -> None:
+def test_rebalance_buys_underweight_sells_overweight() -> None:
     """Portfolio: 10 AAPL @ $100, 0 MSFT @ $200. Target: 50/50.
-    Need to buy MSFT to balance.
-    Current value = 1000 (all AAPL). Target: $500 each, which is 5 AAPL + 2.5 MSFT.
-    With integer constraint: buy 2 MSFT ($400) + sell 4 AAPL ($400).
-    Use cash_available=0 (must self-finance)."""
+    Must sell AAPL to finance MSFT buy. drift_after < drift_before."""
     result = compute_trades(
         current_holdings={"AAPL": 10, "MSFT": 0},
-        prices={"AAPL": 100.0, "MSFT": 200.0},
+        current_prices={"AAPL": 100.0, "MSFT": 200.0},
         target_weights={"AAPL": 0.5, "MSFT": 0.5},
         cash_available=0.0,
+        min_trade_value=100.0,
         transaction_cost_bps=5.0,
     )
     trades = {t["symbol"]: t for t in result["trades"]}
@@ -2945,23 +3104,47 @@ def test_rebalance_buy_more_of_underweight() -> None:
     assert trades["MSFT"]["shares"] > 0
     assert trades["AAPL"]["action"] == "sell"
     assert trades["AAPL"]["shares"] > 0
-    # Tracking error should be small after rebalance.
-    assert result["tracking_error"] < 0.15
+    # Spec §4.1.4: each trade carries its post-rebalance weight.
+    for t in result["trades"]:
+        assert 0.0 <= t["post_weight"] <= 1.0
+    # Drift must strictly decrease (that's the whole point).
+    assert result["drift_after"] < result["drift_before"]
 
 
 def test_rebalance_respects_cash_available() -> None:
-    """Cannot spend more than cash_available + proceeds from sells."""
+    """Buys cannot exceed cash_available + proceeds from sells."""
     result = compute_trades(
-        current_holdings={"AAPL": 0},
-        prices={"AAPL": 100.0, "MSFT": 200.0},
+        current_holdings={"AAPL": 0, "MSFT": 0},
+        current_prices={"AAPL": 100.0, "MSFT": 200.0},
         target_weights={"AAPL": 0.5, "MSFT": 0.5},
         cash_available=500.0,
+        min_trade_value=50.0,
         transaction_cost_bps=10.0,
     )
     total_buy_value = sum(
         t["estimated_cost"] for t in result["trades"] if t["action"] == "buy"
     )
     assert total_buy_value <= 500.0 + 1e-6
+    # total_turnover = Σ |shares * price| across ALL trades (buy + sell).
+    assert result["total_turnover"] >= 0.0
+    # estimated_costs is the total fees paid (bps * gross / 10_000).
+    assert result["estimated_costs"] >= 0.0
+
+
+def test_rebalance_min_trade_value_suppresses_dust() -> None:
+    """Min trade value rejects trades whose gross < min_trade_value."""
+    result = compute_trades(
+        current_holdings={"AAPL": 5},
+        current_prices={"AAPL": 100.0, "MSFT": 200.0},
+        # Target is almost identical; only tiny MSFT gap which should fall below min_trade_value.
+        target_weights={"AAPL": 0.99, "MSFT": 0.01},
+        cash_available=0.0,
+        min_trade_value=1000.0,  # block any trade smaller than $1k
+        transaction_cost_bps=5.0,
+    )
+    # With min_trade_value=$1000 and MSFT gap ≈ $5, we expect no MSFT trade.
+    msft_trades = [t for t in result["trades"] if t["symbol"] == "MSFT"]
+    assert all(t["estimated_cost"] >= 1000.0 for t in msft_trades)
 ```
 
 - [ ] **Step 2: Run to verify fail**
@@ -2973,126 +3156,159 @@ Expected: `ImportError: cannot import name 'compute_trades'`
 
 ```python
 # quant-service/src/rebalance.py
-"""Greedy integer-share rebalance allocator with transaction costs."""
+"""Greedy integer-share rebalance allocator with transaction costs.
+
+Response shape is frozen in spec §4.1.4:
+  { trades: [{symbol, action, shares, estimated_cost, post_weight}],
+    total_turnover, estimated_costs, drift_before, drift_after }
+"""
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 import numpy as np
 
 
 class Trade(TypedDict):
     symbol: str
-    action: str  # "buy" | "sell"
+    action: Literal["buy", "sell"]
     shares: int
-    estimated_cost: float  # includes transaction fees
+    estimated_cost: float   # for buys: gross + fee; for sells: fee only
+    post_weight: float      # symbol's share of post-rebalance portfolio value
 
 
 class RebalanceResult(TypedDict):
     trades: list[Trade]
-    tracking_error: float                # L2 norm of (achieved − target) weights
-    total_transaction_cost: float
-    final_cash: float
-    meta: dict
+    total_turnover: float     # Σ |shares * price| across all trades (gross notional)
+    estimated_costs: float    # Σ fees = bps * gross / 10_000
+    drift_before: float       # L1 weight distance: Σ |w_current - w_target|
+    drift_after: float        # L1 weight distance AFTER trades
+
+
+def _l1_drift(holdings: dict[str, int], prices: dict[str, float],
+              cash: float, target: dict[str, float]) -> float:
+    """L1 distance between actual and target weights on tradable value only.
+
+    Cash is excluded from the weight basis because `target_weights` describes
+    the target allocation of *invested* dollars. Using cash would penalize
+    us for holding the cash buffer that exists by design.
+    """
+    invested = sum(holdings[s] * prices[s] for s in target)
+    if invested <= 0:
+        return 1.0
+    drift = 0.0
+    for s in target:
+        w_actual = (holdings[s] * prices[s]) / invested
+        drift += abs(w_actual - target[s])
+    return float(drift)
 
 
 def compute_trades(
     current_holdings: dict[str, int],
-    prices: dict[str, float],
+    current_prices: dict[str, float],
     target_weights: dict[str, float],
     cash_available: float,
+    min_trade_value: float = 0.0,
     transaction_cost_bps: float = 5.0,
 ) -> RebalanceResult:
-    symbols = sorted(set(current_holdings) | set(target_weights) | set(prices))
+    symbols = sorted(set(current_holdings) | set(target_weights) | set(current_prices))
     holdings = {s: int(current_holdings.get(s, 0)) for s in symbols}
+    prices = {s: float(current_prices.get(s, 0.0)) for s in symbols}
     target = {s: float(target_weights.get(s, 0.0)) for s in symbols}
     t_sum = sum(target.values())
     if t_sum <= 0:
         raise ValueError("target_weights sum to zero")
     target = {s: v / t_sum for s, v in target.items()}  # renormalize
 
+    drift_before = _l1_drift(holdings, prices, cash_available, target)
+
     current_value = sum(holdings[s] * prices[s] for s in symbols)
     total_value = current_value + cash_available
     target_dollars = {s: total_value * target[s] for s in symbols}
 
-    # Step 1: sell overweights first (generates cash).
-    trades: list[Trade] = []
+    trades_list: list[Trade] = []
     cost_rate = transaction_cost_bps / 10_000.0
     cash = cash_available
+    total_turnover = 0.0
+    total_fees = 0.0
 
+    # Step 1: sell overweights first (generates cash).
     for s in symbols:
         current_dollars = holdings[s] * prices[s]
         delta_dollars = target_dollars[s] - current_dollars
-        if delta_dollars < -prices[s]:  # need to sell at least 1 share
-            shares_to_sell = int(np.floor(-delta_dollars / prices[s]))
-            shares_to_sell = min(shares_to_sell, holdings[s])
-            if shares_to_sell > 0:
-                gross = shares_to_sell * prices[s]
-                fee = gross * cost_rate
-                net = gross - fee
-                cash += net
-                holdings[s] -= shares_to_sell
-                trades.append({
-                    "symbol": s,
-                    "action": "sell",
-                    "shares": shares_to_sell,
-                    "estimated_cost": float(fee),  # cost = fee only (sells give cash)
-                })
+        if prices[s] <= 0 or delta_dollars >= -prices[s]:
+            continue
+        shares_to_sell = int(np.floor(-delta_dollars / prices[s]))
+        shares_to_sell = min(shares_to_sell, holdings[s])
+        if shares_to_sell <= 0:
+            continue
+        gross = shares_to_sell * prices[s]
+        if gross < min_trade_value:
+            continue
+        fee = gross * cost_rate
+        cash += (gross - fee)
+        holdings[s] -= shares_to_sell
+        total_turnover += gross
+        total_fees += fee
+        trades_list.append({
+            "symbol": s,
+            "action": "sell",
+            "shares": shares_to_sell,
+            "estimated_cost": float(fee),  # for sells, `estimated_cost` = fee only
+            "post_weight": 0.0,             # patched after all trades processed
+        })
 
     # Step 2: buy underweights in descending order of (target − current) gap.
-    gaps = []
+    gaps: list[tuple[float, str]] = []
     for s in symbols:
         current_dollars = holdings[s] * prices[s]
         gap = target_dollars[s] - current_dollars
-        if gap >= prices[s]:  # can afford at least 1 share
+        if gap >= prices[s] and prices[s] > 0:
             gaps.append((gap, s))
     gaps.sort(reverse=True)
 
     for _, s in gaps:
-        # Max shares we can afford given remaining cash (include fee).
         per_share_total = prices[s] * (1 + cost_rate)
         max_affordable = int(np.floor(cash / per_share_total))
         if max_affordable <= 0:
             continue
-        # Don't overshoot target.
         current_dollars = holdings[s] * prices[s]
         target_shares = (target_dollars[s] - current_dollars) / prices[s]
         shares_to_buy = int(min(max_affordable, np.floor(target_shares)))
         if shares_to_buy <= 0:
             continue
         gross = shares_to_buy * prices[s]
+        if gross < min_trade_value:
+            continue
         fee = gross * cost_rate
         cash -= (gross + fee)
         holdings[s] += shares_to_buy
-        trades.append({
+        total_turnover += gross
+        total_fees += fee
+        trades_list.append({
             "symbol": s,
             "action": "buy",
             "shares": shares_to_buy,
             "estimated_cost": float(gross + fee),
+            "post_weight": 0.0,  # patched below
         })
 
-    # Tracking error after trades.
-    final_value = sum(holdings[s] * prices[s] for s in symbols) + cash
-    achieved_weights = np.array([
-        holdings[s] * prices[s] / final_value if final_value > 0 else 0.0
-        for s in symbols
-    ])
-    target_arr = np.array([target[s] for s in symbols])
-    tracking_error = float(np.linalg.norm(achieved_weights - target_arr))
+    # Compute post-trade weights and patch each Trade row.
+    invested_after = sum(holdings[s] * prices[s] for s in target)
+    for t in trades_list:
+        if invested_after > 0:
+            t["post_weight"] = float(holdings[t["symbol"]] * prices[t["symbol"]] / invested_after)
+        else:
+            t["post_weight"] = 0.0
 
-    total_cost = sum(t["estimated_cost"] for t in trades if t["action"] == "buy") + \
-                 sum(t["estimated_cost"] for t in trades if t["action"] == "sell")
+    drift_after = _l1_drift(holdings, prices, cash, target)
 
     return {
-        "trades": trades,
-        "tracking_error": tracking_error,
-        "total_transaction_cost": float(total_cost),
-        "final_cash": float(cash),
-        "meta": {
-            "total_value": float(total_value),
-            "transaction_cost_bps": transaction_cost_bps,
-            "n_symbols": len(symbols),
-        },
+        "trades": trades_list,
+        "total_turnover": float(total_turnover),
+        "estimated_costs": float(total_fees),
+        "drift_before": float(drift_before),
+        "drift_after": float(drift_after),
     }
 ```
 
@@ -3107,9 +3323,11 @@ Expected: all 3 tests PASS.
 git add quant-service/src/rebalance.py quant-service/tests/test_rebalance.py
 git commit -m "feat(quant): greedy integer-share rebalance allocator
 
+Response shape frozen in spec §4.1.4: trades[] with post_weight,
+total_turnover, estimated_costs, drift_before, drift_after.
 Two-pass: sell overweights (generate cash), buy underweights by
 gap-size desc. Integer shares. Transaction cost charged in bps.
-Returns tracking error as L2 weight deviation from target."
+min_trade_value suppresses dust trades."
 ```
 
 ### Task 4.4: Wire `/monte-carlo`, `/factors`, `/rebalance` endpoints
@@ -3123,33 +3341,38 @@ Returns tracking error as L2 weight deviation from target."
 Append to `tests/test_api.py`:
 
 ```python
-def test_monte_carlo_endpoint_returns_valid_shape(
-    client: TestClient, synth_returns, hmac_key, sign
+def test_monte_carlo_endpoint_returns_spec_shape(
+    client: TestClient, hmac_key, sign
 ) -> None:
+    """Spec §4.1.2 response keys: trajectories / final_distribution / probability_loss / elapsed_ms."""
     body = json.dumps({
-        "symbols": list(synth_returns.keys()),
-        "returns": synth_returns,
-        "weights": {s: 0.2 for s in synth_returns},  # equal weight 5 assets
-        "initial_value": 100_000.0,
+        "current_value": 100_000.0,
+        "weights": {"A": 0.5, "B": 0.5},
+        "expected_returns": {"A": 0.08, "B": 0.08},
+        "covariance": [[0.0225, 0.0], [0.0, 0.0225]],
         "horizon_days": 30,
         "n_simulations": 500,
-        "confidence_level": 0.95,
-        "seed": 42,
+        "percentiles": [5, 25, 50, 75, 95],
     }).encode()
     headers = sign(body, hmac_key)
     resp = client.post("/monte-carlo", content=body, headers=headers)
     assert resp.status_code == 200, resp.text
     data = resp.json()
-    assert set(data["percentiles"].keys()) == {"p5", "p25", "p50", "p75", "p95"}
-    assert len(data["percentiles"]["p50"]) == 31  # horizon + 1
-    assert len(data["terminal_values"]) == 500
-    assert data["var_95"] >= 0
-    assert data["cvar_95"] >= data["var_95"]
+    assert set(data["trajectories"].keys()) == {"p5", "p50", "p95"}
+    assert len(data["trajectories"]["p50"]) == 31  # horizon + 1
+    fd = data["final_distribution"]
+    assert set(fd.keys()) == {"mean", "std", "var_95", "cvar_95"}
+    assert fd["var_95"] >= 0
+    assert fd["cvar_95"] >= fd["var_95"]
+    assert 0.0 <= data["probability_loss"] <= 1.0
+    # elapsed_ms is endpoint-populated (not in library result).
+    assert isinstance(data["elapsed_ms"], int) and data["elapsed_ms"] >= 0
 
 
-def test_factors_endpoint_returns_all_betas(
+def test_factors_endpoint_returns_spec_shape(
     client: TestClient, rng, hmac_key, sign
 ) -> None:
+    """Spec §4.1.3 response keys: loadings / alpha / alpha_t_stat / r_squared / interpretation."""
     n = 252
     factors_data = {
         f: rng.normal(0.0002, 0.008, n).tolist()
@@ -3165,27 +3388,75 @@ def test_factors_endpoint_returns_all_betas(
     resp = client.post("/factors", content=body, headers=headers)
     assert resp.status_code == 200, resp.text
     data = resp.json()
-    assert set(data["betas"].keys()) == {"MKT", "SMB", "HML", "RMW", "CMA", "MOM"}
+    assert set(data["loadings"].keys()) == {"MKT", "SMB", "HML", "RMW", "CMA", "MOM"}
     assert 0.0 <= data["r_squared"] <= 1.0
+    assert isinstance(data["alpha"], float)
+    assert isinstance(data["alpha_t_stat"], float)
+    interp = data["interpretation"]
+    assert interp["tilt"] in {"growth", "value", "neutral"}
+    assert interp["size_bias"] in {"large_cap", "small_cap", "neutral"}
+    assert interp["quality"] in {"high", "low", "neutral"}
 
 
-def test_rebalance_endpoint_returns_trades(
+def test_rebalance_endpoint_returns_spec_shape(
     client: TestClient, hmac_key, sign
 ) -> None:
+    """Spec §4.1.4 response keys: trades / total_turnover / estimated_costs / drift_before / drift_after."""
     body = json.dumps({
         "current_holdings": {"AAPL": 10, "MSFT": 0},
-        "prices": {"AAPL": 100.0, "MSFT": 200.0},
+        "current_prices": {"AAPL": 100.0, "MSFT": 200.0},
         "target_weights": {"AAPL": 0.5, "MSFT": 0.5},
         "cash_available": 0.0,
+        "min_trade_value": 100.0,
         "transaction_cost_bps": 5.0,
     }).encode()
     headers = sign(body, hmac_key)
     resp = client.post("/rebalance", content=body, headers=headers)
     assert resp.status_code == 200, resp.text
     data = resp.json()
-    assert "trades" in data
-    assert "tracking_error" in data
-    assert all(t["action"] in {"buy", "sell"} for t in data["trades"])
+    assert set(data.keys()) == {
+        "trades", "total_turnover", "estimated_costs", "drift_before", "drift_after"
+    }
+    for t in data["trades"]:
+        assert set(t.keys()) == {"symbol", "action", "shares", "estimated_cost", "post_weight"}
+        assert t["action"] in {"buy", "sell"}
+    assert data["drift_after"] <= data["drift_before"] + 1e-9
+
+
+def test_endpoint_rejects_missing_hmac_with_401(client: TestClient) -> None:
+    """All four quant endpoints must reject unsigned requests with 401 / HMAC_INVALID."""
+    body = json.dumps({
+        "current_value": 1000,
+        "weights": {"A": 1.0},
+        "expected_returns": {"A": 0.1},
+        "covariance": [[0.01]],
+        "horizon_days": 10,
+        "n_simulations": 100,
+        "percentiles": [5, 50, 95],
+    }).encode()
+    # NO X-Signature header.
+    resp = client.post("/monte-carlo", content=body)
+    assert resp.status_code == 401
+    env = resp.json()
+    assert env["error"]["code"] in {"HMAC_INVALID", "HMAC_MISSING"}
+
+
+def test_endpoint_returns_422_on_infeasible(client: TestClient, hmac_key, sign) -> None:
+    """Degenerate Monte Carlo (zero covariance) → 422 MONTE_CARLO_DEGENERATE."""
+    body = json.dumps({
+        "current_value": 100_000.0,
+        "weights": {"A": 0.5, "B": 0.5},
+        "expected_returns": {"A": 0.08, "B": 0.08},
+        "covariance": [[0.0, 0.0], [0.0, 0.0]],
+        "horizon_days": 30,
+        "n_simulations": 500,
+        "percentiles": [5, 50, 95],
+    }).encode()
+    headers = sign(body, hmac_key)
+    resp = client.post("/monte-carlo", content=body, headers=headers)
+    assert resp.status_code == 422
+    env = resp.json()
+    assert env["error"]["code"] == "MONTE_CARLO_DEGENERATE"
 ```
 
 - [ ] **Step 2: Run to verify fail**
@@ -3196,23 +3467,28 @@ Expected: 3 new tests FAIL (stubs still raise QuantError).
 - [ ] **Step 3: Replace stubs with real endpoints in `src/api.py`**
 
 ```python
+import time
+
 from src import monte_carlo as _mc
 from src import factors as _factors
 from src import rebalance as _rebal
 
 
 @app.post("/monte-carlo")
-async def monte_carlo_endpoint(req: MonteCarloRequest) -> MonteCarloResult:
-    return _mc.simulate(
-        symbols=req.symbols,
-        returns=req.returns,
+async def monte_carlo_endpoint(req: MonteCarloRequest) -> dict:
+    t0 = time.perf_counter()
+    result = _mc.simulate(
+        current_value=req.current_value,
         weights=req.weights,
-        initial_value=req.initial_value,
+        expected_returns=req.expected_returns,
+        covariance=req.covariance,
         horizon_days=req.horizon_days,
         n_simulations=req.n_simulations,
-        confidence_level=req.confidence_level,
-        seed=req.seed,
+        percentiles=req.percentiles,
+        seed=getattr(req, "seed", None),
     )
+    result["elapsed_ms"] = int((time.perf_counter() - t0) * 1000)
+    return result
 
 
 @app.post("/factors")
@@ -3228,9 +3504,10 @@ async def factors_endpoint(req: FactorsRequest) -> FactorsResult:
 async def rebalance_endpoint(req: RebalanceRequest) -> RebalanceResult:
     return _rebal.compute_trades(
         current_holdings=req.current_holdings,
-        prices=req.prices,
+        current_prices=req.current_prices,
         target_weights=req.target_weights,
         cash_available=req.cash_available,
+        min_trade_value=req.min_trade_value,
         transaction_cost_bps=req.transaction_cost_bps,
     )
 ```
@@ -3238,7 +3515,7 @@ async def rebalance_endpoint(req: RebalanceRequest) -> RebalanceResult:
 - [ ] **Step 4: Run tests, verify pass**
 
 Run: `cd quant-service && uv run pytest tests/test_api.py -v`
-Expected: all 6 api tests PASS.
+Expected: all 8 api tests PASS (3 happy-path shape + 1 HMAC-missing 401 + 1 MC-degenerate 422 + the 3 pre-existing /optimize tests).
 
 - [ ] **Step 5: Commit**
 
@@ -3247,7 +3524,9 @@ git add quant-service/src/api.py quant-service/tests/test_api.py
 git commit -m "feat(quant): wire /monte-carlo, /factors, /rebalance endpoints
 
 Integration tests exercise full request→HMAC→Pydantic→math→response
-flow. All 4 protected endpoints now fully functional behind HMAC auth."
+flow. Response shapes match spec §4.1.2–§4.1.4 exactly. Adds 401
+(missing HMAC) and 422 (infeasible/degenerate) coverage to pin the
+error envelope contract. All 4 protected endpoints now functional."
 ```
 
 ---
@@ -3316,9 +3595,28 @@ Expected: `{"status":"ok","version":"0.1.0"}`.
 
 ```bash
 # Save the following as /tmp/smoke.sh and run it.
+# The smoke body uses a synthesized 60-day series per symbol so the
+# optimizer has enough history to pass the _MIN_HISTORY_DAYS=60 guard.
 KEY="<the-hex-key-from-step-1>"
 URL="https://<workspace>--investtracker-quant-fastapi-app.modal.run/optimize"
-BODY='{"symbols":["A","B"],"returns":{"A":[0.001,-0.002,0.003,0.001,-0.001,0.002,0.0005,-0.0008,0.001,0.0012,...],"B":[0.0008,0.001,-0.002,0.0015,-0.0005,0.002,0.0009,0.0003,-0.0011,0.0007,...]},"method":"mean_variance"}'
+python - <<'PY' > /tmp/smoke_body.json
+import json, random
+random.seed(42)
+def series(mu, sigma, n=120):
+    return [round(random.gauss(mu, sigma), 6) for _ in range(n)]
+body = {
+    "symbols": ["A", "B"],
+    "returns": {
+        "A": series(mu=0.0004, sigma=0.012),
+        "B": series(mu=0.0003, sigma=0.015),
+    },
+    "method": "mean_variance",
+    "risk_free_rate": 0.0,
+    "frontier_points": 0,
+}
+print(json.dumps(body))
+PY
+BODY=$(cat /tmp/smoke_body.json)
 TS=$(date +%s)
 SIG=$(printf "%s%s" "$BODY" "$TS" | openssl dgst -sha256 -hmac "$KEY" | awk '{print $2}')
 curl -s -X POST "$URL" \
@@ -3328,26 +3626,29 @@ curl -s -X POST "$URL" \
   --data "$BODY"
 ```
 
-Expected: JSON with `weights`, `expected_return`, `expected_volatility`, `sharpe_ratio`, `meta`.
+Expected (spec §4.1.1 shape): JSON with `optimal_weights`, `expected_return`, `expected_volatility`, `sharpe_ratio`, `frontier` (empty since `frontier_points=0`), `computed_at`, `elapsed_ms`.
 
 - [ ] **Step 6: Commit a placeholder deploy log**
 
 ```bash
 # The first deploy doesn't modify files, but we record the URL + key fingerprint
 # so future Chunk 9 runbook can cross-reference.
+# The heredoc uses UNQUOTED `<<EOF` so $(date) and $URL expand in-shell.
 mkdir -p docs/runbooks
-cat > docs/runbooks/quant-deploy-bootstrap.md <<'EOF'
+URL="https://<workspace>--investtracker-quant-fastapi-app.modal.run"
+DATE=$(date +%Y-%m-%d)
+cat > docs/runbooks/quant-deploy-bootstrap.md <<EOF
 # Quant service bootstrap record
 
-Initial Modal deploy completed on $(date +%Y-%m-%d).
+Initial Modal deploy completed on ${DATE}.
 
-- Modal app: `investtracker-quant`
-- Function: `fastapi_app` (keep_warm=1, timeout=60s, memory=2048 MB)
-- URL: `https://<workspace>--investtracker-quant-fastapi-app.modal.run`
-- Secret name: `quant-service-secrets`
-- HMAC key fingerprint (SHA-256 of first 8 bytes of key): `<fill>`
+- Modal app: \`investtracker-quant\`
+- Function: \`fastapi_app\` (keep_warm=1, timeout=60s, memory=2048 MB)
+- URL: \`${URL}\`
+- Secret name: \`quant-service-secrets\`
+- HMAC key fingerprint (SHA-256 of first 8 bytes of key): \`<fill>\`
 
-Key rotation: see `docs/runbooks/quant-incidents.md` → "Rotate HMAC key".
+Key rotation: see \`docs/runbooks/quant-incidents.md\` → "Rotate HMAC key".
 EOF
 git add docs/runbooks/quant-deploy-bootstrap.md
 git commit -m "docs(quant): bootstrap deploy record
@@ -3393,7 +3694,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: '0.4.x'
+          # Pin to a known-good version for reproducible CI. Bump deliberately
+          # in its own commit so dependency upgrades show up in git blame.
+          version: '0.4.30'
       - name: Install deps
         run: uv sync --all-extras
       - name: Lint with ruff
@@ -3456,8 +3759,9 @@ defaults:
 
 jobs:
   deploy:
-    # Wait for CI to pass before deploying.
-    needs: []  # intentionally no `needs` — this is a separate trigger; see note below
+    # No `needs:` — this workflow runs in parallel with CI on the same push event.
+    # GitHub Actions schema rejects `needs: []`, so we omit the key entirely.
+    # See ordering note below for why we don't chain CI → deploy today.
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -3467,6 +3771,10 @@ jobs:
           python-version: '3.12'
       - name: Install uv
         uses: astral-sh/setup-uv@v3
+        with:
+          # Must match the version pinned in quant-service-ci.yml so deploy
+          # and CI produce identical lockfile resolution.
+          version: '0.4.30'
       - name: Install deps
         run: uv sync
       - name: Deploy to Modal
@@ -3475,10 +3783,16 @@ jobs:
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: uv run modal deploy modal_app.py
       - name: Health check after deploy
+        env:
+          # Read from a secret (not a hard-coded URL) so the public Modal
+          # URL is never committed to the repo. Fail loudly if it's unset.
+          URL_BASE: ${{ secrets.QUANT_SERVICE_URL }}
         run: |
-          # Modal URL is derived from workspace + app name; store in secret
-          # to avoid hard-coding.
-          URL="${{ secrets.QUANT_SERVICE_URL }}/health"
+          if [ -z "$URL_BASE" ]; then
+            echo "QUANT_SERVICE_URL secret is not set — cannot run health check."
+            exit 1
+          fi
+          URL="${URL_BASE%/}/health"
           for i in 1 2 3 4 5; do
             if curl -sf "$URL" | grep -q '"status":"ok"'; then
               echo "Health check passed on try $i"
@@ -3545,54 +3859,93 @@ secrets documented in runbook."
   in breadcrumb body, shared outside ops team).
 
 **Blast radius:**
-- During the rotation window (up to 5 min), both the old and new keys
-  are valid simultaneously. No downtime if steps are followed in order.
+- During the rotation window (up to 10 min = 2× the 5-min replay window),
+  both the old and new keys are valid simultaneously. No downtime if steps
+  are followed in order.
+
+**Key names used in this procedure:**
+- `QUANT_SERVICE_HMAC_KEY` — the current/active key. Read by both Modal
+  and Next.js under this exact name.
+- `QUANT_SERVICE_HMAC_KEY_NEXT` — temporary overlap key. Only present
+  during rotation; both services remove it after promotion.
+
+**Modal secret model:** the single secret `quant-service-secrets` holds
+BOTH env vars during overlap. `modal secret create --force` replaces the
+whole secret atomically (no per-var edit CLI).
 
 **Procedure:**
 
-1. Generate new key (keep both old and new handy):
+1. Generate the new key:
    ```bash
    python -c "import secrets; print(secrets.token_hex(32))"
+   # Keep this value in your password manager. You'll paste it twice.
    ```
 
-2. Add the NEW key as `QUANT_SERVICE_HMAC_KEY_NEXT` in both Modal and Next.js:
+2. Publish dual-key `auth.py` (both services accept OLD and NEXT):
+   - Edit `quant-service/src/auth.py` → switch `validate_signature` to the
+     dual-key variant shown in **"Dual-key acceptance (temporary code)"**
+     below. Commit on a rotation branch.
+   - Edit `src/lib/services/quant.ts` (Next.js) → send the signature using
+     `HMAC_KEY_NEXT` when set; otherwise the old key (see Chunk 7 Task 7.1
+     "Rotation support" subsection). Commit on the same branch.
+   - **Do not deploy yet.** Commits only — we deploy in step 4, after
+     both secret stores have the new key.
+
+3. Publish BOTH keys to both secret stores:
    ```bash
-   # Modal side
-   modal secret create quant-service-secrets-next \
-     QUANT_SERVICE_HMAC_KEY="<new-key>"
-   # Vercel side (env var, encrypted)
+   # Modal: replace the secret atomically with both keys present.
+   modal secret create quant-service-secrets --force \
+     QUANT_SERVICE_HMAC_KEY="<OLD-key>" \
+     QUANT_SERVICE_HMAC_KEY_NEXT="<NEW-key>" \
+     SENTRY_DSN="<same-as-before>" \
+     ENVIRONMENT="production"
+
+   # Vercel (Next.js): add the _NEXT alongside the existing KEY.
    vercel env add QUANT_SERVICE_HMAC_KEY_NEXT production
-   # paste new key when prompted
+   # paste <NEW-key> when prompted
    ```
 
-3. Deploy updated `modal_app.py` that accepts EITHER key during rotation:
-   (This code change is a one-time edit to `src/auth.py` — see
-   "Dual-key acceptance" section below. Revert after rotation.)
-
-4. Redeploy Next.js with the dual-key reader (see Chunk 7 Task 7.1 notes).
-
-5. Wait ≥5 minutes (past the replay window) so all in-flight signed
-   requests with the OLD key have either completed or expired.
-
-6. Promote: rename `QUANT_SERVICE_HMAC_KEY_NEXT` → `QUANT_SERVICE_HMAC_KEY`
-   in both Modal and Vercel, removing the dual-key logic:
+4. Deploy both services (dual-key code from step 2 + dual-key secrets from
+   step 3). After this deploy, requests signed with either key are accepted.
    ```bash
-   modal secret delete quant-service-secrets
-   # Rename the new one in Modal UI (no CLI command for rename).
-   # Or: delete old, create new with the canonical name.
+   cd quant-service && uv run modal deploy modal_app.py
+   # Next.js: `vercel --prod` (or trigger via PR merge, same effect)
+   ```
+
+5. Wait **≥10 minutes** so every in-flight request signed with the OLD
+   key is either handled or past the 5-min replay window (×2 safety margin).
+
+6. Cut over to the NEW key (drop the OLD from both stores):
+   ```bash
+   # Modal: replace again, this time with NEW under the canonical name,
+   # and NO _NEXT variable.
+   modal secret create quant-service-secrets --force \
+     QUANT_SERVICE_HMAC_KEY="<NEW-key>" \
+     SENTRY_DSN="<same-as-before>" \
+     ENVIRONMENT="production"
+
+   # Vercel: rewrite the canonical var with the NEW key, then delete _NEXT.
    vercel env rm QUANT_SERVICE_HMAC_KEY production
    vercel env add QUANT_SERVICE_HMAC_KEY production
-   # paste new key
+   # paste <NEW-key>
+   vercel env rm QUANT_SERVICE_HMAC_KEY_NEXT production
    ```
 
-7. Redeploy both services. Revert `src/auth.py` to single-key mode.
+7. Revert dual-key code in `src/auth.py` AND `src/lib/services/quant.ts`
+   back to single-key mode. Deploy both services.
 
-8. Record the rotation in this runbook with date + operator initials.
+8. Verify: run the `/health` and `/optimize` smoke tests from
+   `docs/runbooks/quant-deploy-bootstrap.md` signed with `<NEW-key>` only.
+   Both MUST succeed. If they fail with `HMAC_INVALID`, re-apply step 6.
+
+9. Record the rotation in the **Rotation log** table at the bottom of
+   this file with date + operator initials + first 8 hex chars of each
+   key's SHA-256 as fingerprint.
 
 ### Dual-key acceptance (temporary code)
 
-During the 5-min overlap window, `src/auth.py`'s `validate_signature`
-should try the primary key first, then fall back to `_NEXT` if set:
+During the overlap window, `src/auth.py`'s `validate_signature` tries the
+primary key first, then falls back to `_NEXT` if set:
 
 ```python
 def validate_signature_with_rotation(body, ts, sig) -> None:
@@ -3608,7 +3961,7 @@ def validate_signature_with_rotation(body, ts, sig) -> None:
     raise HMACInvalidError("Signature did not match any active key")
 ```
 
-This is a TEMPORARY edit — revert it after step 6 completes.
+This is a TEMPORARY edit — revert it after step 6 completes (in step 7).
 
 ## Rotation log
 
@@ -3660,13 +4013,24 @@ tests/lib/quant/
   drawdown.test.ts
 ```
 
-**Tech:** Pure TS. `fast-check` for property tests (already a devDependency per Phase 1). No numpy, no simd — loop over typed arrays.
+**Tech:** Pure TS. `fast-check` for property tests (installed in Task 6.1 — verified NOT yet in `package.json` devDependencies as of spec date). No numpy, no simd — loop over typed arrays.
 
-### Task 6.1: Shared types and barrel
+### Task 6.1: Install fast-check + shared types + barrel
 
 **Files:**
+- Modify: `package.json` (add `fast-check` devDependency)
 - Create: `src/lib/quant/types.ts`
 - Create: `src/lib/quant/index.ts`
+
+- [ ] **Step 0: Install fast-check**
+
+`fast-check` is NOT currently in `package.json` devDependencies. Install it:
+
+```bash
+npm install --save-dev fast-check@^3.23.0
+```
+
+Verify: `node -e "console.log(require('fast-check').__commitHash || require('fast-check/package.json').version)"` should print a version string.
 
 - [ ] **Step 1: Write types**
 
@@ -3703,15 +4067,24 @@ export * from "./drawdown";
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/lib/quant/types.ts src/lib/quant/index.ts
+git add package.json package-lock.json src/lib/quant/types.ts src/lib/quant/index.ts
 git commit -m "feat(quant/ts): shared types + barrel for src/lib/quant
 
 Pure-math TS library for lightweight metrics (Sharpe, HHI, drawdown).
 Complements the Python microservice which handles heavy math
-(Markowitz, Monte Carlo)."
+(Markowitz, Monte Carlo). Adds fast-check devDependency for property
+tests used in Task 6.6."
 ```
 
-### Task 6.2: `metrics.ts` — Sharpe, Sortino, annualized vol
+### Task 6.2: `metrics.ts` — Sharpe, Sortino, annualized vol, beta, alpha, Calmar, info ratio
+
+**Spec §3.5 mandates:** `metrics.ts # Sharpe, Sortino, beta, alpha, max DD, Calmar, info ratio`. Max DD lives in `drawdown.ts` (Task 6.5 bundle) but is imported here for Calmar. All seven metrics go in this task.
+
+**Definitions:**
+- **Beta (Jensen):** β = Cov(R_p − rf, R_b − rf) / Var(R_b − rf). Slope of portfolio excess vs benchmark excess.
+- **Alpha (Jensen):** α_annual = (mean(R_p) − rf_daily) · 252 − β · (mean(R_b) − rf_daily) · 252. Annualized excess over CAPM prediction.
+- **Calmar:** annualized return / |max drawdown|. Return per unit of worst-case drawdown.
+- **Information ratio:** mean(R_p − R_b) · 252 / (stdev(R_p − R_b) · √252). Active return / tracking error, both annualized.
 
 **Files:**
 - Create: `src/lib/quant/metrics.ts`
@@ -3728,6 +4101,10 @@ import {
   annualizedVolatility,
   sharpeRatio,
   sortinoRatio,
+  beta,
+  jensenAlpha,
+  calmarRatio,
+  informationRatio,
 } from "@/lib/quant/metrics";
 
 describe("mean", () => {
@@ -3791,6 +4168,88 @@ describe("sortinoRatio", () => {
     expect(sortinoRatio([0, 0, 0, 0], 0)).toBe(0);
   });
 });
+
+describe("beta", () => {
+  it("is 1 when portfolio == benchmark", () => {
+    const b = [0.01, -0.02, 0.015, -0.005, 0.008];
+    expect(beta(b, b, 0)).toBeCloseTo(1, 10);
+  });
+  it("is 2 when portfolio = 2 * benchmark (scaled)", () => {
+    const bench = [0.01, -0.02, 0.015, -0.005, 0.008];
+    const port = bench.map((r) => 2 * r);
+    expect(beta(port, bench, 0)).toBeCloseTo(2, 10);
+  });
+  it("is -1 when portfolio = -benchmark", () => {
+    const bench = [0.01, -0.02, 0.015, -0.005, 0.008];
+    const port = bench.map((r) => -r);
+    expect(beta(port, bench, 0)).toBeCloseTo(-1, 10);
+  });
+  it("returns 0 when benchmark has zero variance", () => {
+    expect(beta([0.01, -0.01, 0.02], [0.005, 0.005, 0.005], 0)).toBe(0);
+  });
+  it("truncates to shorter array length", () => {
+    // Longer portfolio series, shorter benchmark — align to shorter tail.
+    const port = [0.01, -0.02, 0.015, -0.005, 0.008];
+    const bench = [-0.005, 0.008];
+    const b = beta(port, bench, 0);
+    expect(Number.isFinite(b)).toBe(true);
+  });
+});
+
+describe("jensenAlpha", () => {
+  it("is 0 when portfolio == benchmark (β=1, no alpha)", () => {
+    const r = [0.01, -0.02, 0.015, -0.005, 0.008];
+    expect(jensenAlpha(r, r, 0)).toBeCloseTo(0, 10);
+  });
+  it("matches hand-computed value for a toy series", () => {
+    // Portfolio always 0.002 above benchmark → daily alpha 0.002; β=1.
+    // Annualized α ≈ 0.002 * 252 = 0.504
+    const bench = [0.01, -0.02, 0.015, -0.005, 0.008];
+    const port = bench.map((r) => r + 0.002);
+    expect(jensenAlpha(port, bench, 0)).toBeCloseTo(0.504, 2);
+  });
+});
+
+describe("calmarRatio", () => {
+  it("returns 0 when max drawdown is 0 (no losses observed)", () => {
+    // Monotone-up series → max DD = 0 → undefined Calmar → return 0.
+    expect(calmarRatio([0.01, 0.02, 0.015])).toBe(0);
+  });
+  it("is positive when returns are positive and there is drawdown", () => {
+    // Series with some drawdown but positive overall.
+    const r = [0.02, -0.05, 0.02, 0.02, 0.02, 0.02];
+    const c = calmarRatio(r);
+    expect(c).toBeGreaterThan(0);
+    expect(Number.isFinite(c)).toBe(true);
+  });
+  it("has same sign as annualized return", () => {
+    // Mostly negative → Calmar negative (numerator sign dominates; |DD| > 0).
+    const r = [-0.02, -0.02, 0.01, -0.02, -0.02];
+    expect(calmarRatio(r)).toBeLessThan(0);
+  });
+});
+
+describe("informationRatio", () => {
+  it("is 0 when portfolio == benchmark (zero active return)", () => {
+    const r = [0.01, -0.02, 0.015, -0.005, 0.008];
+    expect(informationRatio(r, r)).toBe(0);
+  });
+  it("is positive when portfolio consistently beats benchmark", () => {
+    const bench = [0.01, -0.02, 0.015, -0.005, 0.008];
+    const port = bench.map((r) => r + 0.002);
+    const ir = informationRatio(port, bench);
+    expect(ir).toBeGreaterThan(0);
+    expect(Number.isFinite(ir)).toBe(true);
+  });
+  it("returns 0 when tracking error is zero but active return is nonzero", () => {
+    // Constant alpha → tracking error 0 → IR undefined → return 0.
+    // (degenerate case; caller treats as +∞ if they prefer)
+    const bench = [0.01, -0.02, 0.015, -0.005, 0.008];
+    const port = bench.map((r) => r + 0.002);
+    // port - bench = [0.002, 0.002, 0.002, 0.002, 0.002] → stdev 0.
+    expect(informationRatio(port, bench)).toBe(0);
+  });
+});
 ```
 
 - [ ] **Step 2: Run to verify fail**
@@ -3803,6 +4262,7 @@ Expected: `Cannot find module '@/lib/quant/metrics'`
 ```typescript
 // src/lib/quant/metrics.ts
 import { TRADING_DAYS_PER_YEAR, type ReturnsArray } from "./types";
+import { maxDrawdown } from "./drawdown";
 
 export function mean(xs: ReturnsArray): number {
   if (xs.length === 0) return 0;
@@ -3865,22 +4325,121 @@ export function sortinoRatio(
     downsideStdev * Math.sqrt(TRADING_DAYS_PER_YEAR);
   return annualizedExcess / annualizedDownside;
 }
+
+/**
+ * Align two series to their shorter length by taking the trailing `n` of each.
+ * This matches the convention in the Python service for un-aligned series.
+ */
+function alignTail(
+  a: ReturnsArray,
+  b: ReturnsArray,
+): { a: number[]; b: number[] } {
+  const n = Math.min(a.length, b.length);
+  return {
+    a: a.slice(a.length - n),
+    b: b.slice(b.length - n),
+  };
+}
+
+/**
+ * CAPM β of portfolio vs benchmark. Uses excess returns (r - rf_daily).
+ * Returns 0 if benchmark variance is 0 (well-defined fallback — caller
+ * should treat as "benchmark undefined").
+ *
+ * rf is a DAILY risk-free rate (not annualized) — matches the shape used by
+ * sharpeRatio for internal consistency within this module. If callers have
+ * an annualized rf, divide by 252 before passing.
+ */
+export function beta(
+  portfolio: ReturnsArray,
+  benchmark: ReturnsArray,
+  riskFreeDaily: number,
+): number {
+  const { a, b } = alignTail(portfolio, benchmark);
+  if (a.length < 2) return 0;
+  const pxs = a.map((r) => r - riskFreeDaily);
+  const bxs = b.map((r) => r - riskFreeDaily);
+  const mp = mean(pxs);
+  const mb = mean(bxs);
+  let cov = 0;
+  let varB = 0;
+  for (let i = 0; i < pxs.length; i++) {
+    const dp = pxs[i] - mp;
+    const db = bxs[i] - mb;
+    cov += dp * db;
+    varB += db * db;
+  }
+  cov /= pxs.length - 1;
+  varB /= pxs.length - 1;
+  if (varB === 0) return 0;
+  return cov / varB;
+}
+
+/**
+ * Annualized Jensen's alpha: α = (E[R_p] - rf) · 252 - β · (E[R_b] - rf) · 252.
+ * Positive α → outperformed CAPM prediction. rf is DAILY (same as beta).
+ */
+export function jensenAlpha(
+  portfolio: ReturnsArray,
+  benchmark: ReturnsArray,
+  riskFreeDaily: number,
+): number {
+  const { a, b } = alignTail(portfolio, benchmark);
+  if (a.length === 0) return 0;
+  const β = beta(a, b, riskFreeDaily);
+  const annPortExcess = (mean(a) - riskFreeDaily) * TRADING_DAYS_PER_YEAR;
+  const annBenchExcess = (mean(b) - riskFreeDaily) * TRADING_DAYS_PER_YEAR;
+  return annPortExcess - β * annBenchExcess;
+}
+
+/**
+ * Calmar ratio: annualized return / |max drawdown|.
+ * Returns 0 when max drawdown is 0 (no losses observed → undefined ratio).
+ * Sign matches annualized return. `mean · 252` is the simple annualization.
+ */
+export function calmarRatio(xs: ReturnsArray): number {
+  if (xs.length === 0) return 0;
+  const annReturn = mean(xs) * TRADING_DAYS_PER_YEAR;
+  const maxDd = maxDrawdown(xs);
+  if (maxDd === 0) return 0;
+  return annReturn / Math.abs(maxDd);
+}
+
+/**
+ * Information ratio: annualized active return / annualized tracking error.
+ * Tracking error = stdev(R_p - R_b). Returns 0 when TE is 0.
+ */
+export function informationRatio(
+  portfolio: ReturnsArray,
+  benchmark: ReturnsArray,
+): number {
+  const { a, b } = alignTail(portfolio, benchmark);
+  if (a.length < 2) return 0;
+  const active = a.map((r, i) => r - b[i]);
+  const teDaily = Math.sqrt(sampleVariance(active));
+  if (teDaily === 0) return 0;
+  const annActive = mean(active) * TRADING_DAYS_PER_YEAR;
+  const annTe = teDaily * Math.sqrt(TRADING_DAYS_PER_YEAR);
+  return annActive / annTe;
+}
 ```
 
 - [ ] **Step 4: Run tests, verify pass**
 
 Run: `npm test -- tests/lib/quant/metrics.test.ts`
-Expected: all tests PASS.
+Expected: all 22 tests PASS (5 descriptions × ~2-5 its). Note: `metrics.ts` imports `maxDrawdown` from `./drawdown` — if `drawdown.ts` is not yet implemented (Task 6.5 comes later), run this command AFTER finishing Task 6.5, OR implement `drawdown.ts` first. The TDD-safe ordering is: Task 6.1 → 6.3 → 6.4 → 6.5 → 6.2 → 6.6, keeping `metrics.ts` last of the implementations. The plan's original numbering is a reading order; execution can reorder.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/lib/quant/metrics.ts tests/lib/quant/metrics.test.ts
-git commit -m "feat(quant/ts): Sharpe, Sortino, annualized volatility
+git commit -m "feat(quant/ts): Sharpe, Sortino, ann vol, beta, alpha, Calmar, info ratio
 
-Pure-TS. Bessel-corrected sample variance (n-1). Sharpe annualizes
-by √252; Sortino penalizes only downside deviation from target. Both
-return 0 for zero-volatility portfolios (well-defined fallback)."
+Seven portfolio metrics per spec §3.5. Bessel-corrected sample variance
+(n-1). All annualize by 252 trading days. beta/jensenAlpha/informationRatio
+align series by tail when lengths differ; Calmar uses |max drawdown| and
+returns 0 when DD=0 (undefined ratio). All return 0 for degenerate inputs
+(zero vol, zero TE, zero bench variance) — never NaN or Infinity."
 ```
 
 ### Task 6.3: `returns.ts` — aggregation helpers
@@ -4012,7 +4571,20 @@ aggregateToPeriod compounds daily returns into weekly (5d), monthly
 - Create: `src/lib/quant/concentration.ts`
 - Test: `tests/lib/quant/concentration.test.ts`
 
-**Note:** `src/lib/services/concentration.ts` already exists with ALERT logic but NOT the math. This new file has the pure math (HHI, top-N). A future refactor can make `services/concentration.ts` call into this — out of scope for Phase 2.
+**Note on the existing `src/lib/services/concentration.ts`:**
+
+An existing service file at `src/lib/services/concentration.ts` (pre-Phase 2 code) contains **portfolio alert rules** — not math:
+
+- `evaluateConcentration()` at `src/lib/services/concentration.ts:17` emits alerts when a single position exceeds 25% (warning) or 40% (critical), a sector exceeds 50%, or an asset type exceeds 80%.
+- `saveAlerts()` at `src/lib/services/concentration.ts:90` persists them to the `portfolio_alerts` table.
+
+The new file at `src/lib/quant/concentration.ts` (this task) contains **pure math only** (HHI, top-N, effective-N) with no side effects and no hard-coded thresholds.
+
+**Scope boundary:**
+- Phase 2: create the new quant math file; leave `src/lib/services/concentration.ts` **unchanged**.
+- Do NOT delete, rename, or modify `src/lib/services/concentration.ts` as part of this task.
+- Spec §3.5 mentions "(move from services/concentration.ts)" — this is aspirational for a future refactor (a Phase 3+ cleanup could have `services/concentration.ts` import `hhi`/`topNExposure` from the new file and expose them alongside the alert rules). Out of scope here.
+- The two files are **complementary, not duplicates** — different responsibilities (alert rules vs. pure math).
 
 - [ ] **Step 1: Write failing tests**
 
@@ -4137,23 +4709,38 @@ this module — out of scope here."
 ```typescript
 // tests/lib/quant/correlation.test.ts
 import { describe, it, expect } from "vitest";
-import { correlationMatrix } from "@/lib/quant/correlation";
+import {
+  correlationMatrix,
+  spearmanCorrelationMatrix,
+  rollingCorrelation,
+} from "@/lib/quant/correlation";
 
-describe("correlationMatrix", () => {
+// Return shape is Record<string, Record<string, number>> (nested).
+// Nested-map avoids the key-collision bug that a flat `${a}${b}` key has when
+// symbol names happen to concatenate (e.g. "A"+"BC" === "AB"+"C" === "ABC").
+
+describe("correlationMatrix (Pearson)", () => {
   it("returns 1 on the diagonal", () => {
     const m = correlationMatrix({
       A: [0.01, -0.02, 0.015, 0.005],
       B: [-0.01, 0.02, -0.015, -0.005],
     });
-    expect(m.AA).toBeCloseTo(1, 10);
-    expect(m.BB).toBeCloseTo(1, 10);
+    expect(m.A.A).toBeCloseTo(1, 10);
+    expect(m.B.B).toBeCloseTo(1, 10);
+  });
+  it("is symmetric: m[a][b] === m[b][a]", () => {
+    const m = correlationMatrix({
+      A: [0.01, -0.02, 0.015, 0.005],
+      B: [-0.005, 0.01, -0.02, 0.015],
+    });
+    expect(m.A.B).toBeCloseTo(m.B.A, 10);
   });
   it("perfect anti-correlation → -1", () => {
     const m = correlationMatrix({
       A: [0.01, 0.02, 0.03, 0.04, 0.05],
       B: [-0.01, -0.02, -0.03, -0.04, -0.05],
     });
-    expect(m.AB).toBeCloseTo(-1, 6);
+    expect(m.A.B).toBeCloseTo(-1, 6);
   });
   it("independent series → near 0", () => {
     const rng = (seed: number) => {
@@ -4168,7 +4755,91 @@ describe("correlationMatrix", () => {
     const a = Array.from({ length: 500 }, () => r1());
     const b = Array.from({ length: 500 }, () => r2());
     const m = correlationMatrix({ A: a, B: b });
-    expect(Math.abs(m.AB)).toBeLessThan(0.15);
+    expect(Math.abs(m.A.B)).toBeLessThan(0.15);
+  });
+  it("handles symbols whose names concatenate (regression test)", () => {
+    // Without a separator, key = `${a}${b}` could collide:
+    //   ("AB","C") vs ("A","BC") both produce "ABC".
+    // Nested shape makes each (row,col) unambiguous.
+    const m = correlationMatrix({
+      AB: [0.01, 0.02, -0.01, 0.015],
+      C: [-0.005, 0.01, 0.02, -0.015],
+      A: [0.02, -0.01, 0.015, 0.005],
+      BC: [0.01, 0.015, -0.02, 0.01],
+    });
+    // All four diagonal entries exist and are 1.
+    expect(m.AB.AB).toBeCloseTo(1, 10);
+    expect(m.A.BC).not.toBe(m.AB.C); // different cells, no collision
+    expect(typeof m.A.BC).toBe("number");
+    expect(typeof m.AB.C).toBe("number");
+  });
+});
+
+describe("spearmanCorrelationMatrix", () => {
+  it("is 1 for monotonic (non-linear) co-movement", () => {
+    // Monotonic transform → Pearson ≠ 1 but Spearman = 1.
+    const m = spearmanCorrelationMatrix({
+      A: [1, 2, 3, 4, 5],
+      B: [10, 100, 1000, 10000, 100000], // y = 10^x, monotonic but not linear
+    });
+    expect(m.A.B).toBeCloseTo(1, 10);
+  });
+  it("is -1 for monotonic anti-correlation", () => {
+    const m = spearmanCorrelationMatrix({
+      A: [1, 2, 3, 4, 5],
+      B: [5, 4, 3, 2, 1],
+    });
+    expect(m.A.B).toBeCloseTo(-1, 10);
+  });
+  it("handles tied ranks via average rank", () => {
+    // Ties: [1, 2, 2, 3] → ranks [1, 2.5, 2.5, 4].
+    // Matching partner identical distribution → Spearman = 1.
+    const m = spearmanCorrelationMatrix({
+      A: [1, 2, 2, 3],
+      B: [10, 20, 20, 30],
+    });
+    expect(m.A.B).toBeCloseTo(1, 10);
+  });
+  it("diagonal is 1", () => {
+    const m = spearmanCorrelationMatrix({
+      A: [0.01, -0.02, 0.015, 0.005],
+    });
+    expect(m.A.A).toBeCloseTo(1, 10);
+  });
+});
+
+describe("rollingCorrelation", () => {
+  it("length is n - window + 1", () => {
+    const a = [0.01, 0.02, -0.01, 0.03, -0.02];
+    const b = [-0.01, -0.02, 0.01, -0.03, 0.02];
+    expect(rollingCorrelation(a, b, 3)).toHaveLength(3); // 5 - 3 + 1
+  });
+  it("returns empty when window > n", () => {
+    expect(rollingCorrelation([0.01, 0.02], [0.01, 0.02], 5)).toEqual([]);
+  });
+  it("returns empty when window < 2", () => {
+    expect(rollingCorrelation([0.01, 0.02], [0.01, 0.02], 1)).toEqual([]);
+  });
+  it("each element equals full-window Pearson of its slice", () => {
+    const a = [0.01, -0.02, 0.015, -0.005, 0.008, 0.012];
+    const b = [-0.01, 0.02, -0.015, 0.005, -0.008, -0.012];
+    const w = 4;
+    const rolling = rollingCorrelation(a, b, w);
+    // Third rolling window = a[2..5], b[2..5] — compute Pearson directly.
+    const aSlice = a.slice(2, 2 + w);
+    const bSlice = b.slice(2, 2 + w);
+    const m = correlationMatrix({ A: aSlice, B: bSlice });
+    expect(rolling[2]).toBeCloseTo(m.A.B, 10);
+  });
+  it("detects correlation-break: rolling value tracks changing regime", () => {
+    // First half: perfectly correlated; second half: anti-correlated.
+    const a = [0.01, 0.02, 0.03, 0.04, 0.01, 0.02, 0.03, 0.04];
+    const b = [0.01, 0.02, 0.03, 0.04, -0.01, -0.02, -0.03, -0.04];
+    const r = rollingCorrelation(a, b, 4);
+    // First window (indices 0-3): perfect +1.
+    expect(r[0]).toBeCloseTo(1, 6);
+    // Last window (indices 4-7): perfect -1.
+    expect(r[r.length - 1]).toBeCloseTo(-1, 6);
   });
 });
 ```
@@ -4243,40 +4914,105 @@ describe("maxDrawdown", () => {
 
 ```typescript
 // src/lib/quant/correlation.ts
-import type { ReturnsBySymbol } from "./types";
+import type { ReturnsArray, ReturnsBySymbol } from "./types";
 import { mean, sampleVariance } from "./metrics";
 
-export function correlationMatrix(
-  returns: ReturnsBySymbol,
-): Record<string, number> {
+export type CorrelationMatrix = Record<string, Record<string, number>>;
+
+/** Pearson correlation of two aligned series; tail-aligns if different length. */
+function pearson(a: ReturnsArray, b: ReturnsArray): number {
+  const n = Math.min(a.length, b.length);
+  if (n < 2) return 0;
+  const aSlice = a.slice(a.length - n);
+  const bSlice = b.slice(b.length - n);
+  const ma = mean(aSlice);
+  const mb = mean(bSlice);
+  let cov = 0;
+  for (let i = 0; i < n; i++) {
+    cov += (aSlice[i] - ma) * (bSlice[i] - mb);
+  }
+  cov /= n - 1;
+  const sa = Math.sqrt(sampleVariance(aSlice));
+  const sb = Math.sqrt(sampleVariance(bSlice));
+  if (sa === 0 || sb === 0) return 0;
+  return cov / (sa * sb);
+}
+
+/**
+ * Pairwise Pearson correlation across all symbols. Returns a nested map
+ * `m[row][col]` so symbol names cannot collide (a flat `${a}${b}` key
+ * could: "A"+"BC" and "AB"+"C" both produce "ABC").
+ */
+export function correlationMatrix(returns: ReturnsBySymbol): CorrelationMatrix {
   const symbols = Object.keys(returns);
-  const out: Record<string, number> = {};
+  const out: CorrelationMatrix = {};
   for (const a of symbols) {
+    out[a] = {};
     for (const b of symbols) {
-      const ra = returns[a];
-      const rb = returns[b];
-      const n = Math.min(ra.length, rb.length);
-      if (n === 0) {
-        out[`${a}${b}`] = 0;
-        continue;
-      }
-      const raSlice = ra.slice(ra.length - n);
-      const rbSlice = rb.slice(rb.length - n);
-      const ma = mean(raSlice);
-      const mb = mean(rbSlice);
-      let cov = 0;
-      for (let i = 0; i < n; i++) {
-        cov += (raSlice[i] - ma) * (rbSlice[i] - mb);
-      }
-      cov = cov / (n - 1);
-      const sa = Math.sqrt(sampleVariance(raSlice));
-      const sb = Math.sqrt(sampleVariance(rbSlice));
-      if (sa === 0 || sb === 0) {
-        out[`${a}${b}`] = a === b ? 1 : 0;
+      if (a === b) {
+        // Exactly 1 on diagonal (handles zero-variance case too).
+        out[a][b] = 1;
       } else {
-        out[`${a}${b}`] = cov / (sa * sb);
+        out[a][b] = pearson(returns[a], returns[b]);
       }
     }
+  }
+  return out;
+}
+
+/**
+ * Dense-rank an array using the average-rank method for ties.
+ * @example rank([10, 20, 20, 30]) === [1, 2.5, 2.5, 4]
+ */
+function averageRank(xs: ReturnsArray): number[] {
+  const n = xs.length;
+  const indexed = xs.map((v, i) => ({ v, i }));
+  indexed.sort((p, q) => p.v - q.v);
+  const ranks = new Array<number>(n);
+  let i = 0;
+  while (i < n) {
+    let j = i;
+    while (j + 1 < n && indexed[j + 1].v === indexed[i].v) j++;
+    // Ranks i..j are all tied — assign the average rank (1-indexed).
+    const avg = (i + j + 2) / 2; // (rank_i + rank_j) / 2 where rank = k+1
+    for (let k = i; k <= j; k++) ranks[indexed[k].i] = avg;
+    i = j + 1;
+  }
+  return ranks;
+}
+
+/**
+ * Spearman rank correlation = Pearson on ranks. Captures monotonic
+ * relationships (linear or not) and is robust to outliers relative
+ * to Pearson.
+ */
+export function spearmanCorrelationMatrix(
+  returns: ReturnsBySymbol,
+): CorrelationMatrix {
+  const ranks: ReturnsBySymbol = Object.fromEntries(
+    Object.entries(returns).map(([sym, xs]) => [sym, averageRank(xs)]),
+  );
+  return correlationMatrix(ranks);
+}
+
+/**
+ * Rolling Pearson correlation of `a` and `b` over a sliding window of
+ * `window` days. Output length = `n - window + 1` (empty if window > n
+ * or window < 2). Used by Smart Alerts (§3.1 of spec — correlation-break
+ * detection: |rolling_30d - rolling_90d| > 0.4).
+ */
+export function rollingCorrelation(
+  a: ReturnsArray,
+  b: ReturnsArray,
+  window: number,
+): number[] {
+  const n = Math.min(a.length, b.length);
+  if (window < 2 || window > n) return [];
+  const out: number[] = [];
+  for (let start = 0; start + window <= n; start++) {
+    const aSlice = a.slice(start, start + window);
+    const bSlice = b.slice(start, start + window);
+    out.push(pearson(aSlice, bSlice));
   }
   return out;
 }
@@ -4347,17 +5083,27 @@ Expected: all PASS.
 git add src/lib/quant/correlation.ts src/lib/quant/drift.ts src/lib/quant/drawdown.ts \
         tests/lib/quant/correlation.test.ts tests/lib/quant/drift.test.ts \
         tests/lib/quant/drawdown.test.ts
-git commit -m "feat(quant/ts): correlation matrix + weight drift + drawdown series
+git commit -m "feat(quant/ts): correlation (Pearson+Spearman+rolling) + drift + drawdown
 
-Pairwise Pearson correlation (n-1 divisor). Signed and L1-total drift
-between target and actual weights. Drawdown series as non-positive
-relative equity to running peak. All pure, no I/O."
+Correlation matrix uses nested Record<row,Record<col,number>> shape to
+avoid the flat-key collision ('A'+'BC' vs 'AB'+'C'). Spearman via
+average-rank Pearson. Rolling window supports the Smart Alerts §3.1
+correlation-break rule (|rolling_30d - rolling_90d| > 0.4). L1 weight
+drift and drawdown series (equity vs running peak). All pure, no I/O."
 ```
 
 ### Task 6.6: Property tests (fast-check) for invariants
 
 **Files:**
 - Create: `tests/lib/quant/properties.test.ts`
+
+**Design note — what makes a property test non-trivial:**
+
+A good property test asserts an invariant that is NOT the direct consequence of the implementation's expression. For example:
+- "HHI ∈ [0,1]" is non-trivial — it requires Σwᵢ=1 (Cauchy-Schwarz bound), not just "w>0 and we square".
+- "maxDrawdown ≤ 0" IS trivial because the code contains `Math.min(0, ...dd)` — the invariant is baked in, so a green test here doesn't catch any realistic bug.
+
+For each retained property, verify: *if a developer rewrote the implementation to be wrong, would this property catch it?* If not, delete it or strengthen it.
 
 - [ ] **Step 1: Write property tests**
 
@@ -4368,10 +5114,15 @@ import fc from "fast-check";
 import { hhi, topNExposure, effectiveN } from "@/lib/quant/concentration";
 import { maxDrawdown, drawdownSeries } from "@/lib/quant/drawdown";
 import { totalDrift } from "@/lib/quant/drift";
-import { sharpeRatio, annualizedVolatility } from "@/lib/quant/metrics";
+import {
+  annualizedVolatility,
+  sampleVariance,
+} from "@/lib/quant/metrics";
+import { cumulativeReturn } from "@/lib/quant/returns";
 
 describe("quant/ts invariants", () => {
-  it("HHI ∈ [0, 1] for any non-negative weights summing to 1", () => {
+  // ── Non-trivial: HHI upper bound requires Σw=1 (Cauchy-Schwarz).
+  it("HHI ∈ [1/n, 1] for any normalized weight distribution", () => {
     fc.assert(
       fc.property(
         fc.array(fc.float({ min: 0.0001, max: 1, noNaN: true }), {
@@ -4384,14 +5135,16 @@ describe("quant/ts invariants", () => {
             raw.map((w, i) => [`S${i}`, w / sum]),
           );
           const h = hhi(weights);
-          return h >= 0 && h <= 1 + 1e-9;
+          // Strong bound: h >= 1/n by Cauchy-Schwarz (when Σw=1).
+          return h >= 1 / raw.length - 1e-9 && h <= 1 + 1e-9;
         },
       ),
       { numRuns: 200 },
     );
   });
 
-  it("effectiveN ≤ n (number of positive positions)", () => {
+  // ── Non-trivial: requires HHI inverse relationship to hold.
+  it("effectiveN ≤ n (Cauchy-Schwarz: (Σwᵢ)² ≤ n·Σwᵢ²)", () => {
     fc.assert(
       fc.property(
         fc.array(fc.float({ min: 0.0001, max: 1, noNaN: true }), {
@@ -4410,6 +5163,7 @@ describe("quant/ts invariants", () => {
     );
   });
 
+  // ── Non-trivial: requires sorting to be correct.
   it("topNExposure is monotone non-decreasing in n", () => {
     fc.assert(
       fc.property(
@@ -4431,33 +5185,51 @@ describe("quant/ts invariants", () => {
     );
   });
 
-  it("max drawdown is always ≤ 0", () => {
+  // ── Non-trivial: requires peak-tracking to reset correctly on new highs.
+  // Invariant: a monotone-up series (all positive) should produce DD=0 at every step.
+  it("drawdown series is 0 whenever returns are all non-negative", () => {
     fc.assert(
       fc.property(
-        fc.array(fc.float({ min: -0.5, max: 0.5, noNaN: true }), {
+        fc.array(fc.float({ min: 0, max: 0.5, noNaN: true }), {
           minLength: 1,
           maxLength: 100,
         }),
-        (returns) => maxDrawdown(returns) <= 1e-9,
+        (returns) => {
+          const dd = drawdownSeries(returns);
+          return dd.every((x) => Math.abs(x) < 1e-9);
+        },
       ),
       { numRuns: 200 },
     );
   });
 
-  it("drawdown series is element-wise ≤ 0", () => {
+  // ── Non-trivial: requires peak-tracking to update on new highs.
+  // Invariant: appending ONLY positive returns to any series keeps maxDrawdown
+  // non-increasing in magnitude (i.e., max DD doesn't get worse after recovery).
+  it("appending positive returns never increases |maxDrawdown|", () => {
     fc.assert(
       fc.property(
-        fc.array(fc.float({ min: -0.5, max: 0.5, noNaN: true }), {
+        fc.array(fc.float({ min: -0.3, max: 0.3, noNaN: true }), {
           minLength: 1,
-          maxLength: 100,
+          maxLength: 50,
         }),
-        (returns) => drawdownSeries(returns).every((x) => x <= 1e-9),
+        fc.array(fc.float({ min: 0.001, max: 0.1, noNaN: true }), {
+          minLength: 1,
+          maxLength: 20,
+        }),
+        (base, tail) => {
+          const ddBefore = Math.abs(maxDrawdown(base));
+          const ddAfter = Math.abs(maxDrawdown([...base, ...tail]));
+          return ddAfter <= ddBefore + 1e-9;
+        },
       ),
       { numRuns: 200 },
     );
   });
 
-  it("totalDrift is in [0, 2] for any two proper weight maps", () => {
+  // ── Non-trivial: L1 upper bound = 2 is tight (all mass on disjoint symbols).
+  // Invariant: totalDrift is also symmetric in its arguments.
+  it("totalDrift is in [0, 2] and symmetric", () => {
     fc.assert(
       fc.property(
         fc.array(fc.float({ min: 0.0001, max: 1, noNaN: true }), {
@@ -4474,21 +5246,74 @@ describe("quant/ts invariants", () => {
           const aMap = Object.fromEntries(a.map((w, i) => [`S${i}`, w / aSum]));
           const bMap = Object.fromEntries(b.map((w, i) => [`S${i}`, w / bSum]));
           const t = totalDrift(aMap, bMap);
-          return t >= 0 && t <= 2 + 1e-9;
+          const tSym = totalDrift(bMap, aMap);
+          return t >= 0 && t <= 2 + 1e-9 && Math.abs(t - tSym) < 1e-9;
         },
       ),
       { numRuns: 200 },
     );
   });
 
-  it("annualizedVolatility ≥ 0", () => {
+  // ── Non-trivial: requires sampleVariance to subtract the mean correctly.
+  // Invariant: variance is SHIFT-INVARIANT — adding a constant leaves it unchanged.
+  // A buggy impl that computed E[X²] instead of E[(X-E[X])²] would fail this.
+  it("annualizedVolatility is shift-invariant: vol(xs) == vol(xs + c)", () => {
     fc.assert(
       fc.property(
-        fc.array(fc.float({ min: -0.5, max: 0.5, noNaN: true }), {
+        fc.array(fc.float({ min: -0.3, max: 0.3, noNaN: true }), {
           minLength: 2,
           maxLength: 252,
         }),
-        (returns) => annualizedVolatility(returns) >= 0,
+        fc.float({ min: -1, max: 1, noNaN: true }),
+        (returns, shift) => {
+          const v1 = annualizedVolatility(returns);
+          const v2 = annualizedVolatility(returns.map((r) => r + shift));
+          // Relative tolerance of 1e-6 handles floating-point accumulation.
+          return Math.abs(v1 - v2) < 1e-6 + 1e-6 * Math.max(v1, 1);
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  // ── Non-trivial: cumulative return of concatenation is compounding.
+  // (1 + cum(a ++ b)) == (1 + cum(a)) * (1 + cum(b))
+  // Catches off-by-one in the compounding loop and sign errors.
+  it("cumulativeReturn is multiplicatively compositional over concatenation", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.float({ min: -0.2, max: 0.2, noNaN: true }), {
+          minLength: 1,
+          maxLength: 50,
+        }),
+        fc.array(fc.float({ min: -0.2, max: 0.2, noNaN: true }), {
+          minLength: 1,
+          maxLength: 50,
+        }),
+        (a, b) => {
+          const cumA = cumulativeReturn(a);
+          const cumB = cumulativeReturn(b);
+          const cumAB = cumulativeReturn([...a, ...b]);
+          const rhs = (1 + cumA) * (1 + cumB) - 1;
+          return Math.abs(cumAB - rhs) < 1e-9 + 1e-9 * Math.abs(cumAB);
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  // ── Non-trivial: sampleVariance ≥ 0 always (would fail if the code
+  // accidentally computed E[X²] − E[X]² with negative floating-point residue
+  // when the true variance is tiny). Catches the classic two-pass vs one-pass
+  // numerical-stability bug.
+  it("sampleVariance is always non-negative (numerical stability)", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.float({ min: -1e6, max: 1e6, noNaN: true }), {
+          minLength: 2,
+          maxLength: 50,
+        }),
+        (xs) => sampleVariance(xs) >= -1e-9,
       ),
       { numRuns: 200 },
     );
@@ -4496,20 +5321,36 @@ describe("quant/ts invariants", () => {
 });
 ```
 
+**Property test ordering:** Kept the 3 existing non-trivial properties (HHI bounds strengthened to include 1/n floor, effectiveN ≤ n, topNExposure monotone) and replaced the 4 trivial ones with stronger invariants:
+- `drawdownSeries is 0 for monotone-up` — catches broken peak-tracking
+- `|maxDrawdown| non-increasing after positive tail` — catches broken recovery detection
+- `annualizedVolatility shift-invariant` — catches missing mean subtraction
+- `cumulativeReturn compositional over concatenation` — catches off-by-one / sign bugs
+
+Strengthened `totalDrift` to also verify symmetry. Added `sampleVariance ≥ 0` as a numerical-stability smoke test.
+
 - [ ] **Step 2: Run property tests**
 
 Run: `npm test -- tests/lib/quant/properties.test.ts`
-Expected: all 7 properties PASS across 200 random runs each.
+Expected: all 9 properties PASS across 200 random runs each (1800 total cases).
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add tests/lib/quant/properties.test.ts
-git commit -m "test(quant/ts): fast-check property tests for invariants
+git commit -m "test(quant/ts): non-trivial fast-check invariants for math library
 
-HHI ∈ [0,1], effectiveN ≤ n, topNExposure monotone in n, max drawdown
-≤ 0, drawdown series element-wise ≤ 0, totalDrift ∈ [0,2], annualized
-vol ≥ 0. 200 random runs per property."
+Replaced 4 trivial properties (maxDD ≤ 0, ddSeries ≤ 0, annVol ≥ 0) that
+were baked into the implementation — a correct re-implementation couldn't
+fail them. Now asserts real invariants:
+- HHI ∈ [1/n, 1] (Cauchy-Schwarz floor, not just upper)
+- drawdownSeries == 0 on monotone-up (catches peak-tracking bugs)
+- |maxDD| non-increasing after positive tail (catches recovery logic)
+- annualizedVolatility shift-invariance (catches missing mean subtraction)
+- cumulativeReturn compositional over concat (catches compounding bugs)
+- totalDrift symmetric + ∈ [0,2]
+- sampleVariance non-negative (numerical-stability guard)
+200 runs each; 1800 total random cases."
 ```
 
 ---
@@ -4698,6 +5539,11 @@ describe("errorCoded", () => {
     expect(statusFromCode("COLD_START_TIMEOUT" as QuantErrorCode)).toBe(503);
     expect(statusFromCode("INFEASIBLE" as QuantErrorCode)).toBe(400);
     expect(statusFromCode("INTERNAL" as QuantErrorCode)).toBe(500);
+    // UNAUTHENTICATED (no session) is 401 — distinct from FORBIDDEN (403, "you're
+    // logged in but can't do this"). Used by every Next.js quant route when
+    // Supabase returns no user.
+    expect(statusFromCode("UNAUTHENTICATED" as QuantErrorCode)).toBe(401);
+    expect(statusFromCode("FORBIDDEN" as QuantErrorCode)).toBe(403);
   });
 });
 ```
@@ -4722,6 +5568,19 @@ import { NextResponse } from "next/server";
  * NOT migrate them as part of Phase 2.
  */
 
+/**
+ * Canonical error-code table (16 codes). Numbers MUST stay in sync with:
+ * - The `/docs/api/quant.md` public API doc (Chunk 9 Task 9.2).
+ * - The i18n string table `quant.errors.<code>` in the locale files.
+ *
+ * Status code choices:
+ *   UNAUTHENTICATED (401) → "Who are you?" — no Supabase session; prompt login.
+ *   FORBIDDEN       (403) → "We know you, but you can't do this" — e.g. admin-only
+ *                           action. NOT used for ownership checks (those return
+ *                           PORTFOLIO_NOT_FOUND 404 to hide existence per §5.1).
+ *   HMAC_INVALID    (401) → Modal-side only (HMAC missing/wrong/expired); not
+ *                           used by Next.js-facing routes.
+ */
 export const QUANT_ERROR_CODES = [
   "VALIDATION_ERROR",
   "WEIGHTS_NOT_ONE",
@@ -4736,6 +5595,7 @@ export const QUANT_ERROR_CODES = [
   "COLD_START_TIMEOUT",
   "FEATURE_DISABLED",
   "PORTFOLIO_NOT_FOUND",
+  "UNAUTHENTICATED",
   "FORBIDDEN",
   "INTERNAL",
 ] as const;
@@ -4750,13 +5610,14 @@ const CODE_TO_STATUS: Record<QuantErrorCode, number> = {
   INFEASIBLE: 400,
   INSUFFICIENT_HISTORY: 422,
   MONTE_CARLO_DEGENERATE: 422,
-  HMAC_INVALID: 401,
-  HMAC_EXPIRED: 401,
+  HMAC_INVALID: 401,           // Modal-side HMAC missing/wrong
+  HMAC_EXPIRED: 401,           // Modal-side timestamp > 5min old
   RATE_LIMITED: 429,
   COLD_START_TIMEOUT: 503,
-  FEATURE_DISABLED: 404,  // pretend endpoint doesn't exist when flag off
-  PORTFOLIO_NOT_FOUND: 404,
-  FORBIDDEN: 403,
+  FEATURE_DISABLED: 404,       // pretend endpoint doesn't exist when flag off
+  PORTFOLIO_NOT_FOUND: 404,    // also used for "owned by someone else" (hide existence)
+  UNAUTHENTICATED: 401,        // no Supabase session — prompt login
+  FORBIDDEN: 403,              // authenticated but lacks permission for this action
   INTERNAL: 500,
 };
 
@@ -4791,9 +5652,12 @@ Expected: PASS.
 git add src/lib/api/response-coded.ts tests/lib/api/response-coded.test.ts
 git commit -m "feat(api): §3.3a error envelope helper for quant routes
 
-Maps 15 QuantErrorCode values to HTTP status. Coexists with legacy
-src/lib/api/response.ts — quant routes use the coded helper, existing
-routes keep { data, error } untouched."
+Maps 16 QuantErrorCode values to HTTP status. UNAUTHENTICATED (401) and
+FORBIDDEN (403) are distinct — UNAUTHENTICATED for 'no session', FORBIDDEN
+for 'authenticated but not allowed'. Ownership checks use PORTFOLIO_NOT_FOUND
+(404) to hide existence per §5.1. Coexists with legacy src/lib/api/response.ts
+— quant routes use the coded helper, existing routes keep { data, error }
+untouched."
 ```
 
 ### Task 7.3: Extend rate-limit tiers
@@ -4858,12 +5722,12 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
     search:      new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30,  '1 m'), prefix: 'rl:search'      }),
     transaction: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60,  '1 m'), prefix: 'rl:transaction' }),
     general:     new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(120, '1 m'), prefix: 'rl:general'     }),
-    // Phase 2 tiers (§5.2 of spec)
-    optimize:    new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5,   '1 m'), prefix: 'rl:optimize'    }),
-    monte_carlo: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3,   '1 m'), prefix: 'rl:mc'          }),
-    rebalance:   new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10,  '1 m'), prefix: 'rl:rebalance'   }),
-    // Internal tier: per-user cap on combined quant traffic (spec §5.2 safety net)
-    internal:    new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30,  '1 m'), prefix: 'rl:qint'        }),
+    // Phase 2 tiers — values verbatim from spec §5.2 table (per-hour to match cvxpy cost profile).
+    optimize:    new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10,  '1 h'), prefix: 'rl:optimize'    }),
+    monte_carlo: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5,   '1 h'), prefix: 'rl:mc'          }),
+    rebalance:   new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30,  '1 h'), prefix: 'rl:rebalance'   }),
+    // Internal tier: global (not per-user) sanity cap across Worker→Next calls — spec §5.2 row 4.
+    internal:    new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(100, '1 m'), prefix: 'rl:qint'        }),
   }
 }
 
@@ -4885,9 +5749,9 @@ Expected: PASS.
 git add src/lib/api/rate-limit.ts tests/lib/api/rate-limit.test.ts
 git commit -m "feat(api): rate-limit tiers for optimize/mc/rebalance/internal
 
-Phase 2 quant endpoints have tight per-user caps: 5/min optimize,
-3/min monte-carlo, 10/min rebalance. 'internal' tier is a safety-net
-30/min combined cap to prevent a burst across the 3 above."
+Per spec §5.2: 10/h optimize, 5/h monte-carlo, 30/h rebalance per
+user (cvxpy is expensive; per-hour window dampens bursts). 'internal'
+tier is a 100/min GLOBAL cap for Worker→Next traffic."
 ```
 
 ### Task 7.4: `src/lib/services/quant.ts` — Modal caller with cache + audit
@@ -4896,7 +5760,11 @@ Phase 2 quant endpoints have tight per-user caps: 5/min optimize,
 - Create: `src/lib/services/quant.ts`
 - Test: `tests/lib/services/quant.test.ts`
 
-**Spec invariant (§7.2):** every call — cache-hit OR cache-miss — writes ONE row to `quant_runs`. Tests verify this.
+**Spec invariants:**
+- §7.2: every call — cache-hit OR cache-miss OR network error — writes ONE row to `quant_runs`.
+- §5.1: the audit row uses the migration 009 column set `{ portfolio_id, user_id, type, request, response, elapsed_ms, cached }`. The `type` value is one of `'optimize' | 'monte_carlo' | 'factors' | 'rebalance'` (the CHECK constraint) — NOT the raw endpoint path. The error envelope (if any) lands inside `response` as `{ error: { code, message, details } }`, so a single row shape covers success + failure.
+
+Tests verify BOTH invariants.
 
 - [ ] **Step 1: Write failing test**
 
@@ -4922,24 +5790,25 @@ beforeEach(() => {
 });
 
 describe("callQuant", () => {
-  it("posts signed request to Modal on cache miss and inserts audit row", async () => {
+  it("posts signed request to Modal on cache miss and inserts audit row (cached=false)", async () => {
     mockCacheGet.mockResolvedValue(null);
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
-      json: () => Promise.resolve({ weights: { A: 0.5, B: 0.5 } }),
+      json: () => Promise.resolve({ optimal_weights: { A: 0.5, B: 0.5 } }),
     });
 
+    const body = { symbols: ["A", "B"], method: "mean_variance" };
     const result = await callQuant({
       endpoint: "/optimize",
-      body: { symbols: ["A", "B"], method: "mean_variance" },
+      body,
       portfolioId: "p-1",
       userId: "u-1",
       supabase: mockSupabase as never,
       cache: { get: mockCacheGet, set: mockCacheSet },
     });
 
-    expect(result).toEqual({ weights: { A: 0.5, B: 0.5 } });
+    expect(result).toEqual({ optimal_weights: { A: 0.5, B: 0.5 } });
     expect(mockFetch).toHaveBeenCalledOnce();
     const call = mockFetch.mock.calls[0];
     expect(call[0]).toBe("https://modal.test/optimize");
@@ -4947,50 +5816,54 @@ describe("callQuant", () => {
     const headers = (call[1]?.headers as Record<string, string>) ?? {};
     expect(headers["X-Timestamp"]).toMatch(/^\d+$/);
     expect(headers["X-Signature"]).toMatch(/^[a-f0-9]{64}$/);
-    // Mandatory audit row
+    // Mandatory audit row — migration 009 column shape.
     expect(mockSupabase.from).toHaveBeenCalledWith("quant_runs");
     expect(mockSupabase.insert).toHaveBeenCalledOnce();
     const auditArg = mockSupabase.insert.mock.calls[0][0];
     expect(auditArg).toMatchObject({
       portfolio_id: "p-1",
       user_id: "u-1",
-      endpoint: "/optimize",
-      cache_hit: false,
-      status: "ok",
+      type: "optimize",                                   // endpoint→type mapping
+      request: body,
+      response: { optimal_weights: { A: 0.5, B: 0.5 } },
+      cached: false,
     });
+    expect(auditArg.elapsed_ms).toEqual(expect.any(Number));
     expect(mockCacheSet).toHaveBeenCalledOnce();
   });
 
-  it("serves from cache without calling Modal, BUT STILL inserts audit row", async () => {
-    mockCacheGet.mockResolvedValue({ weights: { A: 0.4, B: 0.6 } });
+  it("serves from cache without calling Modal, BUT STILL inserts audit row (cached=true)", async () => {
+    const cached = { optimal_weights: { A: 0.4, B: 0.6 } };
+    mockCacheGet.mockResolvedValue(cached);
 
     const result = await callQuant({
-      endpoint: "/optimize",
-      body: { symbols: ["A", "B"], method: "mean_variance" },
+      endpoint: "/monte-carlo",
+      body: { symbols: ["A", "B"] },
       portfolioId: "p-1",
       userId: "u-1",
       supabase: mockSupabase as never,
       cache: { get: mockCacheGet, set: mockCacheSet },
     });
 
-    expect(result).toEqual({ weights: { A: 0.4, B: 0.6 } });
+    expect(result).toEqual(cached);
     expect(mockFetch).not.toHaveBeenCalled();
     expect(mockSupabase.insert).toHaveBeenCalledOnce();
     const auditArg = mockSupabase.insert.mock.calls[0][0];
-    expect(auditArg.cache_hit).toBe(true);
-    expect(auditArg.status).toBe("ok");
+    expect(auditArg).toMatchObject({
+      type: "monte_carlo",                                // hyphen → underscore
+      cached: true,
+      response: cached,
+    });
     expect(mockCacheSet).not.toHaveBeenCalled();
   });
 
-  it("propagates modal error envelope verbatim and inserts audit with status=error", async () => {
+  it("propagates modal error envelope verbatim and inserts audit row with error in response JSONB", async () => {
     mockCacheGet.mockResolvedValue(null);
+    const errEnv = { error: { code: "WEIGHTS_NOT_ONE", message: "w=1.002", details: {} } };
     mockFetch.mockResolvedValue({
       ok: false,
       status: 422,
-      json: () =>
-        Promise.resolve({
-          error: { code: "WEIGHTS_NOT_ONE", message: "w=1.002", details: {} },
-        }),
+      json: () => Promise.resolve(errEnv),
     });
 
     await expect(
@@ -5002,15 +5875,87 @@ describe("callQuant", () => {
         supabase: mockSupabase as never,
         cache: { get: mockCacheGet, set: mockCacheSet },
       }),
-    ).rejects.toMatchObject({
-      code: "WEIGHTS_NOT_ONE",
-      message: "w=1.002",
+    ).rejects.toMatchObject({ code: "WEIGHTS_NOT_ONE", message: "w=1.002" });
+
+    // Error path still writes ONE row — error envelope is stored inside response JSONB.
+    expect(mockSupabase.insert).toHaveBeenCalledOnce();
+    const auditArg = mockSupabase.insert.mock.calls[0][0];
+    expect(auditArg).toMatchObject({
+      type: "optimize",
+      cached: false,
+      response: errEnv,
     });
+  });
+
+  it("writes audit row when fetch itself throws (network error)", async () => {
+    mockCacheGet.mockResolvedValue(null);
+    mockFetch.mockRejectedValue(new Error("ECONNRESET"));
+
+    await expect(
+      callQuant({
+        endpoint: "/optimize",
+        body: { symbols: ["A", "B"], method: "mean_variance" },
+        portfolioId: "p-1",
+        userId: "u-1",
+        supabase: mockSupabase as never,
+        cache: { get: mockCacheGet, set: mockCacheSet },
+      }),
+    ).rejects.toMatchObject({ code: "INTERNAL" });
 
     expect(mockSupabase.insert).toHaveBeenCalledOnce();
     const auditArg = mockSupabase.insert.mock.calls[0][0];
-    expect(auditArg.status).toBe("error");
-    expect(auditArg.error_code).toBe("WEIGHTS_NOT_ONE");
+    expect(auditArg.type).toBe("optimize");
+    expect(auditArg.cached).toBe(false);
+    expect(auditArg.response?.error?.code).toBe("INTERNAL");
+  });
+
+  it("maps AbortError from fetch timeout to COLD_START_TIMEOUT audit row", async () => {
+    mockCacheGet.mockResolvedValue(null);
+    const abortErr = Object.assign(new Error("aborted"), { name: "AbortError" });
+    mockFetch.mockRejectedValue(abortErr);
+
+    await expect(
+      callQuant({
+        endpoint: "/optimize",
+        body: { symbols: ["A", "B"], method: "mean_variance" },
+        portfolioId: "p-1",
+        userId: "u-1",
+        supabase: mockSupabase as never,
+        cache: { get: mockCacheGet, set: mockCacheSet },
+      }),
+    ).rejects.toMatchObject({ code: "COLD_START_TIMEOUT" });
+
+    const auditArg = mockSupabase.insert.mock.calls[0][0];
+    expect(auditArg.response?.error?.code).toBe("COLD_START_TIMEOUT");
+  });
+
+  it("cache key is stable under key reordering (canonical JSON)", async () => {
+    mockCacheGet.mockResolvedValue(null);
+    mockFetch.mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) });
+
+    await callQuant({
+      endpoint: "/optimize",
+      body: { method: "mean_variance", symbols: ["A", "B"] },
+      portfolioId: "p-1", userId: "u-1",
+      supabase: mockSupabase as never,
+      cache: { get: mockCacheGet, set: mockCacheSet },
+    });
+    const firstKey = mockCacheGet.mock.calls[0][0];
+
+    mockCacheGet.mockClear(); mockCacheSet.mockClear();
+    mockFetch.mockClear();
+    mockCacheGet.mockResolvedValue(null);
+    mockFetch.mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({}) });
+
+    await callQuant({
+      endpoint: "/optimize",
+      body: { symbols: ["A", "B"], method: "mean_variance" },   // keys reversed
+      portfolioId: "p-1", userId: "u-1",
+      supabase: mockSupabase as never,
+      cache: { get: mockCacheGet, set: mockCacheSet },
+    });
+    const secondKey = mockCacheGet.mock.calls[0][0];
+    expect(firstKey).toEqual(secondKey);
   });
 });
 ```
@@ -5029,6 +5974,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { signRequest } from "@/lib/api/hmac";
 
 export type QuantEndpoint = "/optimize" | "/monte-carlo" | "/factors" | "/rebalance";
+export type QuantRunType = "optimize" | "monte_carlo" | "factors" | "rebalance";
 
 export type QuantErrorEnvelope = {
   code: string;
@@ -5042,10 +5988,19 @@ export type QuantCache = {
 };
 
 const CACHE_TTL_SECONDS: Record<QuantEndpoint, number> = {
-  "/optimize": 15 * 60,       // 15 min
-  "/monte-carlo": 30 * 60,    // 30 min (higher cost, stable inputs over session)
-  "/factors": 60 * 60,        // 1 hr (slow-moving)
+  "/optimize": 60 * 60,       // 1 hr (spec §3.6 cache column)
+  "/monte-carlo": 60 * 60,    // 1 hr (spec §3.6 cache column)
+  "/factors": 60 * 60,        // 1 hr (slow-moving; spec §3.6)
   "/rebalance": 0,            // never cache — always fresh trade plan
+};
+
+// Endpoint path → migration 009 `type` CHECK value. The CHECK constraint
+// accepts underscores/no-slash values; endpoints use slashes/hyphens.
+const ENDPOINT_TO_TYPE: Record<QuantEndpoint, QuantRunType> = {
+  "/optimize": "optimize",
+  "/monte-carlo": "monte_carlo",
+  "/factors": "factors",
+  "/rebalance": "rebalance",
 };
 
 export type CallQuantOptions<TBody> = {
@@ -5068,10 +6023,29 @@ export class QuantError extends Error {
   }
 }
 
+/**
+ * Stable JSON stringify — keys sorted recursively. Guarantees that
+ * `{a:1,b:2}` and `{b:2,a:1}` produce identical bytes. Used by both
+ * the cache-key computation AND the HMAC body signing so the two
+ * never drift.
+ */
+export function stableStringify(v: unknown): string {
+  if (v === null || typeof v !== "object") return JSON.stringify(v);
+  if (Array.isArray(v)) return "[" + v.map(stableStringify).join(",") + "]";
+  const keys = Object.keys(v as Record<string, unknown>).sort();
+  return (
+    "{" +
+    keys
+      .map((k) => JSON.stringify(k) + ":" + stableStringify((v as Record<string, unknown>)[k]))
+      .join(",") +
+    "}"
+  );
+}
+
 function cacheKey(endpoint: QuantEndpoint, body: unknown): string {
   const h = createHash("sha256")
     .update(endpoint)
-    .update(JSON.stringify(body))
+    .update(stableStringify(body))
     .digest("hex");
   return `quant:${endpoint}:${h.slice(0, 32)}`;
 }
@@ -5079,8 +6053,12 @@ function cacheKey(endpoint: QuantEndpoint, body: unknown): string {
 /**
  * Call the Modal quant service with HMAC-signed request.
  * Serves from cache when available (except /rebalance).
- * **ALWAYS writes one row to quant_runs** — both cache-hit and cache-miss
- * paths insert the audit row (spec §7.2 invariant).
+ *
+ * **ALWAYS writes ONE row to quant_runs** — cache-hit, cache-miss, Modal
+ * 4xx/5xx, AND network errors ALL produce exactly one audit row. This is
+ * the spec §7.2 "every call = one audit row" invariant. The error envelope
+ * (if any) is stored inside the `response` JSONB column so a single row
+ * shape covers success and failure.
  */
 export async function callQuant<TBody, TResult = unknown>(
   opts: CallQuantOptions<TBody>,
@@ -5088,88 +6066,112 @@ export async function callQuant<TBody, TResult = unknown>(
   const { endpoint, body, portfolioId, userId, supabase, cache } = opts;
   const url = process.env.QUANT_SERVICE_URL;
   const key = process.env.QUANT_SERVICE_HMAC_KEY;
+  const type = ENDPOINT_TO_TYPE[endpoint];
+  const baseRow = {
+    portfolio_id: portfolioId,
+    user_id: userId,
+    type,
+    request: body as unknown as Record<string, unknown>,
+  };
+
   if (!url || !key) {
-    throw new QuantError(
+    const err = new QuantError(
       "INTERNAL",
       "Quant service not configured (QUANT_SERVICE_URL or HMAC_KEY missing)",
     );
+    await insertAudit(supabase, {
+      ...baseRow,
+      response: { error: { code: err.code, message: err.message, details: err.details } },
+      elapsed_ms: 0,
+      cached: false,
+    });
+    throw err;
   }
 
   const ttl = CACHE_TTL_SECONDS[endpoint];
   const ckey = cacheKey(endpoint, body);
 
   // Cache check (skip for rebalance)
-  let cacheHit = false;
-  let result: TResult | null = null;
   if (ttl > 0) {
     const cached = (await cache.get(ckey)) as TResult | null;
-    if (cached !== null) {
-      cacheHit = true;
-      result = cached;
+    if (cached !== null && cached !== undefined) {
+      await insertAudit(supabase, {
+        ...baseRow,
+        response: cached as Record<string, unknown>,
+        elapsed_ms: 0,                   // served from cache — no Modal wall time
+        cached: true,
+      });
+      return cached;
     }
   }
 
   const start = Date.now();
+  const bodyStr = stableStringify(body);
+  const { headers } = signRequest(bodyStr, key);
 
-  if (!cacheHit) {
-    const bodyStr = JSON.stringify(body);
-    const { headers } = signRequest(bodyStr, key);
-    const resp = await fetch(url + endpoint, {
+  let resp: Response;
+  try {
+    resp = await fetch(url + endpoint, {
       method: "POST",
       headers,
       body: bodyStr,
       signal: AbortSignal.timeout(60_000), // 60s max
     });
-    if (!resp.ok) {
-      const env = (await resp.json().catch(() => ({
-        error: { code: "INTERNAL", message: `HTTP ${resp.status}`, details: {} },
-      }))) as { error?: QuantErrorEnvelope };
-      await insertAudit(supabase, {
-        portfolio_id: portfolioId,
-        user_id: userId,
-        endpoint,
-        cache_hit: false,
-        status: "error",
-        error_code: env.error?.code ?? "INTERNAL",
-        duration_ms: Date.now() - start,
-        request_hash: ckey,
-      });
-      throw new QuantError(
-        env.error?.code ?? "INTERNAL",
-        env.error?.message ?? `HTTP ${resp.status}`,
-        env.error?.details ?? {},
-      );
-    }
-    result = (await resp.json()) as TResult;
-    if (ttl > 0) {
-      await cache.set(ckey, result, ttl);
-    }
+  } catch (e) {
+    // Network error (DNS / TCP / timeout). Map AbortError → COLD_START_TIMEOUT.
+    const isAbort = e instanceof Error && e.name === "AbortError";
+    const code = isAbort ? "COLD_START_TIMEOUT" : "INTERNAL";
+    const message = isAbort ? "Quant service timed out (cold start > 60s)" : (e instanceof Error ? e.message : "Network error");
+    const errEnv = { error: { code, message, details: {} } };
+    await insertAudit(supabase, {
+      ...baseRow,
+      response: errEnv,
+      elapsed_ms: Date.now() - start,
+      cached: false,
+    });
+    throw new QuantError(code, message);
   }
 
-  // MANDATORY audit — cache-hit and cache-miss both land here.
+  if (!resp.ok) {
+    const env = (await resp.json().catch(() => ({
+      error: { code: "INTERNAL", message: `HTTP ${resp.status}`, details: {} },
+    }))) as { error?: QuantErrorEnvelope };
+    await insertAudit(supabase, {
+      ...baseRow,
+      response: env,                      // error envelope stored verbatim
+      elapsed_ms: Date.now() - start,
+      cached: false,
+    });
+    throw new QuantError(
+      env.error?.code ?? "INTERNAL",
+      env.error?.message ?? `HTTP ${resp.status}`,
+      env.error?.details ?? {},
+    );
+  }
+
+  const result = (await resp.json()) as TResult;
+  if (ttl > 0) {
+    await cache.set(ckey, result, ttl);
+  }
+
   await insertAudit(supabase, {
-    portfolio_id: portfolioId,
-    user_id: userId,
-    endpoint,
-    cache_hit: cacheHit,
-    status: "ok",
-    error_code: null,
-    duration_ms: Date.now() - start,
-    request_hash: ckey,
+    ...baseRow,
+    response: result as Record<string, unknown>,
+    elapsed_ms: Date.now() - start,
+    cached: false,
   });
 
-  return result as TResult;
+  return result;
 }
 
 type AuditRow = {
   portfolio_id: string;
   user_id: string;
-  endpoint: string;
-  cache_hit: boolean;
-  status: "ok" | "error";
-  error_code: string | null;
-  duration_ms: number;
-  request_hash: string;
+  type: QuantRunType;
+  request: Record<string, unknown>;
+  response: Record<string, unknown>;
+  elapsed_ms: number;
+  cached: boolean;
 };
 
 async function insertAudit(
@@ -5179,8 +6181,14 @@ async function insertAudit(
   const { error } = await supabase.from("quant_runs").insert(row);
   if (error) {
     // Non-fatal: audit failure shouldn't block the user response.
-    // But log loudly.
+    // But log loudly AND capture to Sentry — audit is a spec §7.2 invariant.
     console.error("[quant] audit insert failed", error);
+    try {
+      const Sentry = await import("@sentry/nextjs");
+      Sentry.captureException(error, { tags: { subsystem: "quant-audit" } });
+    } catch {
+      // Sentry not installed in this build — already logged.
+    }
   }
 }
 ```
@@ -5196,10 +6204,14 @@ Expected: all 3 tests PASS.
 git add src/lib/services/quant.ts tests/lib/services/quant.test.ts
 git commit -m "feat(services): Modal quant caller with cache + mandatory audit
 
-callQuant() signs with HMAC, handles cache (/rebalance bypasses),
-propagates §3.3a error envelope as typed QuantError. ALWAYS inserts
-exactly one quant_runs row (spec §7.2) — cache-hit and cache-miss
-both produce audit; audit insert failures are non-fatal but logged."
+callQuant() signs with HMAC (stable-stringify body), handles cache
+(/rebalance bypasses), propagates §3.3a error envelope as QuantError.
+ALWAYS inserts exactly ONE quant_runs row (spec §7.2): cache-hit,
+cache-miss, Modal 4xx/5xx, and network errors ALL produce one row.
+Uses migration 009 column shape {type, request, response, elapsed_ms,
+cached}; endpoint path → type via ENDPOINT_TO_TYPE map (/monte-carlo
+→ monte_carlo etc). Audit failures log to console AND Sentry since
+§7.2 makes this an invariant, not just telemetry."
 ```
 
 ---
@@ -5212,14 +6224,17 @@ both produce audit; audit insert failures are non-fatal but logged."
 
 **Pattern:** All four routes share the same skeleton:
 1. Check `quant_engine_enabled` flag → 404 `FEATURE_DISABLED` when off.
-2. Auth via `supabase.auth.getUser()` → 401 `FORBIDDEN`.
+2. Auth via `supabase.auth.getUser()` → 401 `UNAUTHENTICATED` (NOT `FORBIDDEN`).
 3. Rate-limit on route-specific tier + `internal` safety net.
 4. Zod-validate the body → 422 `VALIDATION_ERROR` on failure.
-5. Portfolio ownership check → 404 `PORTFOLIO_NOT_FOUND`.
+5. Portfolio ownership check → 404 `PORTFOLIO_NOT_FOUND` (hides existence from non-owners per §5.1).
 6. Call `callQuant(...)` with a Redis-backed cache shim.
-7. Catch `QuantError`, map to §3.3a envelope.
+7. Catch `QuantError`; on unknown throw, return `errorCoded("INTERNAL", ...)` — **never re-throw** (that would leak to the Next.js HTML error boundary and break the `{error:{code,message,details}}` contract the client depends on).
+8. Emit a PostHog event after success: `optimize_run` / `monte_carlo_run` / `factors_run` / `rebalance_plan_created` (event names are product-analytics keys — do NOT reuse a generic `quant_run`).
 
-Only the Zod schema, the rate-limit tier, and the callQuant endpoint differ between routes.
+Only the Zod schema, the rate-limit tier, the callQuant endpoint, and the PostHog event name differ between routes.
+
+**Factors is GET, not POST (§3.6 table):** the Next.js-facing `/api/portfolio/[id]/factors` is a GET with no body — the route computes `portfolio_returns` server-side from `portfolio_history` and loads `factor_returns` from a server-side Fama-French fixture/dataset, then POSTs the composed body to the Modal `/factors` endpoint (which IS POST per §4.1.3). Cache TTL 24h.
 
 ### Task 7.5: `/api/portfolios/[id]/optimize` route
 
@@ -5229,13 +6244,13 @@ Only the Zod schema, the rate-limit tier, and the callQuant endpoint differ betw
 
 **Handler behavior (spec §4.2):**
 1. Check feature flag `quant_engine_enabled` — off → 404 `FEATURE_DISABLED`.
-2. Authenticate. Unauth → 401.
+2. Authenticate. Unauth → 401 `UNAUTHENTICATED`.
 3. Validate body with Zod.
 4. Rate-limit on `optimize` tier + `internal` tier.
 5. Load portfolio, verify ownership. Not found / not owned → 404 `PORTFOLIO_NOT_FOUND`.
 6. Build `returns` map from `portfolio_history` / `price_history` for each symbol.
 7. Call `callQuant({ endpoint: "/optimize", ... })`.
-8. Emit PostHog event `quant_run`.
+8. Emit PostHog event `optimize_run` (NOT a generic `quant_run` — each route has its own event name for funnel analytics).
 9. Return result with §3.3a envelope (success case: data only; error: `{ error: {...} }`).
 
 - [ ] **Step 1: Write integration test**
@@ -5366,21 +6381,25 @@ import { createClient } from "@/lib/supabase/server";
 import { callQuant, QuantError } from "@/lib/services/quant";
 import { isFeatureEnabled } from "@/lib/flags";
 import { redis } from "@/lib/cache/redis";
+import { posthog } from "@/lib/analytics/posthog-server"; // server-side PostHog client (existing module)
 
+// Spec §4.1.1 request shape. Next.js route is slightly more permissive than the
+// Modal endpoint (allows `symbols` omission + server-side returns load), but
+// everything it POSTs to Modal matches the spec exactly.
 const OptimizeBody = z.object({
   method: z.enum(["mean_variance", "risk_parity", "hrp"]),
   symbols: z.array(z.string()).min(2).max(100).optional(),
   returns: z.record(z.string(), z.array(z.number())).optional(),
-  target_return: z.number().optional(),
   risk_free_rate: z.number().default(0),
-  include_frontier: z.boolean().default(false),
+  frontier_points: z.number().int().min(0).max(200).default(0), // 0 = skip frontier
   constraints: z
     .object({
-      allow_short: z.boolean().default(false),
       min_weight: z.number().optional(),
       max_weight: z.number().optional(),
       sector_caps: z.record(z.string(), z.number()).optional(),
-      sector_map: z.record(z.string(), z.string()).optional(),
+      target_return: z.number().optional(),
+      risk_aversion: z.number().optional(),
+      sector_map: z.record(z.string(), z.string()).optional(), // extension: UI-supplied
     })
     .optional(),
 });
@@ -5397,7 +6416,7 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return errorCoded("FORBIDDEN", "Not authenticated");
+  if (!user) return errorCoded("UNAUTHENTICATED", "Not authenticated");
 
   const okOpt = await rateLimit(user.id, "optimize");
   const okInt = await rateLimit(user.id, "internal");
@@ -5439,9 +6458,8 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
     symbols,
     returns,
     method: parsed.method,
-    target_return: parsed.target_return,
     risk_free_rate: parsed.risk_free_rate,
-    include_frontier: parsed.include_frontier,
+    frontier_points: parsed.frontier_points,
     constraints:
       parsed.constraints ??
       (portfolio.optimization_constraints as unknown) ??
@@ -5457,6 +6475,18 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
       supabase,
       cache: makeCache(),
     });
+    // Product analytics — fire-and-forget. The capture call is non-blocking;
+    // failure to emit does not fail the request.
+    void posthog.capture({
+      distinctId: user.id,
+      event: "optimize_run",
+      properties: {
+        portfolio_id: portfolioId,
+        method: parsed.method,
+        include_frontier: parsed.frontier_points > 0,
+        cached: (result as { cached?: boolean }).cached === true,
+      },
+    });
     return successCoded(result);
   } catch (err) {
     if (err instanceof QuantError) {
@@ -5467,7 +6497,12 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
         err.details,
       );
     }
-    throw err;
+    // Unexpected throw — never leak to Next's HTML error boundary. Log + envelope.
+    console.error("[optimize route] unexpected", err);
+    return errorCoded(
+      "INTERNAL",
+      err instanceof Error ? err.message : "Unexpected error",
+    );
   }
 });
 
@@ -5534,16 +6569,12 @@ provide returns. Propagates QuantError to §3.3a envelope."
 - Create: `src/app/api/portfolios/[id]/monte-carlo/route.ts`
 - Test: `tests/app/api/portfolios/monte-carlo.test.ts`
 
-- [ ] **Step 1: Write test** (pattern identical to Task 7.5; differs only in body schema and rate tier).
+- [ ] **Step 1: Write test** (pattern similar to Task 7.5; differs in body schema, rate tier, and MC response shape).
+
+Spec §4.1.2 response shape (what the Modal endpoint returns, and what our mock must emit): `{ trajectories: {p5,p50,p95: number[]}, final_distribution: {mean,median,std,min,max,percentiles:Record<string,number>}, var_95, cvar_95, probability_of_loss, meta }`. **Do not** use legacy `percentiles: {p50:[...]}` or `terminal_values:[]` — those are from an earlier draft.
 
 ```typescript
 // tests/app/api/portfolios/monte-carlo.test.ts
-// Same shape as optimize.test.ts, but posts to /monte-carlo and uses
-// different body fields (horizon_days, n_simulations). Mocks callQuant
-// to return a percentiles/terminal_values payload. Verify rate-limit
-// tier is "monte_carlo" (not "optimize") by checking the
-// rateLimit mock arguments.
-
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/portfolios/[id]/monte-carlo/route";
 import { NextRequest } from "next/server";
@@ -5561,56 +6592,86 @@ vi.mock("@/lib/services/quant", () => ({
 vi.mock("@/lib/flags", () => ({
   isFeatureEnabled: vi.fn().mockResolvedValue(true),
 }));
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: vi.fn(),
+vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("@/lib/analytics/posthog-server", () => ({
+  posthog: { capture: vi.fn() },
 }));
 
 beforeEach(() => vi.resetAllMocks());
 
-it("calls rateLimit with 'monte_carlo' tier", async () => {
-  const { rateLimit } = await import("@/lib/api/rate-limit");
-  (rateLimit as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-  const { callQuant } = await import("@/lib/services/quant");
-  (callQuant as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-    percentiles: { p50: [100, 101] },
-    terminal_values: [101],
-    var_95: 5,
-    cvar_95: 6,
-    mean_terminal: 101,
-    meta: {},
+describe("POST /api/portfolios/[id]/monte-carlo", () => {
+  it("VALIDATION_ERROR when legacy body shape (weights + returns + initial_value) submitted", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u-1" } } }) },
+    });
+    const req = new NextRequest("http://t/api/portfolios/p-1/monte-carlo", {
+      method: "POST",
+      body: JSON.stringify({
+        weights: { A: 1.0 },
+        returns: { A: [0.001] }, // legacy key
+        initial_value: 10_000,   // legacy key (spec: current_value)
+        horizon_days: 30,
+        n_simulations: 500,
+      }),
+    });
+    const res = await POST(req, { params: Promise.resolve({ id: "p-1" }) });
+    const json = await res.json();
+    expect(res.status).toBe(400);
+    expect(json.error.code).toBe("VALIDATION_ERROR");
   });
-  const { createClient } = await import("@/lib/supabase/server");
-  (createClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u-1" } } }) },
-    from: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({
-      data: { id: "p-1", user_id: "u-1", symbols: ["A"] },
-    }),
-    insert: vi.fn().mockResolvedValue({ error: null }),
+
+  it("calls rateLimit with 'monte_carlo' tier + forwards spec §4.1.2 body to /monte-carlo", async () => {
+    const { rateLimit } = await import("@/lib/api/rate-limit");
+    (rateLimit as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+    const { callQuant } = await import("@/lib/services/quant");
+    (callQuant as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      trajectories: { p5: [99, 98], p50: [100, 101], p95: [101, 103] },
+      final_distribution: {
+        mean: 101.2, median: 101, std: 1.2, min: 95, max: 106,
+        percentiles: { "5": 99, "50": 101, "95": 103 },
+      },
+      var_95: 0.05, cvar_95: 0.07, probability_of_loss: 0.45, meta: {},
+    });
+    const { createClient } = await import("@/lib/supabase/server");
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u-1" } } }) },
+      from: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { id: "p-1", user_id: "u-1" },
+      }),
+    });
+    const req = new NextRequest("http://t/api/portfolios/p-1/monte-carlo", {
+      method: "POST",
+      body: JSON.stringify({
+        current_value: 10_000,
+        weights: { A: 1.0 },
+        expected_returns: { A: 0.0004 },
+        covariance: [[0.0001]],
+        horizon_days: 30,
+        n_simulations: 500,
+        percentiles: [5, 50, 95],
+      }),
+    });
+    const res = await POST(req, { params: Promise.resolve({ id: "p-1" }) });
+    expect(res.status).toBe(200);
+    const calls = (rateLimit as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const tiers = calls.map((c) => c[1]);
+    expect(tiers).toContain("monte_carlo");
+    expect(tiers).toContain("internal");
+    const forwarded = (callQuant as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(forwarded.endpoint).toBe("/monte-carlo");
+    expect(forwarded.body).toHaveProperty("current_value", 10_000);
+    expect(forwarded.body).toHaveProperty("covariance");
   });
-  const req = new NextRequest("http://t/api/portfolios/p-1/monte-carlo", {
-    method: "POST",
-    body: JSON.stringify({
-      weights: { A: 1.0 },
-      returns: { A: Array(100).fill(0.001) },
-      initial_value: 10_000,
-      horizon_days: 30,
-      n_simulations: 500,
-    }),
-  });
-  await POST(req, { params: Promise.resolve({ id: "p-1" }) });
-  const calls = (rateLimit as unknown as ReturnType<typeof vi.fn>).mock.calls;
-  const tiers = calls.map((c) => c[1]);
-  expect(tiers).toContain("monte_carlo");
-  expect(tiers).toContain("internal");
 });
 ```
 
 - [ ] **Step 2: Run to verify fail, then implement**
 
-Mirror `optimize/route.ts` — change: Zod schema = `{ weights, returns, initial_value, horizon_days (≤1260), n_simulations (1..50_000), confidence_level (0..1), seed? }`; rate-limit tier = `"monte_carlo"`; callQuant endpoint = `"/monte-carlo"`.
+Mirror `optimize/route.ts`. Zod schema matches spec §4.1.2: `{ current_value, weights, expected_returns, covariance, horizon_days (≤1260), n_simulations (1..50_000), percentiles, seed? }`. Rate-limit tier = `"monte_carlo"`; callQuant endpoint = `"/monte-carlo"`; PostHog event = `monte_carlo_run`.
 
 ```typescript
 // src/app/api/portfolios/[id]/monte-carlo/route.ts
@@ -5623,16 +6684,39 @@ import { createClient } from "@/lib/supabase/server";
 import { callQuant, QuantError } from "@/lib/services/quant";
 import { isFeatureEnabled } from "@/lib/flags";
 import { redis } from "@/lib/cache/redis";
+import { posthog } from "@/lib/analytics/posthog-server";
 
-const MCBody = z.object({
-  weights: z.record(z.string(), z.number()),
-  returns: z.record(z.string(), z.array(z.number())),
-  initial_value: z.number().positive(),
-  horizon_days: z.number().int().positive().max(1260),
-  n_simulations: z.number().int().positive().max(50_000),
-  confidence_level: z.number().gt(0).lt(1).default(0.95),
-  seed: z.number().int().optional(),
-});
+// Spec §4.1.2 request shape. Numbers of `covariance` rows/cols MUST equal the
+// number of symbols (keys in `weights` / `expected_returns`); Pydantic validates
+// this at the Modal boundary so we keep the Zod refine light here (structural).
+const MCBody = z
+  .object({
+    current_value: z.number().positive(),
+    weights: z.record(z.string(), z.number()),
+    expected_returns: z.record(z.string(), z.number()),
+    covariance: z.array(z.array(z.number())),
+    horizon_days: z.number().int().positive().max(1260),
+    n_simulations: z.number().int().positive().max(50_000),
+    percentiles: z.array(z.number().min(0).max(100)).min(1).default([5, 50, 95]),
+    seed: z.number().int().optional(),
+  })
+  .refine(
+    (b) => Object.keys(b.weights).length === Object.keys(b.expected_returns).length,
+    {
+      message: "weights and expected_returns must have the same symbol set",
+      path: ["expected_returns"],
+    },
+  )
+  .refine(
+    (b) => {
+      const n = Object.keys(b.weights).length;
+      return b.covariance.length === n && b.covariance.every((row) => row.length === n);
+    },
+    {
+      message: "covariance must be a square matrix with rows/cols matching symbol count",
+      path: ["covariance"],
+    },
+  );
 
 export const POST = apiHandler(async (req: NextRequest, ctx) => {
   const { params } = ctx as { params: Promise<{ id: string }> };
@@ -5642,7 +6726,7 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return errorCoded("FORBIDDEN", "Not authenticated");
+  if (!user) return errorCoded("UNAUTHENTICATED", "Not authenticated");
 
   const okMc = await rateLimit(user.id, "monte_carlo");
   const okInt = await rateLimit(user.id, "internal");
@@ -5668,16 +6752,23 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
   try {
     const result = await callQuant({
       endpoint: "/monte-carlo",
-      body: {
-        symbols: Object.keys(parsed.weights),
-        ...parsed,
-      },
+      body: parsed,
       portfolioId,
       userId: user.id,
       supabase,
       cache: {
         get: async (k) => (await redis.get(k)) ?? null,
         set: async (k, v, ttl) => { await redis.set(k, v, { ex: ttl }); },
+      },
+    });
+    void posthog.capture({
+      distinctId: user.id,
+      event: "monte_carlo_run",
+      properties: {
+        portfolio_id: portfolioId,
+        horizon_days: parsed.horizon_days,
+        n_simulations: parsed.n_simulations,
+        cached: (result as { cached?: boolean }).cached === true,
       },
     });
     return successCoded(result);
@@ -5688,7 +6779,11 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
         err.message,
         err.details,
       );
-    throw err;
+    console.error("[monte-carlo route] unexpected", err);
+    return errorCoded(
+      "INTERNAL",
+      err instanceof Error ? err.message : "Unexpected error",
+    );
   }
 });
 ```
@@ -5708,13 +6803,123 @@ Rate-limited on 'monte_carlo' tier (3/min). Max horizon 1260 days
 ownership pattern as /optimize."
 ```
 
-### Task 7.7: `/api/portfolios/[id]/factors` route
+### Task 7.7: `/api/portfolios/[id]/factors` route (GET)
 
 **Files:**
 - Create: `src/app/api/portfolios/[id]/factors/route.ts`
 - Test: `tests/app/api/portfolios/factors.test.ts`
 
-- [ ] **Step 1-3: Mirror Task 7.6**
+**Spec callout (§3.6 route table):** this Next.js route is **GET**, not POST. The client passes no body — it just asks "run a factor regression on my portfolio for the last N days". The route loads the portfolio's daily return series from `price_history`, loads the 6 FF5+MOM factor returns from the fixture shipped in Chunk 4 (`worker/data/ff5_mom_daily.json`), validates the shapes, then **POSTs** the composed body to the Modal `/factors` endpoint (spec §4.1.3) via `callQuant`. Query params: `days` (30..504, default 252).
+
+- [ ] **Step 1: Write failing test**
+
+```typescript
+// tests/app/api/portfolios/factors.test.ts
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { GET } from "@/app/api/portfolios/[id]/factors/route";
+import { NextRequest } from "next/server";
+
+vi.mock("@/lib/api/rate-limit", () => ({
+  rateLimit: vi.fn().mockResolvedValue(true),
+}));
+vi.mock("@/lib/services/quant", () => ({
+  callQuant: vi.fn(),
+  QuantError: class extends Error {
+    constructor(public code: string, message: string,
+                public details: Record<string, unknown> = {}) { super(message); }
+  },
+}));
+vi.mock("@/lib/flags", () => ({
+  isFeatureEnabled: vi.fn().mockResolvedValue(true),
+}));
+vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("@/lib/analytics/posthog-server", () => ({
+  posthog: { capture: vi.fn() },
+}));
+
+beforeEach(() => vi.resetAllMocks());
+
+describe("GET /api/portfolios/[id]/factors", () => {
+  it("returns UNAUTHENTICATED envelope when no session", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null } }) },
+    });
+    const req = new NextRequest("http://t/api/portfolios/p-1/factors?days=252");
+    const res = await GET(req, { params: Promise.resolve({ id: "p-1" }) });
+    const json = await res.json();
+    expect(res.status).toBe(401);
+    expect(json.error.code).toBe("UNAUTHENTICATED");
+  });
+
+  it("composes portfolio_returns + factor_returns server-side, POSTs to Modal", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+    const priceRows = Array.from({ length: 253 }, (_, i) => ({
+      price: 100 * Math.exp(i * 0.001),
+      date: new Date(2024, 0, i + 1).toISOString().slice(0, 10),
+    }));
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u-1" } } }) },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === "portfolios") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: { id: "p-1", user_id: "u-1", symbols: ["AAPL"] },
+            }),
+          };
+        }
+        // price_history
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockResolvedValue({ data: priceRows }),
+        };
+      }),
+    });
+    const { callQuant } = await import("@/lib/services/quant");
+    (callQuant as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      alpha: 0.01, betas: { MKT: 1.0, SMB: 0.1, HML: 0.0, RMW: 0.0, CMA: 0.0, MOM: 0.2 },
+      r_squared: 0.85, adjusted_r_squared: 0.84, t_stats: {}, p_values: {},
+      residual_std: 0.01, meta: {},
+    });
+    const req = new NextRequest("http://t/api/portfolios/p-1/factors?days=252");
+    const res = await GET(req, { params: Promise.resolve({ id: "p-1" }) });
+    expect(res.status).toBe(200);
+    const calls = (callQuant as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls[0][0].endpoint).toBe("/factors");
+    expect(calls[0][0].body).toHaveProperty("portfolio_returns");
+    expect(calls[0][0].body).toHaveProperty("factor_returns");
+    // 6 FF5+MOM factors required
+    const fr = calls[0][0].body.factor_returns;
+    for (const k of ["MKT", "SMB", "HML", "RMW", "CMA", "MOM"]) {
+      expect(fr).toHaveProperty(k);
+    }
+  });
+
+  it("returns INTERNAL envelope (never throws) on unexpected error", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("supabase down"),
+    );
+    const req = new NextRequest("http://t/api/portfolios/p-1/factors?days=252");
+    const res = await GET(req, { params: Promise.resolve({ id: "p-1" }) });
+    const json = await res.json();
+    // apiHandler wraps thrown errors; inner route should also never re-throw.
+    expect([500]).toContain(res.status);
+    expect(json).toHaveProperty("error");
+  });
+});
+```
+
+- [ ] **Step 2: Run to verify fail**
+
+Run: `npm test -- tests/app/api/portfolios/factors.test.ts`
+Expected: module not found (route file not yet created).
+
+- [ ] **Step 3: Implement GET route with server-side body composition**
 
 ```typescript
 // src/app/api/portfolios/[id]/factors/route.ts
@@ -5727,14 +6932,39 @@ import { createClient } from "@/lib/supabase/server";
 import { callQuant, QuantError } from "@/lib/services/quant";
 import { isFeatureEnabled } from "@/lib/flags";
 import { redis } from "@/lib/cache/redis";
+import { posthog } from "@/lib/analytics/posthog-server";
+import { loadFactorReturns } from "@/lib/services/factors-data";
 
-const FactorsBody = z.object({
-  portfolio_returns: z.array(z.number()).min(60),
-  factor_returns: z.record(z.string(), z.array(z.number())),
-  risk_free_rate_daily: z.number().default(0),
+const QuerySchema = z.object({
+  days: z.coerce.number().int().min(30).max(504).default(252),
 });
 
-export const POST = apiHandler(async (req: NextRequest, ctx) => {
+// Body we compose and POST to Modal /factors (spec §4.1.3). Validated before
+// hitting the wire to catch drift in the fixture or history loader.
+const ModalBodyShape = z
+  .object({
+    portfolio_returns: z.array(z.number()).min(30),
+    factor_returns: z.record(z.string(), z.array(z.number())),
+    risk_free_rate_daily: z.number().default(0),
+  })
+  .refine(
+    (b) => {
+      for (const k of ["MKT", "SMB", "HML", "RMW", "CMA", "MOM"] as const) {
+        if (!b.factor_returns[k]) return false;
+      }
+      return true;
+    },
+    { message: "factor_returns must include all of MKT, SMB, HML, RMW, CMA, MOM" },
+  )
+  .refine(
+    (b) =>
+      Object.values(b.factor_returns).every(
+        (arr) => arr.length === b.portfolio_returns.length,
+      ),
+    { message: "every factor series must match portfolio_returns length" },
+  );
+
+export const GET = apiHandler(async (req: NextRequest, ctx) => {
   const { params } = ctx as { params: Promise<{ id: string }> };
   const { id: portfolioId } = await params;
   if (!(await isFeatureEnabled("quant_engine_enabled")))
@@ -5742,40 +6972,77 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return errorCoded("FORBIDDEN", "Not authenticated");
+  if (!user) return errorCoded("UNAUTHENTICATED", "Not authenticated");
 
-  // Factors uses the generic tier (it's cheap once cached 1hr)
+  // Factors is cached 1h Modal-side; cheap tier.
   const okG = await rateLimit(user.id, "general");
   const okI = await rateLimit(user.id, "internal");
   if (!okG || !okI) return errorCoded("RATE_LIMITED", "Too many requests");
 
-  let parsed;
-  try {
-    parsed = FactorsBody.parse(JSON.parse(await req.text()));
-  } catch (err) {
-    return errorCoded("VALIDATION_ERROR", "Invalid body", {
-      zod: err instanceof z.ZodError ? err.issues : String(err),
-    });
-  }
+  // Query params
+  const url = new URL(req.url);
+  const q = QuerySchema.safeParse({ days: url.searchParams.get("days") ?? undefined });
+  if (!q.success)
+    return errorCoded("VALIDATION_ERROR", "Invalid query", { zod: q.error.issues });
+  const days = q.data.days;
 
-  const { data: p } = await supabase
+  // Portfolio ownership
+  const { data: portfolio, error: pErr } = await supabase
     .from("portfolios")
-    .select("id, user_id")
+    .select("id, user_id, symbols, target_weights")
     .eq("id", portfolioId)
     .single();
-  if (!p || p.user_id !== user.id)
+  if (pErr || !portfolio || portfolio.user_id !== user.id)
     return errorCoded("PORTFOLIO_NOT_FOUND", "Portfolio not found");
 
   try {
+    // Load portfolio return series from price_history.
+    const portfolio_returns = await loadPortfolioReturns(
+      supabase,
+      portfolio.symbols as string[],
+      (portfolio.target_weights as Record<string, number> | null) ?? null,
+      days,
+    );
+    if (portfolio_returns.length < 30) {
+      return errorCoded(
+        "INSUFFICIENT_HISTORY",
+        "Need at least 30 days of portfolio history for factor regression",
+      );
+    }
+
+    // Load factor fixture, aligned to the tail of portfolio_returns.
+    const factor_returns = await loadFactorReturns(portfolio_returns.length);
+
+    const candidate = {
+      portfolio_returns,
+      factor_returns,
+      risk_free_rate_daily: 0,
+    };
+    const validated = ModalBodyShape.safeParse(candidate);
+    if (!validated.success) {
+      return errorCoded("INTERNAL", "factor body composition failed", {
+        zod: validated.error.issues,
+      });
+    }
+
     const result = await callQuant({
       endpoint: "/factors",
-      body: parsed,
+      body: validated.data,
       portfolioId,
       userId: user.id,
       supabase,
       cache: {
         get: async (k) => (await redis.get(k)) ?? null,
         set: async (k, v, ttl) => { await redis.set(k, v, { ex: ttl }); },
+      },
+    });
+    void posthog.capture({
+      distinctId: user.id,
+      event: "factors_run",
+      properties: {
+        portfolio_id: portfolioId,
+        days,
+        cached: (result as { cached?: boolean }).cached === true,
       },
     });
     return successCoded(result);
@@ -5786,21 +7053,113 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
         err.message,
         err.details,
       );
-    throw err;
+    console.error("[factors route] unexpected", err);
+    return errorCoded(
+      "INTERNAL",
+      err instanceof Error ? err.message : "Unexpected error",
+    );
   }
 });
+
+// Weighted daily return series. Equal-weight fallback when target_weights
+// is null (user hasn't run optimize yet).
+async function loadPortfolioReturns(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  symbols: string[],
+  targetWeights: Record<string, number> | null,
+  days: number,
+): Promise<number[]> {
+  const perSymbol: Record<string, number[]> = {};
+  for (const s of symbols) {
+    const { data } = await supabase
+      .from("price_history")
+      .select("price, date")
+      .eq("symbol", s)
+      .order("date", { ascending: true })
+      .limit(days + 1);
+    if (!data || data.length < 2) continue;
+    const rets: number[] = [];
+    for (let i = 1; i < data.length; i++) {
+      const prev = Number(data[i - 1].price);
+      const curr = Number(data[i].price);
+      if (prev > 0) rets.push(curr / prev - 1);
+    }
+    perSymbol[s] = rets;
+  }
+  const found = Object.keys(perSymbol);
+  if (found.length === 0) return [];
+  // Tail-align all symbol series to min length
+  const minLen = Math.min(...found.map((s) => perSymbol[s].length));
+  const aligned: Record<string, number[]> = {};
+  for (const s of found) {
+    aligned[s] = perSymbol[s].slice(-minLen);
+  }
+  // Weights
+  const weights: Record<string, number> =
+    targetWeights && Object.keys(targetWeights).length > 0
+      ? targetWeights
+      : Object.fromEntries(found.map((s) => [s, 1 / found.length]));
+  const out: number[] = new Array(minLen).fill(0);
+  for (let t = 0; t < minLen; t++) {
+    let r = 0;
+    for (const s of found) r += (weights[s] ?? 0) * aligned[s][t];
+    out[t] = r;
+  }
+  return out;
+}
 ```
 
-- [ ] **Step 2: Test + commit**
+Companion helper (created in Chunk 4 along with the FF5+MOM fixture):
+
+```typescript
+// src/lib/services/factors-data.ts
+import { promises as fs } from "fs";
+import path from "path";
+
+type FactorRow = {
+  date: string;
+  MKT: number; SMB: number; HML: number;
+  RMW: number; CMA: number; MOM: number;
+};
+
+let CACHE: FactorRow[] | null = null;
+
+export async function loadFactorReturns(
+  length: number,
+): Promise<Record<string, number[]>> {
+  if (!CACHE) {
+    const p = path.join(process.cwd(), "worker", "data", "ff5_mom_daily.json");
+    CACHE = JSON.parse(await fs.readFile(p, "utf8")) as FactorRow[];
+  }
+  const tail = CACHE.slice(-length);
+  return {
+    MKT: tail.map((r) => r.MKT),
+    SMB: tail.map((r) => r.SMB),
+    HML: tail.map((r) => r.HML),
+    RMW: tail.map((r) => r.RMW),
+    CMA: tail.map((r) => r.CMA),
+    MOM: tail.map((r) => r.MOM),
+  };
+}
+```
+
+- [ ] **Step 4: Run tests, verify pass**
+
+Run: `npm test -- tests/app/api/portfolios/factors.test.ts`
+Expected: all 3 tests PASS.
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/app/api/portfolios/[id]/factors/route.ts \
+        src/lib/services/factors-data.ts \
         tests/app/api/portfolios/factors.test.ts
-git commit -m "feat(api): POST /api/portfolios/[id]/factors route
+git commit -m "feat(api): GET /api/portfolios/[id]/factors route
 
-OLS factor regression endpoint. Uses 'general' tier (cached 1hr)
-plus 'internal' safety net. Requires ≥60 days of portfolio returns
-and all 6 factors (MKT/SMB/HML/RMW/CMA/MOM)."
+Server composes portfolio return series (weighted from price_history)
+and the 6-factor FF5+MOM fixture, validates shape, then POSTs to
+Modal /factors. Uses 'general' tier (cached 1hr) plus 'internal'
+safety net. Returns §3.3a JSON envelope — never re-throws."
 ```
 
 ### Task 7.8: `/api/portfolios/[id]/rebalance` route
@@ -5809,7 +7168,142 @@ and all 6 factors (MKT/SMB/HML/RMW/CMA/MOM)."
 - Create: `src/app/api/portfolios/[id]/rebalance/route.ts`
 - Test: `tests/app/api/portfolios/rebalance.test.ts`
 
-Rate-limit tier: `"rebalance"`. Body: `{ current_holdings, prices, target_weights, cash_available, transaction_cost_bps }`. Cache TTL=0 (always fresh). Rest mirrors Task 7.6.
+Rate-limit tier: `"rebalance"`. Body matches spec §4.1.4: `{ current_holdings, current_prices, target_weights, cash_available, transaction_cost_bps, min_trade_value }`. Cache TTL=0 (always fresh — trade plans must reflect current prices). Note field names: **`current_prices`** (not `prices`) and the required **`min_trade_value`** floor.
+
+- [ ] **Step 1: Write failing test**
+
+```typescript
+// tests/app/api/portfolios/rebalance.test.ts
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { POST } from "@/app/api/portfolios/[id]/rebalance/route";
+import { NextRequest } from "next/server";
+
+vi.mock("@/lib/api/rate-limit", () => ({
+  rateLimit: vi.fn().mockResolvedValue(true),
+}));
+vi.mock("@/lib/services/quant", () => ({
+  callQuant: vi.fn(),
+  QuantError: class extends Error {
+    constructor(public code: string, message: string,
+                public details: Record<string, unknown> = {}) { super(message); }
+  },
+}));
+vi.mock("@/lib/flags", () => ({
+  isFeatureEnabled: vi.fn().mockResolvedValue(true),
+}));
+vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("@/lib/analytics/posthog-server", () => ({
+  posthog: { capture: vi.fn() },
+}));
+
+function mockSupabaseWithOwnedPortfolio() {
+  return {
+    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u-1" } } }) },
+    from: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({
+      data: { id: "p-1", user_id: "u-1" },
+    }),
+  };
+}
+
+beforeEach(() => vi.resetAllMocks());
+
+describe("POST /api/portfolios/[id]/rebalance", () => {
+  it("UNAUTHENTICATED (401) when no session", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null } }) },
+    });
+    const req = new NextRequest("http://t/api/portfolios/p-1/rebalance", {
+      method: "POST", body: "{}",
+    });
+    const res = await POST(req, { params: Promise.resolve({ id: "p-1" }) });
+    const json = await res.json();
+    expect(res.status).toBe(401);
+    expect(json.error.code).toBe("UNAUTHENTICATED");
+  });
+
+  it("VALIDATION_ERROR when body uses legacy 'prices' key (spec requires current_prices)", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockSupabaseWithOwnedPortfolio(),
+    );
+    const req = new NextRequest("http://t/api/portfolios/p-1/rebalance", {
+      method: "POST",
+      body: JSON.stringify({
+        current_holdings: { AAPL: 10 },
+        prices: { AAPL: 150 }, // legacy key — must fail Zod
+        target_weights: { AAPL: 1 },
+        cash_available: 0,
+      }),
+    });
+    const res = await POST(req, { params: Promise.resolve({ id: "p-1" }) });
+    const json = await res.json();
+    expect(res.status).toBe(400);
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("forwards current_prices + min_trade_value and emits rebalance_plan_created", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockSupabaseWithOwnedPortfolio(),
+    );
+    const { callQuant } = await import("@/lib/services/quant");
+    (callQuant as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      trades: [{ symbol: "AAPL", action: "buy", shares: 1, estimated_cost: 150.08, post_weight: 1.0 }],
+      total_turnover: 150, estimated_costs: 0.08, drift_before: 0.1, drift_after: 0.01,
+    });
+    const { posthog } = await import("@/lib/analytics/posthog-server");
+    const req = new NextRequest("http://t/api/portfolios/p-1/rebalance", {
+      method: "POST",
+      body: JSON.stringify({
+        current_holdings: { AAPL: 10 },
+        current_prices: { AAPL: 150 },
+        target_weights: { AAPL: 1 },
+        cash_available: 200,
+        transaction_cost_bps: 5,
+        min_trade_value: 50,
+      }),
+    });
+    const res = await POST(req, { params: Promise.resolve({ id: "p-1" }) });
+    expect(res.status).toBe(200);
+    const forwarded = (callQuant as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(forwarded.endpoint).toBe("/rebalance");
+    expect(forwarded.body.current_prices).toEqual({ AAPL: 150 });
+    expect(forwarded.body.min_trade_value).toBe(50);
+    expect(posthog.capture).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "rebalance_plan_created" }),
+    );
+  });
+
+  it("returns INTERNAL envelope on unexpected throw (never re-throws)", async () => {
+    const { createClient } = await import("@/lib/supabase/server");
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("db down"),
+    );
+    const req = new NextRequest("http://t/api/portfolios/p-1/rebalance", {
+      method: "POST",
+      body: JSON.stringify({
+        current_holdings: {}, current_prices: {}, target_weights: {},
+        cash_available: 0, min_trade_value: 0,
+      }),
+    });
+    const res = await POST(req, { params: Promise.resolve({ id: "p-1" }) });
+    const json = await res.json();
+    expect([500]).toContain(res.status);
+    expect(json).toHaveProperty("error");
+  });
+});
+```
+
+- [ ] **Step 2: Run to verify fail**
+
+Run: `npm test -- tests/app/api/portfolios/rebalance.test.ts`
+Expected: module not found.
+
+- [ ] **Step 3: Implement**
 
 ```typescript
 // src/app/api/portfolios/[id]/rebalance/route.ts
@@ -5821,14 +7315,17 @@ import { rateLimit } from "@/lib/api/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { callQuant, QuantError } from "@/lib/services/quant";
 import { isFeatureEnabled } from "@/lib/flags";
-import { redis } from "@/lib/cache/redis";
+import { posthog } from "@/lib/analytics/posthog-server";
 
+// Spec §4.1.4 request shape. Note `current_prices` (NOT `prices`) and the
+// required `min_trade_value` floor — trades below this are rounded to 0.
 const RebalanceBody = z.object({
   current_holdings: z.record(z.string(), z.number().int().nonnegative()),
-  prices: z.record(z.string(), z.number().positive()),
+  current_prices: z.record(z.string(), z.number().positive()),
   target_weights: z.record(z.string(), z.number()),
   cash_available: z.number().nonnegative(),
   transaction_cost_bps: z.number().min(0).max(100).default(5),
+  min_trade_value: z.number().nonnegative().default(50),
 });
 
 export const POST = apiHandler(async (req: NextRequest, ctx) => {
@@ -5839,7 +7336,7 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return errorCoded("FORBIDDEN", "Not authenticated");
+  if (!user) return errorCoded("UNAUTHENTICATED", "Not authenticated");
 
   const okR = await rateLimit(user.id, "rebalance");
   const okI = await rateLimit(user.id, "internal");
@@ -5869,9 +7366,21 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
       portfolioId,
       userId: user.id,
       supabase,
-      cache: {  // TTL=0 in callQuant means this is never used, but interface required
+      // TTL=0 in callQuant — never cached (prices stale immediately).
+      cache: {
         get: async () => null,
         set: async () => {},
+      },
+    });
+    void posthog.capture({
+      distinctId: user.id,
+      event: "rebalance_plan_created",
+      properties: {
+        portfolio_id: portfolioId,
+        n_trades: (result as { trades?: unknown[] }).trades?.length ?? 0,
+        total_turnover: (result as { total_turnover?: number }).total_turnover ?? 0,
+        estimated_costs: (result as { estimated_costs?: number }).estimated_costs ?? 0,
+        drift_after: (result as { drift_after?: number }).drift_after ?? 0,
       },
     });
     return successCoded(result);
@@ -5882,12 +7391,21 @@ export const POST = apiHandler(async (req: NextRequest, ctx) => {
         err.message,
         err.details,
       );
-    throw err;
+    console.error("[rebalance route] unexpected", err);
+    return errorCoded(
+      "INTERNAL",
+      err instanceof Error ? err.message : "Unexpected error",
+    );
   }
 });
 ```
 
-- [ ] **Step 2: Test + commit**
+- [ ] **Step 4: Run tests, verify pass**
+
+Run: `npm test -- tests/app/api/portfolios/rebalance.test.ts`
+Expected: all 4 tests PASS.
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/app/api/portfolios/[id]/rebalance/route.ts \
@@ -5895,21 +7413,26 @@ git add src/app/api/portfolios/[id]/rebalance/route.ts \
 git commit -m "feat(api): POST /api/portfolios/[id]/rebalance route
 
 Never cached (fresh trade plan every call). Uses 'rebalance' tier
-(10/min) + internal cap. Transaction cost in bps (0–100 range,
-default 5). All 4 quant routes now wired end-to-end."
+(10/min) + internal cap. Spec §4.1.4 body: current_prices (NOT
+legacy 'prices') + min_trade_value floor. All 4 quant routes now
+wired end-to-end."
 ```
 
 ---
 
-## Chunk 8 — UI vertical slice (`/portfolio/[id]/optimize`)
+## Chunk 8 — UI vertical slice (`(app)/portfolio/[id]/optimize`)
 
 **Goal:** End-user-facing Optimize page, gated by feature flag `quant_engine_enabled`. All components render without optimization running (empty state) and update live when the user changes constraints.
 
+**Route group note:** The existing app uses the Next.js route group `(app)` (see `src/app/(app)/portfolio/[id]/page.tsx`, `.../analytics/page.tsx`). All new pages in this chunk live under that group so they inherit the authenticated shell layout — do **not** create bare `src/app/portfolio/[id]/optimize/`.
+
 **Interaction model (spec §4.2.3):**
 - User lands on page → form pre-populated from portfolio's `optimization_constraints` (or defaults).
-- User edits constraint → client-side **debounce commit** (500ms after last keystroke OR on input blur, whichever comes first) → POST to `/api/portfolios/[id]/optimize`.
-- Page also has an "Include frontier" toggle → when on, `include_frontier: true` in request body → chart renders with 20 points.
-- "Generate trades" button calls `/rebalance` endpoint with the current prices + target weights from the last optimize result.
+- User edits constraint → client-side **debounced commit** (spec §4.2.3 mandates **1500ms** after last keystroke OR on input blur, whichever comes first) → POST to `/api/portfolios/[id]/optimize`. A 500ms debounce was tried earlier and produced too many in-flight optimizations — the 1500ms value is locked in per spec.
+- A **"Taking longer than usual…"** banner appears after 5s of `loading === true` (OR/MV solves can spike on large N or tight constraints).
+- Page also has an **"Include frontier"** toggle → when on, request body sets `frontier_points: 20` (spec §4.1.1 uses an integer, NOT `include_frontier: boolean`).
+- **Per-error-code UX:** `RATE_LIMITED` shows a soft banner "Too many requests — try again in a moment" instead of the raw message; `VALIDATION_ERROR` surfaces field-level hints under the form; `FEATURE_DISABLED` shows an empty-state card; `INSUFFICIENT_HISTORY` prompts user to add more price history.
+- "Generate trades" button calls `/rebalance` endpoint with `current_prices` (spec §4.1.4 name — NOT legacy `prices`) from the existing live-prices hook and `current_holdings` derived from `positions` rows.
 
 **Component layout:**
 ```
@@ -5921,11 +7444,147 @@ page.tsx
 └── RebalanceTradeList      (bottom: appears after "Generate trades")
 ```
 
-### Task 8.1: Feature flag + container page shell
+### Task 8.0: Shared quant types + feature-flag client hook
+
+**Why a separate task:** avoids having every component import `OptimizeResult` from `optimize-client.tsx` (which creates awkward circular imports and forces `"use client"` on the importer). Types live in `src/lib/quant/types.ts`; client hook in `src/lib/flags/client.ts`.
 
 **Files:**
-- Create: `src/app/portfolio/[id]/optimize/page.tsx`
-- Create: `src/app/portfolio/[id]/optimize/optimize-client.tsx` (client component)
+- Create: `src/lib/quant/types.ts`
+- Create: `src/lib/flags/client.ts`
+- Test: `tests/lib/flags/client.test.tsx`
+
+- [ ] **Step 1: Write types file**
+
+```typescript
+// src/lib/quant/types.ts
+// Shared between the optimize client, UI components, and tests. Mirrors spec §4.1.
+
+export type OptimizeMethod = "mean_variance" | "risk_parity" | "hrp";
+
+export type OptimizeResult = {
+  weights: Record<string, number>;
+  expected_return: number;
+  expected_volatility: number;
+  sharpe_ratio: number;
+  frontier: Array<{ return: number; volatility: number; weights: Record<string, number> }>;
+  meta: { method: string; solver: string; cached?: boolean };
+};
+
+// Spec §4.1.4 rebalance response shape (verbatim — do NOT rename these fields).
+// estimated_cost is asymmetric: buy = gross + fee, sell = fee only.
+export type RebalanceTrade = {
+  symbol: string;
+  action: "buy" | "sell";
+  shares: number;
+  estimated_cost: number;
+  post_weight: number;
+};
+
+export type RebalanceResult = {
+  trades: RebalanceTrade[];
+  total_turnover: number;    // Σ |shares × price| (notional, pre-fee)
+  estimated_costs: number;   // Σ fees only = total_turnover * bps / 10000
+  drift_before: number;
+  drift_after: number;
+};
+```
+
+- [ ] **Step 2: Write failing test for `useFeatureFlag`**
+
+```tsx
+// tests/lib/flags/client.test.tsx
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { useFeatureFlag } from "@/lib/flags/client";
+
+function Probe({ flag }: { flag: string }) {
+  const on = useFeatureFlag(flag);
+  return <span data-testid="on">{on ? "on" : "off"}</span>;
+}
+
+beforeEach(() => {
+  globalThis.fetch = vi.fn();
+});
+
+describe("useFeatureFlag", () => {
+  it("returns false before the fetch resolves, then flips when API says true", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => ({ enabled: true }),
+    });
+    render(<Probe flag="quant_engine_enabled" />);
+    expect(screen.getByTestId("on").textContent).toBe("off");
+    await waitFor(() => expect(screen.getByTestId("on").textContent).toBe("on"));
+  });
+
+  it("returns false on fetch error", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("net"));
+    render(<Probe flag="quant_engine_enabled" />);
+    await waitFor(() => expect(screen.getByTestId("on").textContent).toBe("off"));
+  });
+});
+```
+
+- [ ] **Step 3: Implement `useFeatureFlag`**
+
+```typescript
+// src/lib/flags/client.ts
+"use client";
+import { useEffect, useState } from "react";
+
+/**
+ * Client-side feature flag check. Delegates to GET /api/flags?name=<flag>
+ * (implemented in Phase 1). The endpoint reads the same PostHog/Supabase
+ * source as the server-side `isFeatureEnabled`. Cached for 60s in-process.
+ */
+const CACHE = new Map<string, { value: boolean; expires: number }>();
+
+export function useFeatureFlag(flag: string): boolean {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const cached = CACHE.get(flag);
+    if (cached && cached.expires > Date.now()) {
+      setEnabled(cached.value);
+      return;
+    }
+    (async () => {
+      try {
+        const r = await fetch(`/api/flags?name=${encodeURIComponent(flag)}`);
+        if (!r.ok) throw new Error(String(r.status));
+        const j = (await r.json()) as { enabled?: boolean };
+        if (cancelled) return;
+        const value = !!j.enabled;
+        CACHE.set(flag, { value, expires: Date.now() + 60_000 });
+        setEnabled(value);
+      } catch {
+        if (!cancelled) setEnabled(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [flag]);
+  return enabled;
+}
+```
+
+- [ ] **Step 4: Run, verify pass, commit**
+
+```bash
+npm test -- tests/lib/flags/client.test.tsx
+# Expected: PASS
+git add src/lib/quant/types.ts src/lib/flags/client.ts tests/lib/flags/client.test.tsx
+git commit -m "feat(quant): shared OptimizeResult/Rebalance types + useFeatureFlag hook
+
+Types shipped in src/lib/quant so UI components don't need to import
+from the client file (avoids circular imports). useFeatureFlag hits
+/api/flags?name= (60s in-proc cache) for client-side flag gating."
+```
+
+### Task 8.1: Container page shell (flag-gated)
+
+**Files:**
+- Create: `src/app/(app)/portfolio/[id]/optimize/page.tsx`
+- Create: `src/app/(app)/portfolio/[id]/optimize/optimize-client.tsx` (client component)
 - Test: `tests/app/portfolio/optimize-page.test.tsx`
 
 - [ ] **Step 1: Write failing page test (SSR + flag gate)**
@@ -5934,19 +7593,28 @@ page.tsx
 // tests/app/portfolio/optimize-page.test.tsx
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import Page from "@/app/portfolio/[id]/optimize/page";
+import Page from "@/app/(app)/portfolio/[id]/optimize/page";
 
 vi.mock("@/lib/flags", () => ({
   isFeatureEnabled: vi.fn(),
 }));
+
+// NOTE: createClient is async in server.ts; mock must `mockResolvedValue`
+// the supabase-shaped object, not `mockReturnValue`.
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: vi.fn().mockReturnValue({
+  createClient: vi.fn().mockResolvedValue({
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u" } } }) },
     from: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({
-      data: { id: "p-1", user_id: "u", symbols: ["A", "B"], optimization_constraints: null },
+      data: {
+        id: "p-1",
+        user_id: "u",
+        symbols: ["A", "B"],
+        optimization_constraints: null,
+        target_weights: null,
+      },
     }),
   }),
 }));
@@ -5970,6 +7638,24 @@ describe("Optimize page", () => {
     render(result);
     expect(screen.getByTestId("optimize-root")).toBeInTheDocument();
   });
+
+  it("throws NEXT_NOT_FOUND when portfolio belongs to another user", async () => {
+    const { isFeatureEnabled } = await import("@/lib/flags");
+    (isFeatureEnabled as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+    const { createClient } = await import("@/lib/supabase/server");
+    (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "u" } } }) },
+      from: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { id: "p-1", user_id: "somebody-else", symbols: [], optimization_constraints: null, target_weights: null },
+      }),
+    });
+    await expect(
+      Page({ params: Promise.resolve({ id: "p-1" }) }),
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+  });
 });
 ```
 
@@ -5981,7 +7667,7 @@ Expected: module not found.
 - [ ] **Step 3: Implement page shell**
 
 ```tsx
-// src/app/portfolio/[id]/optimize/page.tsx
+// src/app/(app)/portfolio/[id]/optimize/page.tsx
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isFeatureEnabled } from "@/lib/flags";
@@ -6019,11 +7705,14 @@ export default async function OptimizePage({ params }: Props) {
 ```
 
 ```tsx
-// src/app/portfolio/[id]/optimize/optimize-client.tsx
+// src/app/(app)/portfolio/[id]/optimize/optimize-client.tsx
 "use client";
 
-import { useState, useCallback } from "react";
-import { useDebounce } from "@/lib/hooks/use-debounce";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useDebouncedCallback } from "@/lib/hooks/use-debounce";
+import { useLivePrices } from "@/lib/hooks/use-live-prices";
+import { usePortfolioHoldings } from "@/lib/hooks/use-portfolio-holdings"; // created in Phase 1 — pulls integer shares from `positions` table
+import type { OptimizeMethod, OptimizeResult, RebalanceResult } from "@/lib/quant/types";
 import ConstraintsForm from "@/components/quant/ConstraintsForm";
 import EfficientFrontierChart from "@/components/quant/EfficientFrontierChart";
 import OptimalAllocationTable from "@/components/quant/OptimalAllocationTable";
@@ -6036,29 +7725,47 @@ type Props = {
   initialConstraints: Record<string, unknown> | null;
 };
 
-export type OptimizeResult = {
-  weights: Record<string, number>;
-  expected_return: number;
-  expected_volatility: number;
-  sharpe_ratio: number;
-  frontier: Array<{ return: number; volatility: number; weights: Record<string, number> }>;
-  meta: { method: string; solver: string };
-};
+type FriendlyError =
+  | { kind: "rate_limited"; retryHintMs: number }
+  | { kind: "validation_error"; fieldHints: Record<string, string> }
+  | { kind: "insufficient_history"; message: string }
+  | { kind: "feature_disabled" }
+  | { kind: "generic"; message: string };
+
+function toFriendly(envelope: { error?: { code?: string; message?: string; details?: Record<string, unknown> } }): FriendlyError {
+  const code = envelope.error?.code;
+  const message = envelope.error?.message ?? "Optimization failed";
+  switch (code) {
+    case "RATE_LIMITED":
+      return { kind: "rate_limited", retryHintMs: 60_000 };
+    case "VALIDATION_ERROR":
+      return { kind: "validation_error", fieldHints: (envelope.error?.details ?? {}) as Record<string, string> };
+    case "INSUFFICIENT_HISTORY":
+      return { kind: "insufficient_history", message };
+    case "FEATURE_DISABLED":
+      return { kind: "feature_disabled" };
+    default:
+      return { kind: "generic", message };
+  }
+}
 
 export default function OptimizeClient({
   portfolioId,
   initialSymbols,
   initialConstraints,
 }: Props) {
-  const [method, setMethod] = useState<"mean_variance" | "risk_parity" | "hrp">(
-    "mean_variance",
-  );
+  const [method, setMethod] = useState<OptimizeMethod>("mean_variance");
   const [constraints, setConstraints] = useState(initialConstraints);
   const [includeFrontier, setIncludeFrontier] = useState(false);
   const [result, setResult] = useState<OptimizeResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [trades, setTrades] = useState<unknown | null>(null);
+  const [slowBanner, setSlowBanner] = useState(false);
+  const [error, setError] = useState<FriendlyError | null>(null);
+  const [trades, setTrades] = useState<RebalanceResult | null>(null);
+
+  // Real data sources (spec §4.2.3 — use existing hooks, do NOT stub with {}).
+  const { holdings } = usePortfolioHoldings(portfolioId); // Record<symbol, shares>
+  const { prices } = useLivePrices(initialSymbols);       // Record<symbol, price>
 
   const optimize = useCallback(async () => {
     setLoading(true);
@@ -6071,39 +7778,64 @@ export default function OptimizeClient({
           method,
           symbols: initialSymbols,
           constraints,
-          include_frontier: includeFrontier,
+          // Spec §4.1.1 uses `frontier_points: int`, NOT `include_frontier: bool`.
+          frontier_points: includeFrontier ? 20 : 0,
         }),
       });
       if (!resp.ok) {
-        const env = await resp.json();
-        setError(env.error?.message ?? "Optimization failed");
+        const env = (await resp.json()) as Parameters<typeof toFriendly>[0];
+        setError(toFriendly(env));
         return;
       }
-      setResult(await resp.json());
+      setResult((await resp.json()) as OptimizeResult);
+    } catch (e) {
+      setError({ kind: "generic", message: e instanceof Error ? e.message : "Network error" });
     } finally {
       setLoading(false);
     }
   }, [portfolioId, method, constraints, includeFrontier, initialSymbols]);
 
-  // Debounce commit: fires 500ms after last change.
-  useDebounce(optimize, 500, [method, constraints, includeFrontier]);
+  // Spec §4.2.3: 1500ms debounce (earlier 500ms caused request storms on slider drag).
+  const debouncedOptimize = useDebouncedCallback(optimize, 1500);
+
+  // Fire on any relevant change.
+  useEffect(() => {
+    debouncedOptimize();
+  }, [debouncedOptimize, method, constraints, includeFrontier]);
+
+  // 5-second "Taking longer than usual…" banner (spec §4.2.3).
+  useEffect(() => {
+    if (!loading) { setSlowBanner(false); return; }
+    const t = setTimeout(() => setSlowBanner(true), 5000);
+    return () => clearTimeout(t);
+  }, [loading]);
 
   const onGenerateTrades = useCallback(async () => {
     if (!result) return;
-    // Simplified: assume client has prices and holdings somehow
-    // (in practice, read from portfolio state via hook). Not detailed here.
+    setError(null);
     const resp = await fetch(`/api/portfolios/${portfolioId}/rebalance`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        current_holdings: {},  // replaced with real holdings hook
-        prices: {},            // replaced with real prices hook
+        current_holdings: holdings,         // real hook data — no stubs
+        current_prices: prices,             // spec §4.1.4 name — NOT legacy `prices`
         target_weights: result.weights,
-        cash_available: 0,
+        cash_available: 0,                  // TODO(Phase3): plumb from cash_balance column
+        transaction_cost_bps: 5,
+        min_trade_value: 50,
       }),
     });
-    if (resp.ok) setTrades(await resp.json());
-  }, [portfolioId, result]);
+    if (!resp.ok) {
+      setError(toFriendly((await resp.json()) as Parameters<typeof toFriendly>[0]));
+      return;
+    }
+    setTrades((await resp.json()) as RebalanceResult);
+  }, [portfolioId, result, holdings, prices]);
+
+  const tradesReady = useMemo(
+    () => result !== null && Object.keys(holdings).length > 0 && Object.keys(prices).length > 0,
+    [result, holdings, prices],
+  );
 
   return (
     <div className="grid grid-cols-12 gap-6">
@@ -6115,18 +7847,45 @@ export default function OptimizeClient({
           onConstraintsChange={setConstraints}
           includeFrontier={includeFrontier}
           onIncludeFrontierChange={setIncludeFrontier}
+          fieldHints={error?.kind === "validation_error" ? error.fieldHints : undefined}
         />
       </div>
       <div className="col-span-9 space-y-4">
-        <OptimizeSummary result={result} loading={loading} error={error} />
+        {error?.kind === "rate_limited" && (
+          <div role="alert" className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded text-sm" data-testid="error-rate-limited">
+            Too many requests — try again in a moment.
+          </div>
+        )}
+        {error?.kind === "insufficient_history" && (
+          <div role="alert" className="bg-blue-50 border border-blue-200 text-blue-900 p-3 rounded text-sm" data-testid="error-insufficient-history">
+            {error.message}
+          </div>
+        )}
+        {error?.kind === "feature_disabled" && (
+          <div role="alert" className="p-4 text-sm text-gray-500 border rounded" data-testid="error-feature-disabled">
+            Optimization is temporarily unavailable.
+          </div>
+        )}
+        {error?.kind === "generic" && (
+          <div role="alert" className="bg-red-50 border border-red-200 text-red-900 p-3 rounded text-sm" data-testid="error-generic">
+            {error.message}
+          </div>
+        )}
+        {slowBanner && loading && (
+          <div className="bg-gray-50 border border-gray-200 text-gray-700 p-3 rounded text-sm" data-testid="slow-banner">
+            Taking longer than usual — large portfolios and tight constraints can add a few seconds.
+          </div>
+        )}
+        <OptimizeSummary result={result} loading={loading} />
         {includeFrontier && result && (
           <EfficientFrontierChart frontier={result.frontier} optimum={result} />
         )}
-        <OptimalAllocationTable result={result} />
+        <OptimalAllocationTable result={result} holdings={holdings} />
         <button
-          disabled={!result}
+          disabled={!tradesReady}
           onClick={onGenerateTrades}
           className="btn btn-primary"
+          data-testid="generate-trades"
         >
           Generate Trades
         </button>
@@ -6137,20 +7896,44 @@ export default function OptimizeClient({
 }
 ```
 
+**Companion hook to create in Phase 1 (the optimize page depends on it):**
+
+```typescript
+// src/lib/hooks/use-portfolio-holdings.ts
+// Returns integer shares keyed by symbol, pulled from `positions` table.
+// Implementation: SWR-style fetch from GET /api/portfolio/[id]/holdings
+// (endpoint already exists per Phase 1). Falls back to empty object.
+import useSWR from "swr";
+
+export function usePortfolioHoldings(portfolioId: string) {
+  const { data } = useSWR<{ holdings: Record<string, number> }>(
+    portfolioId ? `/api/portfolio/${portfolioId}/holdings` : null,
+    (u: string) => fetch(u).then((r) => r.json()),
+  );
+  return { holdings: data?.holdings ?? {} };
+}
+```
+
 - [ ] **Step 4: Run tests, verify pass**
 
 Run: `npm test -- tests/app/portfolio/optimize-page.test.tsx`
-Expected: both tests PASS (components from later tasks may be stubbed — see 8.2-8.6).
+Expected: all 3 tests PASS (components from later tasks may be stubbed — see 8.2-8.6).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/app/portfolio/[id]/optimize/ tests/app/portfolio/optimize-page.test.tsx
+git add src/app/\(app\)/portfolio/\[id\]/optimize/ \
+        src/lib/hooks/use-portfolio-holdings.ts \
+        tests/app/portfolio/optimize-page.test.tsx
 git commit -m "feat(ui): Optimize page shell with feature flag gate
 
 SSR checks quant_engine_enabled flag and portfolio ownership, then
-renders client island. Client runs debounced optimize (500ms) on
-constraint changes. Generate-trades button triggers /rebalance."
+renders client island under (app) route group. Client runs 1500ms
+debounced optimize (spec §4.2.3). 5-second 'Taking longer...'
+banner, per-error-code UX (rate_limited/validation/insufficient_
+history/feature_disabled/generic). Generate-trades uses live-prices
++ holdings hooks and posts spec §4.1.4 body (current_prices +
+min_trade_value)."
 ```
 
 ### Task 8.2: `ConstraintsForm` component
@@ -6165,6 +7948,7 @@ constraint changes. Generate-trades button triggers /rebalance."
 // src/components/quant/ConstraintsForm.tsx
 "use client";
 import { useCallback } from "react";
+import type { OptimizeMethod } from "@/lib/quant/types";
 
 type Constraints = {
   allow_short?: boolean;
@@ -6175,12 +7959,14 @@ type Constraints = {
 };
 
 type Props = {
-  method: "mean_variance" | "risk_parity" | "hrp";
-  onMethodChange: (m: Props["method"]) => void;
+  method: OptimizeMethod;
+  onMethodChange: (m: OptimizeMethod) => void;
   constraints: Record<string, unknown> | null;
   onConstraintsChange: (c: Record<string, unknown> | null) => void;
   includeFrontier: boolean;
   onIncludeFrontierChange: (v: boolean) => void;
+  /** Populated by parent on VALIDATION_ERROR envelopes (§3.3a). */
+  fieldHints?: Record<string, string>;
 };
 
 export default function ConstraintsForm(props: Props) {
@@ -6318,26 +8104,99 @@ Fires callbacks on every change — debouncing is done by the container."
 **Files:**
 - Create: `src/components/quant/OptimizeSummary.tsx`
 - Create: `src/components/quant/OptimalAllocationTable.tsx`
-- Tests: matching `.test.tsx` files
+- Test: `tests/components/quant/OptimizeSummary.test.tsx`
+- Test: `tests/components/quant/OptimalAllocationTable.test.tsx`
+
+- [ ] **Step 1: Write failing tests**
+
+```tsx
+// tests/components/quant/OptimizeSummary.test.tsx
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
+import OptimizeSummary from "@/components/quant/OptimizeSummary";
+import type { OptimizeResult } from "@/lib/quant/types";
+
+const result: OptimizeResult = {
+  weights: { AAPL: 0.5, MSFT: 0.5 },
+  expected_return: 0.12,
+  expected_volatility: 0.18,
+  sharpe_ratio: 0.56,
+  frontier: [],
+  meta: { method: "mean_variance", solver: "CLARABEL" },
+};
+
+describe("OptimizeSummary", () => {
+  it("renders empty state when no result and not loading", () => {
+    render(<OptimizeSummary result={null} loading={false} />);
+    expect(screen.getByText(/Adjust constraints/)).toBeInTheDocument();
+  });
+
+  it("renders skeleton when loading and no result yet", () => {
+    const { container } = render(<OptimizeSummary result={null} loading={true} />);
+    expect(container.querySelector(".animate-pulse")).not.toBeNull();
+  });
+
+  it("renders 3 cards with formatted values", () => {
+    render(<OptimizeSummary result={result} loading={false} />);
+    expect(screen.getByText("12.00%")).toBeInTheDocument();
+    expect(screen.getByText("18.00%")).toBeInTheDocument();
+    expect(screen.getByText("0.56")).toBeInTheDocument();
+  });
+});
+```
+
+```tsx
+// tests/components/quant/OptimalAllocationTable.test.tsx
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
+import OptimalAllocationTable from "@/components/quant/OptimalAllocationTable";
+import type { OptimizeResult } from "@/lib/quant/types";
+
+const result: OptimizeResult = {
+  weights: { AAPL: 0.3, MSFT: 0.45, TSLA: 0.25 },
+  expected_return: 0.1, expected_volatility: 0.2, sharpe_ratio: 0.5,
+  frontier: [], meta: { method: "mean_variance", solver: "CLARABEL" },
+};
+
+describe("OptimalAllocationTable", () => {
+  it("renders nothing when no result", () => {
+    const { container } = render(
+      <OptimalAllocationTable result={null} holdings={{}} />,
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("sorts rows by weight descending and shows drift vs current holdings", () => {
+    // 10 AAPL @ price unknown (drift computed client-side from share-weight
+    // when available; the simple case below just checks order + symbol presence).
+    render(
+      <OptimalAllocationTable result={result} holdings={{ AAPL: 10, MSFT: 5, TSLA: 0 }} />,
+    );
+    const rows = screen.getAllByTestId(/^row-/);
+    expect(rows[0].textContent).toMatch(/MSFT/); // 0.45 — highest
+    expect(rows[1].textContent).toMatch(/AAPL/);
+    expect(rows[2].textContent).toMatch(/TSLA/);
+  });
+});
+```
+
+- [ ] **Step 2: Run to verify fail**
+
+Run: `npm test -- tests/components/quant/OptimizeSummary.test.tsx tests/components/quant/OptimalAllocationTable.test.tsx`
+Expected: module not found.
+
+- [ ] **Step 3: Implement**
 
 ```tsx
 // src/components/quant/OptimizeSummary.tsx
-import type { OptimizeResult } from "@/app/portfolio/[id]/optimize/optimize-client";
+import type { OptimizeResult } from "@/lib/quant/types";
 
 type Props = {
   result: OptimizeResult | null;
   loading: boolean;
-  error: string | null;
 };
 
-export default function OptimizeSummary({ result, loading, error }: Props) {
-  if (error) {
-    return (
-      <div className="bg-red-50 p-4 rounded border border-red-200" role="alert">
-        <p className="text-sm text-red-800">{error}</p>
-      </div>
-    );
-  }
+export default function OptimizeSummary({ result, loading }: Props) {
   if (loading && !result) {
     return <div className="animate-pulse h-24 bg-gray-100 rounded" />;
   }
@@ -6369,60 +8228,118 @@ function Card({ label, value }: { label: string; value: string }) {
 
 ```tsx
 // src/components/quant/OptimalAllocationTable.tsx
-import type { OptimizeResult } from "@/app/portfolio/[id]/optimize/optimize-client";
+import type { OptimizeResult } from "@/lib/quant/types";
 
-type Props = { result: OptimizeResult | null };
+type Props = {
+  result: OptimizeResult | null;
+  /** Current share holdings, used to compute drift (current weight vs target). */
+  holdings: Record<string, number>;
+};
 
-export default function OptimalAllocationTable({ result }: Props) {
+export default function OptimalAllocationTable({ result, holdings }: Props) {
   if (!result) return null;
   const entries = Object.entries(result.weights).sort((a, b) => b[1] - a[1]);
+  const totalShares = Object.values(holdings).reduce((a, b) => a + b, 0) || 1;
   return (
     <table className="w-full text-sm" data-testid="allocation-table">
       <thead>
         <tr className="text-left border-b">
           <th className="py-2">Symbol</th>
-          <th className="py-2 text-right">Target Weight</th>
+          <th className="py-2 text-right">Current</th>
+          <th className="py-2 text-right">Target</th>
+          <th className="py-2 text-right">Drift</th>
         </tr>
       </thead>
       <tbody>
-        {entries.map(([s, w]) => (
-          <tr key={s} className="border-b" data-testid={`row-${s}`}>
-            <td className="py-2">{s}</td>
-            <td className="py-2 text-right tabular-nums">{(w * 100).toFixed(2)}%</td>
-          </tr>
-        ))}
+        {entries.map(([s, w]) => {
+          const current = (holdings[s] ?? 0) / totalShares;
+          const drift = w - current;
+          return (
+            <tr key={s} className="border-b" data-testid={`row-${s}`}>
+              <td className="py-2">{s}</td>
+              <td className="py-2 text-right tabular-nums">{(current * 100).toFixed(2)}%</td>
+              <td className="py-2 text-right tabular-nums">{(w * 100).toFixed(2)}%</td>
+              <td className={`py-2 text-right tabular-nums ${drift > 0 ? "text-green-600" : drift < 0 ? "text-red-600" : ""}`}>
+                {drift > 0 ? "+" : ""}{(drift * 100).toFixed(2)}%
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
 }
 ```
 
-Run both test files (asserting basic rendering + table rows match weights).
+- [ ] **Step 4: Run, verify pass**
 
-Commit:
+Run: `npm test -- tests/components/quant/OptimizeSummary.test.tsx tests/components/quant/OptimalAllocationTable.test.tsx`
+Expected: all tests PASS.
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/components/quant/OptimizeSummary.tsx src/components/quant/OptimalAllocationTable.tsx \
         tests/components/quant/OptimizeSummary.test.tsx tests/components/quant/OptimalAllocationTable.test.tsx
 git commit -m "feat(ui/quant): OptimizeSummary + OptimalAllocationTable
 
-Three-card summary (return/vol/Sharpe) with loading and error states.
-Allocation table sorted by weight desc. Both components pure — no
-data fetching, all input via props."
+Three-card summary (return/vol/Sharpe) with loading and empty
+states (errors handled by parent banners). Allocation table shows
+Current/Target/Drift columns sorted by weight desc. Both pure
+props-in components — no data fetching."
 ```
 
 ### Task 8.4: `EfficientFrontierChart` component
 
 **Files:**
 - Create: `src/components/quant/EfficientFrontierChart.tsx`
+- Test: `tests/components/quant/EfficientFrontierChart.test.tsx`
 
-Uses `recharts` (already a dep per repo). Renders scatter of frontier points + a distinct marker for the current optimum.
+- [ ] **Step 1: Write failing test**
+
+```tsx
+// tests/components/quant/EfficientFrontierChart.test.tsx
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import EfficientFrontierChart from "@/components/quant/EfficientFrontierChart";
+import type { OptimizeResult } from "@/lib/quant/types";
+
+// Recharts uses ResizeObserver + SVG which jsdom doesn't support perfectly.
+// Mock ResizeObserver so <ResponsiveContainer> doesn't crash.
+beforeAll(() => {
+  globalThis.ResizeObserver = class {
+    observe() {} unobserve() {} disconnect() {}
+  } as unknown as typeof ResizeObserver;
+});
+
+const result: OptimizeResult = {
+  weights: { A: 1 },
+  expected_return: 0.1,
+  expected_volatility: 0.2,
+  sharpe_ratio: 0.5,
+  frontier: [
+    { return: 0.05, volatility: 0.10, weights: { A: 0.3 } },
+    { return: 0.10, volatility: 0.20, weights: { A: 0.6 } },
+    { return: 0.15, volatility: 0.30, weights: { A: 0.9 } },
+  ],
+  meta: { method: "mean_variance", solver: "CLARABEL" },
+};
+
+describe("EfficientFrontierChart", () => {
+  it("renders a chart container with the test id", () => {
+    render(<EfficientFrontierChart frontier={result.frontier} optimum={result} />);
+    expect(screen.getByTestId("frontier-chart")).toBeInTheDocument();
+  });
+});
+```
+
+- [ ] **Step 2-3: Run to fail, then implement**
 
 ```tsx
 // src/components/quant/EfficientFrontierChart.tsx
 "use client";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import type { OptimizeResult } from "@/app/portfolio/[id]/optimize/optimize-client";
+import type { OptimizeResult } from "@/lib/quant/types";
 
 type Props = {
   frontier: OptimizeResult["frontier"];
@@ -6466,9 +8383,12 @@ export default function EfficientFrontierChart({ frontier, optimum }: Props) {
 }
 ```
 
-Commit:
+- [ ] **Step 4: Run, verify pass, commit**
 
 ```bash
+npm test -- tests/components/quant/EfficientFrontierChart.test.tsx
+# Expected: PASS
+
 git add src/components/quant/EfficientFrontierChart.tsx \
         tests/components/quant/EfficientFrontierChart.test.tsx
 git commit -m "feat(ui/quant): EfficientFrontierChart (recharts scatter)
@@ -6481,24 +8401,65 @@ Pure presentation — renders only when parent passes frontier array."
 
 **Files:**
 - Create: `src/components/quant/RebalanceTradeList.tsx`
+- Test: `tests/components/quant/RebalanceTradeList.test.tsx`
+
+**Spec alignment (§4.1.4):** Response has exactly these top-level keys: `trades[]`, `total_turnover`, `estimated_costs`, `drift_before`, `drift_after`. No `tracking_error`, `total_transaction_cost`, `total_cost`, or `final_cash`.
+
+Each trade row has `{symbol, action, shares, estimated_cost, post_weight}`. **Note `estimated_cost` is asymmetric**: for `buy` trades it is `gross + fee` (what the user pays), for `sell` trades it is `fee only` (proceeds handled separately by the service). The display label is just "Cost" — we do not need to surface that asymmetry to the user.
+
+- [ ] **Step 1: Write failing test**
+
+```tsx
+// tests/components/quant/RebalanceTradeList.test.tsx
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
+import RebalanceTradeList from "@/components/quant/RebalanceTradeList";
+import type { RebalanceResult } from "@/lib/quant/types";
+
+const data: RebalanceResult = {
+  trades: [
+    { symbol: "AAPL", action: "buy",  shares: 3, estimated_cost: 450.23, post_weight: 0.40 },
+    { symbol: "MSFT", action: "sell", shares: 2, estimated_cost:   0.30, post_weight: 0.40 },
+  ],
+  total_turnover: 1050.00,
+  estimated_costs: 0.53,
+  drift_before: 0.12,
+  drift_after: 0.01,
+};
+
+describe("RebalanceTradeList", () => {
+  it("shows empty-state when data is null", () => {
+    render(<RebalanceTradeList data={null} />);
+    expect(screen.getByText(/No trades needed/)).toBeInTheDocument();
+  });
+
+  it("renders drift_before → drift_after + estimated_costs in header", () => {
+    render(<RebalanceTradeList data={data} />);
+    expect(screen.getByText(/Drift: 12.00% → 1.00%/)).toBeInTheDocument();
+    expect(screen.getByText(/Turnover: \$1,?050\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/Fees: \$0\.53/)).toBeInTheDocument();
+  });
+
+  it("renders a row per trade with action color and post_weight", () => {
+    render(<RebalanceTradeList data={data} />);
+    expect(screen.getByTestId("trade-AAPL")).toBeInTheDocument();
+    expect(screen.getByTestId("trade-MSFT")).toBeInTheDocument();
+    // post_weight is rendered per-row as a percent
+    expect(screen.getByTestId("trade-AAPL")).toHaveTextContent("40.0%");
+  });
+});
+```
+
+- [ ] **Step 2-3: Run to fail, implement**
 
 ```tsx
 // src/components/quant/RebalanceTradeList.tsx
-type Trade = {
-  symbol: string;
-  action: "buy" | "sell";
-  shares: number;
-  estimated_cost: number;
-};
+import type { RebalanceResult } from "@/lib/quant/types";
 
-type Props = {
-  data: {
-    trades: Trade[];
-    tracking_error: number;
-    total_transaction_cost: number;
-    final_cash: number;
-  } | null;
-};
+type Props = { data: RebalanceResult | null };
+
+const fmtUSD = (n: number) =>
+  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 export default function RebalanceTradeList({ data }: Props) {
   if (!data || !data.trades.length) {
@@ -6510,9 +8471,12 @@ export default function RebalanceTradeList({ data }: Props) {
   }
   return (
     <div className="border rounded bg-white" data-testid="trade-list">
-      <div className="flex justify-between p-3 bg-gray-50 text-sm">
-        <span>Tracking error: {(data.tracking_error * 100).toFixed(2)}%</span>
-        <span>Total cost: ${data.total_transaction_cost.toFixed(2)}</span>
+      <div className="flex flex-wrap gap-4 justify-between p-3 bg-gray-50 text-sm">
+        <span>
+          Drift: {(data.drift_before * 100).toFixed(2)}% → {(data.drift_after * 100).toFixed(2)}%
+        </span>
+        <span>Turnover: {fmtUSD(data.total_turnover)}</span>
+        <span>Fees: {fmtUSD(data.estimated_costs)}</span>
       </div>
       <table className="w-full text-sm">
         <thead>
@@ -6520,19 +8484,21 @@ export default function RebalanceTradeList({ data }: Props) {
             <th className="py-2 px-3">Symbol</th>
             <th className="py-2 px-3">Action</th>
             <th className="py-2 px-3 text-right">Shares</th>
-            <th className="py-2 px-3 text-right">Est. Cost</th>
+            <th className="py-2 px-3 text-right">Cost</th>
+            <th className="py-2 px-3 text-right">Post-weight</th>
           </tr>
         </thead>
         <tbody>
-          {data.trades.map((t, i) => (
-            <tr key={i} className="border-b" data-testid={`trade-${t.symbol}`}>
+          {data.trades.map((t) => (
+            <tr key={t.symbol} className="border-b" data-testid={`trade-${t.symbol}`}>
               <td className="py-2 px-3">{t.symbol}</td>
               <td className={`py-2 px-3 ${t.action === "buy" ? "text-green-600" : "text-red-600"}`}>
                 {t.action.toUpperCase()}
               </td>
               <td className="py-2 px-3 text-right tabular-nums">{t.shares}</td>
+              <td className="py-2 px-3 text-right tabular-nums">{fmtUSD(t.estimated_cost)}</td>
               <td className="py-2 px-3 text-right tabular-nums">
-                ${t.estimated_cost.toFixed(2)}
+                {(t.post_weight * 100).toFixed(1)}%
               </td>
             </tr>
           ))}
@@ -6543,77 +8509,124 @@ export default function RebalanceTradeList({ data }: Props) {
 }
 ```
 
-Commit:
+- [ ] **Step 4: Run, verify pass, commit**
 
 ```bash
+npm test -- tests/components/quant/RebalanceTradeList.test.tsx
+# Expected: PASS
+
 git add src/components/quant/RebalanceTradeList.tsx \
         tests/components/quant/RebalanceTradeList.test.tsx
 git commit -m "feat(ui/quant): RebalanceTradeList component
 
-Table view of integer-share trades with buy/sell color coding,
-tracking-error and total-cost header. Renders empty-state message
-when no trades are needed."
+Per-trade rows show symbol / action / shares / estimated_cost /
+post_weight (spec §4.1.4 field names verbatim — NOT legacy
+'dollar_amount'/'cost'/'current_weight'/'new_weight'). Header shows
+drift_before → drift_after, total_turnover, and estimated_costs.
+Buy/sell color coding. Empty-state when data.trades is empty."
 ```
 
-### Task 8.6: PostHog event wiring + feature flag navigation link
+### Task 8.6: Flag-gated navigation link (from portfolio detail page)
 
 **Files:**
-- Modify: `src/app/portfolio/[id]/optimize/optimize-client.tsx`
-- Modify: nav / sidebar where portfolio links live (find existing pattern and add conditional link)
+- Modify: `src/app/(app)/portfolio/[id]/page.tsx` (the existing nav links for Analytics / Transactions / Public live inline here — grep for `Link href=.*analytics` to locate the block)
+- Test: `tests/app/portfolio/optimize-nav-link.test.tsx`
 
-- [ ] **Step 1: Wire PostHog events**
+**Why no PostHog wiring in this task:** server routes emit `optimize_run`, `rebalance_plan_created`, `monte_carlo_run`, and `factors_run` events directly (see Task 7.5–7.8). Duplicating from the client would double-count and reuse an obsolete `quant_run` event name. Do NOT add client-side captures in this chunk.
 
-In `optimize-client.tsx`, add after `setResult(await resp.json())`:
-
-```typescript
-import { posthog } from "@/lib/analytics/posthog-client";
-...
-posthog.capture("quant_run", {
-  portfolioId,
-  method,
-  include_frontier: includeFrontier,
-  sharpe_ratio: result.sharpe_ratio,
-});
-```
-
-And after `setTrades(await resp.json())` for rebalance:
-
-```typescript
-posthog.capture("quant_rebalance", {
-  portfolioId,
-  tracking_error: trades.tracking_error,
-  n_trades: trades.trades.length,
-});
-```
-
-- [ ] **Step 2: Add nav link (flag-gated)**
-
-Locate the existing portfolio sidebar / tabs component (likely `src/components/portfolio/*`). Inside the nav, add:
+- [ ] **Step 1: Write failing test for nav link gating**
 
 ```tsx
-import { useFeatureFlag } from "@/lib/flags/client"; // or equivalent
-...
-const quantEnabled = useFeatureFlag("quant_engine_enabled");
-...
-{quantEnabled && (
-  <Link href={`/portfolio/${portfolioId}/optimize`} data-testid="nav-optimize">
-    Optimize
-  </Link>
-)}
+// tests/app/portfolio/optimize-nav-link.test.tsx
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+
+vi.mock("@/lib/flags/client", () => ({
+  useFeatureFlag: vi.fn(),
+}));
+
+beforeEach(() => vi.resetAllMocks());
+
+import { PortfolioNavLinks } from "@/components/portfolio/portfolio-nav-links";
+
+describe("Optimize nav link", () => {
+  it("does NOT render when flag off", async () => {
+    const { useFeatureFlag } = await import("@/lib/flags/client");
+    (useFeatureFlag as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    render(<PortfolioNavLinks portfolioId="p-1" />);
+    expect(screen.queryByTestId("nav-optimize")).toBeNull();
+  });
+
+  it("renders when flag on", async () => {
+    const { useFeatureFlag } = await import("@/lib/flags/client");
+    (useFeatureFlag as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    render(<PortfolioNavLinks portfolioId="p-1" />);
+    await waitFor(() => expect(screen.getByTestId("nav-optimize")).toBeInTheDocument());
+  });
+});
 ```
 
-The exact file path depends on the repo's nav component — implementers must grep for the existing portfolio subroutes (`/portfolio/[id]/overview`, etc.) and add the new link next to them, guarded by the flag hook.
+- [ ] **Step 2: Run to verify fail**
 
-- [ ] **Step 3: Commit**
+Run: `npm test -- tests/app/portfolio/optimize-nav-link.test.tsx`
+Expected: fail — component not extracted yet.
+
+- [ ] **Step 3: Extract the nav links into a small client component, add the gated Optimize link**
+
+Today, `src/app/(app)/portfolio/[id]/page.tsx` renders `<Link>` tags inline. Extract the nav into a tiny client component so we can use `useFeatureFlag`:
+
+```tsx
+// src/components/portfolio/portfolio-nav-links.tsx
+"use client";
+import Link from "next/link";
+import { useFeatureFlag } from "@/lib/flags/client";
+
+export function PortfolioNavLinks({ portfolioId }: { portfolioId: string }) {
+  const quantEnabled = useFeatureFlag("quant_engine_enabled");
+  return (
+    <nav className="flex gap-4 text-sm" data-testid="portfolio-nav">
+      <Link href={`/portfolio/${portfolioId}`} data-testid="nav-overview">Overview</Link>
+      <Link href={`/portfolio/${portfolioId}/analytics`} data-testid="nav-analytics">Analytics</Link>
+      <Link href={`/portfolio/${portfolioId}/transactions`} data-testid="nav-transactions">Transactions</Link>
+      <Link href={`/portfolio/${portfolioId}/public`} data-testid="nav-public">Public</Link>
+      {quantEnabled && (
+        <Link href={`/portfolio/${portfolioId}/optimize`} data-testid="nav-optimize">
+          Optimize
+        </Link>
+      )}
+    </nav>
+  );
+}
+```
+
+Then in `src/app/(app)/portfolio/[id]/page.tsx`, replace the inline `<Link>` block for Analytics / Transactions / Public with:
+
+```tsx
+import { PortfolioNavLinks } from "@/components/portfolio/portfolio-nav-links";
+// ...
+<PortfolioNavLinks portfolioId={id} />
+```
+
+If the current file has any extra classes or styling on the nav `<div>`, preserve them on the wrapping div — only the `<Link>` children move into `PortfolioNavLinks`. The existing tests for Analytics / Transactions / Public links continue to pass because the `data-testid` names are identical.
+
+- [ ] **Step 4: Run, verify pass**
+
+Run: `npm test -- tests/app/portfolio/optimize-nav-link.test.tsx`
+Expected: both tests PASS.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/app/portfolio/[id]/optimize/optimize-client.tsx \
-        src/components/portfolio/<nav-file>.tsx
-git commit -m "feat(ui/quant): PostHog events + flag-gated nav link
+git add src/components/portfolio/portfolio-nav-links.tsx \
+        src/app/\(app\)/portfolio/\[id\]/page.tsx \
+        tests/app/portfolio/optimize-nav-link.test.tsx
+git commit -m "feat(ui/quant): flag-gated Optimize nav link
 
-Emits 'quant_run' after successful /optimize and 'quant_rebalance'
-after /rebalance. Nav link to Optimize page only renders when
-quant_engine_enabled is true (client-side flag hook)."
+Extracts portfolio nav links into PortfolioNavLinks client component
+so the Optimize tab can be gated on quant_engine_enabled via
+useFeatureFlag. No client-side PostHog events — server routes already
+emit optimize_run / monte_carlo_run / factors_run / rebalance_plan_
+created on successful calls."
 ```
 
 ---
@@ -6742,10 +8755,22 @@ Success responses return the payload directly (no wrapper). All endpoints:
 - Require authentication (Supabase session cookie).
 - Require portfolio ownership (`portfolios.user_id = auth.uid()`).
 - Are gated on `quant_engine_enabled` feature flag. When off, return HTTP 404 with code `FEATURE_DISABLED`.
+- Emit a `quant_runs` audit row on **every** call — both cache hits and misses, both success and error.
+
+### Rate limit & cache TTL summary
+
+| Endpoint     | Per-user limit (tier)           | Internal tier (combined) | Cache TTL   | Cache key inputs                           |
+|--------------|---------------------------------|--------------------------|-------------|--------------------------------------------|
+| `/optimize`   | 5/min (`optimize`)              | 30/min (`internal`)       | 15 min      | `method, symbols, returns-hash, constraints, target_return, frontier_points` |
+| `/monte-carlo`| 3/min (`monte_carlo`)           | 30/min (`internal`)       | 15 min      | `weights, expected_returns, covariance-hash, horizon_days, n_simulations, percentiles, seed` |
+| `/factors` (GET) | 120/min (`general`)          | 30/min (`internal`)       | **1 hour**  | `portfolio_id, days` (factor fixture changes ≤1×/day) |
+| `/rebalance`  | 10/min (`rebalance`)            | 30/min (`internal`)       | **Never**   | n/a — every call recomputes on live prices |
+
+The combined `internal` tier exists to catch pathological usage that splits across endpoints (e.g., a bot rotating between `/optimize` and `/monte-carlo` to stay under per-endpoint caps). When `internal` fires, the error code is still `RATE_LIMITED` but `details.tier == "internal"`.
 
 ## POST `/api/portfolios/[id]/optimize`
 
-Rate limit: 5 req/min per user (plus combined 30/min internal cap).
+Rate limit: 5 req/min per user (`optimize` tier) **plus** a combined 30 req/min `internal` safety net across all quant endpoints. Cache TTL: **15 min** (keyed by `sha256(body + portfolio_id)`).
 
 ### Request
 
@@ -6756,7 +8781,7 @@ Rate limit: 5 req/min per user (plus combined 30/min internal cap).
   "returns": { "AAPL": [0.001, -0.002, ...], "MSFT": [...] },
   "target_return": 0.15,
   "risk_free_rate": 0.02,
-  "include_frontier": false,
+  "frontier_points": 20,
   "constraints": {
     "allow_short": false,
     "min_weight": 0.05,
@@ -6768,7 +8793,9 @@ Rate limit: 5 req/min per user (plus combined 30/min internal cap).
 ```
 
 - `returns` and `symbols` both optional — server falls back to `price_history` for the portfolio's symbols.
-- `target_return` optional — when absent, `mean_variance` maximizes Sharpe.
+- `target_return` optional — when absent, `mean_variance` maximizes Sharpe ratio.
+- `frontier_points` (int, 0–100, default 0). When `0`, the solver returns a single optimal point. When ≥5, it returns the efficient frontier as `frontier_points` evenly-spaced points. **Replaces the legacy `include_frontier: boolean`** — the UI should send `frontier_points: 20` when the chart is visible and `frontier_points: 0` otherwise.
+- `constraints.sector_caps` requires `constraints.sector_map` to be populated for every symbol; unmapped symbols default to sector `"Unknown"` which has no cap.
 
 ### Success response (HTTP 200)
 
@@ -6778,102 +8805,234 @@ Rate limit: 5 req/min per user (plus combined 30/min internal cap).
   "expected_return": 0.12,
   "expected_volatility": 0.18,
   "sharpe_ratio": 0.56,
-  "frontier": [],  // populated only when include_frontier=true
-  "meta": { "method": "mean_variance", "solver": "CLARABEL", "iterations": null }
+  "frontier": [
+    { "expected_return": 0.08, "expected_volatility": 0.12, "sharpe_ratio": 0.50 }
+  ],
+  "meta": { "method": "mean_variance", "solver": "CLARABEL", "iterations": null, "cached": false }
 }
 ```
+
+- `frontier` is a non-empty array only when the request had `frontier_points ≥ 5`; otherwise it is `[]`.
+- `meta.cached` reflects whether Redis served the result. Audit trail inserts on both hit and miss.
 
 ### Error codes
 
-| HTTP | Code                     | When                                     |
-|------|--------------------------|------------------------------------------|
-| 401  | `FORBIDDEN`              | Unauthenticated                          |
-| 404  | `FEATURE_DISABLED`       | Flag off                                 |
-| 404  | `PORTFOLIO_NOT_FOUND`    | Portfolio missing or not owned           |
-| 422  | `VALIDATION_ERROR`       | Body failed Zod                          |
-| 422  | `INSUFFICIENT_HISTORY`   | <2 symbols with ≥60 days history         |
-| 422  | `COVARIANCE_NOT_PD`      | Returns matrix rank-deficient            |
-| 422  | `WEIGHTS_NOT_ONE`        | Solver returned weights not summing to 1 |
-| 400  | `INFEASIBLE`             | Constraints make optimization infeasible |
-| 429  | `RATE_LIMITED`           | Per-user cap exceeded                    |
-| 503  | `COLD_START_TIMEOUT`     | Modal took >60s to respond (rare)        |
-| 500  | `INTERNAL`               | Other                                    |
+Full 16-code envelope per spec §3.3a. Every response uses:
+`{ "error": { "code": "<CODE>", "message": "...", "details": {} } }`
+
+| HTTP | Code                     | When                                                         |
+|------|--------------------------|--------------------------------------------------------------|
+| 401  | `UNAUTHENTICATED`        | No Supabase session cookie / session expired                 |
+| 401  | `HMAC_INVALID`           | Modal-side: signature mismatch (deploy/key rotation bug)     |
+| 401  | `HMAC_EXPIRED`           | Modal-side: timestamp outside the ±5min replay window        |
+| 403  | `FORBIDDEN`              | Authenticated but lacks permission (reserved; most ownership checks use `PORTFOLIO_NOT_FOUND` 404 to hide existence) |
+| 404  | `FEATURE_DISABLED`       | `quant_engine_enabled` flag off                              |
+| 404  | `PORTFOLIO_NOT_FOUND`    | Portfolio id does not exist OR belongs to another user       |
+| 404  | `NOT_FOUND`              | Route/resource missing (non-portfolio)                       |
+| 422  | `VALIDATION_ERROR`       | Body failed Zod — `details.fieldErrors` is populated         |
+| 422  | `INSUFFICIENT_HISTORY`   | <2 symbols with ≥60 days in `price_history`                  |
+| 422  | `COVARIANCE_NOT_PD`      | Returns matrix rank-deficient (linearly dependent series)    |
+| 422  | `WEIGHTS_NOT_ONE`        | Solver output weights do not sum to 1 ± 1e-4                 |
+| 422  | `DIMENSION_MISMATCH`     | Factor-series lengths don't match (factors endpoint only)    |
+| 422  | `MONTE_CARLO_DEGENERATE` | Portfolio volatility = 0 → no meaningful simulation          |
+| 400  | `INFEASIBLE`             | Constraints make optimization infeasible (e.g., sum of mins >1) |
+| 429  | `RATE_LIMITED`           | Per-user tier OR combined `internal` tier (30/min) exceeded  |
+| 503  | `COLD_START_TIMEOUT`     | Modal took >60s to respond (`keep_warm=1` should prevent)    |
+| 500  | `INTERNAL`               | Any uncaught exception — Sentry is the source of truth       |
+
+That's the full 16-code universe the Next.js error helper (`QUANT_ERROR_CODES` in `src/lib/api/response.ts`) tracks.
+
+Notes:
+- `UNAUTHENTICATED` (401) is returned by the Next.js route when the Supabase session is missing or expired. It is the preferred code; `FORBIDDEN` (403) is reserved for cases where the user *is* authenticated but lacks access (e.g., admin-only routes — not yet used in Phase 2).
+- `HMAC_INVALID` and `HMAC_EXPIRED` are Modal-side only; the Next.js proxy layer in `src/lib/services/quant.ts` catches them and remaps to `INTERNAL` (signature bug → Sentry) or `COLD_START_TIMEOUT` (clock drift → retry). **Clients should never see these two codes.**
 
 ## POST `/api/portfolios/[id]/monte-carlo`
 
-Rate limit: 3 req/min (plus 30/min internal).
+Rate limit: 3 req/min (`monte_carlo` tier) plus 30/min `internal` safety net. Cache TTL: **15 min** (same as `/optimize`).
 
-Body fields:
-- `weights`, `returns` (required).
-- `initial_value` (positive number).
-- `horizon_days` (int, max 1260 = ~5 years).
-- `n_simulations` (int, max 50_000).
-- `confidence_level` (0 < x < 1, default 0.95).
-- `seed` (optional int for reproducibility).
-
-Success response:
+### Request (spec §4.1.2)
 
 ```json
 {
-  "percentiles": {
-    "p5":  [100000, 99850, ...],
-    "p25": [...], "p50": [...], "p75": [...], "p95": [...]
-  },
-  "terminal_values": [98234.1, 101203.5, ...],
-  "var_95": 3420.15,
-  "cvar_95": 4820.50,
-  "mean_terminal": 108234.22,
-  "meta": { "n_simulations": 1000, "horizon_days": 252, "confidence_level": 0.95, "seed": 42 }
+  "current_value": 10000,
+  "weights": { "AAPL": 0.45, "MSFT": 0.55 },
+  "expected_returns": { "AAPL": 0.08, "MSFT": 0.10 },
+  "covariance": [[0.04, 0.01], [0.01, 0.03]],
+  "horizon_days": 252,
+  "n_simulations": 1000,
+  "percentiles": [5, 50, 95],
+  "seed": 42
 }
 ```
 
-Error codes same as `/optimize` plus `MONTE_CARLO_DEGENERATE` (portfolio volatility is zero → no meaningful paths).
+- `current_value` (positive number, required) — starting portfolio value in dollars.
+- `weights` (map, required) — must sum to 1 ± 1e-4.
+- `expected_returns` (map, required) — annualized return per symbol (e.g., `0.08` for 8%).
+- `covariance` (2D array, required) — annualized covariance matrix, row/col order matches `Object.keys(weights).sort()`.
+- `horizon_days` (int, 1–1260 ≈ 5 years, required).
+- `n_simulations` (int, 100–50_000, required).
+- `percentiles` (array of ints, 1–99, default `[5, 50, 95]`) — which percentile trajectories to return.
+- `seed` (int, optional) — when set, RNG is seeded for reproducibility.
 
-## POST `/api/portfolios/[id]/factors`
+**Do NOT send** the legacy fields `initial_value`, `returns`, or `confidence_level`. The spec-aligned fields above are the only accepted keys; anything else fails Zod → `VALIDATION_ERROR`.
 
-Rate limit: 120 req/min (generic tier — cached 1hr).
+### Success response (HTTP 200)
 
-Body:
-- `portfolio_returns` (array, ≥60 length).
-- `factor_returns` (object with keys `MKT`, `SMB`, `HML`, `RMW`, `CMA`, `MOM`, all same length as `portfolio_returns`).
-- `risk_free_rate_daily` (default 0).
+```json
+{
+  "trajectories": {
+    "p5":  [10000, 9850, ...],
+    "p50": [10000, 10020, ...],
+    "p95": [10000, 10200, ...]
+  },
+  "final_distribution": {
+    "mean":    10823.22,
+    "median":  10620.10,
+    "std":      1204.55,
+    "min":      6820.18,
+    "max":     18422.90,
+    "percentiles": { "5": 8234.10, "50": 10620.10, "95": 12940.70 }
+  },
+  "var_95": 3420.15,
+  "cvar_95": 4820.50,
+  "probability_of_loss": 0.18,
+  "meta": {
+    "n_simulations": 1000,
+    "horizon_days": 252,
+    "seed": 42,
+    "cached": false
+  }
+}
+```
 
-Success: `{ alpha, alpha_tstat, betas, beta_tstats, r_squared, adj_r_squared, factor_contributions, residual_vol }` — all annualized where applicable.
+- `trajectories.pX` has length `horizon_days + 1` (index 0 = `current_value`, index `horizon_days` = terminal day). Keys mirror the requested `percentiles` array.
+- `final_distribution.percentiles` uses string-int keys (`"5"`, `"50"`, `"95"`) and reports the terminal-day distribution only.
+- `var_95` and `cvar_95` are **dollar losses** relative to `current_value`, not percentages.
+- `probability_of_loss` = fraction of simulations where terminal value < `current_value` (0.0–1.0).
 
-Error codes same as `/optimize` plus `DIMENSION_MISMATCH`.
+### Error codes
+
+Same set as `/optimize`, plus:
+- `MONTE_CARLO_DEGENERATE` (422) — covariance matrix implies zero volatility → all paths identical.
+- `DIMENSION_MISMATCH` (422) — `covariance` size doesn't match `Object.keys(weights).length`.
+
+## GET `/api/portfolios/[id]/factors`
+
+**Method is GET, not POST** (spec §3.6). Clients do not send a request body — the Next.js route composes `portfolio_returns` server-side from `price_history` + `portfolio_holdings`, and loads the FF5 + MOM fixture from `worker/data/ff5_mom_daily.json`.
+
+Rate limit: 120 req/min (`general` tier) plus 30/min `internal` safety net. Cache TTL: **1 hour** (factor returns change at most once per trading day).
+
+### Request
+
+Query params:
+- `?days=<int>` (30–504, default 252) — trailing window for regression. 252 ≈ 1 trading year.
+
+No request body. The request **may** include an `X-Cache-Bypass: 1` header to skip Redis (testing only; rate-limited at 3/min across all routes).
+
+### Success response (HTTP 200)
+
+```json
+{
+  "alpha": 0.0004,
+  "betas": { "MKT": 1.02, "SMB": 0.12, "HML": -0.05, "RMW": 0.18, "CMA": -0.02, "MOM": 0.07 },
+  "r_squared": 0.92,
+  "adjusted_r_squared": 0.91,
+  "t_stats": { "alpha": 1.80, "MKT": 34.20, "SMB": 2.10, "HML": -0.80, "RMW": 3.10, "CMA": -0.40, "MOM": 1.20 },
+  "p_values": { "alpha": 0.072, "MKT": 0.000, "SMB": 0.037, "HML": 0.425, "RMW": 0.002, "CMA": 0.690, "MOM": 0.230 },
+  "residual_std": 0.0082,
+  "meta": { "n_observations": 252, "factors_used": ["MKT","SMB","HML","RMW","CMA","MOM"], "cached": false }
+}
+```
+
+- `alpha` is the daily intercept; annualize by multiplying by 252.
+- `betas`, `t_stats`, `p_values` all have the same 6 factor keys plus `alpha` (on the stat/p-value objects only).
+- `residual_std` is the standard error of the regression residuals, in daily units.
+- `meta.factors_used` is present so clients can detect if a factor was dropped (e.g., `MOM` series unavailable for part of the window).
+
+### Error codes
+
+Same set as `/optimize`, plus:
+- `DIMENSION_MISMATCH` (422) — one or more factor series length ≠ `portfolio_returns` length (this is a server bug, never a client bug).
 
 ## POST `/api/portfolios/[id]/rebalance`
 
-Rate limit: 10 req/min. Never cached.
+Rate limit: 10 req/min (`rebalance` tier) plus 30/min `internal` safety net. **Never cached** — every call must compute fresh trades against live prices.
 
-Body:
-- `current_holdings` (map of symbol → integer shares).
-- `prices` (map of symbol → positive price).
-- `target_weights` (map of symbol → 0..1, renormalized server-side).
-- `cash_available` (nonneg dollar amount).
-- `transaction_cost_bps` (0–100, default 5).
+### Request (spec §4.1.4)
 
-Success:
+```json
+{
+  "current_holdings": { "AAPL": 10, "MSFT": 5 },
+  "current_prices":   { "AAPL": 185.20, "MSFT": 395.00 },
+  "target_weights":   { "AAPL": 0.45, "MSFT": 0.55 },
+  "cash_available": 500.00,
+  "transaction_cost_bps": 5,
+  "min_trade_value": 50
+}
+```
+
+- `current_holdings` (map of symbol → non-negative integer shares, required).
+- `current_prices` (map of symbol → positive price, required). **Key is `current_prices`, NOT `prices`** — the legacy `prices` key is rejected by Zod → `VALIDATION_ERROR`.
+- `target_weights` (map of symbol → 0..1, required). Renormalized server-side to sum to 1; client doesn't need to.
+- `cash_available` (non-negative dollar amount, default 0).
+- `transaction_cost_bps` (0–100 basis points, default 5) — e.g., `5` = 0.05% per trade.
+- `min_trade_value` (non-negative dollar floor, default 50) — suppresses any trade whose gross notional `|shares × price|` would be below this threshold (avoids 0.3-share odd-lot churn). Set to `0` to disable the floor.
+
+### Success response (HTTP 200)
+
+Spec §4.1.4 exact shape:
 
 ```json
 {
   "trades": [
-    { "symbol": "AAPL", "action": "buy",  "shares": 3, "estimated_cost": 450.22 },
-    { "symbol": "MSFT", "action": "sell", "shares": 2, "estimated_cost": 0.30 }
+    {
+      "symbol": "AAPL",
+      "action": "buy",
+      "shares": 3,
+      "estimated_cost": 555.88,
+      "post_weight": 0.45
+    },
+    {
+      "symbol": "MSFT",
+      "action": "sell",
+      "shares": 1,
+      "estimated_cost": 0.20,
+      "post_weight": 0.55
+    }
   ],
-  "tracking_error": 0.02,
-  "total_transaction_cost": 450.52,
-  "final_cash": 50.20,
-  "meta": { "total_value": 10000, "transaction_cost_bps": 5, "n_symbols": 2 }
+  "total_turnover": 950.60,
+  "estimated_costs": 0.48,
+  "drift_before": 0.20,
+  "drift_after": 0.02
 }
 ```
+
+Field semantics:
+- `trades[].estimated_cost` is **asymmetric by action** (per spec §4.1.4 and `rebalance.py`):
+  - Buy trades: `gross + fee` → the full dollar amount the user pays (shares × price + per-trade commission).
+  - Sell trades: `fee only` → the commission the user pays; the proceeds are implicit in the post-trade cash position, which the UI recomputes from `cash_available + Σ sell_gross - Σ buy_gross - estimated_costs`.
+- `trades[].post_weight` is the post-trade portfolio weight for that symbol (0..1).
+- `trades[]` is sorted by absolute weight delta descending (biggest drift-reducers first).
+- `total_turnover` is the sum of absolute dollar amounts traded: `Σ |shares × price|` (notional, pre-fee). Excludes commission.
+- `estimated_costs` (plural) is the sum of transaction fees only: `total_turnover * transaction_cost_bps / 10000`.
+- `drift_before` / `drift_after` = sum of absolute differences between each symbol's current weight and its target weight across the whole portfolio. `drift_after` ≤ `drift_before` always.
+
+Trades whose absolute notional (`|shares * price|`) falls below `min_trade_value` are suppressed from the array — this keeps `drift_after` slightly higher than theoretically optimal but avoids odd-lot churn.
+
+**Do NOT** expect fields `tracking_error`, `total_transaction_cost`, `dollar_amount`, `cost`, `current_weight`, or `new_weight` — those names appeared in early drafts and are NOT in the spec.
 
 ## HMAC signing (server-to-Modal only — do NOT expose to clients)
 
 The Next.js service layer signs every outbound call to the Modal microservice:
 - Header `X-Timestamp`: Unix seconds (string).
 - Header `X-Signature`: `HMAC_SHA256(body || timestamp, QUANT_SERVICE_HMAC_KEY)` hex digest.
-- Replay window: 5 minutes. Stale timestamps are rejected with HTTP 401 + code `HMAC_EXPIRED`.
+- Replay window: **±5 minutes**. Timestamps outside the window → HTTP 401 + code `HMAC_EXPIRED`. Bad signature → HTTP 401 + code `HMAC_INVALID` (spec §3.3a keeps these as two distinct codes so audit telemetry can tell the difference between a clock-drift bug and a key-mismatch deploy error).
+
+The Next.js proxy layer in `src/lib/services/quant.ts` never forwards either code to the client:
+- `HMAC_EXPIRED` → logged + mapped to `COLD_START_TIMEOUT` (server-side clock drift is operationally equivalent to a slow upstream).
+- `HMAC_INVALID` → logged + mapped to `INTERNAL` and fires a Sentry alert (signature mismatch means our deploy is broken, not the user's request).
+
+Clients should never see `HMAC_INVALID` or `HMAC_EXPIRED` in a response.
 
 See `src/lib/api/hmac.ts` and `quant-service/src/auth.py` for the two sides.
 
@@ -6974,7 +9133,7 @@ Append below the existing "Rotate HMAC key" section:
 ## Incident: `quant_runs` audit not writing
 
 **Symptoms:**
-- Recent usage in PostHog `quant_run` events but `SELECT COUNT(*) FROM quant_runs WHERE created_at > now() - interval '1 hour'` returns 0.
+- Recent usage in PostHog (any of `optimize_run`, `monte_carlo_run`, `factors_run`, `rebalance_plan_created`) but `SELECT COUNT(*) FROM quant_runs WHERE created_at > now() - interval '1 hour'` returns 0.
 
 **Possible causes:**
 - RLS policy change blocking service role (shouldn't be possible — service role bypasses RLS — but worth checking).
@@ -7041,11 +9200,44 @@ GitHub Actions secrets:
 
 ## Database migration
 
-- [ ] `supabase/migrations/009_quant_engine.sql` present and reviewed.
-- [ ] On staging: `supabase db push` → migration applies without error.
-- [ ] On staging: run the RLS integration test from Task 1.2 → passes.
-- [ ] Apply to production during a low-traffic window.
-- [ ] Post-apply: `SELECT COUNT(*) FROM quant_runs` returns 0 (baseline).
+- [ ] `supabase/migrations/009_quant_engine.sql` present and reviewed — must define `quant_runs`, its RLS policies (owner-SELECT only, no INSERT/UPDATE/DELETE policies), and the `idx_quant_runs_user_created_at` index.
+- [ ] On staging branch: apply via Supabase CLI:
+
+  ```bash
+  # Dry run: show the SQL that will be executed.
+  supabase db diff --file supabase/migrations/009_quant_engine.sql
+
+  # Apply to staging (linked project — check `supabase projects list` first).
+  supabase db push --linked
+  ```
+
+  Expected: migration runs without error; `list_migrations` shows `009_quant_engine` as applied.
+- [ ] On staging: run the RLS integration test from Task 1.2 → passes (confirms anon and other-user roles cannot read `quant_runs`; owner can).
+- [ ] Verify no table-scan migrations blocked writes during apply:
+
+  ```sql
+  SELECT state, query, backend_start FROM pg_stat_activity
+  WHERE state != 'idle' AND application_name LIKE '%supabase%'
+  ORDER BY backend_start DESC LIMIT 10;
+  ```
+
+- [ ] Apply to production during a low-traffic window (weekend morning UTC 10-14 is historical low per PostHog `$pageview` counts):
+
+  ```bash
+  # Switch CLI link to production project.
+  supabase link --project-ref <prod-ref>
+  supabase db push --linked
+  ```
+
+- [ ] Post-apply sanity check:
+
+  ```sql
+  SELECT COUNT(*) FROM quant_runs;                      -- expect 0 (baseline)
+  SELECT indexname FROM pg_indexes WHERE tablename = 'quant_runs';   -- expect idx_quant_runs_user_created_at
+  SELECT policyname, cmd FROM pg_policies WHERE tablename = 'quant_runs';  -- expect owner-SELECT only
+  ```
+
+- [ ] If the apply fails mid-way: `supabase db reset` is NOT safe on prod. Instead, open an incident and run the named rollback migration `009_quant_engine_rollback.sql` (created alongside 009 in Task 1.2).
 
 ## Feature flag rollout
 
@@ -7063,7 +9255,7 @@ The kill switch is the `quant_engine_enabled` flag (Edge Config / PostHog). Stag
 - [ ] `curl -sf https://<modal-url>/health` → `{"status":"ok"}`.
 - [ ] Playwright smoke passes on preview URL for latest commit.
 - [ ] Sentry — no new error patterns under "quant" tag.
-- [ ] PostHog — `quant_run` event count > 0 after 1 hour of traffic.
+- [ ] PostHog — at least one of `optimize_run` / `monte_carlo_run` / `factors_run` / `rebalance_plan_created` events > 0 after 1 hour of traffic (there is NO generic `quant_run` event — each endpoint emits its own event name).
 - [ ] DB — `SELECT status, COUNT(*) FROM quant_runs GROUP BY status` shows expected ok/error mix.
 
 ## Rollback
@@ -7110,7 +9302,7 @@ From a Next.js dev session (`npm run dev`) with local env pointing to production
 curl -X POST http://localhost:3000/api/portfolios/<your-portfolio-id>/optimize \
   -H "Content-Type: application/json" \
   -H "Cookie: sb-<project>-auth-token=<your-cookie>" \
-  -d '{"method":"mean_variance","include_frontier":false}'
+  -d '{"method":"mean_variance","frontier_points":0}'
 ```
 
 Expected: 200 OK with `weights`, `expected_return`, `expected_volatility`, `sharpe_ratio`, and `meta.solver == "CLARABEL"`.
