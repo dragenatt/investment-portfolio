@@ -10,6 +10,8 @@
 // its issues are surfaced so a reader can weigh a metric, not silently discard
 // it. See docs/DATA_QUALITY.md.
 
+import { classifyJumps } from './corporate-actions'
+
 export type PriceBar = {
   date: string // YYYY-MM-DD
   close: number | null
@@ -78,16 +80,8 @@ const DEFAULTS = {
   maxStaleDays: 7,
 }
 
-/** A one-day move past this is not a market move — it is a data problem. */
+/** Matches the jump threshold corporate-actions.ts classifies on. */
 const EXTREME_MOVE = 0.5
-
-/**
- * Ratios a clean corporate action produces. A price that jumps by almost exactly
- * one of these and then stays there is a split the provider did not adjust for,
- * not a crash.
- */
-const SPLIT_RATIOS = [2, 3, 4, 5, 10, 20, 1.5, 2 / 3, 0.5, 1 / 3, 0.25, 0.2, 0.1, 0.05]
-const SPLIT_TOLERANCE = 0.02
 
 const MAX_SAMPLES = 5
 
@@ -100,10 +94,6 @@ function daysBetween(from: string, to: string): number {
 
 function isUsable(close: number | null | undefined): close is number {
   return typeof close === 'number' && Number.isFinite(close) && close > 0
-}
-
-function looksLikeSplit(ratio: number): boolean {
-  return SPLIT_RATIOS.some((candidate) => Math.abs(ratio / candidate - 1) <= SPLIT_TOLERANCE)
 }
 
 function grade(score: number): DataQualityGrade {
@@ -224,23 +214,13 @@ export function assessPriceHistory(
   }
 
   // ── Extreme moves and unadjusted splits ──────────────────────────────────
-  // A split leaves the price at a new level; a data glitch snaps back. Looking
-  // at the day after the jump separates the two.
+  // Splits and bad prints are separated by corporate-actions.ts, which is the
+  // module that also knows how to undo a split; keeping one classifier means the
+  // report and the correction can never disagree about what happened.
   const usable = sorted.filter((b) => isUsable(b.close)) as Array<{ date: string; close: number }>
-  const extremeMoves: string[] = []
-  const suspectedSplits: string[] = []
-  for (let i = 1; i < usable.length; i++) {
-    const previous = usable[i - 1].close
-    const current = usable[i].close
-    const change = current / previous - 1
-    if (Math.abs(change) < EXTREME_MOVE) continue
-
-    const ratio = previous / current
-    const persists =
-      i + 1 >= usable.length || Math.abs(usable[i + 1].close / current - 1) < EXTREME_MOVE
-    if (persists && looksLikeSplit(ratio)) suspectedSplits.push(usable[i].date)
-    else extremeMoves.push(usable[i].date)
-  }
+  const { splits, anomalies } = classifyJumps(sorted)
+  const suspectedSplits = splits.map((s) => s.date)
+  const extremeMoves = anomalies
 
   if (suspectedSplits.length > 0) {
     add({

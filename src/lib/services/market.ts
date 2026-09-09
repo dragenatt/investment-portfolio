@@ -198,6 +198,9 @@ async function yahooHistory(symbol: string, range: string = '1mo') {
 
   const timestamps = result.timestamp || []
   const quotes = result.indicators?.quote?.[0] || {}
+  // Yahoo publishes a split- and dividend-adjusted series alongside the raw one.
+  // It is the correct basis for returns; the raw close stays for display.
+  const adjusted = result.indicators?.adjclose?.[0]?.adjclose
 
   return timestamps.map((t: number, i: number) => ({
     date: new Date(t * 1000).toISOString(),
@@ -205,6 +208,7 @@ async function yahooHistory(symbol: string, range: string = '1mo') {
     high: quotes.high?.[i],
     low: quotes.low?.[i],
     close: quotes.close?.[i],
+    adjClose: adjusted?.[i] ?? null,
     volume: quotes.volume?.[i],
   })).filter((p: { close: number | null }) => p.close !== null)
 }

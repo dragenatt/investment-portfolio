@@ -49,8 +49,8 @@ split is real and the *series* is wrong, a bad print is noise and the *day* is
 wrong. They are told apart by what happens next. A split leaves the price at a
 new level, so the following day is normal; a glitch snaps back. The engine
 therefore checks the day after the jump, and only calls it a split when the
-ratio also lands within 2% of a common corporate-action ratio (2:1, 3:1, 3:2,
-1:10 and so on).
+ratio also lands within 2% of a common corporate-action ratio (2:1, 3:1, 4:1,
+1:10 and so on — see the threshold limitation under Corporate actions).
 
 ## Scoring
 
@@ -73,18 +73,76 @@ are reproducible in tests and in scheduled jobs.
 
 ## Corporate actions (P0-7)
 
-**Status: the detector ships, the correction does not yet.**
+A stock split is not a market move, but a raw price series cannot tell the
+difference. NVDA's 10:1 split in June 2024 reads as a -90% day, which then
+dominates volatility, ruins the Sharpe ratio, invents a max drawdown and
+miscalibrates every Monte Carlo drawn from those returns.
 
-`price_history` stores raw OHLC, and `yahooHistory` in `src/lib/services/market.ts`
-reads only `indicators.quote[0]` from the Yahoo chart response — the
-`indicators.adjclose` array sitting next to it is ignored. Neither
-`twelve-data.ts` nor `finnhub.ts` requests adjusted series either.
+`src/lib/services/corporate-actions.ts` fixes this in two ways, in order of
+preference.
 
-The consequence is concrete: for any asset that split or paid a meaningful
-dividend inside the window, returns, volatility, Sharpe, Sortino, beta, alpha,
-drawdown and Monte Carlo calibration are all computed on prices that jump for
-non-economic reasons. `suspected-split` exists to make that visible in the
-meantime.
+### 1. Use the provider's adjusted close
 
-Until adjusted prices land, treat a `suspected-split` flag as meaning *the risk
-metrics for this asset are wrong*, not merely uncertain.
+`yahooHistory` previously read only `indicators.quote[0]` from the Yahoo chart
+response and ignored the `indicators.adjclose` array sitting next to it. It now
+carries `adjClose` through, and when every bar has one the whole series is taken
+as-is — Yahoo has already adjusted for both splits and dividends.
+
+Twelve Data and Finnhub are not asked for adjusted series on their free tiers, so
+they fall through to the second route.
+
+### 2. Derive the split adjustment from raw prices
+
+`price_history` stores raw OHLC, but a split can still be undone from the raw
+series alone, because it leaves a signature a market move does not: a clean,
+persistent, multiple-of-price step.
+
+Each price before a detected split is divided by that split's ratio, compounding
+backwards through multiple splits, so the newest price stays exactly as quoted
+and the history is restated in today's share terms — the convention every data
+vendor uses. Pairing adjusted historical prices with today's share count is what
+keeps a synthetic portfolio value continuous across the split: a holder of 100
+shares at $400 became a holder of 400 shares at $100, and the book never changed
+value.
+
+Applied in `adjustSeriesBySymbol`, which the risk and Monte Carlo endpoints run
+over everything they read from `price_history`. Raw prices are still what gets
+cached; adjustment happens on read.
+
+### What this cannot recover
+
+**Splits smaller than the detection threshold.** Only a jump larger than 50% is
+separable from an ordinary bad day. A 3:2 split moves the price by 33% and is
+deliberately left alone — catching it would mean rescaling real crashes off a
+false positive. Those need a provider adjusted close.
+
+**Dividends.** A dividend also drops the price on the ex-date without destroying
+value, but leaves no recognisable signature: a 0.5% drop is indistinguishable
+from an ordinary down day. Recovering it needs the dividend record itself, which
+none of the configured providers is asked for today.
+
+The consequence is that everything measured here is a **price return, not a
+total return**. For a high-yield holding that understates the return by roughly
+the dividend yield per year and slightly overstates measured volatility.
+
+**Ticker and exchange changes.** A symbol that changed ticker has its history
+split across two symbols, and nothing in the current schema links them. The
+`calendar-gap` and `short-history` flags are what surface this today.
+
+### Telling a split from a bad print
+
+Both look like an enormous one-day move and need opposite responses: a split is
+real and the *series* is wrong, a bad print is noise and the *day* is wrong.
+They are separated by what happens next — a split leaves the price at its new
+level, a glitch snaps back — and a jump only counts as a split when it persists
+*and* lands within 2% of a recognised corporate-action ratio.
+
+One subtlety worth naming: a single bad print produces **two** jumps, the drop
+and the bounce back. The bounce persists and often lands on a clean ratio, so
+without special handling it gets read as a split and the entire history is
+rescaled off one bad tick. A jump that undoes the anomaly immediately before it
+is therefore skipped.
+
+`classifyJumps` is the single implementation of this. The data quality report
+and the correction call the same function, so they can never disagree about what
+happened on a given day.

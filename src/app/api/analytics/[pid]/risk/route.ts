@@ -5,6 +5,7 @@ import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
+import { adjustSeriesBySymbol } from '@/lib/services/corporate-actions'
 
 type PriceRow = { symbol: string; date: string; close: number }
 
@@ -25,7 +26,9 @@ async function fetchPriceHistory(
     .limit(2000)
 
   if (dbHistory && dbHistory.length >= 10) {
-    return dbHistory
+    // price_history stores raw closes, so an unadjusted split would read as a
+    // -75% day and dominate every metric drawn from these returns.
+    return adjustSeriesBySymbol(dbHistory)
   }
 
   // 2. Fallback: fetch from Yahoo Finance for each symbol
@@ -71,7 +74,7 @@ async function fetchPriceHistory(
     }
   }
 
-  return allHistory.sort((a, b) => a.date.localeCompare(b.date))
+  return adjustSeriesBySymbol(allHistory)
 }
 
 /**

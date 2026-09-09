@@ -5,6 +5,7 @@ import { simulatePortfolioGBM } from '@/lib/services/monte-carlo'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
+import { adjustSeriesBySymbol } from '@/lib/services/corporate-actions'
 
 type PriceRow = { symbol: string; date: string; close: number }
 
@@ -39,7 +40,9 @@ async function fetchPriceHistory(
     .limit(Math.min(symbols.length * (LOOKBACK_DAYS + 60), 5000))
 
   if (dbHistory && dbHistory.length >= 10) {
-    return dbHistory.slice().reverse()
+    // price_history stores raw closes, so an unadjusted split would read as a
+    // -75% day and dominate every metric drawn from these returns.
+    return adjustSeriesBySymbol(dbHistory.slice().reverse())
   }
 
   // 2. Fallback: fetch from Yahoo Finance for each symbol
@@ -85,7 +88,7 @@ async function fetchPriceHistory(
     }
   }
 
-  return allHistory.sort((a, b) => a.date.localeCompare(b.date))
+  return adjustSeriesBySymbol(allHistory)
 }
 
 /**
