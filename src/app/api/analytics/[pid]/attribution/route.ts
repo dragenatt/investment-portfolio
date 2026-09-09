@@ -2,7 +2,11 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
-import { computeAttribution, SP500_SECTOR_WEIGHTS } from '@/lib/services/attribution'
+import {
+  computeAttribution,
+  contributionByAsset,
+  SP500_SECTOR_WEIGHTS,
+} from '@/lib/services/attribution'
 import { getBatchQuotes } from '@/lib/services/market'
 import { apiHandler } from '@/lib/api/handler'
 
@@ -66,6 +70,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       // Group by sector with returns
       // Fall back to asset_type if company_data has no sector
       const sectorData: Record<string, { value: number; cost: number }> = {}
+      const perPosition: Array<{ symbol: string; sector: string; value: number; cost: number }> = []
       let totalValue = 0
 
       for (const pos of positions) {
@@ -81,6 +86,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         if (!sectorData[sector]) sectorData[sector] = { value: 0, cost: 0 }
         sectorData[sector].value += value
         sectorData[sector].cost += cost
+        perPosition.push({ symbol: pos.symbol, sector, value, cost })
       }
 
       const portfolioSectors = Object.entries(sectorData).map(([sector, data]) => ({
@@ -93,7 +99,24 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       const totalCost = positions.reduce((sum, pos) => sum + pos.quantity * pos.avg_cost, 0)
       const benchmarkReturn = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0
 
-      return computeAttribution(portfolioSectors, benchmarkReturn, SP500_SECTOR_WEIGHTS)
+      // Which holdings produced the number at the top of the page. Weight times
+      // return, so the parts add up to the whole — a 40% gain on 2% of the book
+      // contributes less than a 3% gain on half of it, and ranking by return
+      // alone never shows that.
+      const contribution = contributionByAsset(
+        perPosition.map((p) => ({
+          symbol: p.symbol,
+          sector: p.sector,
+          weight: totalValue > 0 ? p.value / totalValue : 0,
+          returnPct: p.cost > 0 ? ((p.value - p.cost) / p.cost) * 100 : 0,
+          unrealizedPnl: p.value - p.cost,
+        })),
+      )
+
+      return {
+        ...computeAttribution(portfolioSectors, benchmarkReturn, SP500_SECTOR_WEIGHTS),
+        contribution,
+      }
     }
   )
 
