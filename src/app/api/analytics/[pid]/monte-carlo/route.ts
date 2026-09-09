@@ -4,10 +4,7 @@ import { calculateDailyReturns } from '@/lib/services/analytics'
 import { simulatePortfolioGBM } from '@/lib/services/monte-carlo'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
-import { getHistory } from '@/lib/services/market'
-import { adjustSeriesBySymbol } from '@/lib/services/corporate-actions'
-
-type PriceRow = { symbol: string; date: string; close: number }
+import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
 
 /** One trading year of closes — the window the covariance matrix is estimated on. */
 const LOOKBACK_DAYS = 252
@@ -20,76 +17,6 @@ const MIN_WEEKS = 4
 const MAX_WEEKS = 260
 const SIMULATIONS = 1500
 
-/**
- * Fetch price history from Supabase, falling back to Yahoo Finance
- * when the price_history table is empty or insufficient.
- *
- * Rows come back newest-first and are then flipped: the covariance matrix cares
- * about the *latest* LOOKBACK_DAYS, so a row cap must never trim the recent end.
- */
-async function fetchPriceHistory(
-  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
-  symbols: string[]
-): Promise<PriceRow[]> {
-  // 1. Try Supabase price_history table first (fast, cached)
-  const { data: dbHistory } = await supabase
-    .from('price_history')
-    .select('symbol, date, close')
-    .in('symbol', symbols)
-    .order('date', { ascending: false })
-    .limit(Math.min(symbols.length * (LOOKBACK_DAYS + 60), 5000))
-
-  if (dbHistory && dbHistory.length >= 10) {
-    // price_history stores raw closes, so an unadjusted split would read as a
-    // -75% day and dominate every metric drawn from these returns.
-    return adjustSeriesBySymbol(dbHistory.slice().reverse())
-  }
-
-  // 2. Fallback: fetch from Yahoo Finance for each symbol
-  const allHistory: PriceRow[] = []
-  const rowsToCache: Array<{
-    symbol: string; exchange: string; date: string;
-    open: number; high: number; low: number; close: number; volume: number
-  }> = []
-
-  await Promise.all(
-    symbols.map(async (symbol) => {
-      try {
-        const history = await getHistory(symbol, '1y')
-        for (const point of history) {
-          if (point.close == null) continue
-          const date = new Date(point.date).toISOString().slice(0, 10)
-          allHistory.push({ symbol, date, close: point.close })
-          rowsToCache.push({
-            symbol,
-            exchange: 'yahoo',
-            date,
-            open: point.open ?? 0,
-            high: point.high ?? 0,
-            low: point.low ?? 0,
-            close: point.close,
-            volume: point.volume ?? 0,
-          })
-        }
-      } catch {
-        // Skip symbols that fail to fetch
-      }
-    })
-  )
-
-  // 3. Cache fetched data in price_history for future use (fire and forget)
-  if (rowsToCache.length > 0) {
-    try {
-      await supabase
-        .from('price_history')
-        .upsert(rowsToCache, { onConflict: 'symbol,exchange,date' })
-    } catch {
-      // Ignore cache write failures
-    }
-  }
-
-  return adjustSeriesBySymbol(allHistory)
-}
 
 /**
  * Index history as symbol -> date -> close, keeping the last close seen for a
@@ -158,7 +85,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ pid: str
 
       // Get price history — tries DB first, falls back to Yahoo Finance
       const symbols = positions.map(p => p.symbol)
-      const history = await fetchPriceHistory(supabase, symbols)
+      const { rows: history } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: Math.min(symbols.length * (LOOKBACK_DAYS + 60), 5000) })
 
       if (history.length < MIN_OBSERVATIONS) {
         return { message: 'No positions' }

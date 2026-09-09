@@ -4,78 +4,8 @@ import { calculateVolatility, calculateSharpeRatio, calculateMaxDrawdown, calcul
 import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
-import { getHistory } from '@/lib/services/market'
-import { adjustSeriesBySymbol } from '@/lib/services/corporate-actions'
+import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
 
-type PriceRow = { symbol: string; date: string; close: number }
-
-/**
- * Fetch price history from Supabase, falling back to Yahoo Finance
- * when the price_history table is empty or insufficient.
- */
-async function fetchPriceHistory(
-  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
-  symbols: string[]
-): Promise<PriceRow[]> {
-  // 1. Try Supabase price_history table first (fast, cached)
-  const { data: dbHistory } = await supabase
-    .from('price_history')
-    .select('symbol, date, close')
-    .in('symbol', symbols)
-    .order('date', { ascending: true })
-    .limit(2000)
-
-  if (dbHistory && dbHistory.length >= 10) {
-    // price_history stores raw closes, so an unadjusted split would read as a
-    // -75% day and dominate every metric drawn from these returns.
-    return adjustSeriesBySymbol(dbHistory)
-  }
-
-  // 2. Fallback: fetch from Yahoo Finance for each symbol
-  const allHistory: PriceRow[] = []
-  const rowsToCache: Array<{
-    symbol: string; exchange: string; date: string;
-    open: number; high: number; low: number; close: number; volume: number
-  }> = []
-
-  await Promise.all(
-    symbols.map(async (symbol) => {
-      try {
-        const history = await getHistory(symbol, '1y')
-        for (const point of history) {
-          if (point.close == null) continue
-          const date = new Date(point.date).toISOString().slice(0, 10)
-          allHistory.push({ symbol, date, close: point.close })
-          rowsToCache.push({
-            symbol,
-            exchange: 'yahoo',
-            date,
-            open: point.open ?? 0,
-            high: point.high ?? 0,
-            low: point.low ?? 0,
-            close: point.close,
-            volume: point.volume ?? 0,
-          })
-        }
-      } catch {
-        // Skip symbols that fail to fetch
-      }
-    })
-  )
-
-  // 3. Cache fetched data in price_history for future use (fire and forget)
-  if (rowsToCache.length > 0) {
-    try {
-      await supabase
-        .from('price_history')
-        .upsert(rowsToCache, { onConflict: 'symbol,exchange,date' })
-    } catch {
-      // Ignore cache write failures
-    }
-  }
-
-  return adjustSeriesBySymbol(allHistory)
-}
 
 /**
  * Calculate Sortino ratio — like Sharpe but only penalizes downside volatility.
@@ -136,7 +66,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
 
       // Get price history — tries DB first, falls back to Yahoo Finance
       const symbols = positions.map(p => p.symbol)
-      const history = await fetchPriceHistory(supabase, symbols)
+      const { rows: history } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
 
       if (history.length < 10) {
         return { message: 'No positions' }
@@ -145,12 +75,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
       // Also fetch benchmark (SPY) for beta/alpha calculations
       let benchmarkReturns: number[] = []
       try {
-        const spyHistory = await fetchPriceHistory(supabase, ['SPY'])
+        const { rows: spyHistory } = await fetchAdjustedPriceHistory(supabase, ['SPY'])
         if (spyHistory.length >= 10) {
           const spyCloses = spyHistory
-            .filter(h => h.symbol === 'SPY')
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .map(h => h.close)
+            .filter((h: PriceRow) => h.symbol === 'SPY')
+            .sort((a: PriceRow, b: PriceRow) => a.date.localeCompare(b.date))
+            .map((h: PriceRow) => h.close)
           benchmarkReturns = calculateDailyReturns(spyCloses)
         }
       } catch { /* skip benchmark */ }

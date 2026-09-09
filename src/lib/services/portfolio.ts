@@ -1,6 +1,7 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
 import { getDailyBaselines } from './baselines'
 import { positionDailyChange, positionValuation } from './pnl'
+import { freshnessOf, type Freshness } from './freshness'
 
 export async function getUserPortfolios(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
@@ -53,6 +54,7 @@ export async function enrichPositionsWithPnL(
   daily_change_pct: number
   sparkline_7d: number[]
   is_stale: boolean
+  freshness: Freshness
   [key: string]: unknown
 }>> {
   if (positions.length === 0) return []
@@ -96,15 +98,15 @@ export async function enrichPositionsWithPnL(
     if (pc != null) prevCloseMap[sym] = pc
   }
 
-  const now = Date.now()
-  const staleThreshold = 24 * 60 * 60 * 1000 // 24 hours
+  const asOf = new Date()
 
   return positions.map((pos) => {
     const priceData = priceMap[pos.symbol]
     const currentPrice = priceData?.price ?? pos.avg_cost
-    const isStale = priceData
-      ? now - new Date(priceData.fetched_at).getTime() > staleThreshold
-      : true
+    // A price with no row behind it is the average cost standing in for a quote,
+    // which is the least current thing there is — freshnessOf reports it as
+    // unavailable rather than letting it pass as a market price.
+    const freshness = freshnessOf(priceData, { asOf, provider: 'stored quote' })
 
     const valuation = positionValuation(pos.quantity, currentPrice, pos.avg_cost)
 
@@ -119,7 +121,8 @@ export async function enrichPositionsWithPnL(
       daily_change: daily.change,
       daily_change_pct: Math.round(daily.changePct * 100) / 100,
       sparkline_7d: sparkMap[pos.symbol] ?? [],
-      is_stale: isStale,
+      is_stale: !freshness.isCurrent,
+      freshness,
     }
   })
 }

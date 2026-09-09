@@ -25,6 +25,7 @@ type PositionWithPnL = {
   daily_change_pct: number
   sparkline_7d: number[]
   is_stale?: boolean
+  freshness?: { status: 'live' | 'delayed' | 'cached' | 'unavailable'; label: string }
 }
 
 type Props = {
@@ -206,7 +207,17 @@ export function PositionPnLTable({ positions }: Props) {
                   <div className="inline-flex items-center gap-1 justify-end">
                     <FormattedAmount value={pos.current_price} from={pos.currency} />
                     {pos.is_stale && (
-                      <AlertTriangle className="h-3 w-3 text-yellow-500 shrink-0" />
+                      <span
+                        title={pos.freshness?.label ?? 'Price may be out of date'}
+                        aria-label={pos.freshness?.label ?? 'Price may be out of date'}
+                        className="inline-flex"
+                      >
+                        <AlertTriangle
+                          className={`h-3 w-3 shrink-0 ${
+                            pos.freshness?.status === 'unavailable' ? 'text-red-500' : 'text-yellow-500'
+                          }`}
+                        />
+                      </span>
                     )}
                   </div>
                 </TableCell>
@@ -249,7 +260,17 @@ export function PositionPnLTable({ positions }: Props) {
                 <div className="flex items-center gap-1">
                   <p className="font-semibold font-mono text-sm">{pos.symbol}</p>
                   {pos.is_stale && (
-                    <AlertTriangle className="h-3 w-3 text-yellow-500 shrink-0" />
+                    <span
+                      title={pos.freshness?.label ?? 'Price may be out of date'}
+                      aria-label={pos.freshness?.label ?? 'Price may be out of date'}
+                      className="inline-flex"
+                    >
+                      <AlertTriangle
+                        className={`h-3 w-3 shrink-0 ${
+                          pos.freshness?.status === 'unavailable' ? 'text-red-500' : 'text-yellow-500'
+                        }`}
+                      />
+                    </span>
                   )}
                 </div>
                 {pos.name && (
