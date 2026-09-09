@@ -2,6 +2,7 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { calculateVolatility, calculateSharpeRatio, calculateDailyReturns, calculateBetaAlpha } from '@/lib/services/analytics'
 import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
+import { getPortfolioBenchmark, BENCHMARKS } from '@/lib/services/benchmarks'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
@@ -56,6 +57,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
         .eq('id', pid)
         .single()
 
+      // Beta and alpha are statements about a comparison, so which series they
+      // compare against is part of the answer, not an implementation detail.
+      const benchmarkSymbol = await getPortfolioBenchmark(supabase, pid)
+
       // Get portfolio positions
       const { data: positions } = await supabase
         .from('positions')
@@ -75,18 +80,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
         return { message: 'No positions' }
       }
 
-      // Also fetch benchmark (SPY) for beta/alpha calculations
       let benchmarkReturns: number[] = []
       try {
-        const { rows: spyHistory } = await fetchAdjustedPriceHistory(supabase, ['SPY'])
-        if (spyHistory.length >= 10) {
-          const spyCloses = spyHistory
-            .filter((h: PriceRow) => h.symbol === 'SPY')
+        const { rows: benchmarkHistory } = await fetchAdjustedPriceHistory(supabase, [
+          benchmarkSymbol,
+        ])
+        if (benchmarkHistory.length >= 10) {
+          const closes = benchmarkHistory
+            .filter((h: PriceRow) => h.symbol === benchmarkSymbol)
             .sort((a: PriceRow, b: PriceRow) => a.date.localeCompare(b.date))
             .map((h: PriceRow) => h.close)
-          benchmarkReturns = calculateDailyReturns(spyCloses)
+          benchmarkReturns = calculateDailyReturns(closes)
         }
-      } catch { /* skip benchmark */ }
+      } catch { /* a missing benchmark leaves beta and alpha unreported */ }
 
       // Calculate portfolio value per day
       const dateMap = new Map<string, number>()
@@ -247,6 +253,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
           underwater: drawdowns.underwater,
         },
         risk_attribution: riskAttribution,
+        benchmark: {
+          symbol: benchmarkSymbol,
+          name: BENCHMARKS.find((b) => b.symbol === benchmarkSymbol)?.name ?? benchmarkSymbol,
+          currency: BENCHMARKS.find((b) => b.symbol === benchmarkSymbol)?.currency ?? 'USD',
+          // Beta, alpha, tracking error and information ratio are all measured
+          // against this series and mean nothing without it.
+          available: benchmarkReturns.length >= 10,
+        },
         dataPoints: values.length,
       }
     }

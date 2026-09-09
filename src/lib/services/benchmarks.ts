@@ -7,10 +7,30 @@
 
 import { type SupabaseClient } from '@supabase/supabase-js'
 
+/**
+ * Benchmarks a portfolio can be measured against.
+ *
+ * Currency matters more than it looks. Alpha, beta, tracking error and
+ * information ratio are all statements about a comparison, so measuring a peso
+ * book against SPY says as much about the exchange rate as about the portfolio.
+ * EWW is a US-listed Mexican equity fund, which is the closest a US price feed
+ * gets to the IPC without a second data source; it is still quoted in dollars,
+ * and that is recorded here rather than glossed over.
+ */
 export const BENCHMARKS = [
-  { symbol: 'SPY', name: 'S&P 500 ETF', currency: 'USD' },
-  { symbol: 'QQQ', name: 'NASDAQ 100 ETF', currency: 'USD' },
+  { symbol: 'SPY', name: 'S&P 500', currency: 'USD' },
+  { symbol: 'QQQ', name: 'NASDAQ 100', currency: 'USD' },
+  { symbol: 'EWW', name: 'Mexico (MSCI Mexico ETF)', currency: 'USD' },
+  { symbol: 'VT', name: 'Global equity (all countries)', currency: 'USD' },
+  { symbol: 'AGG', name: 'US aggregate bonds', currency: 'USD' },
 ] as const
+
+/** Used when a portfolio has not chosen one. */
+export const DEFAULT_BENCHMARK = 'SPY'
+
+export function isKnownBenchmark(symbol: string): boolean {
+  return BENCHMARKS.some((b) => b.symbol === symbol)
+}
 
 export type BenchmarkSymbol = (typeof BENCHMARKS)[number]['symbol']
 
@@ -106,4 +126,25 @@ export async function getBenchmarkSeries(
     dates: data.map((d) => d.date),
     values: data.map((d) => (d.close / startClose) * 100),
   }
+}
+
+/**
+ * The benchmark a portfolio is measured against.
+ *
+ * Falls back to the default when the column is absent, which is what happens
+ * between deploying this code and applying migration 013. A missing column
+ * should degrade to the old behaviour, not break every risk page.
+ */
+export async function getPortfolioBenchmark(
+  supabase: SupabaseClient,
+  portfolioId: string,
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('portfolios')
+    .select('benchmark_symbol')
+    .eq('id', portfolioId)
+    .single()
+
+  if (error || !data?.benchmark_symbol) return DEFAULT_BENCHMARK
+  return isKnownBenchmark(data.benchmark_symbol) ? data.benchmark_symbol : DEFAULT_BENCHMARK
 }

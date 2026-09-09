@@ -13,7 +13,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { getBenchmarkSeries } from './benchmarks'
+import { getBenchmarkSeries, getPortfolioBenchmark } from './benchmarks'
 import { calculateBetaAlpha, calculateDailyReturns, type BetaAlpha } from './analytics'
 import { getRiskFreeRate } from './risk-free-rate'
 
@@ -59,7 +59,6 @@ type SnapshotResult = {
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const TRADING_DAYS_PER_YEAR = 252
-const BENCHMARK_SYMBOL = 'SPY'
 
 // ─── Supabase Admin Client ──────────────────────────────────────────────────
 
@@ -290,7 +289,8 @@ function computeRiskScore(
 async function computeBenchmarkStats(
   supabase: SupabaseClient,
   history: HistoricalSnapshot[],
-  riskFreeRate: number
+  riskFreeRate: number,
+  benchmarkSymbol: string
 ): Promise<BetaAlpha | null> {
   const sorted = [...history]
     .filter((h) => h.total_value > 0)
@@ -299,7 +299,7 @@ async function computeBenchmarkStats(
 
   const series = await getBenchmarkSeries(
     supabase,
-    BENCHMARK_SYMBOL,
+    benchmarkSymbol,
     sorted[0].snapshot_date,
     sorted[sorted.length - 1].snapshot_date
   )
@@ -505,7 +505,13 @@ export async function computePortfolioSnapshot(
     // (portfolio_vol / an assumed 1% daily benchmark vol) implied a correlation
     // of 1 with the market and overstated beta for any diversified portfolio,
     // which is worse than showing nothing.
-    const benchmarkStats = await computeBenchmarkStats(supabase, fullHistory, riskFree.rate)
+    const benchmarkSymbol = await getPortfolioBenchmark(supabase, portfolioId)
+    const benchmarkStats = await computeBenchmarkStats(
+      supabase,
+      fullHistory,
+      riskFree.rate,
+      benchmarkSymbol
+    )
     if (benchmarkStats) {
       betaVal = Math.round(benchmarkStats.beta * 100) / 100
       // calculateBetaAlpha returns percentage points; this column holds a fraction.
