@@ -2,7 +2,12 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
-import { calculateSimpleReturn, calculateTWR, calculateMWR } from '@/lib/services/returns'
+import {
+  calculateSimpleReturn,
+  calculateTWR,
+  calculateMWR,
+  describeReturnDifference,
+} from '@/lib/services/returns'
 import { getHistory } from '@/lib/services/market'
 import { apiHandler } from '@/lib/api/handler'
 
@@ -37,7 +42,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         .gte('executed_at', cutoff)
         .order('executed_at', { ascending: true })
 
-      let snaps = (snapshots ?? []).map((s) => ({ date: s.snapshot_date, value: s.total_value }))
+      const snaps = (snapshots ?? []).map((s) => ({ date: s.snapshot_date, value: s.total_value }))
 
       // FALLBACK: If no snapshots, build from positions + Yahoo price history
       if (snaps.length < 2) {
@@ -106,7 +111,6 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       }
 
       const lastSnap = snaps[snaps.length - 1]
-      const firstSnap = snaps[0]
 
       // Calculate total cost from positions
       const { data: positionsForCost } = await supabase
@@ -130,15 +134,28 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
           amount: t.type === 'buy' ? -(t.quantity as number) * (t.price as number) : (t.quantity as number) * (t.price as number),
         }))
 
+      // TWR judges the strategy, MWR judges the investor's timing on top of it.
+      // Both are reported, and null means "not enough history to say" rather
+      // than a flat zero.
       const twr = calculateTWR(snaps, cashFlows)
-      const mwr = lastSnap
-        ? calculateMWR(cashFlows, lastSnap.value, new Date())
-        : 0
+      const mwr = lastSnap ? calculateMWR(cashFlows, lastSnap.value, new Date()) : null
 
       // Calendar returns (monthly)
       const calendar = buildCalendarReturns(snaps)
 
-      return { summary: { simple, twr, mwr, period }, calendar, periods: [] }
+      return {
+        summary: {
+          simple,
+          twr,
+          mwr,
+          period,
+          // Why the two differ, in the terms that caused it. Null when one side
+          // could not be computed, because there is nothing to compare.
+          difference_explanation: describeReturnDifference(twr, mwr),
+        },
+        calendar,
+        periods: [],
+      }
     }
   )
 

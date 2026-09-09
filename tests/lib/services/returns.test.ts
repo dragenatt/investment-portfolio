@@ -59,7 +59,9 @@ describe('calculateMWR', () => {
     expect(result).toBeLessThan(15)
   })
 
-  it('returns 0 when no cash flows', () => {
-    expect(calculateMWR([], 0, new Date())).toBe(0)
+  it('says it cannot answer when there are no cash flows', () => {
+    // Previously 0, which on a dashboard reads as "you made nothing" rather
+    // than "there is nothing to measure". Null is the honest answer.
+    expect(calculateMWR([], 0, new Date())).toBeNull()
   })
 })
