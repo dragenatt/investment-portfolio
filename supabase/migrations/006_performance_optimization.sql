@@ -10,38 +10,38 @@
 
 -- Current prices cache lookup optimization
 -- Composite index for efficient cache validity checks during price lookups
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_current_prices_symbol_expires
+CREATE INDEX IF NOT EXISTS idx_current_prices_symbol_expires
   ON current_prices(symbol, expires_at)
   WHERE is_active = true;
 
 -- Price history optimization for recent data queries
 -- Used when fetching recent price movements and charts
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_price_history_symbol_date
+CREATE INDEX IF NOT EXISTS idx_price_history_symbol_date
   ON price_history(symbol, date DESC)
   WHERE is_active = true;
 
 -- Transaction list retrieval optimization
 -- Composite index for efficient pagination of transaction history
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_position_executed
+CREATE INDEX IF NOT EXISTS idx_transactions_position_executed
   ON transactions(position_id, executed_at DESC);
 
 -- Watchlist access optimization
 -- Critical missing index for user's watchlist retrieval
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_watchlists_user_id
-  ON watchlists(user_id)
-  WHERE deleted_at IS NULL;
+-- watchlists has no deleted_at column, so there is no partial predicate here.
+CREATE INDEX IF NOT EXISTS idx_watchlists_user_id
+  ON watchlists(user_id);
 
 -- Failed fetch tracking optimization
 -- Partial index for unresolved fetch failures (more common case)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_failed_fetches_unresolved
+CREATE INDEX IF NOT EXISTS idx_failed_fetches_unresolved
   ON failed_fetches(symbol, last_attempt DESC)
   WHERE resolved = false;
 
 -- Leaderboard and portfolio snapshot optimization
 -- Multi-column index for efficient ranking queries by performance metrics
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_portfolio_snapshots_ranking
-  ON portfolio_snapshots(portfolio_id, snapshot_date DESC, total_return_pct DESC)
-  WHERE deleted_at IS NULL;
+-- portfolio_snapshots has no deleted_at column either.
+CREATE INDEX IF NOT EXISTS idx_portfolio_snapshots_ranking
+  ON portfolio_snapshots(portfolio_id, snapshot_date DESC, total_return_pct DESC);
 
 -- ============================================================================
 -- 2. OPTIMIZED RLS HELPER FUNCTIONS
@@ -230,7 +230,6 @@ BEGIN
            snapshot_date
     FROM portfolio_snapshots
     WHERE portfolio_id = portfolio_uuid
-      AND deleted_at IS NULL
     ORDER BY snapshot_date DESC
     LIMIT 1
   ),
@@ -238,7 +237,6 @@ BEGIN
     SELECT total_value, snapshot_date
     FROM portfolio_snapshots
     WHERE portfolio_id = portfolio_uuid
-      AND deleted_at IS NULL
     ORDER BY snapshot_date ASC
     LIMIT 1
   )
@@ -304,10 +302,10 @@ BEGIN
   WHERE expires_at < now();
   GET DIAGNOSTICS v_expired_cache = ROW_COUNT;
 
-  -- Delete expired market events (older than 1 day)
+  -- Delete expired market events (older than 1 day). market_events has no
+  -- archived column, so expiry alone decides.
   DELETE FROM market_events
-  WHERE expires_at < now() - interval '1 day'
-    AND archived = true;
+  WHERE expires_at < now() - interval '1 day';
   GET DIAGNOSTICS v_expired_events = ROW_COUNT;
 
   -- Return cleanup statistics for monitoring

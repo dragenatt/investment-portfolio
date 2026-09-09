@@ -93,8 +93,16 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_created
 
 -- One row per user per event kind per day, so a job that runs hourly cannot
 -- deliver the same drawdown warning twenty-four times.
+-- The day is anchored to UTC rather than written as created_at::date, because
+-- casting timestamptz to date depends on the session TimeZone and is therefore
+-- only STABLE; Postgres rejects it in an index expression.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_dedupe
-  ON notifications (user_id, kind, COALESCE(portfolio_id, '00000000-0000-0000-0000-000000000000'::uuid), (created_at::date));
+  ON notifications (
+    user_id,
+    kind,
+    COALESCE(portfolio_id, '00000000-0000-0000-0000-000000000000'::uuid),
+    (((created_at AT TIME ZONE 'UTC'))::date)
+  );
 
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 

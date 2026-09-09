@@ -1,0 +1,22 @@
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 014 · Take cleanup_expired_data() off the public API
+--
+-- Migration 006 creates cleanup_expired_data() as SECURITY DEFINER. Postgres
+-- grants EXECUTE to PUBLIC by default, and PostgREST exposes every function in
+-- the public schema, so the function landed on /rest/v1/rpc/cleanup_expired_data
+-- callable by anon — and the anon key ships in the browser bundle. The function
+-- DELETEs rows, so that combination let any visitor trigger deletions.
+--
+-- It is a maintenance job. Only the service role should run it, and the service
+-- role bypasses these grants.
+--
+-- Note what is deliberately NOT revoked here: auth_user_portfolio_ids() and
+-- auth_user_position_ids(). RLS policy expressions are evaluated with the
+-- privileges of the querying role, not the table owner, so a role that cannot
+-- EXECUTE a function named in a policy is denied the operation outright.
+-- Revoking those two takes every INSERT, UPDATE and DELETE on positions and
+-- transactions away from signed-in users. They are safe as they are: both filter
+-- on auth.uid(), so an anon caller reads an empty set.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+REVOKE ALL ON FUNCTION public.cleanup_expired_data() FROM PUBLIC, anon, authenticated;
