@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { positionDailyChange, aggregateDailyChange } from '@/lib/services/pnl'
+import {
+  positionDailyChange,
+  aggregateDailyChange,
+  positionValuation,
+  aggregatePositionValues,
+} from '@/lib/services/pnl'
 
 describe('positionDailyChange', () => {
   it('measures the move against the previous close', () => {
@@ -51,5 +56,86 @@ describe('aggregateDailyChange', () => {
 
   it('returns zero for an empty book', () => {
     expect(aggregateDailyChange([])).toEqual({ change: 0, changePct: 0 })
+  })
+})
+
+describe('money precision (P0-3)', () => {
+  it('sums daily change to the cent across positions', () => {
+    // (1.1 - 1.0) === 0.10000000000000009; three of them drift to 0.30000000000000027
+    const positions = Array(3).fill({ quantity: 1, currentPrice: 1.1, previousClose: 1.0 })
+    expect(aggregateDailyChange(positions).change).toBe(0.3)
+  })
+
+  it('anchors a single position change to whole cents', () => {
+    expect(positionDailyChange(3, 19.99, 19.92).change).toBe(0.21)
+  })
+})
+
+describe('positionValuation', () => {
+  it('values a position at whole cents', () => {
+    const v = positionValuation(3, 19.99, 15)
+    expect(v.marketValue).toBe(59.97)
+    expect(v.costBasis).toBe(45)
+    expect(v.pnlAbsolute).toBe(14.97)
+  })
+
+  it('does not drift multiplying price by quantity', () => {
+    // 3 * 0.07 === 0.21000000000000002
+    const v = positionValuation(3, 0.07, 0.05)
+    expect(v.marketValue).toBe(0.21)
+    expect(v.costBasis).toBe(0.15)
+    expect(v.pnlAbsolute).toBe(0.06)
+  })
+
+  it('reports P&L percent as a ratio of cost basis', () => {
+    expect(positionValuation(1, 150, 100).pnlPercent).toBeCloseTo(50)
+  })
+
+  it('reports zero percent when there is no cost basis', () => {
+    expect(positionValuation(1, 150, 0).pnlPercent).toBe(0)
+  })
+
+  it('supports fractional quantities', () => {
+    const v = positionValuation(0.5, 150.25, 150.25)
+    expect(v.marketValue).toBe(75.13)
+    expect(v.pnlAbsolute).toBe(0)
+  })
+})
+
+describe('aggregatePositionValues', () => {
+  it('aggregates value and cost to the cent across positions', () => {
+    // Three 0.1 values sum to 0.30000000000000004 with plain addition
+    const totals = aggregatePositionValues(
+      Array(3).fill({ quantity: 1, currentPrice: 0.1, avgCost: 0.05 }),
+    )
+    expect(totals.totalValue).toBe(0.3)
+    expect(totals.totalCost).toBe(0.15)
+    expect(totals.totalReturn).toBe(0.15)
+  })
+
+  it('measures return against total cost', () => {
+    const totals = aggregatePositionValues([
+      { quantity: 10, currentPrice: 150, avgCost: 100 },
+      { quantity: 5, currentPrice: 80, avgCost: 100 },
+    ])
+    expect(totals.totalValue).toBe(1900) // 1500 + 400
+    expect(totals.totalCost).toBe(1500) // 1000 + 500
+    expect(totals.totalReturn).toBe(400)
+    expect(totals.totalReturnPct).toBeCloseTo(26.6667)
+  })
+
+  it('reports zero percent when nothing was invested', () => {
+    const totals = aggregatePositionValues([{ quantity: 1, currentPrice: 10, avgCost: 0 }])
+    expect(totals.totalCost).toBe(0)
+    expect(totals.totalReturnPct).toBe(0)
+  })
+
+  it('handles an empty book', () => {
+    expect(aggregatePositionValues([])).toEqual({
+      totalValue: 0,
+      totalCost: 0,
+      totalReturn: 0,
+      totalReturnPct: 0,
+    })
   })
 })

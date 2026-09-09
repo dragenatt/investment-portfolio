@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { allocateMoney } from '@/lib/utils/money'
 import {
   PieChart,
   Pie,
@@ -273,7 +274,14 @@ export default function AdvisorPage() {
     const colors = PROFILE_COLORS[results.nombre]
     const ProfileIcon = PROFILE_ICONS[results.nombre]
 
-    const donutData = Object.entries(cartera).map(([name, value]) => ({
+    // Allocate to the cent so the rows add up to the capital and the monthly
+    // contribution exactly, instead of each row rounding on its own.
+    const carteraEntries = Object.entries(cartera)
+    const pesos = carteraEntries.map(([, pct]) => pct)
+    const montoInicial = allocateMoney(capitalInicial, pesos)
+    const montoMensual = allocateMoney(aportacionMensual, pesos)
+
+    const donutData = carteraEntries.map(([name, value]) => ({
       name,
       value: Math.round(value * 100),
     }))
@@ -371,11 +379,11 @@ export default function AdvisorPage() {
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(cartera).map(([asset, pct]) => (
+                {carteraEntries.map(([asset, pct], i) => (
                   <tr key={asset} className="border-b border-border/50">
                     <td className="py-2">{asset}</td>
                     <td className="text-right font-mono">{(pct * 100).toFixed(0)}%</td>
-                    <td className="text-right font-mono">{fmt.format(capitalInicial * pct)}</td>
+                    <td className="text-right font-mono">{fmt.format(montoInicial[i])}</td>
                   </tr>
                 ))}
               </tbody>
@@ -399,12 +407,12 @@ export default function AdvisorPage() {
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(cartera).map(([asset, pct]) => (
+                {carteraEntries.map(([asset, pct], i) => (
                   <tr key={asset} className="border-b border-border/50">
                     <td className="py-2">{asset}</td>
                     <td className="text-right font-mono">{(pct * 100).toFixed(0)}%</td>
                     <td className="text-right font-mono">
-                      {fmt.format(aportacionMensual * pct)}
+                      {fmt.format(montoMensual[i])}
                     </td>
                   </tr>
                 ))}

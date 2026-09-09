@@ -3,7 +3,8 @@ import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { getBatchQuotes } from '@/lib/services/market'
 import { getDailyBaselines } from '@/lib/services/baselines'
-import { aggregateDailyChange } from '@/lib/services/pnl'
+import { aggregateDailyChange, aggregatePositionValues } from '@/lib/services/pnl'
+import { fromCents, subtractMoney, toCents } from '@/lib/utils/money'
 import { apiHandler } from '@/lib/api/handler'
 
 async function getHandler() {
@@ -65,26 +66,23 @@ async function getHandler() {
       }
 
       // Calculate totals (all values in their original currency — client handles conversion)
-      let totalValue = 0
-      let totalCost = 0
+      const valued = positions.map((pos) => ({
+        symbol: pos.symbol,
+        quantity: pos.quantity,
+        currentPrice: priceMap[pos.symbol]?.price ?? pos.avg_cost,
+        avgCost: pos.avg_cost,
+      }))
+      const { totalValue, totalCost, totalReturn, totalReturnPct } =
+        aggregatePositionValues(valued)
+
       let bestPos = { symbol: '', pct: -Infinity }
       let worstPos = { symbol: '', pct: Infinity }
-
-      for (const pos of positions) {
-        const liveData = priceMap[pos.symbol]
-        const price = liveData?.price ?? pos.avg_cost
-        const value = pos.quantity * price
-        const cost = pos.quantity * pos.avg_cost
-        totalValue += value
-        totalCost += cost
-
-        const pct = cost > 0 ? ((value - cost) / cost) * 100 : 0
+      for (const pos of valued) {
+        const cost = pos.quantity * pos.avgCost
+        const pct = cost > 0 ? ((pos.quantity * pos.currentPrice - cost) / cost) * 100 : 0
         if (pct > bestPos.pct) bestPos = { symbol: pos.symbol, pct }
         if (pct < worstPos.pct) worstPos = { symbol: pos.symbol, pct }
       }
-
-      const totalReturn = totalValue - totalCost
-      const totalReturnPct = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0
 
       // Get yesterday's and last week's snapshots for change calculation
       const today = new Date()
@@ -100,8 +98,8 @@ async function getHandler() {
         .gte('snapshot_date', lastWeek.toISOString().split('T')[0])
         .order('snapshot_date', { ascending: false })
 
-      let yesterdayTotal = 0
-      let weekAgoTotal = 0
+      let yesterdayCents = 0
+      let weekAgoCents = 0
       const yesterdayStr = yesterday.toISOString().split('T')[0]
       const weekAgoStr = lastWeek.toISOString().split('T')[0]
 
@@ -109,9 +107,11 @@ async function getHandler() {
         const pidSnaps = snapshots?.filter((s) => s.portfolio_id === pid) ?? []
         const ySnap = pidSnaps.find((s) => s.snapshot_date <= yesterdayStr)
         const wSnap = pidSnaps.find((s) => s.snapshot_date <= weekAgoStr)
-        if (ySnap) yesterdayTotal += ySnap.total_value
-        if (wSnap) weekAgoTotal += wSnap.total_value
+        if (ySnap) yesterdayCents += toCents(ySnap.total_value)
+        if (wSnap) weekAgoCents += toCents(wSnap.total_value)
       }
+      const yesterdayTotal = fromCents(yesterdayCents)
+      const weekAgoTotal = fromCents(weekAgoCents)
 
       // Daily P&L is anchored to each asset's previous close (global baseline,
       // shared across users, refreshed once/day) so it reflects the real market
@@ -132,21 +132,21 @@ async function getHandler() {
         dailyChange = agg.change
         dailyChangePct = agg.changePct
       } else {
-        dailyChange = yesterdayTotal > 0 ? totalValue - yesterdayTotal : 0
+        dailyChange = yesterdayTotal > 0 ? subtractMoney(totalValue, yesterdayTotal) : 0
         dailyChangePct = yesterdayTotal > 0 ? (dailyChange / yesterdayTotal) * 100 : 0
       }
 
-      const weeklyChange = weekAgoTotal > 0 ? totalValue - weekAgoTotal : 0
+      const weeklyChange = weekAgoTotal > 0 ? subtractMoney(totalValue, weekAgoTotal) : 0
       const weeklyChangePct = weekAgoTotal > 0 ? (weeklyChange / weekAgoTotal) * 100 : 0
 
       return {
-        total_value: Math.round(totalValue * 100) / 100,
-        total_cost: Math.round(totalCost * 100) / 100,
-        total_return: Math.round(totalReturn * 100) / 100,
+        total_value: totalValue,
+        total_cost: totalCost,
+        total_return: totalReturn,
         total_return_pct: Math.round(totalReturnPct * 100) / 100,
-        daily_change: Math.round(dailyChange * 100) / 100,
+        daily_change: dailyChange,
         daily_change_pct: Math.round(dailyChangePct * 100) / 100,
-        weekly_change: Math.round(weeklyChange * 100) / 100,
+        weekly_change: weeklyChange,
         weekly_change_pct: Math.round(weeklyChangePct * 100) / 100,
         best_position: bestPos.symbol ? { symbol: bestPos.symbol, pnl_percent: bestPos.pct } : null,
         worst_position: worstPos.symbol ? { symbol: worstPos.symbol, pnl_percent: worstPos.pct } : null,

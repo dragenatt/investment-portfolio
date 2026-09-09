@@ -123,3 +123,25 @@ describe('recalculatePosition', () => {
     })
   })
 })
+
+describe('recalculatePosition — money precision (P0-3)', () => {
+  it('accumulates cost basis without floating point drift', () => {
+    // 0.1 + 0.2 === 0.30000000000000004, so avg_cost drifts to 0.15000000000000002
+    const r = recalculatePosition([
+      { type: 'buy', quantity: 1, price: 0.1, fees: 0 },
+      { type: 'buy', quantity: 1, price: 0.2, fees: 0 },
+    ])
+    expect(r.quantity).toBe(2)
+    expect(r.avg_cost).toBe(0.15)
+  })
+
+  it('folds commissions into the cost basis exactly', () => {
+    const r = recalculatePosition([{ type: 'buy', quantity: 1, price: 0.1, fees: 0.2 }])
+    expect(r.avg_cost).toBe(0.3)
+  })
+
+  it('keeps a many-trade cost basis exact', () => {
+    const txns = Array(10).fill({ type: 'buy' as const, quantity: 1, price: 0.1, fees: 0 })
+    expect(recalculatePosition(txns).avg_cost).toBe(0.1)
+  })
+})

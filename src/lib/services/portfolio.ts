@@ -1,6 +1,6 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
 import { getDailyBaselines } from './baselines'
-import { positionDailyChange } from './pnl'
+import { positionDailyChange, positionValuation } from './pnl'
 
 export async function getUserPortfolios(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
@@ -106,20 +106,17 @@ export async function enrichPositionsWithPnL(
       ? now - new Date(priceData.fetched_at).getTime() > staleThreshold
       : true
 
-    const marketValue = pos.quantity * currentPrice
-    const costBasis = pos.quantity * pos.avg_cost
-    const pnlAbsolute = marketValue - costBasis
-    const pnlPercent = costBasis > 0 ? (pnlAbsolute / costBasis) * 100 : 0
+    const valuation = positionValuation(pos.quantity, currentPrice, pos.avg_cost)
 
     const daily = positionDailyChange(pos.quantity, currentPrice, prevCloseMap[pos.symbol])
 
     return {
       ...pos,
       current_price: currentPrice,
-      market_value: Math.round(marketValue * 100) / 100,
-      pnl_absolute: Math.round(pnlAbsolute * 100) / 100,
-      pnl_percent: Math.round(pnlPercent * 100) / 100,
-      daily_change: Math.round(daily.change * 100) / 100,
+      market_value: valuation.marketValue,
+      pnl_absolute: valuation.pnlAbsolute,
+      pnl_percent: Math.round(valuation.pnlPercent * 100) / 100,
+      daily_change: daily.change,
       daily_change_pct: Math.round(daily.changePct * 100) / 100,
       sparkline_7d: sparkMap[pos.symbol] ?? [],
       is_stale: isStale,
