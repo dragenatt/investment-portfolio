@@ -8,7 +8,9 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     // Git worktrees live under .claude/worktrees, and their copy of the suite
     // would otherwise be collected and run alongside this one.
-    exclude: [...configDefaults.exclude, '.claude/**'],
+    // Playwright drives a browser and owns e2e/; vitest collecting those files
+    // would run them without a server and report failures that mean nothing.
+    exclude: [...configDefaults.exclude, '.claude/**', 'e2e/**'],
   },
   resolve: {
     alias: {
