@@ -50,9 +50,9 @@ const DEFAULTS: Record<FeatureFlag, boolean> = {
   advisor: true,
   advisorSensitivity: true,
   dataQuality: true,
-  // Both need migration 013 applied before their tables exist.
-  auditTrail: false,
-  notifications: false,
+  // Migration 013 landed in 9cd1bfa, so audit_log and notifications exist.
+  auditTrail: true,
+  notifications: true,
   // Not implemented yet — OLA 3 and beyond.
   markowitz: false,
   cvarOptimisation: false,

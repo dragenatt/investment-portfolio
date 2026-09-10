@@ -74,10 +74,10 @@ describe('allFlags', () => {
     expect(off).toContain('riskParity')
   })
 
-  it('keeps the two flags needing migration 013 off by default', () => {
+  it('has the audit trail and notifications on now that migration 013 is applied', () => {
     const flags = allFlags()
-    expect(flags.find((f) => f.flag === 'auditTrail')!.default).toBe(false)
-    expect(flags.find((f) => f.flag === 'notifications')!.default).toBe(false)
+    expect(flags.find((f) => f.flag === 'auditTrail')!.default).toBe(true)
+    expect(flags.find((f) => f.flag === 'notifications')!.default).toBe(true)
   })
 })
 
