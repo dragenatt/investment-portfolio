@@ -8,7 +8,8 @@ import { CACHE_KEYS } from '@/lib/cache/redis'
 import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
 import { calculateCovarianceMatrix } from '@/lib/services/covariance'
 import { riskContributions, describeRiskConcentration } from '@/lib/services/risk-attribution'
-import { analyseDrawdowns } from '@/lib/services/drawdown'
+import { analyseDrawdowns, recoveryProfile } from '@/lib/services/drawdown'
+import { analyseTailRisk } from '@/lib/services/var'
 
 
 /**
@@ -134,10 +135,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
       const cagr = Math.pow(1 + mean, TRADING_DAYS) - 1
       const calmar = maxDrawdown > 0 ? (cagr * 100) / maxDrawdown : 0
 
-      // VaR 95%
-      const sortedReturns = [...returns].sort((a, b) => a - b)
-      const var95Index = Math.floor(returns.length * 0.05)
-      const var95 = sortedReturns[var95Index] ? Math.abs(sortedReturns[var95Index]) * 100 : 0
+      // Tail risk, four ways. One number labelled "VaR" invites a reader to
+      // treat it as the answer; four that disagree invite the question of why,
+      // which is the part worth learning. var95 keeps the historical figure so
+      // the existing field means exactly what it always meant.
+      const tailRisk = analyseTailRisk(returns, 95)
+      const var95 = tailRisk?.historicalPct ?? 0
 
       // Beta and Alpha (relative to SPY benchmark).
       // The risk-free rate is passed as 0 on purpose: this endpoint has always
@@ -253,6 +256,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
           underwater: drawdowns.underwater,
         },
         risk_attribution: riskAttribution,
+        tail_risk: tailRisk,
+        recovery: recoveryProfile(drawdowns),
         benchmark: {
           symbol: benchmarkSymbol,
           name: BENCHMARKS.find((b) => b.symbol === benchmarkSymbol)?.name ?? benchmarkSymbol,

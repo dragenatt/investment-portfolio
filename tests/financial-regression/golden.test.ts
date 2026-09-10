@@ -35,6 +35,12 @@ import {
 import { calculateCovarianceMatrix } from '@/lib/services/covariance'
 import { portfolioVolatility, riskContributions } from '@/lib/services/risk-attribution'
 import { analyseDrawdowns, recoveryRequired } from '@/lib/services/drawdown'
+import {
+  historicalVaR,
+  parametricVaR,
+  cornishFisherVaR,
+  conditionalVaR,
+} from '@/lib/services/var'
 import { calculateTWR, calculateXIRR } from '@/lib/services/returns'
 import { simulatePortfolioGBM } from '@/lib/services/monte-carlo'
 import { toCents, allocateMoney, addMoney } from '@/lib/utils/money'
@@ -347,9 +353,54 @@ describe('advisor projection', () => {
   })
 })
 
+describe('value at risk', () => {
+  it('takes the historical VaR at the floor of the tail index', () => {
+    // 100 returns from -0.50 to +0.49. floor(0.05 * 100) = 5, so the sixth
+    // worst observation: -0.45, reported as a positive magnitude.
+    const returns = Array.from({ length: 100 }, (_, i) => (i - 50) / 100)
+    expect(historicalVaR(returns, 95)).toBeCloseTo(0.45, 12)
+  })
+
+  it('puts the parametric VaR at 1.6449 sigma for 95%', () => {
+    // The standard normal 5% quantile is -1.6448536...
+    expect(parametricVaR(0, 0.01, 95)).toBeCloseTo(0.016448536, 8)
+  })
+
+  it('puts it at 2.3263 sigma for 99%', () => {
+    expect(parametricVaR(0, 0.01, 99)).toBeCloseTo(0.023263479, 8)
+  })
+
+  it('collapses Cornish-Fisher to the normal quantile at zero skew and kurtosis', () => {
+    // z_cf = z + (z^2-1)S/6 + (z^3-3z)K/24 - (2z^3-5z)S^2/36, and every
+    // correction term carries an S or a K, so all three vanish.
+    expect(cornishFisherVaR(0, 0.01, 0, 0, 95)).toBeCloseTo(parametricVaR(0, 0.01, 95)!, 14)
+  })
+
+  it('averages the tail for CVaR', () => {
+    // Worst 6 of 100 (index 0..5) are -0.50..-0.45; their mean is -0.475
+    const returns = Array.from({ length: 100 }, (_, i) => (i - 50) / 100)
+    expect(conditionalVaR(returns, 95)).toBeCloseTo(0.475, 12)
+  })
+
+  it('keeps CVaR at or above VaR — an identity, not a coincidence', () => {
+    const returns = Array.from({ length: 250 }, (_, i) => Math.cos(i * 1.7) * 0.015 - 0.0004)
+    for (const confidence of [90, 95, 99]) {
+      expect(conditionalVaR(returns, confidence)!).toBeGreaterThanOrEqual(
+        historicalVaR(returns, confidence)!,
+      )
+    }
+  })
+})
+
+describe('recovery asymmetry', () => {
+  it('needs 66.67% back after a 40% fall', () => {
+    // 1/(1-0.40) - 1 = 0.6666...
+    expect(recoveryRequired(40)).toBeCloseTo(66.666666667, 8)
+  })
+})
+
 // ── Not covered yet ──────────────────────────────────────────────────────────
 //
-// VaR and CVaR have no dedicated implementation to pin: the risk endpoint takes
-// the 5th percentile of returns inline, and Cornish-Fisher VaR (P1-2) and CVaR
-// (P1-32) are not written. Add their derivations here when they land, rather
-// than pinning the inline version and then having to unpin it.
+// Markowitz (P1-31), Risk Parity and CVaR optimisation (P1-32), and the factor
+// model (P1-26) have no implementation to pin. Add their derivations here when
+// they land.

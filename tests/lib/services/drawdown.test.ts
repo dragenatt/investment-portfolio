@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { analyseDrawdowns, recoveryRequired } from '@/lib/services/drawdown'
+import { analyseDrawdowns, recoveryRequired, recoveryProfile } from '@/lib/services/drawdown'
 
 const series = (values: number[], start = '2025-01-01') =>
   values.map((value, i) => {
@@ -125,5 +125,57 @@ describe('analyseDrawdowns', () => {
   it('is deterministic', () => {
     const input = series([100, 80, 100, 60, 100])
     expect(analyseDrawdowns(input)).toEqual(analyseDrawdowns(input))
+  })
+})
+
+describe('recoveryProfile (P1-13)', () => {
+  const withEpisodes = analyseDrawdowns(
+    series([100, 80, 90, 100, 110, 66, 80, 110, 120, 108]),
+  )
+
+  it('names the worst fall and what it takes to undo it', () => {
+    const profile = recoveryProfile(withEpisodes)
+    expect(profile.worstFallPct).toBeCloseTo(40) // 110 -> 66
+    expect(profile.worstFallRecoveryPct).toBeCloseTo(66.67, 1) // 1/(1-0.4) - 1
+  })
+
+  it('separates recovered episodes from the one still open', () => {
+    const profile = recoveryProfile(withEpisodes)
+    expect(profile.episodesRecovered).toBe(2)
+    expect(profile.episodesOpen).toBe(1)
+  })
+
+  it('averages and maxes the recoveries it has actually seen', () => {
+    const profile = recoveryProfile(withEpisodes)
+    expect(profile.averageRecoveryDays).not.toBeNull()
+    expect(profile.longestRecoveryDays).toBeGreaterThanOrEqual(profile.averageRecoveryDays!)
+  })
+
+  it('explains the asymmetry in words, with this portfolio numbers', () => {
+    const profile = recoveryProfile(withEpisodes)
+    expect(profile.explanation).toMatch(/40/)
+    expect(profile.explanation).toMatch(/66\.7|66,7/)
+    expect(profile.explanation.length).toBeGreaterThan(60)
+  })
+
+  it('says there is nothing to recover from when the series only rose', () => {
+    const profile = recoveryProfile(analyseDrawdowns(series([100, 110, 120])))
+    expect(profile.worstFallPct).toBe(0)
+    expect(profile.episodesRecovered).toBe(0)
+    expect(profile.averageRecoveryDays).toBeNull()
+    expect(profile.explanation).toMatch(/no/i)
+  })
+
+  it('reports the current hole separately from the historical worst', () => {
+    const profile = recoveryProfile(withEpisodes)
+    expect(profile.currentFallPct).toBeCloseTo(10) // 108 against a 120 peak
+    expect(profile.currentRecoveryPct).toBeCloseTo(11.11, 1)
+  })
+
+  it('never returns a non-finite number', () => {
+    const profile = recoveryProfile(analyseDrawdowns([]))
+    for (const value of [profile.worstFallPct, profile.currentFallPct, profile.currentRecoveryPct]) {
+      expect(Number.isFinite(value)).toBe(true)
+    }
   })
 })

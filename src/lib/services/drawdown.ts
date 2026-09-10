@@ -158,3 +158,109 @@ export function analyseDrawdowns(points: ValuePoint[]): DrawdownAnalysis {
     underwater,
   }
 }
+
+
+// ─── Recovery profile (P1-13) ───────────────────────────────────────────────
+
+export type RecoveryProfile = {
+  /** Deepest fall the series has seen, as a positive percentage. */
+  worstFallPct: number
+  /** Gain needed to undo that worst fall. Always larger than the fall itself. */
+  worstFallRecoveryPct: number
+  /** How far below the running peak the series sits right now. */
+  currentFallPct: number
+  /** Gain needed to climb out of the current hole. */
+  currentRecoveryPct: number
+  episodesRecovered: number
+  episodesOpen: number
+  averageRecoveryDays: number | null
+  longestRecoveryDays: number | null
+  fastestRecoveryDays: number | null
+  explanation: string
+}
+
+/**
+ * Summarise what recovering from this portfolio's falls has actually taken.
+ *
+ * The asymmetry is the lesson: a gain works on the smaller balance a loss left
+ * behind, so getting back always costs more than the fall took away. Stating it
+ * with the reader's own worst drawdown makes it concrete in a way the general
+ * rule does not.
+ */
+export function recoveryProfile(analysis: DrawdownAnalysis): RecoveryProfile {
+  const recovered = analysis.episodes.filter((e) => e.recovered)
+  const open = analysis.episodes.filter((e) => !e.recovered)
+
+  const durations = recovered
+    .map((e) => e.recoveryDays)
+    .filter((d): d is number => d !== null && Number.isFinite(d))
+
+  const worstFallPct = analysis.maxDrawdownPct
+  const worstFallRecoveryPct = recoveryRequired(worstFallPct) ?? 0
+  const currentFallPct = analysis.currentDrawdownPct
+  const currentRecoveryPct = recoveryRequired(currentFallPct) ?? 0
+
+  const averageRecoveryDays =
+    durations.length === 0 ? null : durations.reduce((a, b) => a + b, 0) / durations.length
+
+  return {
+    worstFallPct,
+    worstFallRecoveryPct,
+    currentFallPct,
+    currentRecoveryPct,
+    episodesRecovered: recovered.length,
+    episodesOpen: open.length,
+    averageRecoveryDays,
+    longestRecoveryDays: durations.length === 0 ? null : Math.max(...durations),
+    fastestRecoveryDays: durations.length === 0 ? null : Math.min(...durations),
+    explanation: explainRecovery(
+      worstFallPct,
+      worstFallRecoveryPct,
+      currentFallPct,
+      currentRecoveryPct,
+      durations,
+    ),
+  }
+}
+
+function explainRecovery(
+  worstFallPct: number,
+  worstFallRecoveryPct: number,
+  currentFallPct: number,
+  currentRecoveryPct: number,
+  durations: number[],
+): string {
+  if (worstFallPct <= 0) {
+    return 'This portfolio has no drawdown on record: it has not yet closed below a previous high.'
+  }
+
+  const asymmetry =
+    'A fall of ' +
+    worstFallPct.toFixed(1) +
+    '% is the worst this portfolio has taken, and undoing it needs a gain of ' +
+    worstFallRecoveryPct.toFixed(1) +
+    '% — more than the fall, because the gain has to work on the smaller balance the loss left behind.'
+
+  const history =
+    durations.length === 0
+      ? ' None of its falls has been recovered yet, so there is no recovery time to report.'
+      : ' Of the falls it has recovered from, the climb back took ' +
+        (durations.length === 1
+          ? durations[0] + ' days.'
+          : 'between ' +
+            Math.min(...durations) +
+            ' and ' +
+            Math.max(...durations) +
+            ' days.')
+
+  const now =
+    currentFallPct <= 0
+      ? ' It is at a new high today.'
+      : ' Right now it sits ' +
+        currentFallPct.toFixed(1) +
+        '% below its peak, needing ' +
+        currentRecoveryPct.toFixed(1) +
+        '% to get back.'
+
+  return asymmetry + history + now
+}
