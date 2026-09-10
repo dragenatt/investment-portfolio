@@ -15,6 +15,8 @@
 // Nothing here executes anything. A plan is a proposal.
 
 import { allocateMoney, roundMoney, subtractMoney } from '@/lib/utils/money'
+import { portfolioVolatility, riskContributions, type RiskContribution } from './risk-attribution'
+import { parametricVaR } from './var'
 import { validateWeights } from './validation'
 
 export type Holding = { symbol: string; value: number }
@@ -240,4 +242,173 @@ export function detectRiskDrift(
       `${worst.symbol} is ${worst.weightPct.toFixed(0)}% of the money but ${worst.percentOfRisk.toFixed(0)}% of the risk. ` +
       'Its weight is on target — what moved is its volatility or how it moves with the rest of the book.',
   }
+}
+
+
+// ─── Rebalance simulator (P1-10) ────────────────────────────────────────────
+//
+// Executing a rebalance is easy. Knowing whether it is worth executing is not,
+// because every rebalance is a trade: pulling weight out of what has run means
+// less risk AND less expected return, and a reader who only sees the risk fall
+// is being shown half the transaction.
+//
+// Nothing here executes anything.
+
+export type PortfolioSnapshot = {
+  weights: Record<string, number>
+  expectedReturnPct: number
+  volatilityPct: number
+  sharpe: number | null
+  /** Herfindahl index of the weights: 1 is everything in one holding. */
+  hhi: number
+  var95Pct: number
+  riskShare: RiskContribution[]
+}
+
+export type RebalanceSimulation = {
+  before: PortfolioSnapshot
+  after: PortfolioSnapshot
+  delta: {
+    expectedReturnPp: number
+    volatilityPp: number
+    sharpe: number | null
+    hhi: number
+    var95Pp: number
+  }
+  plan: RebalancePlan
+  summary: string
+}
+
+export type SimulationInputs = {
+  /**
+   * Annualised covariance matrix, ordered to match the `targets` array the
+   * caller passes in — NOT the plan's action order, which is sorted by drift.
+   */
+  cov: number[][]
+  /** Annual expected return per asset, as fractions, same ordering as `cov`. */
+  expectedReturns: number[]
+  riskFreeRate?: number
+}
+
+function snapshot(
+  symbols: string[],
+  weights: number[],
+  inputs: SimulationInputs,
+): PortfolioSnapshot | null {
+  const sigma = portfolioVolatility(weights, inputs.cov)
+  if (sigma === null) return null
+
+  const expectedReturn = weights.reduce(
+    (sum, w, i) => sum + w * (inputs.expectedReturns[i] ?? 0),
+    0,
+  )
+  const riskFreeRate = inputs.riskFreeRate ?? 0
+  const attribution = riskContributions(symbols, weights, inputs.cov)
+
+  const weightMap: Record<string, number> = {}
+  symbols.forEach((symbol, i) => {
+    weightMap[symbol] = weights[i]
+  })
+
+  return {
+    weights: weightMap,
+    expectedReturnPct: expectedReturn * 100,
+    volatilityPct: sigma * 100,
+    sharpe: sigma > 1e-10 ? (expectedReturn - riskFreeRate) / sigma : null,
+    hhi: weights.reduce((sum, w) => sum + w * w, 0),
+    // A one-year horizon, so the figure is comparable with the annualised
+    // volatility beside it rather than a daily number in disguise.
+    var95Pct: (parametricVaR(expectedReturn, sigma, 95) ?? 0) * 100,
+    riskShare: attribution?.contributions ?? [],
+  }
+}
+
+/**
+ * Show what a rebalance would do before anyone does it.
+ *
+ * The `before` side is the book as it stands; the `after` side is the same
+ * covariance and the same expected returns at the target weights. Holding those
+ * two inputs fixed is the point — it isolates the effect of the weights, which
+ * is the only thing a rebalance actually changes.
+ */
+export function simulateRebalance(
+  holdings: Holding[],
+  targets: TargetWeight[],
+  inputs: SimulationInputs,
+): RebalanceSimulation | null {
+  const plan = planRebalance(holdings, targets, { mode: 'always' })
+  if (plan.actions.length === 0) return null
+
+  // The ordering here is the caller's `targets` array, deliberately NOT the
+  // plan's actions: those are sorted by drift, and a caller has no way to
+  // predict that order when it builds the covariance matrix. Aligning the two
+  // positionally silently transposed the matrix — before and after came out
+  // swapped, which is exactly the kind of bug a simulation must not have.
+  const symbols = targets.map((t) => t.symbol)
+  if (inputs.cov.length !== symbols.length) return null
+  if (inputs.cov.some((row) => row.length !== symbols.length)) return null
+  if (inputs.expectedReturns.length !== symbols.length) return null
+
+  const actionBySymbol = new Map(plan.actions.map((a) => [a.symbol, a]))
+  // A holding with no target has no covariance row, so it cannot be modelled.
+  if (symbols.some((symbol) => !actionBySymbol.has(symbol))) return null
+  if (plan.actions.length !== symbols.length) return null
+
+  const currentWeights = symbols.map((s) => actionBySymbol.get(s)!.currentWeight)
+  const targetWeights = symbols.map((s) => actionBySymbol.get(s)!.targetWeight)
+
+  const before = snapshot(symbols, currentWeights, inputs)
+  const after = snapshot(symbols, targetWeights, inputs)
+  if (!before || !after) return null
+
+  const delta = {
+    expectedReturnPp: after.expectedReturnPct - before.expectedReturnPct,
+    volatilityPp: after.volatilityPct - before.volatilityPct,
+    sharpe:
+      before.sharpe === null || after.sharpe === null ? null : after.sharpe - before.sharpe,
+    hhi: after.hhi - before.hhi,
+    var95Pp: after.var95Pct - before.var95Pct,
+  }
+
+  return { before, after, delta, plan, summary: summariseSimulation(delta, plan) }
+}
+
+function summariseSimulation(
+  delta: RebalanceSimulation['delta'],
+  plan: RebalancePlan,
+): string {
+  const risk =
+    delta.volatilityPp < 0
+      ? 'baja la volatilidad ' + Math.abs(delta.volatilityPp).toFixed(2) + ' puntos'
+      : 'sube la volatilidad ' + delta.volatilityPp.toFixed(2) + ' puntos'
+
+  const ret =
+    delta.expectedReturnPp < 0
+      ? 'y cede ' + Math.abs(delta.expectedReturnPp).toFixed(2) + ' puntos de rendimiento esperado'
+      : 'y suma ' + delta.expectedReturnPp.toFixed(2) + ' puntos de rendimiento esperado'
+
+  const sharpe =
+    delta.sharpe === null
+      ? ''
+      : delta.sharpe > 0
+        ? ' El Sharpe mejora ' + delta.sharpe.toFixed(3) + ', asi que el intercambio sale a favor bajo estos supuestos.'
+        : ' El Sharpe empeora ' + Math.abs(delta.sharpe).toFixed(3) + ', asi que estas pagando mas rendimiento del que ahorras en riesgo.'
+
+  const concentration =
+    delta.hhi < 0
+      ? ' La concentracion cae de ' + (delta.hhi < 0 ? '' : '') + 'forma medible (HHI ' + delta.hhi.toFixed(3) + ').'
+      : ''
+
+  return (
+    'Mover ' +
+    plan.turnoverPct.toFixed(1) +
+    '% del portafolio ' +
+    risk +
+    ' ' +
+    ret +
+    '.' +
+    sharpe +
+    concentration +
+    ' Ninguna operacion se ha ejecutado: esto es una simulacion.'
+  )
 }

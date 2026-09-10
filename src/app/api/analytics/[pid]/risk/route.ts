@@ -1,6 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { calculateVolatility, calculateSharpeRatio, calculateDailyReturns, calculateBetaAlpha } from '@/lib/services/analytics'
+import { calculateVolatility, calculateSharpeRatio, calculateDailyReturns, calculateBetaAlpha, explainBenchmarkMetrics } from '@/lib/services/analytics'
 import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
 import { getPortfolioBenchmark, BENCHMARKS } from '@/lib/services/benchmarks'
 import { withCache } from '@/lib/cache/with-cache'
@@ -152,6 +152,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
       const alpha = benchmarkStats?.alpha ?? 0
       const trackingError = benchmarkStats?.trackingError ?? 0
       const informationRatio = benchmarkStats?.informationRatio ?? 0
+      const activeReturn = benchmarkStats?.activeReturn ?? 0
 
       // Where the risk actually sits. Weight says how much money is in a holding;
       // it says nothing about how much of the book's volatility that holding
@@ -265,6 +266,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
           // Beta, alpha, tracking error and information ratio are all measured
           // against this series and mean nothing without it.
           available: benchmarkReturns.length >= 10,
+          active_return_pct: activeReturn,
+          // Tracking error and the information ratio are the two metrics readers
+          // most often misread, so they travel with their explanation.
+          explanations: benchmarkStats
+            ? explainBenchmarkMetrics(
+                benchmarkStats,
+                BENCHMARKS.find((b) => b.symbol === benchmarkSymbol)?.name ?? benchmarkSymbol,
+              )
+            : null,
         },
         dataPoints: values.length,
       }

@@ -3,6 +3,7 @@ import {
   planRebalance,
   isCalendarDue,
   detectRiskDrift,
+  simulateRebalance,
   type Holding,
   type TargetWeight,
 } from '@/lib/services/rebalance'
@@ -193,5 +194,96 @@ describe('detectRiskDrift', () => {
 
   it('handles an empty book', () => {
     expect(detectRiskDrift([], { thresholdPp: 20 }).triggered).toBe(false)
+  })
+})
+
+describe('simulateRebalance (P1-10)', () => {
+  // Two assets: A is volatile, B is calm, lightly correlated.
+  const cov = [
+    [0.09, 0.006],
+    [0.006, 0.01],
+  ]
+  const expectedReturns = [0.12, 0.04]
+  const drifted: Holding[] = [
+    { symbol: 'A', value: 7000 },
+    { symbol: 'B', value: 3000 },
+  ]
+  const targets: TargetWeight[] = [
+    { symbol: 'A', targetWeight: 0.5 },
+    { symbol: 'B', targetWeight: 0.5 },
+  ]
+
+  it('reports the book before and after without touching anything', () => {
+    const sim = simulateRebalance(drifted, targets, { cov, expectedReturns })!
+    expect(sim.before.weights.A).toBeCloseTo(0.7)
+    expect(sim.after.weights.A).toBeCloseTo(0.5)
+    // The proposal is a proposal: the input is unchanged
+    expect(drifted[0].value).toBe(7000)
+  })
+
+  it('lowers volatility when rebalancing away from the riskier holding', () => {
+    const sim = simulateRebalance(drifted, targets, { cov, expectedReturns })!
+    expect(sim.after.volatilityPct).toBeLessThan(sim.before.volatilityPct)
+    expect(sim.delta.volatilityPp).toBeLessThan(0)
+  })
+
+  it('lowers expected return too — the trade the reader has to see', () => {
+    const sim = simulateRebalance(drifted, targets, { cov, expectedReturns })!
+    expect(sim.after.expectedReturnPct).toBeLessThan(sim.before.expectedReturnPct)
+  })
+
+  it('reports the Sharpe of both sides', () => {
+    const sim = simulateRebalance(drifted, targets, { cov, expectedReturns, riskFreeRate: 0.04 })!
+    expect(Number.isFinite(sim.before.sharpe!)).toBe(true)
+    expect(Number.isFinite(sim.after.sharpe!)).toBe(true)
+    expect(sim.delta.sharpe).toBeCloseTo(sim.after.sharpe! - sim.before.sharpe!, 10)
+  })
+
+  it('measures concentration with HHI and shows it falling', () => {
+    const sim = simulateRebalance(drifted, targets, { cov, expectedReturns })!
+    // 0.7^2 + 0.3^2 = 0.58 before; 0.5^2 + 0.5^2 = 0.50 after
+    expect(sim.before.hhi).toBeCloseTo(0.58)
+    expect(sim.after.hhi).toBeCloseTo(0.5)
+    expect(sim.delta.hhi).toBeLessThan(0)
+  })
+
+  it('reports where the risk sits on both sides', () => {
+    const sim = simulateRebalance(drifted, targets, { cov, expectedReturns })!
+    const beforeA = sim.before.riskShare.find((r) => r.symbol === 'A')!
+    const afterA = sim.after.riskShare.find((r) => r.symbol === 'A')!
+    expect(beforeA.percentOfRisk).toBeGreaterThan(afterA.percentOfRisk)
+  })
+
+  it('carries the trades the plan would need', () => {
+    const sim = simulateRebalance(drifted, targets, { cov, expectedReturns })!
+    const sellA = sim.plan.actions.find((a) => a.symbol === 'A')!
+    expect(sellA.action).toBe('sell')
+    expect(sellA.tradeValue).toBeCloseTo(-2000)
+  })
+
+  it('estimates VaR on both sides', () => {
+    const sim = simulateRebalance(drifted, targets, { cov, expectedReturns })!
+    expect(sim.before.var95Pct).toBeGreaterThan(0)
+    expect(sim.after.var95Pct).toBeLessThan(sim.before.var95Pct)
+  })
+
+  it('summarises the trade-off in words', () => {
+    const sim = simulateRebalance(drifted, targets, { cov, expectedReturns })!
+    expect(sim.summary.length).toBeGreaterThan(40)
+    expect(sim.summary).toMatch(/riesgo|volatil/i)
+  })
+
+  it('refuses targets that do not describe a whole portfolio', () => {
+    const bad: TargetWeight[] = [{ symbol: 'A', targetWeight: 0.5 }]
+    expect(simulateRebalance(drifted, bad, { cov, expectedReturns })).toBeNull()
+  })
+
+  it('refuses a covariance matrix that does not match the holdings', () => {
+    expect(simulateRebalance(drifted, targets, { cov: [[0.09]], expectedReturns })).toBeNull()
+  })
+
+  it('is deterministic', () => {
+    const args = [drifted, targets, { cov, expectedReturns }] as const
+    expect(simulateRebalance(...args)).toEqual(simulateRebalance(...args))
   })
 })

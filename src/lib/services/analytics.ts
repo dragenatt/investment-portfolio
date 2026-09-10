@@ -71,6 +71,15 @@ export type BetaAlpha = {
   trackingError: number
   /** alpha / trackingError. */
   informationRatio: number
+  /**
+   * Annualised portfolio return minus benchmark return, in percentage points.
+   *
+   * Different from alpha: active return is the raw gap, alpha is what is left
+   * after paying for the beta that produced part of it. A portfolio with beta
+   * 1.5 in a rising market has a large active return and may have no alpha at
+   * all, which is the distinction the two numbers exist to draw.
+   */
+  activeReturn: number
 }
 
 /**
@@ -134,6 +143,59 @@ export function calculateBetaAlpha(
   const trackingError = Math.sqrt(exVar) * Math.sqrt(TRADING_DAYS) * 100
 
   const informationRatio = trackingError > 0 ? alpha / trackingError : 0
+  const activeReturn = pAnnual - bAnnual
 
-  return { beta, alpha, trackingError, informationRatio }
+  return { beta, alpha, trackingError, informationRatio, activeReturn }
+}
+
+/** Below this, tracking error is too small for an information ratio to mean much. */
+const MIN_TRACKING_ERROR = 0.5
+
+/**
+ * What the benchmark-relative numbers actually say, in a sentence each.
+ *
+ * These are the metrics readers most often misread. Tracking error sounds like
+ * an error and is not — it is how far the portfolio wanders from the benchmark,
+ * and a low one just means the portfolio is close to the index. The information
+ * ratio is the one that answers "was the wandering worth it".
+ */
+export function explainBenchmarkMetrics(
+  stats: BetaAlpha,
+  benchmarkName: string,
+): { activeReturn: string; trackingError: string; informationRatio: string; beta: string } {
+  const te = stats.trackingError
+
+  return {
+    activeReturn:
+      stats.activeReturn >= 0
+        ? `Your portfolio returned ${stats.activeReturn.toFixed(2)} points more than ${benchmarkName} per year. That gap is the raw difference, before asking how much extra risk produced it.`
+        : `Your portfolio returned ${Math.abs(stats.activeReturn).toFixed(2)} points less than ${benchmarkName} per year.`,
+
+    trackingError:
+      `Tracking error of ${te.toFixed(2)}% is how far your portfolio wanders from ${benchmarkName} in a typical year. ` +
+      (te < 2
+        ? 'That is small: you are holding something close to the index, so your result will be close to its result.'
+        : te < 8
+          ? 'That is a moderate amount of independence from the index.'
+          : 'That is a lot: your portfolio behaves quite differently from the index, for better or worse.') +
+      ' It is not a mistake being measured — a low tracking error is not "more correct".',
+
+    informationRatio:
+      te < MIN_TRACKING_ERROR
+        ? `Your portfolio barely deviates from ${benchmarkName}, so there is not enough independent movement for an information ratio to say anything.`
+        : `An information ratio of ${stats.informationRatio.toFixed(2)} is the excess return per unit of that wandering: it asks whether departing from ${benchmarkName} paid for itself. ` +
+          (stats.informationRatio > 0.5
+            ? 'Above 0.5 is generally considered good.'
+            : stats.informationRatio > 0
+              ? 'Positive but modest: the departures paid off slightly.'
+              : 'Negative means the departures cost you — the index route would have done better.'),
+
+    beta:
+      `A beta of ${stats.beta.toFixed(2)} means that when ${benchmarkName} moves 1%, your portfolio has historically moved about ${stats.beta.toFixed(2)}%. ` +
+      (stats.beta > 1.1
+        ? 'Above 1 amplifies the market in both directions.'
+        : stats.beta < 0.9
+          ? 'Below 1 dampens the market in both directions.'
+          : 'Close to 1 means it broadly tracks the market.'),
+  }
 }
