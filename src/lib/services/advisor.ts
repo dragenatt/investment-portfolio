@@ -28,7 +28,7 @@
 // See docs/ADVISOR_MODEL_VERSIONING.md and docs/FINANCIAL_ASSUMPTIONS.md.
 
 import { allocateMoney, roundMoney, toCents } from '@/lib/utils/money'
-import { validateWeights } from './validation'
+import { validateWeights, validateProbability } from './validation'
 
 /** Bump on any change that moves a saved projection's numbers. */
 export const ADVISOR_MODEL_VERSION = '2.0.0'
@@ -482,6 +482,445 @@ export function validarEntradasAdvisor(entradas: EntradasAdvisor): ValidacionEnt
   }
 
   return { valid: errors.length === 0, errors, warnings }
+}
+
+// ─── Sensitivity (P1-4) ─────────────────────────────────────────────────────
+//
+// Every row below runs on the SAME scenario set as every other. That is what
+// makes a sensitivity table meaningful: the difference between two rows is the
+// input that changed, not a different draw of luck.
+
+export type SensitivityRow = {
+  /** The value of the varied input for this row. */
+  valor: number
+  esActual: boolean
+  medianaFinal: number
+  p10Final: number
+  probabilidadPct: number
+  /** Change in probability against the current plan, in percentage points. */
+  deltaProbabilidadPp: number
+}
+
+export type SensitivityAnalysis = {
+  aportacion: SensitivityRow[]
+  horizonte: SensitivityRow[]
+  capital: SensitivityRow[]
+  meta: SensitivityRow[]
+  rendimiento: SensitivityRow[]
+  volatilidad: SensitivityRow[]
+}
+
+function sensitivityRow(
+  params: PlanParams,
+  meta: number,
+  scenarios: ScenarioSet,
+  valor: number,
+  esActual: boolean,
+  baselineProbability: number,
+): SensitivityRow {
+  const sorted = simulateAll(params, scenarios)
+  const distribucion = distributionOf(sorted)
+  const probabilidadPct = probabilityFromSorted(sorted, meta)
+  return {
+    valor,
+    esActual,
+    medianaFinal: distribucion.p50,
+    p10Final: distribucion.p10,
+    probabilidadPct,
+    deltaProbabilidadPp: probabilidadPct - baselineProbability,
+  }
+}
+
+function sweep(
+  base: PlanParams,
+  meta: number,
+  scenarios: ScenarioSet,
+  values: number[],
+  currentValue: number,
+  apply: (params: PlanParams, value: number) => { params: PlanParams; meta: number },
+  baselineProbability: number,
+): SensitivityRow[] {
+  return values.map((value) => {
+    const { params, meta: rowMeta } = apply(base, value)
+    return sensitivityRow(
+      params,
+      rowMeta,
+      scenarios,
+      value,
+      value === currentValue,
+      baselineProbability,
+    )
+  })
+}
+
+/**
+ * How much each assumption is actually worth.
+ *
+ * The most useful column is usually the expected return: a reader who sees that
+ * two points of assumed return move the answer more than doubling their
+ * contribution has learned something about how much of the projection rests on
+ * a number nobody can know.
+ */
+export function analizarSensibilidad(
+  base: PlanParams,
+  meta: number,
+  scenarios: ScenarioSet,
+): SensitivityAnalysis {
+  const baseline = probabilidadDeMeta(base, meta, scenarios)
+  const identity = (params: PlanParams) => ({ params, meta })
+
+  const contributions = [
+    roundMoney(base.aportacionMensual * 0.8),
+    base.aportacionMensual,
+    roundMoney(base.aportacionMensual * 1.2),
+  ]
+  // A horizon can be shortened but never below a single year.
+  const horizons = [Math.max(1, base.años - 5), base.años, base.años + 5]
+  const capitals = [
+    roundMoney(base.capitalInicial * 0.8),
+    base.capitalInicial,
+    roundMoney(base.capitalInicial * 1.2),
+  ]
+  const goals = [roundMoney(meta * 0.8), meta, roundMoney(meta * 1.2)]
+  const returns = [
+    base.rendimientoAnual - 0.02,
+    base.rendimientoAnual,
+    base.rendimientoAnual + 0.02,
+  ]
+  const volatilities = [
+    Math.max(0, base.volatilidadAnual - 0.05),
+    base.volatilidadAnual,
+    base.volatilidadAnual + 0.05,
+  ]
+
+  return {
+    aportacion: sweep(
+      base, meta, scenarios, contributions, base.aportacionMensual,
+      (p, v) => identity({ ...p, aportacionMensual: v }), baseline,
+    ),
+    horizonte: sweep(
+      base, meta, scenarios, horizons, base.años,
+      (p, v) => identity({ ...p, años: v }), baseline,
+    ),
+    capital: sweep(
+      base, meta, scenarios, capitals, base.capitalInicial,
+      (p, v) => identity({ ...p, capitalInicial: v }), baseline,
+    ),
+    meta: sweep(
+      base, meta, scenarios, goals, meta,
+      (p, v) => ({ params: p, meta: v }), baseline,
+    ),
+    rendimiento: sweep(
+      base, meta, scenarios, returns, base.rendimientoAnual,
+      (p, v) => identity({ ...p, rendimientoAnual: v }), baseline,
+    ),
+    volatilidad: sweep(
+      base, meta, scenarios, volatilities, base.volatilidadAnual,
+      (p, v) => identity({ ...p, volatilidadAnual: v }), baseline,
+    ),
+  }
+}
+
+// ─── Strategy comparison (P1-5) ─────────────────────────────────────────────
+
+export type EstrategiaOpcion = {
+  aportacionMensual: number
+  años: number
+  /** Optional per-option overrides; otherwise the base plan's are used. */
+  capitalInicial?: number
+  rendimientoAnual?: number
+  volatilidadAnual?: number
+}
+
+export type EstrategiaResultado = {
+  aportacionMensual: number
+  años: number
+  capitalInicial: number
+  rendimientoAnual: number
+  totalAportado: number
+  probabilidadPct: number
+  valorEsperado: number
+  mediana: number
+  downsideP10: number
+  /** Contribution as a share of monthly income, when income is known. */
+  esfuerzoAhorroPct: number | null
+  resumen: string
+}
+
+export type ComparacionEstrategias = {
+  meta: number
+  opciones: EstrategiaResultado[]
+  nota: string
+}
+
+/**
+ * Score several ways of reaching the same goal.
+ *
+ * Deliberately returns no "best" option. Twenty years at $1,500 and ten years at
+ * $4,000 are not two attempts at one answer, they are different lives — one
+ * costs less per month and takes a decade longer, the other frees up the decade
+ * and costs nearly triple. Picking for the user would be substituting a
+ * preference they never expressed for a calculation.
+ */
+export function compararEstrategias(
+  base: PlanParams,
+  meta: number,
+  opciones: EstrategiaOpcion[],
+  scenarios: ScenarioSet,
+  contexto: { ingresoMensual?: number } = {},
+): ComparacionEstrategias {
+  const resultados = opciones.map((opcion) => {
+    const params: PlanParams = {
+      capitalInicial: opcion.capitalInicial ?? base.capitalInicial,
+      aportacionMensual: opcion.aportacionMensual,
+      años: opcion.años,
+      rendimientoAnual: opcion.rendimientoAnual ?? base.rendimientoAnual,
+      volatilidadAnual: opcion.volatilidadAnual ?? base.volatilidadAnual,
+    }
+
+    const sorted = simulateAll(params, scenarios)
+    const distribucion = distributionOf(sorted)
+    const probabilidadPct = probabilityFromSorted(sorted, meta)
+    const totalAportado = roundMoney(params.aportacionMensual * params.años * MONTHS_PER_YEAR)
+
+    const esfuerzoAhorroPct =
+      contexto.ingresoMensual && contexto.ingresoMensual > 0
+        ? (params.aportacionMensual / contexto.ingresoMensual) * 100
+        : null
+
+    return {
+      aportacionMensual: params.aportacionMensual,
+      años: params.años,
+      capitalInicial: params.capitalInicial,
+      rendimientoAnual: params.rendimientoAnual,
+      totalAportado,
+      probabilidadPct,
+      valorEsperado: distribucion.media,
+      mediana: distribucion.p50,
+      downsideP10: distribucion.p10,
+      esfuerzoAhorroPct,
+      resumen:
+        'Aportar ' +
+        params.aportacionMensual.toFixed(0) +
+        ' al mes durante ' +
+        params.años +
+        ' anios suma ' +
+        totalAportado.toFixed(0) +
+        ' de tu bolsillo, con una probabilidad estimada de ' +
+        probabilidadPct.toFixed(0) +
+        '% bajo los supuestos actuales.',
+    }
+  })
+
+  return {
+    meta,
+    opciones: resultados,
+    nota:
+      'Ninguna de estas opciones es la correcta por si sola: cambian cuanto cuesta cada mes, ' +
+      'cuantos anios ocupa y cuanto riesgo corres de quedarte corto. La eleccion depende de que ' +
+      'estas dispuesto a ceder, y eso no lo decide el modelo.',
+  }
+}
+
+// ─── Projected goal date (P1-6) ─────────────────────────────────────────────
+
+export type ProyeccionFechaMeta = {
+  /** Month index at which the goal is first reached, by percentile of paths. */
+  mesP25: number | null
+  mesMediana: number | null
+  mesP75: number | null
+  fechaP25: string | null
+  fechaMediana: string | null
+  fechaP75: string | null
+  simulacionesQueNoLlegan: number
+  probabilidadPct: number
+  advertencia: string
+}
+
+function addMonths(from: Date, months: number): string {
+  const d = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + months, 1))
+  return d.toISOString().slice(0, 7)
+}
+
+/**
+ * When each simulated path FIRST reaches the goal.
+ *
+ * "First" matters: a path that crosses the goal and later falls back still got
+ * there, and a reader planning around a date cares about arrival, not about
+ * whether it held. Paths that never arrive are counted rather than dropped —
+ * excluding them would compute the median of the survivors and report it as the
+ * median outcome, which is how a 40%-likely goal acquires a confident date.
+ */
+export function proyectarFechaMeta(
+  params: PlanParams,
+  meta: number,
+  scenarios: ScenarioSet,
+  options: { desde?: Date } = {},
+): ProyeccionFechaMeta | null {
+  if (!Number.isFinite(meta)) return null
+
+  const months = Math.min(
+    scenarios.months,
+    Math.max(0, Math.round(params.años * MONTHS_PER_YEAR)),
+  )
+  if (months < 1) return null
+
+  const arrivals: number[] = []
+  let never = 0
+
+  for (const path of scenarios.shocks) {
+    let value = params.capitalInicial
+    let arrivedAt: number | null = null
+
+    if (value >= meta) arrivedAt = 0
+
+    for (let month = 0; month < months && arrivedAt === null; month++) {
+      const annual = params.rendimientoAnual + path[month] * params.volatilidadAnual
+      value = value * (1 + monthlyRate(annual)) + params.aportacionMensual
+      if (!Number.isFinite(value)) break
+      if (value >= meta) arrivedAt = month + 1
+    }
+
+    if (arrivedAt === null) never++
+    else arrivals.push(arrivedAt)
+  }
+
+  arrivals.sort((a, b) => a - b)
+  const total = scenarios.shocks.length
+  const probabilidadPct = total > 0 ? ((total - never) / total) * 100 : 0
+
+  const at = (p: number): number | null => {
+    if (arrivals.length === 0) return null
+    // The percentile is taken over ALL paths, so a goal most paths miss has no
+    // median arrival at all rather than a flattering one.
+    const rank = Math.ceil((p / 100) * total)
+    if (rank > arrivals.length) return null
+    return arrivals[Math.max(0, rank - 1)]
+  }
+
+  const desde = options.desde ?? new Date()
+  const mesP25 = at(25)
+  const mesMediana = at(50)
+  const mesP75 = at(75)
+
+  const advertencia =
+    mesMediana === null
+      ? 'Menos de la mitad de los escenarios simulados alcanza esta meta en el plazo, asi que no hay una fecha central que reportar. Amplia el horizonte, sube la aportacion o ajusta la meta.'
+      : 'Estas fechas son percentiles de escenarios simulados, no una prediccion: en 1 de cada 4 casos la meta llega antes de ' +
+        addMonths(desde, mesP25 ?? 0) +
+        ' y en 1 de cada 4 mas tarde de ' +
+        addMonths(desde, mesP75 ?? 0) +
+        '. ' +
+        never +
+        ' de ' +
+        total +
+        ' escenarios no llegan dentro del plazo.'
+
+  return {
+    mesP25,
+    mesMediana,
+    mesP75,
+    fechaP25: mesP25 === null ? null : addMonths(desde, mesP25),
+    fechaMediana: mesMediana === null ? null : addMonths(desde, mesMediana),
+    fechaP75: mesP75 === null ? null : addMonths(desde, mesP75),
+    simulacionesQueNoLlegan: never,
+    probabilidadPct,
+    advertencia,
+  }
+}
+
+// ─── Consistency check (P1-7) ───────────────────────────────────────────────
+
+export type ConsistencyInput = {
+  probabilidadPct: number
+  aporteActual: number
+  aporteSugerido: number | null
+  objetivoPct: number
+  valorFinalMediana: number
+  meta: number
+  pesos: number[]
+  rendimientoAnual: number
+}
+
+export type ConsistencyReport = { consistent: boolean; problems: string[] }
+
+/**
+ * Catch a result that contradicts itself before a reader sees it.
+ *
+ * These are not input validations — every field here is something the engine
+ * produced. They exist because the failure mode that damaged trust in the old
+ * advisor was not a wrong number, it was two numbers on the same screen that
+ * could not both be true.
+ */
+export function verificarConsistencia(input: ConsistencyInput): ConsistencyReport {
+  const problems: string[] = []
+
+  const finite = [
+    input.probabilidadPct,
+    input.aporteActual,
+    input.valorFinalMediana,
+    input.meta,
+    input.rendimientoAnual,
+  ]
+  if (finite.some((v) => !Number.isFinite(v))) {
+    problems.push('Uno de los resultados no es un numero finito.')
+  }
+
+  if (Number.isFinite(input.probabilidadPct)) {
+    const probability = validateProbability(input.probabilidadPct, { scale: 'percent' })
+    if (!probability.valid) problems.push(probability.reason!)
+  }
+
+  const weights = validateWeights(input.pesos)
+  if (!weights.valid) problems.push('Cartera sugerida: ' + weights.reason)
+
+  // The signature of the circular advice this engine was rebuilt to remove.
+  if (
+    input.aporteSugerido !== null &&
+    Number.isFinite(input.aporteSugerido) &&
+    input.probabilidadPct < input.objetivoPct &&
+    input.aporteSugerido < input.aporteActual
+  ) {
+    problems.push(
+      'El aporte sugerido es menor que el actual pero la probabilidad esta por debajo del objetivo: ' +
+        'las dos cosas no pueden ser ciertas a la vez.',
+    )
+  }
+
+  // A median comfortably past the goal cannot coexist with a low probability.
+  if (
+    Number.isFinite(input.valorFinalMediana) &&
+    Number.isFinite(input.meta) &&
+    input.valorFinalMediana > input.meta &&
+    input.probabilidadPct < 50
+  ) {
+    problems.push(
+      'El escenario mediano supera la meta pero la probabilidad reportada es menor al 50%: por ' +
+        'definicion la mitad de los escenarios queda por encima de la mediana.',
+    )
+  }
+
+  if (
+    Number.isFinite(input.valorFinalMediana) &&
+    Number.isFinite(input.meta) &&
+    input.valorFinalMediana < input.meta &&
+    input.probabilidadPct > 50
+  ) {
+    problems.push(
+      'El escenario mediano queda por debajo de la meta pero la probabilidad reportada supera el 50%.',
+    )
+  }
+
+  // Past this an expected return is a unit error, not an assumption.
+  if (Number.isFinite(input.rendimientoAnual) && Math.abs(input.rendimientoAnual) > 1) {
+    problems.push(
+      'El rendimiento anual esperado (' +
+        (input.rendimientoAnual * 100).toFixed(0) +
+        '%) esta fuera de cualquier rango razonable; revisa las unidades.',
+    )
+  }
+
+  return { consistent: problems.length === 0, problems }
 }
 
 /** Exposed for callers that need to compare money exactly. */
