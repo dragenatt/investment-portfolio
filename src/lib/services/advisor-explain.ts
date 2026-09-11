@@ -47,8 +47,23 @@ const HORIZONTE_CORTO_AÑOS = 5
 const VOLATILIDAD_ALTA = 0.2
 const VOLATILIDAD_BAJA = 0.08
 
+/**
+ * Money, with its symbol.
+ *
+ * The first version dropped the currency style, so prose read "termina en
+ * 1,879,771" while the card beside it said "$17,189" — inconsistent, and
+ * genuinely ambiguous sitting next to percentages in the same sentence.
+ *
+ * Matches the advisor page's own formatter rather than taking a currency
+ * argument: that page already formats every figure in MXN, and two different
+ * currencies on one screen would be worse than a fixed one.
+ */
 const money = (value: number) =>
-  new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 }).format(roundMoney(value))
+  new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    maximumFractionDigits: 0,
+  }).format(roundMoney(value))
 
 /**
  * The factors behind a plan, each with the user's number and why it mattered.

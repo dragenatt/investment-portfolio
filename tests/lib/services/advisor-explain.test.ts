@@ -218,3 +218,25 @@ describe('invertirVsAhorrar', () => {
     expect(invertirVsAhorrar(params, outcome)).toEqual(invertirVsAhorrar(params, outcome))
   })
 })
+
+describe('money formatting in prose', () => {
+  it('puts a currency symbol on figures inside the text', () => {
+    // Found by reading the rendered page: the explanation said "termina en
+    // 1,879,771" while the card beside it said "$17,189". Ambiguous on its own
+    // and worse sitting next to percentages in the same sentence.
+    const result = explicarRecomendacion(params, outcome, 3_000_000)!
+    const aportacion = result.factores.find((f) => f.id === 'aportacion')!
+    expect(aportacion.valor).toContain('$')
+    expect(aportacion.porque).toContain('$')
+  })
+
+  it('does the same in the savings comparison', () => {
+    const result = invertirVsAhorrar(params, outcome)!
+    expect(result.resumen).toContain('$')
+  })
+
+  it('does the same in the affordability warning', () => {
+    const result = viabilidadAportacion(20_000, 25_000)!
+    expect(result.advertencia).toContain('$')
+  })
+})
