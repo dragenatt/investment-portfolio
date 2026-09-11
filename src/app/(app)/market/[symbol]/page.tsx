@@ -16,6 +16,8 @@ import { FormattedAmount } from '@/components/shared/formatted-amount'
 import { useFundamentals } from '@/lib/hooks/use-fundamentals'
 import { useSignal } from '@/lib/hooks/use-signal'
 import { useEvents } from '@/lib/hooks/use-events'
+import { useAssetStats } from '@/lib/hooks/use-asset-stats'
+import { AssetPerformance, AssetRisk } from '@/components/market/asset-stats'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Plus, Eye, AlertCircle, ArrowUp, ArrowDown, TrendingUp, Briefcase, GitCompareArrows } from 'lucide-react'
 import { toast } from 'sonner'
@@ -46,6 +48,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
   const { data: fundamentals } = useFundamentals(decodedSymbol)
   const { data: signal } = useSignal(decodedSymbol)
   const { data: events } = useEvents(decodedSymbol)
+  const { data: assetStats } = useAssetStats(decodedSymbol)
   const { data: portfolios } = usePortfolios()
   const { data: watchlists } = useWatchlists()
   const { mutate } = useSWRConfig()
@@ -301,6 +304,22 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
           <GitCompareArrows className="h-4 w-4" /> {t.market.compare_with}
         </Button>
       </Link>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          4b. PERFORMANCE AND RISK — computed from one shared 5y series, so
+              the 1Y return and the 1Y volatility describe the same history
+          ═══════════════════════════════════════════════════════════════ */}
+      {assetStats && !assetStats.message && (
+        <ErrorBoundary>
+          <AssetPerformance stats={assetStats} />
+        </ErrorBoundary>
+      )}
+
+      {assetStats && assetStats.risk && (
+        <ErrorBoundary>
+          <AssetRisk stats={assetStats} />
+        </ErrorBoundary>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════
           5. ABOUT SECTION — Company description

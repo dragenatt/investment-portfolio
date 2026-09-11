@@ -13,6 +13,7 @@ import { calculateDailyReturns, calculateVolatility } from './analytics'
 import { calculateCovarianceMatrix } from './covariance'
 import { analyseDrawdowns } from './drawdown'
 import { historicalVaR, conditionalVaR } from './var'
+import { calculateSortinoRatio } from './asset-metrics'
 
 export type Bar = { date: string; close: number }
 
@@ -52,12 +53,6 @@ export type ComparisonResult = {
   /** Symbols dropped for having no overlap with the rest. */
   excluded: string[]
   note: string
-}
-
-function stdDev(values: number[]): number {
-  if (values.length < 2) return 0
-  const mean = values.reduce((a, b) => a + b, 0) / values.length
-  return Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / (values.length - 1))
 }
 
 function yearsBetween(from: string, to: string): number {
@@ -130,7 +125,6 @@ export function compareAssets(
     const annualVol = calculateVolatility(returns)
     const annualReturn =
       returns.length > 0 ? (returns.reduce((a, b) => a + b, 0) / returns.length) * TRADING_DAYS : 0
-    const annualDownside = stdDev(returns.filter((r) => r < 0)) * Math.sqrt(TRADING_DAYS)
 
     const drawdowns = analyseDrawdowns(
       commonDates.map((date, i) => ({ date, value: closes[i] })),
@@ -154,7 +148,7 @@ export function compareAssets(
       cagrPct: years > 0 ? (Math.pow(1 + totalReturn, 1 / years) - 1) * 100 : 0,
       volatilityPct: annualVol * 100,
       sharpe: annualVol > 1e-10 ? (annualReturn - riskFreeRate) / annualVol : null,
-      sortino: annualDownside > 1e-10 ? (annualReturn - riskFreeRate) / annualDownside : null,
+      sortino: calculateSortinoRatio(returns, riskFreeRate),
       beta,
       maxDrawdownPct: drawdowns.maxDrawdownPct,
       recoveryRequiredPct:

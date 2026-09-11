@@ -12,22 +12,8 @@ import { analyseDrawdowns, recoveryProfile } from '@/lib/services/drawdown'
 import { analyseTailRisk } from '@/lib/services/var'
 import { principalComponents, describeIndependence } from '@/lib/services/pca'
 import { rollingRiskSeries, detectStressPeriods } from '@/lib/services/rolling-metrics'
+import { calculateSortinoRatio } from '@/lib/services/asset-metrics'
 
-
-/**
- * Calculate Sortino ratio — like Sharpe but only penalizes downside volatility.
- */
-function calculateSortinoRatio(returns: number[], riskFreeRate: number): number {
-  if (returns.length < 2) return 0
-  const meanReturn = returns.reduce((a, b) => a + b, 0) / returns.length
-  const annualizedReturn = meanReturn * 252
-  const downsideReturns = returns.filter(r => r < 0)
-  if (downsideReturns.length === 0) return annualizedReturn > 0 ? 3 : 0
-  const downsideVariance = downsideReturns.reduce((a, b) => a + b * b, 0) / downsideReturns.length
-  const downsideDeviation = Math.sqrt(downsideVariance) * Math.sqrt(252)
-  if (downsideDeviation === 0) return 0
-  return (annualizedReturn - riskFreeRate) / downsideDeviation
-}
 
 /**
  * Calculate a composite risk score (0-10 scale).
@@ -280,7 +266,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
         current: {
           risk_score: Math.round(riskScore * 10) / 10,
           sharpe_ratio: Math.round(sharpe * 100) / 100,
-          sortino_ratio: Math.round(sortino * 100) / 100,
+          // Null when the portfolio never had a down day: there is no downside
+          // deviation to divide by, and the old code answered 3 or 0 instead.
+          sortino_ratio: sortino === null ? null : Math.round(sortino * 100) / 100,
           max_drawdown: Math.round(maxDrawdown * 100) / 100,
           max_drawdown_date: maxDDDate,
           volatility: Math.round(volatility * 100) / 100,

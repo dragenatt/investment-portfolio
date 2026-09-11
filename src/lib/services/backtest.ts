@@ -23,6 +23,7 @@
 import { analyseDrawdowns } from './drawdown'
 import { historicalVaR } from './var'
 import { roundMoney } from '@/lib/utils/money'
+import { calculateSortinoRatio } from './asset-metrics'
 
 export type Bar = { date: string; close: number }
 
@@ -139,8 +140,7 @@ function summarise(
   const annualReturn =
     returns.length > 0 ? (returns.reduce((a, b) => a + b, 0) / returns.length) * TRADING_DAYS : 0
 
-  const downside = returns.filter((r) => r < 0)
-  const annualDownside = stdDev(downside) * Math.sqrt(TRADING_DAYS)
+
 
   const drawdowns = analyseDrawdowns(curve.map((p) => ({ date: p.date, value: p.value })))
 
@@ -153,7 +153,7 @@ function summarise(
     cagrPct,
     volatilityPct: annualVol * 100,
     sharpe: annualVol > 1e-10 ? (annualReturn - riskFreeRate) / annualVol : null,
-    sortino: annualDownside > 1e-10 ? (annualReturn - riskFreeRate) / annualDownside : null,
+    sortino: calculateSortinoRatio(returns, riskFreeRate),
     maxDrawdownPct: drawdowns.maxDrawdownPct,
     var95Pct: historicalVaR(returns, 95) === null ? null : historicalVaR(returns, 95)! * 100,
     trades: completed.length,
