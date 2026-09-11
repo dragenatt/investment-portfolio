@@ -17,6 +17,7 @@ import {
   weightSensitivity,
   type ReturnRange,
 } from '@/lib/services/robust-optimizer'
+import { compareBlackLittermanVsMarkowitz } from '@/lib/services/black-litterman'
 
 const TRADING_DAYS = 252
 
@@ -160,6 +161,23 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
           ? weightSensitivity(activeSymbols, cov, ranges, { riskFreeRate: riskFree.rate })
           : null
 
+      // ── Black-Litterman ────────────────────────────────────────────────
+      //
+      // The market portfolio here is the user's OWN current weights, not a true
+      // market-cap index — this app does not have market caps for arbitrary
+      // holdings. That substitution is real and is labelled: the equilibrium
+      // returned is "what your current allocation implies you believe", which is
+      // a genuinely useful thing to show someone and is NOT the textbook prior.
+      //
+      // With no views it returns those weights back unchanged, which is the
+      // model's defining property and the reason it is safe to show by default.
+      const blackLitterman =
+        currentWeights && activeSymbols.length >= 2
+          ? compareBlackLittermanVsMarkowitz(activeSymbols, cov, currentWeights, [], {
+              riskFreeRate: riskFree.rate,
+            })
+          : null
+
       return {
         symbols: activeSymbols,
         observations: commonDates.length - 1,
@@ -199,6 +217,14 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
           : null,
         robust_optimization: robust,
         weight_sensitivity: sensitivity,
+        black_litterman: blackLitterman
+          ? {
+              ...blackLitterman,
+              // Said plainly: the prior is the user's own book, not the market.
+              equilibrium_basis:
+                'Los rendimientos de equilibrio se derivan de TUS pesos actuales, no de una cartera de mercado por capitalizacion. Responden a "que tendrias que estar creyendo para que tu asignacion actual fuera optima", que es una pregunta util pero no es el prior clasico del modelo.',
+            }
+          : null,
         caveat: FRONTIER_CAVEAT,
       }
     }
