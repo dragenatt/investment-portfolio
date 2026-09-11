@@ -27,6 +27,12 @@ function pct(value: number | null | undefined, digits = 2): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(digits)}%`
 }
 
+/** For quantities with no direction, where a leading + would be nonsense. */
+function unsigned(value: number | null | undefined, digits = 2): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return NOT_AVAILABLE
+  return `${value.toFixed(digits)}%`
+}
+
 function num(value: number | null | undefined, digits = 2): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return NOT_AVAILABLE
   return value.toFixed(digits)
@@ -74,14 +80,20 @@ export function AssetRisk({ stats }: { stats: AssetStats }) {
   const risk = stats.risk
   if (!risk) return null
 
+  // VaR and CVaR are per BAR, and the bars are only daily when the provider
+  // gave daily data. Labelling a monthly VaR "1 dia" understates the loss by
+  // the square root of twenty-one.
+  const per = risk.cadence?.label ?? '1 dia'
+
   const rows: Array<{ label: string; value: string; tooltip?: string; tone?: number | null }> = [
-    { label: 'Volatilidad anual', value: pct(risk.volatilityPct, 1), tooltip: 'Volatility' },
+    // No sign: volatility has no direction, and a green "+70.7%" reads as a gain.
+    { label: 'Volatilidad anual', value: unsigned(risk.volatilityPct, 1), tooltip: 'Volatility' },
     { label: 'Beta', value: num(risk.beta), tooltip: 'Beta' },
     { label: 'Sharpe', value: num(risk.sharpe), tooltip: 'Sharpe Ratio', tone: risk.sharpe },
     { label: 'Sortino', value: num(risk.sortino), tooltip: 'Sortino', tone: risk.sortino },
     { label: 'Caida maxima', value: pct(-risk.maxDrawdownPct, 1), tooltip: 'Max Drawdown' },
-    { label: 'VaR 95% (1 dia)', value: pct(risk.var95Pct === null ? null : -risk.var95Pct, 2), tooltip: 'VaR' },
-    { label: 'CVaR 95% (1 dia)', value: pct(risk.cvar95Pct === null ? null : -risk.cvar95Pct, 2), tooltip: 'CVaR' },
+    { label: `VaR 95% (${per})`, value: pct(risk.var95Pct === null ? null : -risk.var95Pct, 2), tooltip: 'VaR' },
+    { label: `CVaR 95% (${per})`, value: pct(risk.cvar95Pct === null ? null : -risk.cvar95Pct, 2), tooltip: 'CVaR' },
   ]
 
   return (
@@ -113,8 +125,8 @@ export function AssetRisk({ stats }: { stats: AssetStats }) {
         </div>
 
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Calculado sobre {risk.observations} dias de historial
-          {stats.from_date && stats.to_date ? ` (${stats.from_date} a ${stats.to_date})` : ''}.
+          Calculado sobre {risk.observations} periodos de {per} de historial
+          {risk.fromDate && risk.toDate ? ` (${risk.fromDate} a ${risk.toDate})` : ''}.
           Beta se mide contra {stats.benchmark_symbol ?? 'el indice'} y queda en {NOT_AVAILABLE}{' '}
           cuando no hay dias en comun suficientes: un 1 por defecto seria afirmar que el activo se
           mueve exactamente con el mercado.
