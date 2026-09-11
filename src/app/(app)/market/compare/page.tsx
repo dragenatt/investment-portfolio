@@ -6,7 +6,7 @@ import useSWR from 'swr'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useMarketSearch, useQuote } from '@/lib/hooks/use-market'
 import { useTranslation } from '@/lib/i18n'
-import { getChartTheme } from '@/lib/utils/chart-config'
+import { getChartTheme, SERIES_PALETTE } from '@/lib/utils/chart-config'
 import { formatPercent } from '@/lib/utils/numbers'
 import { cn } from '@/lib/utils'
 import {
@@ -42,7 +42,11 @@ import Link from 'next/link'
 // ─── Constants ───────────────────────────────────────────────────────
 const MAX_SYMBOLS = 5
 
-const COLORS = ['#2563eb', '#dc2626', '#16a34a', '#f59e0b', '#8b5cf6']
+// Identity, not status: MAX_SYMBOLS is 5 and the palette carries 8, so the
+// fixed order covers every case without ever cycling. The old local array
+// used #dc2626 and #16a34a, which in this app read as loss and gain — a
+// symbol is not doing badly because it happens to be third in the list.
+const COLORS = SERIES_PALETTE
 
 const RANGE_OPTIONS = [
   { label: '1M', value: '1mo' },
@@ -409,7 +413,7 @@ function ComparePageInner() {
       const hasError = !!historyErrors[sym]
       return {
         symbol: sym,
-        color: COLORS[i % COLORS.length],
+        color: COLORS[i],
         changePct: lastValue,
         hasError,
         errorMsg: historyErrors[sym],
@@ -442,7 +446,7 @@ function ComparePageInner() {
 
       return {
         symbol: sym,
-        color: COLORS[i % COLORS.length],
+        color: COLORS[i],
         price: (quote?.price as number) ?? null,
         changePct: (quote?.changePct as number) ?? null,
         change1M: lastPct, // This is the range change
@@ -555,7 +559,7 @@ function ComparePageInner() {
               <span
                 key={sym}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium text-white"
-                style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                style={{ backgroundColor: COLORS[i] }}
               >
                 {sym}
                 <button
@@ -679,7 +683,7 @@ function ComparePageInner() {
                     <Tooltip
                       content={<CompareTooltip />}
                       cursor={{
-                        stroke: 'hsl(var(--muted-foreground))',
+                        stroke: 'var(--muted-foreground)',
                         strokeWidth: 1,
                         strokeDasharray: '4 4',
                       }}
@@ -689,13 +693,13 @@ function ComparePageInner() {
                         key={sym}
                         type="monotone"
                         dataKey={sym}
-                        stroke={COLORS[i % COLORS.length]}
+                        stroke={COLORS[i]}
                         strokeWidth={2}
                         dot={false}
                         activeDot={{
                           r: 4,
-                          fill: COLORS[i % COLORS.length],
-                          stroke: 'hsl(var(--background))',
+                          fill: COLORS[i],
+                          stroke: 'var(--card)',
                           strokeWidth: 2,
                         }}
                         connectNulls

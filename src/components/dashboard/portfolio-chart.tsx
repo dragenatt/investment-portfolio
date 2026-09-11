@@ -66,8 +66,7 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
     return { isPositive: last >= first, startValue: first, lastPoint: data[data.length - 1] }
   }, [data])
 
-  const lineColor = isPositive ? 'var(--good, #10b981)' : 'var(--bad, #ef4444)'
-  const lineColorHex = isPositive ? '#10b981' : '#ef4444'
+  const lineColor = isPositive ? 'var(--good)' : 'var(--bad)'
   const gradientId = 'heroChartGradient'
   const glowId = 'chartLineGlow'
 
@@ -87,11 +86,11 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
           <AreaChart data={data} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={lineColorHex} stopOpacity={0.20} />
-                <stop offset="100%" stopColor={lineColorHex} stopOpacity={0} />
+                <stop offset="0%" stopColor={lineColor} stopOpacity={0.20} />
+                <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
               </linearGradient>
               <filter id={glowId}>
-                <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor={lineColorHex} floodOpacity="0.4" />
+                <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor={lineColor} floodOpacity="0.4" />
               </filter>
             </defs>
             <XAxis
@@ -114,11 +113,11 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
             <Area
               type="monotone"
               dataKey="value"
-              stroke={lineColorHex}
+              stroke={lineColor}
               fill={`url(#${gradientId})`}
               strokeWidth={2.5}
               dot={false}
-              activeDot={{ r: 5, fill: lineColorHex, stroke: 'var(--paper, #fff)', strokeWidth: 2 }}
+              activeDot={{ r: 5, fill: lineColor, stroke: 'var(--card)', strokeWidth: 2 }}
               style={{ filter: `url(#${glowId})` }}
             />
           </AreaChart>

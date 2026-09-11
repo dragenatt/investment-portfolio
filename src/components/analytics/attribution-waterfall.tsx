@@ -219,9 +219,9 @@ export function AttributionWaterfall({ sectors, total, isLoading }: Props) {
             />
             <Tooltip
               content={<CustomTooltip />}
-              cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
+              cursor={{ fill: 'var(--muted)', fillOpacity: 0.3 }}
             />
-            <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+            <ReferenceLine y={0} stroke={theme.grid.stroke} strokeDasharray="3 3" />
             {/* Invisible base bar to create stacking offset */}
             <Bar dataKey="base" stackId="waterfall" fill="transparent" isAnimationActive={false} />
             {/* Visible value bar stacked on top of base */}

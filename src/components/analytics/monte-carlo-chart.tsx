@@ -9,10 +9,19 @@ import {
   YAxis,
   Tooltip,
   ReferenceLine,
+  Legend,
+  CartesianGrid,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getChartTheme, formatAxisTick } from '@/lib/utils/chart-config'
+import {
+  getChartTheme,
+  formatAxisTick,
+  SERIES_PALETTE,
+  LINE_WIDTH,
+  ACTIVE_DOT_RADIUS,
+  MARK_RING_WIDTH,
+} from '@/lib/utils/chart-config'
 import { formatCurrency } from '@/lib/utils/currency'
 import { Waypoints } from 'lucide-react'
 
@@ -36,8 +45,12 @@ type Props = {
   isLoading?: boolean
 }
 
-const CONE_COLOR = '#D97706'
-const MEDIAN_COLOR = '#B45309'
+// P10, P50 and P90 are three statistics of ONE distribution, not three
+// entities, so they share a hue and differ by weight and dash. Painting them
+// as three identities would invite reading the optimistic band as a separate
+// "series" someone could choose.
+const CONE_COLOR = SERIES_PALETTE[0]
+const MEDIAN_COLOR = SERIES_PALETTE[0]
 
 const HORIZONS = [
   { weeks: 26, label: '6m' },
@@ -52,7 +65,7 @@ function CustomTooltip({
   currency,
 }: {
   active?: boolean
-  payload?: Array<{ payload: MonteCarloBand }>
+  payload?: Array<{ payload: MonteCarloBand & { currentValue?: number } }>
   label?: number
   currency: string
 }) {
@@ -64,15 +77,26 @@ function CustomTooltip({
       <p className="text-xs text-muted-foreground">
         {label === 0 ? 'Hoy' : `Semana ${label}`}
       </p>
-      <p className="text-sm font-mono font-semibold" style={{ color: MEDIAN_COLOR }}>
-        {formatCurrency(band.p50, currency)}
+      <p className="text-[11px] font-mono text-muted-foreground">
+        P90 (optimista) <span className="text-foreground">{formatCurrency(band.p90, currency)}</span>
+      </p>
+      <p className="text-sm font-mono font-semibold text-foreground flex items-center gap-1.5">
+        <span className="inline-block h-2 w-2 rounded-full" style={{ background: MEDIAN_COLOR }} />
+        P50 {formatCurrency(band.p50, currency)}
       </p>
       <p className="text-[11px] font-mono text-muted-foreground">
-        P90 {formatCurrency(band.p90, currency)}
+        P10 (pesimista) <span className="text-foreground">{formatCurrency(band.p10, currency)}</span>
       </p>
-      <p className="text-[11px] font-mono text-muted-foreground">
-        P10 {formatCurrency(band.p10, currency)}
-      </p>
+      {typeof band.currentValue === 'number' && band.currentValue > 0 && (
+        <p className="text-[11px] font-mono text-muted-foreground border-t pt-1 mt-1">
+          Hoy <span className="text-foreground">{formatCurrency(band.currentValue, currency)}</span>
+          {' \u00b7 '}
+          <span className={band.p50 >= band.currentValue ? 'text-gain' : 'text-loss'}>
+            {band.p50 >= band.currentValue ? '+' : ''}
+            {(((band.p50 - band.currentValue) / band.currentValue) * 100).toFixed(1)}%
+          </span>
+        </p>
+      )}
     </div>
   )
 }
@@ -99,6 +123,7 @@ export function MonteCarloChart({
   const chartData = bands.map((band) => ({
     ...band,
     cone: [band.p10, band.p90] as [number, number],
+    currentValue,
   }))
 
   // The horizon picker lives in the header, so it stays put while a new
@@ -181,6 +206,7 @@ export function MonteCarloChart({
                 <stop offset="100%" stopColor={CONE_COLOR} stopOpacity={0.08} />
               </linearGradient>
             </defs>
+            <CartesianGrid {...theme.grid} />
             <XAxis
               dataKey="week"
               {...theme.xAxis}
@@ -193,32 +219,83 @@ export function MonteCarloChart({
               domain={['auto', 'auto']}
               tickFormatter={(v: number) => formatAxisTick(v, 'currency')}
             />
-            <Tooltip content={<CustomTooltip currency={currency} />} />
+            {/* Crosshair and tooltip: an HTML chart is interactive by default. */}
+            <Tooltip content={<CustomTooltip currency={currency} />} cursor={theme.crosshair} />
+            <Legend
+              verticalAlign="top"
+              height={28}
+              iconType="plainline"
+              wrapperStyle={{ fontSize: 11, color: 'var(--muted-foreground)' }}
+            />
+            {/* Where the book stands today, labelled so it is never read as a percentile. */}
             <ReferenceLine
               y={currentValue}
               stroke="var(--muted-foreground)"
               strokeDasharray="4 4"
-              strokeOpacity={0.6}
+              strokeOpacity={0.7}
+              label={{
+                value: 'Hoy',
+                position: 'insideTopLeft',
+                fontSize: 10,
+                fill: 'var(--muted-foreground)',
+              }}
             />
             <Area
               type="monotone"
               dataKey="cone"
+              name="Rango P10-P90"
               stroke="none"
               fill={`url(#${gradientId})`}
+              isAnimationActive={false}
+              activeDot={false}
+              legendType="rect"
+            />
+            <Line
+              type="monotone"
+              dataKey="p90"
+              name="P90 optimista"
+              stroke={CONE_COLOR}
+              strokeWidth={1}
+              strokeDasharray="3 3"
+              strokeOpacity={0.85}
+              dot={false}
               isAnimationActive={false}
               activeDot={false}
             />
             <Line
               type="monotone"
               dataKey="p50"
+              name="P50 mediana"
               stroke={MEDIAN_COLOR}
-              strokeWidth={2}
+              strokeWidth={LINE_WIDTH}
               dot={false}
               isAnimationActive={false}
-              activeDot={{ r: 4, fill: MEDIAN_COLOR, strokeWidth: 0 }}
+              activeDot={{
+                r: ACTIVE_DOT_RADIUS,
+                fill: MEDIAN_COLOR,
+                stroke: 'var(--card)',
+                strokeWidth: MARK_RING_WIDTH,
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="p10"
+              name="P10 pesimista"
+              stroke={CONE_COLOR}
+              strokeWidth={1}
+              strokeDasharray="3 3"
+              strokeOpacity={0.85}
+              dot={false}
+              isAnimationActive={false}
+              activeDot={false}
             />
           </ComposedChart>
         </ResponsiveContainer>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          El 80% de las trayectorias simuladas termina entre P10 y P90. Es una simulacion sobre
+          rendimientos pasados, no una prediccion: el 20% restante queda fuera del cono, y una
+          crisis real no pide permiso a ninguna distribucion.
+        </p>
       </CardContent>
     </Card>
   )

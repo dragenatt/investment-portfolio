@@ -37,7 +37,7 @@ function CustomTooltip({
   return (
     <div className="rounded-lg border bg-card px-3 py-2 shadow-md">
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <p className="text-sm font-mono font-semibold text-[#ef4444]">
+      <p className="text-sm font-mono font-semibold text-loss">
         {payload[0].value.toFixed(2)}%
       </p>
     </div>
@@ -94,8 +94,8 @@ export function DrawdownChart({
           <AreaChart data={chartData}>
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+                <stop offset="0%" stopColor={theme.colors.negative} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={theme.colors.negative} stopOpacity={0} />
               </linearGradient>
             </defs>
             <XAxis dataKey="date" {...theme.xAxis} />
@@ -108,24 +108,24 @@ export function DrawdownChart({
             <Area
               type="monotone"
               dataKey="drawdown"
-              stroke="#ef4444"
+              stroke={theme.colors.negative}
               strokeWidth={1.5}
               fill={`url(#${gradientId})`}
               dot={false}
-              activeDot={{ r: 4, fill: '#ef4444', strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: theme.colors.negative, strokeWidth: 0 }}
             />
             {maxDrawdownIndex >= 0 && (
               <ReferenceDot
                 x={maxDrawdownDate}
                 y={maxDrawdown}
                 r={5}
-                fill="#ef4444"
+                fill={theme.colors.negative}
                 stroke="var(--card)"
                 strokeWidth={2}
                 label={{
                   value: `${maxDrawdown.toFixed(1)}%`,
                   position: 'top',
-                  className: 'text-[10px] font-mono fill-[#ef4444]',
+                  className: 'text-[10px] font-mono fill-[var(--loss)]',
                   offset: 10,
                 }}
               />

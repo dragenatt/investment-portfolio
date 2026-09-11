@@ -33,7 +33,8 @@ export type RiskData = {
   current: {
     risk_score: number
     sharpe_ratio: number
-    sortino_ratio: number
+    /** Null when the book never had a down day: no downside deviation to divide by. */
+    sortino_ratio: number | null
     max_drawdown: number
     max_drawdown_date: string
     volatility: number
@@ -46,6 +47,40 @@ export type RiskData = {
   }
   drawdown_series: { dates: string[]; values: number[] }
   rolling_volatility: { dates: string[]; values: number[] }
+  /** How many genuinely separate bets the book runs, beside the HHI it is confused with. */
+  independence: {
+    holdings: number
+    effective_bets: number
+    components_for_90pct: number
+    hhi: number
+    hhi_effective_holdings: number | null
+    summary: string
+    components: Array<{
+      index: number
+      variance_explained_pct: number
+      cumulative_pct: number
+      loadings: Array<{ symbol: string; loading: number }>
+    }>
+  } | null
+  rolling_risk: {
+    window_days: number
+    observations_used: number
+    benchmark_symbol: string | null
+    points: Array<{
+      date: string
+      volatility_pct: number | null
+      sharpe: number | null
+      correlation: number | null
+    }>
+    stress_periods: Array<{
+      fromDate: string
+      toDate: string
+      peakVolatilityPct: number
+      medianVolatilityPct: number
+      multipleOfNormal: number
+      label: string
+    }>
+  } | null
   message?: string
 }
 
@@ -203,5 +238,106 @@ export function useLeaderboardHistory(category = 'return', period = '1M', days =
     `/api/discover/leaderboard/history?category=${category}&period=${period}&days=${days}`,
     apiFetcher,
     { refreshInterval: 600_000 }
+  )
+}
+
+// --- Factor exposure (P1-26 / P1-27) ---
+
+export type FactorLoading = {
+  factor: string
+  coefficient: number
+  standardError: number
+  tStat: number | null
+  significant: boolean
+}
+
+export type FactorsData = {
+  message?: string
+  source?: 'stored' | 'built'
+  from_date?: string
+  to_date?: string
+  risk_free_rate?: { currency: string; annual_pct: number; source: string; is_fallback: boolean }
+  regression?: {
+    alphaAnnualPct: number
+    alphaTStat: number | null
+    loadings: FactorLoading[]
+    rSquared: number
+    adjustedRSquared: number
+    residualVolatilityPct: number
+    observations: number
+  }
+  summary?: string
+  definitions?: Array<{
+    id: string
+    name: string
+    symbols: string[]
+    construction: string
+    meaning: string
+    isProxy: boolean
+  }>
+  omitted?: Array<{ id: string; missing: string[] }>
+}
+
+export function useFactors(pid: string | null) {
+  return useSWR<FactorsData>(
+    pid ? `/api/analytics/${pid}/factors` : null,
+    apiFetcher,
+    { refreshInterval: 1_800_000 }
+  )
+}
+
+// --- Efficient frontier and allocation strategies (P1-31 / P1-32) ---
+
+export type FrontierPoint = {
+  expectedReturnPct: number
+  volatilityPct: number
+  sharpe: number | null
+  weights: Array<{ symbol: string; weight: number }>
+}
+
+export type OptimizationData = {
+  message?: string
+  symbols?: string[]
+  observations?: number
+  from_date?: string
+  to_date?: string
+  risk_free_rate?: { currency: string; annual_pct: number; source: string; is_fallback: boolean }
+  estimated_returns?: Array<{ symbol: string; annual_pct: number; basis: string }> | null
+  efficient_frontier?: {
+    points: FrontierPoint[]
+    minimumVariance: FrontierPoint
+    maxSharpe: FrontierPoint
+    current: FrontierPoint | null
+    improvement: {
+      sameReturnVolatilityPct: number
+      volatilitySavedPct: number
+      sameRiskReturnPct: number
+      returnGainedPct: number
+      summary: string
+    } | null
+    riskFreeRatePct: number
+    caveat: string
+  } | null
+  allocation_strategies?: {
+    confidence: number
+    observations: number
+    strategies: Array<{
+      id: string
+      name: string
+      rationale: string
+      weights: Array<{ symbol: string; weight: number }>
+      volatilityPct: number
+      cvarPct: number
+    }>
+    caveat: string
+  } | null
+  caveat?: string
+}
+
+export function useOptimization(pid: string | null) {
+  return useSWR<OptimizationData>(
+    pid ? `/api/analytics/${pid}/optimization` : null,
+    apiFetcher,
+    { refreshInterval: 1_800_000 }
   )
 }

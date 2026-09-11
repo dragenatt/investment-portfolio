@@ -13,7 +13,7 @@ import {
 import { usePriceHistory } from '@/lib/hooks/use-market'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { getChartTheme } from '@/lib/utils/chart-config'
+import { getChartTheme, SERIES_PALETTE } from '@/lib/utils/chart-config'
 import { cn } from '@/lib/utils'
 import {
   calculateSMA,
@@ -69,12 +69,15 @@ function HoverTooltip({
 
 type IndicatorKey = 'sma20' | 'sma50' | 'ema20' | 'bollinger' | 'rsi'
 
+// The price line is semantic (gain/loss). Indicators are identity, so they take
+// the categorical slots in fixed order — the same slot for the same indicator
+// whichever ones are switched on, so toggling one never repaints another.
 const INDICATOR_CONFIG: Record<IndicatorKey, { label: string; tooltip: string; color: string }> = {
-  sma20:     { label: 'SMA 20',     tooltip: 'Media Móvil Simple de 20 periodos',            color: '#3b82f6' },
-  sma50:     { label: 'SMA 50',     tooltip: 'Media Móvil Simple de 50 periodos',            color: '#f59e0b' },
-  ema20:     { label: 'EMA 20',     tooltip: 'Media Móvil Exponencial de 20 periodos',       color: '#8b5cf6' },
-  bollinger: { label: 'Bollinger',  tooltip: 'Bandas de Bollinger (20 periodos, 2 desv.)',    color: '#93c5fd' },
-  rsi:       { label: 'RSI',        tooltip: 'Índice de Fuerza Relativa (14 periodos)',       color: '#6366f1' },
+  sma20:     { label: 'SMA 20',     tooltip: 'Media Móvil Simple de 20 periodos',            color: SERIES_PALETTE[0] },
+  sma50:     { label: 'SMA 50',     tooltip: 'Media Móvil Simple de 50 periodos',            color: SERIES_PALETTE[1] },
+  ema20:     { label: 'EMA 20',     tooltip: 'Media Móvil Exponencial de 20 periodos',       color: SERIES_PALETTE[2] },
+  bollinger: { label: 'Bollinger',  tooltip: 'Bandas de Bollinger (20 periodos, 2 desv.)',    color: SERIES_PALETTE[5] },
+  rsi:       { label: 'RSI',        tooltip: 'Índice de Fuerza Relativa (14 periodos)',       color: SERIES_PALETTE[6] },
 }
 
 type PriceChartProps = {
@@ -210,7 +213,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
             />
             <Tooltip
               content={<HoverTooltip onHoverRef={onHoverRef} />}
-              cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeDasharray: '4 4' }}
+              cursor={theme.crosshair}
             />
 
             {/* Bollinger Bands — shaded area between upper and lower */}
@@ -220,7 +223,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
                   type="monotone"
                   dataKey="bbUpper"
                   stroke="none"
-                  fill="#93c5fd"
+                  fill={INDICATOR_CONFIG.bollinger.color}
                   fillOpacity={0.1}
                   dot={false}
                   activeDot={false}
@@ -231,7 +234,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
                   type="monotone"
                   dataKey="bbLower"
                   stroke="none"
-                  fill="hsl(var(--background))"
+                  fill="var(--card)"
                   fillOpacity={1}
                   dot={false}
                   activeDot={false}
@@ -241,7 +244,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
                 <Line
                   type="monotone"
                   dataKey="bbUpper"
-                  stroke="#93c5fd"
+                  stroke={INDICATOR_CONFIG.bollinger.color}
                   strokeWidth={1}
                   strokeDasharray="4 2"
                   dot={false}
@@ -252,7 +255,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
                 <Line
                   type="monotone"
                   dataKey="bbLower"
-                  stroke="#93c5fd"
+                  stroke={INDICATOR_CONFIG.bollinger.color}
                   strokeWidth={1}
                   strokeDasharray="4 2"
                   dot={false}
@@ -263,7 +266,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
                 <Line
                   type="monotone"
                   dataKey="bbMiddle"
-                  stroke="#93c5fd"
+                  stroke={INDICATOR_CONFIG.bollinger.color}
                   strokeWidth={1}
                   strokeOpacity={0.5}
                   strokeDasharray="2 2"
@@ -283,7 +286,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
               fill={`url(#color-${symbol}-${range})`}
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4, fill: color, stroke: 'hsl(var(--background))', strokeWidth: 2 }}
+              activeDot={{ r: 4, fill: color, stroke: 'var(--card)', strokeWidth: 2 }}
             />
 
             {/* SMA 20 */}
@@ -291,7 +294,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
               <Line
                 type="monotone"
                 dataKey="sma20"
-                stroke="#3b82f6"
+                stroke={INDICATOR_CONFIG.sma20.color}
                 strokeWidth={1.5}
                 strokeDasharray="6 3"
                 dot={false}
@@ -306,7 +309,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
               <Line
                 type="monotone"
                 dataKey="sma50"
-                stroke="#f59e0b"
+                stroke={INDICATOR_CONFIG.sma50.color}
                 strokeWidth={1.5}
                 strokeDasharray="6 3"
                 dot={false}
@@ -321,7 +324,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
               <Line
                 type="monotone"
                 dataKey="ema20"
-                stroke="#8b5cf6"
+                stroke={INDICATOR_CONFIG.ema20.color}
                 strokeWidth={1.5}
                 strokeDasharray="4 2"
                 dot={false}
@@ -348,13 +351,13 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
                 axisLine={false}
                 width={30}
               />
-              <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" strokeOpacity={0.5} />
-              <ReferenceLine y={30} stroke="#16a34a" strokeDasharray="3 3" strokeOpacity={0.5} />
+              <ReferenceLine y={70} stroke={theme.colors.negative} strokeDasharray="3 3" strokeOpacity={0.5} />
+              <ReferenceLine y={30} stroke={theme.colors.positive} strokeDasharray="3 3" strokeOpacity={0.5} />
               <Area
                 type="monotone"
                 dataKey="rsi"
-                stroke="#6366f1"
-                fill="#6366f1"
+                stroke={INDICATOR_CONFIG.rsi.color}
+                fill={INDICATOR_CONFIG.rsi.color}
                 fillOpacity={0.08}
                 strokeWidth={1.5}
                 dot={false}

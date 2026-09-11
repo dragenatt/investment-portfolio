@@ -19,6 +19,9 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-chart-8: var(--chart-8);
+  --color-chart-7: var(--chart-7);
+  --color-chart-6: var(--chart-6);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -53,6 +56,8 @@
   --color-good-soft: var(--good-soft);
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
   --color-bg-secondary: var(--bg-secondary);
 }
 
@@ -77,11 +82,36 @@
   --border: #F0F0F0;
   --input: #F0F0F0;
   --ring: #6366F1;
-  --chart-1: #6366F1;
-  --chart-2: #22C55E;
-  --chart-3: #818CF8;
-  --chart-4: #536471;
-  --chart-5: #EF4444;
+  /* ── Categorical series palette ─────────────────────────────────────────
+     Eight hues in FIXED order, assigned in sequence and never cycled. The
+     order is the colour-vision-safety mechanism, so it does not change.
+
+     Green and red are deliberately absent. In this app they already mean gain
+     and loss everywhere, and a factor loading or an allocation slice painted
+     green would read as "good" when it means nothing of the sort. Status keeps
+     --gain/--loss/--good/--bad; identity uses these.
+
+     Validated with the dataviz validator (OKLab dE, Machado-Oliveira-Fernandes
+     2009 CVD simulation at severity 1.0), both modes, against the real card
+     surfaces #FFFFFF and #16181C. All six checks PASS in both:
+       worst adjacent pair dE 10.1 (deutan), normal-vision floor 19.8,
+       every slot inside its lightness band, chroma >= 0.1, contrast >= 3:1.
+
+     The SAME steps validate in both modes, which was checked rather than
+     assumed — the dark set is not an automatic flip of the light one.
+
+     Scatter / bubble / small-multiple forms need all-pairs separation, which
+     these eight do not have. The first THREE slots do, in both modes
+     (worst all-pairs dE 13.8). Those forms cap at three series: fold the rest
+     into "Other" or facet. Do not add a ninth hue. */
+  --chart-1: #6366F1;  /* indigo  — the brand primary, so slot 1 is on-brand */
+  --chart-2: #EA580C;  /* orange  */
+  --chart-3: #0D9488;  /* teal    */
+  --chart-4: #A16207;  /* gold    */
+  --chart-5: #DB2777;  /* pink    */
+  --chart-6: #0891B2;  /* cyan    */
+  --chart-7: #7C3AED;  /* violet  */
+  --chart-8: #A0522D;  /* brown   */
   --radius: 0.75rem;
   --sidebar: #FFFFFF;
   --sidebar-foreground: #0F1419;
@@ -97,6 +127,8 @@
   --good-soft: rgba(34,197,94,0.1);
   --bad: #EF4444;
   --bad-soft: rgba(239,68,68,0.1);
+  --warn: #B45309;
+  --warn-soft: rgba(180,83,9,0.12);
   --bg-secondary: #F7F9FA;
   --chart-line: #6366F1;
   --chart-fill-start: rgba(99,102,241,0.15);
@@ -127,11 +159,15 @@
   --border: #2F3336;
   --input: #2F3336;
   --ring: #818CF8;
-  --chart-1: #818CF8;
-  --chart-2: #4ADE80;
-  --chart-3: #6366F1;
-  --chart-4: #71767B;
-  --chart-5: #F87171;
+  /* Same steps as light: validated against #16181C, not flipped. See :root. */
+  --chart-1: #6366F1;
+  --chart-2: #EA580C;
+  --chart-3: #0D9488;
+  --chart-4: #A16207;
+  --chart-5: #DB2777;
+  --chart-6: #0891B2;
+  --chart-7: #7C3AED;
+  --chart-8: #A0522D;
   --sidebar: #16181C;
   --sidebar-foreground: #E7E9EA;
   --sidebar-primary: #818CF8;
@@ -146,6 +182,8 @@
   --good-soft: rgba(74,222,128,0.12);
   --bad: #F87171;
   --bad-soft: rgba(248,113,113,0.12);
+  --warn: #F59E0B;
+  --warn-soft: rgba(245,158,11,0.14);
   --bg-secondary: #0A0A0A;
   --chart-line: #818CF8;
   --chart-fill-start: rgba(129,140,248,0.2);

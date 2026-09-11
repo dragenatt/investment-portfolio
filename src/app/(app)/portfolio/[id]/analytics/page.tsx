@@ -13,9 +13,12 @@ import { RiskDashboard } from '@/components/analytics/risk-dashboard'
 import { AttributionWaterfall } from '@/components/analytics/attribution-waterfall'
 import { IncomeDashboard } from '@/components/analytics/income-dashboard'
 import { MonteCarloChart } from '@/components/analytics/monte-carlo-chart'
+import { RollingRiskChart } from '@/components/analytics/rolling-risk-chart'
+import { FactorExposure } from '@/components/analytics/factor-exposure'
+import { EfficientFrontierChart } from '@/components/analytics/efficient-frontier-chart'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation } from '@/lib/hooks/use-analytics'
+import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation, useFactors, useOptimization } from '@/lib/hooks/use-analytics'
 import { useCurrency } from '@/lib/hooks/use-currency'
 
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,6 +29,8 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
 
   const { data: returns, isLoading: returnsLoading } = useReturns(id)
   const { data: risk, isLoading: riskLoading } = useRisk(id)
+  const { data: factors, isLoading: factorsLoading } = useFactors(id)
+  const { data: optimization, isLoading: optimizationLoading } = useOptimization(id)
   const { data: monteCarlo, isLoading: monteCarloLoading } = useMonteCarlo(id, horizonWeeks)
 
   // First Monte Carlo the user actually sees. The once-per-user index in
@@ -65,6 +70,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           <TabsTrigger value="overview">General</TabsTrigger>
           <TabsTrigger value="risk">Riesgo</TabsTrigger>
           <TabsTrigger value="attribution">Atribucion</TabsTrigger>
+          <TabsTrigger value="factors">Factores</TabsTrigger>
           <TabsTrigger value="income">Ingresos</TabsTrigger>
           <TabsTrigger value="allocation">Asignacion</TabsTrigger>
         </TabsList>
@@ -101,6 +107,15 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
 
         {/* Risk Tab */}
         <TabsContent value="risk" className="space-y-6 mt-6">
+          {/* Risk over time comes first: one number for the whole history
+              hides whether it is getting worse, which is the real question. */}
+          <ErrorBoundary>
+            <RollingRiskChart
+              rolling={risk?.rolling_risk ?? null}
+              isLoading={riskLoading}
+            />
+          </ErrorBoundary>
+
           <ErrorBoundary>
             {riskLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -174,6 +189,15 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
         </TabsContent>
 
         {/* Income Tab */}
+        <TabsContent value="factors" className="space-y-6 mt-6">
+          <ErrorBoundary>
+            <FactorExposure data={factors} isLoading={factorsLoading} />
+          </ErrorBoundary>
+          <ErrorBoundary>
+            <EfficientFrontierChart data={optimization} isLoading={optimizationLoading} />
+          </ErrorBoundary>
+        </TabsContent>
+
         <TabsContent value="income" className="space-y-6 mt-6">
           <ErrorBoundary>
             <IncomeDashboard

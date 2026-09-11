@@ -76,7 +76,7 @@ function CustomTooltip({
           className="text-sm font-mono font-semibold mt-1 pt-1"
           style={{
             borderTop: '1px solid var(--border)',
-            color: diff >= 0 ? 'var(--good, #10b981)' : 'var(--bad, #ef4444)',
+            color: diff >= 0 ? 'var(--good)' : 'var(--bad)',
           }}
         >
           Diferencia: {diff >= 0 ? '+' : ''}
@@ -217,7 +217,7 @@ export function BenchmarkOverlay({
                 activeDot={{
                   r: 4,
                   fill: theme.colors.primary,
-                  stroke: 'var(--paper, #fff)',
+                  stroke: 'var(--card)',
                   strokeWidth: 2,
                 }}
                 connectNulls
@@ -233,7 +233,7 @@ export function BenchmarkOverlay({
                 activeDot={{
                   r: 3,
                   fill: theme.colors.benchmarks[0],
-                  stroke: 'var(--paper, #fff)',
+                  stroke: 'var(--card)',
                   strokeWidth: 2,
                 }}
                 connectNulls

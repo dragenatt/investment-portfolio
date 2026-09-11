@@ -55,7 +55,7 @@ function Sparkline({ data, width = 48, height = 16 }: { data: number[]; width?: 
     })
     .join(' ')
   const isPositive = data[data.length - 1] >= data[0]
-  const color = isPositive ? 'var(--good, #10b981)' : 'var(--bad, #ef4444)'
+  const color = isPositive ? 'var(--good)' : 'var(--bad)'
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
       <polyline

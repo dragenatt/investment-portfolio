@@ -17,7 +17,7 @@ import { type LucideIcon } from 'lucide-react'
 type Props = {
   riskScore: number
   sharpeRatio: number
-  sortinoRatio: number
+  sortinoRatio: number | null
   maxDrawdown: number
   maxDrawdownDate: string
   volatility: number
@@ -36,7 +36,7 @@ function RiskGauge({ score }: { score: number }) {
   const pct = Math.min(Math.max(score / 10, 0), 1)
   const angle = pct * 180
   const color =
-    score <= 3 ? 'var(--good)' : score <= 6 ? '#f59e0b' : 'var(--bad)'
+    score <= 3 ? 'var(--good)' : score <= 6 ? 'var(--warn)' : 'var(--bad)'
   const radius = 40
   const cx = 50,
     cy = 50
@@ -221,8 +221,12 @@ export function RiskDashboard({
           <MetricCard
             icon={Target}
             label="Sortino"
-            value={formatNumber(sortinoRatio)}
-            sublabel="Rendimiento / riesgo a la baja"
+            value={sortinoRatio === null ? 'n/d' : formatNumber(sortinoRatio)}
+            sublabel={
+              sortinoRatio === null
+                ? 'Sin dias a la baja: no hay desviacion que dividir'
+                : 'Rendimiento / riesgo a la baja'
+            }
           />
           <MetricCard
             icon={TrendingDown}
