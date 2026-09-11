@@ -18,6 +18,7 @@ import { portfolioVolatility } from './risk-attribution'
 import { parametricVaR } from './var'
 import { recoveryRequired } from './drawdown'
 import { buildScenarios, evaluarPlan } from './advisor'
+import { efficientFrontier, portfolioRiskReturn } from './optimizer'
 import { isEnabled, type FeatureFlag } from './feature-flags'
 
 export type ParamSpec = {
@@ -135,6 +136,14 @@ const BETA_PARAMS = [
 ]
 
 const DRAWDOWN_PARAMS = [param('maxDrawdown', 'Caida maxima', 1, 95, 1, 40, 'percent')]
+
+const MARKOWITZ_PARAMS = [
+  param('returnA', 'Rendimiento esperado del activo A', 0, 25, 0.5, 12, 'percent'),
+  param('volatilityA', 'Volatilidad del activo A', 5, 60, 1, 25, 'percent'),
+  param('returnB', 'Rendimiento esperado del activo B', 0, 25, 0.5, 6, 'percent'),
+  param('volatilityB', 'Volatilidad del activo B', 2, 40, 1, 10, 'percent'),
+  param('correlation', 'Correlacion entre ambos', -1, 1, 0.1, 0.2),
+]
 
 const REBALANCING_PARAMS = [
   param('riskyWeight', 'Peso objetivo del activo riesgoso', 10, 90, 5, 60, 'percent'),
@@ -549,14 +558,78 @@ const EXPERIMENTS: Experiment[] = [
     objective: 'Ver que mezclas dominan a otras y cuales no vale la pena tener.',
     concept:
       'Para cada nivel de riesgo hay una mezcla que maximiza el rendimiento esperado. El conjunto de esas mezclas forma una curva, y todo lo que queda por debajo esta dominado.',
-    params: [],
+    params: MARKOWITZ_PARAMS,
     questions: [
       'Por que ninguna mezcla puede estar por encima de la frontera?',
       'Que significa que un portafolio quede muy por debajo de ella?',
+      'Baja la correlacion a -1: por que la curva se dobla tanto hacia la izquierda?',
     ],
-    available: false,
-    unavailableReason:
-      'El optimizador de Markowitz es la tarea P1-31 del roadmap y todavia no esta implementado. Este experimento aparece aqui para que se vea que falta, no para insinuar que existe.',
+    available: true,
+    run: (input) => {
+      const returnA = read(input, MARKOWITZ_PARAMS[0]) / 100
+      const volA = read(input, MARKOWITZ_PARAMS[1]) / 100
+      const returnB = read(input, MARKOWITZ_PARAMS[2]) / 100
+      const volB = read(input, MARKOWITZ_PARAMS[3]) / 100
+      const correlation = read(input, MARKOWITZ_PARAMS[4])
+
+      const cov = [
+        [volA * volA, volA * volB * correlation],
+        [volA * volB * correlation, volB * volB],
+      ]
+
+      const frontier = efficientFrontier(['A', 'B'], cov, [returnA, returnB], {
+        riskFreeRate: 0,
+        // An equal split is the obvious thing someone would do without this
+        // curve, so it is the useful thing to place against it.
+        currentWeights: [0.5, 0.5],
+      })
+
+      if (!frontier) {
+        return {
+          series: [],
+          highlights: [],
+          interpretation:
+            'Con estos parametros no hay una frontera que trazar: hace falta que al menos uno de los dos activos tenga volatilidad.',
+        }
+      }
+
+      // Both halves of the curve. Everything below the minimum-variance point is
+      // dominated — same risk, less return — and seeing it is the lesson.
+      const series = Array.from({ length: 41 }, (_, i) => {
+        const weightA = i / 40
+        const weights = [weightA, 1 - weightA]
+        const stats = portfolioRiskReturn(weights, cov, [returnA, returnB])
+        return {
+          weightA: weightA * 100,
+          volatility: (stats?.volatility ?? 0) * 100,
+          expectedReturn: (stats?.expectedReturn ?? 0) * 100,
+        }
+      })
+
+      const minVar = frontier.minimumVariance
+      const equal = frontier.current
+      const lowestVolAsset = Math.min(volA, volB) * 100
+
+      return {
+        series,
+        highlights: [
+          { label: 'Menor riesgo posible', value: `${minVar.volatilityPct.toFixed(2)}%` },
+          { label: 'Rendimiento ahi', value: `${minVar.expectedReturnPct.toFixed(2)}%` },
+          {
+            label: 'Peso en A que lo logra',
+            value: `${((minVar.weights[0]?.weight ?? 0) * 100).toFixed(0)}%`,
+          },
+          {
+            label: 'Riesgo de un 50/50',
+            value: equal ? `${equal.volatilityPct.toFixed(2)}%` : 'n/d',
+          },
+        ],
+        interpretation:
+          minVar.volatilityPct < lowestVolAsset - 0.01
+            ? `Con correlacion ${correlation.toFixed(1)}, la mezcla de menor riesgo corre ${minVar.volatilityPct.toFixed(2)}% de volatilidad: MENOS que el activo mas tranquilo de los dos por separado (${lowestVolAsset.toFixed(2)}%). Eso no es magia ni un error: cuando dos cosas no se mueven igual, una amortigua a la otra, y mezclarlas produce un riesgo menor que cualquiera de las dos. Es el unico almuerzo gratis que existe en finanzas, y desaparece a medida que la correlacion sube a 1.`
+            : `Con correlacion ${correlation.toFixed(1)} los dos activos se mueven casi igual, asi que mezclarlos ya no reduce el riesgo por debajo del activo mas tranquilo (${lowestVolAsset.toFixed(2)}%): la frontera se aplana hasta ser casi una linea recta entre los dos. Baja la correlacion y mira como se dobla hacia la izquierda — esa curvatura ES la diversificacion.`,
+      }
+    },
   },
 
   {
