@@ -13,6 +13,7 @@ import {
   type FactorBar,
 } from '@/lib/services/factors'
 import { loadStoredFactorReturns, storeFactorReturns } from '@/lib/services/factor-store'
+import { portfolioValueSeries } from '@/lib/services/portfolio-series'
 
 /** Fewer aligned days than this and the loadings are noise with error bars. */
 const MIN_REGRESSION_DAYS = 60
@@ -64,17 +65,15 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         return { message: 'No hay suficiente historial para una regresion de factores.' }
       }
 
-      // Portfolio value per day, then its return series — same construction the
-      // risk endpoint uses, so the two agree on what "the portfolio" means.
-      const dateMap = new Map<string, number>()
-      for (const row of history) {
-        const position = positions.find((p) => p.symbol === row.symbol)
-        if (!position) continue
-        dateMap.set(row.date, (dateMap.get(row.date) ?? 0) + position.quantity * row.close)
+      // Same construction the risk endpoint uses, so the two agree on what "the
+      // portfolio" means — including skipping dates where a holding is unpriced.
+      const series = portfolioValueSeries(history, positions)
+      if (!series) {
+        return { message: 'No hay suficiente historial para una regresion de factores.' }
       }
 
-      const portfolioDates = [...dateMap.keys()].sort()
-      const portfolioReturns = calculateDailyReturns(portfolioDates.map((d) => dateMap.get(d)!))
+      const portfolioDates = series.dates
+      const portfolioReturns = calculateDailyReturns(series.values)
       // calculateDailyReturns drops the first bar, so returns line up with dates[1..]
       const returnByDate = new Map<string, number>()
       for (let i = 0; i < portfolioReturns.length; i++) {

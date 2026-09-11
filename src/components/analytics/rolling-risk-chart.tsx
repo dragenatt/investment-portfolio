@@ -120,7 +120,7 @@ export function RollingRiskChart({ rolling, isLoading }: Props) {
           </CardTitle>
           {rolling && (
             <CardDescription className="text-xs">
-              Ventana movil de {rolling.window_days} dias · {rolling.observations_used} puntos
+              Ventana movil de {rolling.window_label} · {rolling.observations_used} puntos
               {rolling.benchmark_symbol ? ` · vs ${rolling.benchmark_symbol}` : ''}
             </CardDescription>
           )}

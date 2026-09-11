@@ -218,3 +218,30 @@ describe('detectStressPeriods', () => {
     expect(detectStressPeriods({ window: 30, observationsUsed: 0, points: [] })).toEqual([])
   })
 })
+
+describe('annualisation follows the data, not a constant', () => {
+  it('scales by the periods per year it is given', () => {
+    // The risk endpoint was fed WEEKLY bars and annualised them by 252,
+    // rendering a portfolio at 224% volatility and calling a 30-week window
+    // "30 days". Nothing here may hardcode the trading year any more.
+    const weeklyish = rollingVolatility(steady(60), 20, { periodsPerYear: 52 })[59]!
+    const dailyish = rollingVolatility(steady(60), 20, { periodsPerYear: 252 })[59]!
+    expect(dailyish / weeklyish).toBeCloseTo(Math.sqrt(252 / 52), 8)
+  })
+
+  it('still defaults to the trading year', () => {
+    const explicit = rollingVolatility(steady(60), 20, { periodsPerYear: 252 })[59]!
+    expect(rollingVolatility(steady(60), 20)[59]!).toBeCloseTo(explicit, 12)
+  })
+
+  it('carries the same scaling into Sharpe', () => {
+    const weekly = rollingSharpe(steady(60, 0.01), 20, 0.05, 52)[59]
+    const daily = rollingSharpe(steady(60, 0.01), 20, 0.05, 252)[59]
+    expect(weekly).not.toBeCloseTo(daily!, 6)
+  })
+
+  it('refuses a nonsensical periods-per-year rather than producing a number', () => {
+    expect(rollingVolatility(steady(60), 20, { periodsPerYear: 0 }).every((v) => v === null)).toBe(true)
+    expect(rollingVolatility(steady(60), 20, { periodsPerYear: -12 }).every((v) => v === null)).toBe(true)
+  })
+})

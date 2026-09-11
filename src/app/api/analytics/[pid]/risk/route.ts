@@ -1,6 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { calculateVolatility, calculateSharpeRatio, calculateDailyReturns, calculateBetaAlpha, explainBenchmarkMetrics } from '@/lib/services/analytics'
+import { calculateVolatility, calculateDailyReturns, calculateBetaAlpha, explainBenchmarkMetrics } from '@/lib/services/analytics'
 import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
 import { getPortfolioBenchmark, BENCHMARKS } from '@/lib/services/benchmarks'
 import { withCache } from '@/lib/cache/with-cache'
@@ -12,7 +12,8 @@ import { analyseDrawdowns, recoveryProfile } from '@/lib/services/drawdown'
 import { analyseTailRisk } from '@/lib/services/var'
 import { principalComponents, describeIndependence } from '@/lib/services/pca'
 import { rollingRiskSeries, detectStressPeriods } from '@/lib/services/rolling-metrics'
-import { calculateSortinoRatio } from '@/lib/services/asset-metrics'
+import { calculateSortinoRatio, detectCadence } from '@/lib/services/asset-metrics'
+import { portfolioValueSeries } from '@/lib/services/portfolio-series'
 
 
 /**
@@ -83,18 +84,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
         }
       } catch { /* a missing benchmark leaves beta and alpha unreported */ }
 
-      // Calculate portfolio value per day
-      const dateMap = new Map<string, number>()
-      for (const h of history) {
-        const pos = positions.find(p => p.symbol === h.symbol)
-        if (!pos) continue
-        const current = dateMap.get(h.date) || 0
-        dateMap.set(h.date, current + pos.quantity * h.close)
+      // Portfolio value per date, counting ONLY dates where every holding is
+      // priced. Summing whatever happened to be present made the book appear to
+      // lose a position for a day and get it back the next — two such dates in
+      // a hundred and thirty reported a real 18% annual volatility as 178%.
+      const series = portfolioValueSeries(history, positions)
+      if (!series) {
+        return { message: 'No positions' }
       }
 
-      const sortedEntries = [...dateMap.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-      const dates = sortedEntries.map(e => e[0])
-      const values = sortedEntries.map(e => e[1])
+      const { dates, values, droppedDates, excludedSymbols } = series
       const returns = calculateDailyReturns(values)
 
       if (returns.length < 2) {
@@ -108,10 +107,29 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
       const riskFreeRate = riskFree.rate
       const TRADING_DAYS = 252
 
+      // How far apart the bars actually are. The provider does not always
+      // return daily data, and annualising by 252 regardless is how this
+      // endpoint rendered a portfolio at 224% volatility off WEEKLY bars while
+      // calling a 30-week rolling window "30 days".
+      const cadence =
+        detectCadence(dates.map((date, i) => ({ date, close: values[i] }))) ?? {
+          daysPerBar: 1,
+          periodsPerYear: TRADING_DAYS,
+          label: '1 dia',
+        }
+      const { periodsPerYear } = cadence
+
+      // calculateVolatility and calculateSharpeRatio annualise by 252
+      // internally. Rescaling converts without a second copy of the arithmetic.
+      const annualScale = Math.sqrt(periodsPerYear / TRADING_DAYS)
+
       // Core metrics
-      const volatility = calculateVolatility(returns) * 100
-      const sharpe = calculateSharpeRatio(returns, riskFreeRate)
-      const sortino = calculateSortinoRatio(returns, riskFreeRate)
+      const volatility = calculateVolatility(returns) * annualScale * 100
+      const meanPerBar = returns.reduce((a, b) => a + b, 0) / returns.length
+      const annualisedReturn = meanPerBar * periodsPerYear
+      const sharpe =
+        volatility > 1e-8 ? (annualisedReturn - riskFreeRate) / (volatility / 100) : 0
+      const sortino = calculateSortinoRatio(returns, riskFreeRate, periodsPerYear)
       // Drawdown as episodes rather than a single depth: the recovery is usually
       // what decides whether someone actually held on.
       const drawdowns = analyseDrawdowns(dates.map((date, i) => ({ date, value: values[i] })))
@@ -119,8 +137,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
       const maxDDDate = drawdowns.worstEpisode?.troughDate ?? dates[0] ?? ''
 
       // Calmar Ratio
-      const mean = returns.reduce((a, b) => a + b, 0) / returns.length
-      const cagr = Math.pow(1 + mean, TRADING_DAYS) - 1
+      const cagr = Math.pow(1 + meanPerBar, periodsPerYear) - 1
       const calmar = maxDrawdown > 0 ? (cagr * 100) / maxDrawdown : 0
 
       // Tail risk, four ways. One number labelled "VaR" invites a reader to
@@ -178,9 +195,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
           const returnsMatrix = priced.map((p) =>
             calculateDailyReturns(commonDates.map((d) => bySymbol.get(p.symbol)!.get(d)!)),
           )
-          // Daily covariance annualised to match the volatility reported above.
-          const dailyCov = calculateCovarianceMatrix(returnsMatrix)
-          const cov = dailyCov.map((row) => row.map((v) => v * TRADING_DAYS))
+          // Per-bar covariance annualised to match the volatility reported
+          // above — by the cadence, not by a constant.
+          const perBarCov = calculateCovarianceMatrix(returnsMatrix)
+          const cov = perBarCov.map((row) => row.map((v) => v * periodsPerYear))
           const attribution = riskContributions(
             priced.map((p) => p.symbol),
             weights,
@@ -241,13 +259,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
       // dates.slice(1) — the date each return was earned on.
       const returnDates = dates.slice(1)
       const MIN_ROLLING_POINTS = 20
-      const rollingWindow = [63, 30].find(
+      // Windows are expressed in BARS. A quarter is 63 daily bars but only 13
+      // weekly ones, so the candidate list is scaled to the cadence rather than
+      // hardcoded — otherwise "63" silently means fifteen months.
+      const barsPerQuarter = Math.max(5, Math.round(periodsPerYear / 4))
+      const barsPerMonth = Math.max(4, Math.round(periodsPerYear / 12))
+      const rollingWindow = [barsPerQuarter, barsPerMonth].find(
         (w) => returns.length - w + 1 >= MIN_ROLLING_POINTS,
       )
       const rolling = rollingWindow
         ? rollingRiskSeries(returnDates, returns, {
             window: rollingWindow,
             riskFreeAnnual: riskFreeRate,
+            periodsPerYear,
             // The benchmark trades on its own calendar. Passing a series that
             // does not line up would correlate the portfolio against the wrong
             // days, so it is only included when the two match exactly.
@@ -301,9 +325,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
         },
         risk_attribution: riskAttribution,
         independence,
+        // The cadence travels with the payload: a "30" here means thirty BARS,
+        // and only the cadence says whether that is six weeks or seven months.
+        bar_cadence: cadence,
+        // What had to be skipped to measure a consistent series, said out loud
+        // rather than left as a silent difference between claim and data.
+        coverage: {
+          dates_used: dates.length,
+          dates_dropped: droppedDates.length,
+          excluded_symbols: excludedSymbols,
+        },
         rolling_risk: rolling
           ? {
-              window_days: rolling.window,
+              window_bars: rolling.window,
+              window_label: `${rolling.window} barras de ${cadence.label}`,
               observations_used: rolling.observationsUsed,
               benchmark_symbol:
                 rolling.points.some((p) => p.correlation !== null) ? benchmarkSymbol : null,

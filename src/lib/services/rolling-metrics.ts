@@ -22,7 +22,18 @@ const TRADING_DAYS = 252
  */
 const MIN_MEANINGFUL_DEVIATION = 1e-10
 
-export type RollingOptions = { annualise?: boolean }
+export type RollingOptions = {
+  annualise?: boolean
+  /**
+   * How many bars make a year. 252 daily, 52 weekly, 12 monthly.
+   *
+   * Not a constant, because the provider decides the cadence and it is not
+   * always daily. The risk endpoint was fed WEEKLY bars and annualised them by
+   * 252, rendering a portfolio at 224% volatility and labelling a 30-week
+   * window "30 days".
+   */
+  periodsPerYear?: number
+}
 
 /** Sample standard deviation, or null if the slice is unusable. */
 function sampleDeviation(slice: number[]): number | null {
@@ -55,7 +66,10 @@ export function rollingVolatility(
   const out: (number | null)[] = Array(returns.length).fill(null)
   if (!isUsableWindow(returns, window)) return out
 
-  const factor = options.annualise === false ? 1 : Math.sqrt(TRADING_DAYS)
+  const periodsPerYear = options.periodsPerYear ?? TRADING_DAYS
+  if (!Number.isFinite(periodsPerYear) || periodsPerYear <= 0) return out
+
+  const factor = options.annualise === false ? 1 : Math.sqrt(periodsPerYear)
 
   for (let end = window - 1; end < returns.length; end++) {
     const deviation = sampleDeviation(returns.slice(end - window + 1, end + 1))
@@ -123,19 +137,21 @@ export function rollingSharpe(
   returns: number[],
   window: number,
   riskFreeAnnual: number,
+  periodsPerYear: number = TRADING_DAYS,
 ): (number | null)[] {
   const out: (number | null)[] = Array(returns.length).fill(null)
   if (!isUsableWindow(returns, window)) return out
   if (!Number.isFinite(riskFreeAnnual)) return out
+  if (!Number.isFinite(periodsPerYear) || periodsPerYear <= 0) return out
 
   for (let end = window - 1; end < returns.length; end++) {
     const slice = returns.slice(end - window + 1, end + 1)
     const deviation = sampleDeviation(slice)
     if (deviation === null || deviation < MIN_MEANINGFUL_DEVIATION) continue
 
-    const meanDaily = slice.reduce((a, b) => a + b, 0) / window
-    const annualReturn = meanDaily * TRADING_DAYS
-    const annualVolatility = deviation * Math.sqrt(TRADING_DAYS)
+    const meanPerBar = slice.reduce((a, b) => a + b, 0) / window
+    const annualReturn = meanPerBar * periodsPerYear
+    const annualVolatility = deviation * Math.sqrt(periodsPerYear)
 
     const sharpe = (annualReturn - riskFreeAnnual) / annualVolatility
     if (Number.isFinite(sharpe)) out[end] = sharpe
@@ -164,6 +180,8 @@ export type RollingRiskOptions = {
   window: number
   riskFreeAnnual?: number
   benchmarkReturns?: number[]
+  /** See RollingOptions. Defaults to the trading year. */
+  periodsPerYear?: number
 }
 
 /**
@@ -177,13 +195,18 @@ export function rollingRiskSeries(
   returns: number[],
   options: RollingRiskOptions,
 ): RollingRiskSeries | null {
-  const { window, riskFreeAnnual = 0, benchmarkReturns } = options
+  const {
+    window,
+    riskFreeAnnual = 0,
+    benchmarkReturns,
+    periodsPerYear = TRADING_DAYS,
+  } = options
 
   if (dates.length !== returns.length) return null
   if (!isUsableWindow(returns, window)) return null
 
-  const volatility = rollingVolatility(returns, window)
-  const sharpe = rollingSharpe(returns, window, riskFreeAnnual)
+  const volatility = rollingVolatility(returns, window, { periodsPerYear })
+  const sharpe = rollingSharpe(returns, window, riskFreeAnnual, periodsPerYear)
   const correlation =
     benchmarkReturns && benchmarkReturns.length === returns.length
       ? rollingCorrelation(returns, benchmarkReturns, window)

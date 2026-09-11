@@ -10,7 +10,7 @@
 // and the Monte Carlo endpoint. Two copies of a data path is two places for the
 // ordering to drift apart, which is exactly what roadmap rule #2 forbids.
 
-import { type SupabaseClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getHistory } from './market'
 import { adjustSeriesBySymbol } from './corporate-actions'
 
@@ -39,8 +39,44 @@ export type FetchOptions = {
 }
 
 const DEFAULT_LIMIT = 2000
-const DEFAULT_RANGE = '1y'
+
+/**
+ * Six months, because it is the DEEPEST range the provider still returns DAILY
+ * bars for. Anything longer comes back weekly or monthly, and every consumer of
+ * this module annualises by 252 and computes "daily" returns.
+ *
+ * The old default was '1y', which returns WEEKLY bars. Combined with the broken
+ * write-back below, that meant every analytics request was served 54 weekly
+ * bars that the risk endpoint treated as daily: a portfolio rendered at 224%
+ * annual volatility, and a "30-day" rolling window that was really 30 weeks.
+ *
+ * The stored tier is what gets past this six-month ceiling: each call writes
+ * today's bars through, so the table deepens on its own past what any single
+ * provider call can return.
+ */
+const DEFAULT_RANGE = '6mo'
 const DEFAULT_MIN_STORED_ROWS = 10
+
+/**
+ * Price history is reference data: public market prices, identical for every
+ * user, and nothing about anyone's portfolio. It is written with the service
+ * role for the same reason `baselines` and `factor_returns` are — the table has
+ * RLS on with a SELECT policy and no INSERT policy, so a write through a user's
+ * session client is denied.
+ *
+ * That denial is why this cache had NEVER filled. The write was wrapped in a
+ * try/catch that swallowed it, so every request went to the provider and the
+ * stored tier stayed empty from the day it was built. Silence is the reason it
+ * survived: nothing was broken enough to notice.
+ */
+function cacheWriter(): SupabaseClient | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !serviceKey) return null
+  return createClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+}
 
 function coverage(rows: PriceRow[], symbols: string[]): { covered: string[]; missing: string[] } {
   const seen = new Set(rows.map((r) => r.symbol))
@@ -123,10 +159,17 @@ export async function fetchAdjustedPriceHistory(
   )
 
   if (rowsToCache.length > 0) {
-    try {
-      await supabase.from('price_history').upsert(rowsToCache, { onConflict: 'symbol,exchange,date' })
-    } catch {
-      // A cache write failure is not a read failure.
+    // Service role, not the caller's session: see cacheWriter above.
+    const writer = cacheWriter()
+    if (writer) {
+      try {
+        await writer
+          .from('price_history')
+          .upsert(rowsToCache, { onConflict: 'symbol,exchange,date' })
+      } catch {
+        // A cache write failure is still not a read failure — the rows are
+        // already in hand. But it is no longer the SILENT default it was.
+      }
     }
   }
 

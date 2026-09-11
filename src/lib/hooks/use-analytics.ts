@@ -62,8 +62,10 @@ export type RiskData = {
       loadings: Array<{ symbol: string; loading: number }>
     }>
   } | null
+  bar_cadence?: { daysPerBar: number; periodsPerYear: number; label: string }
   rolling_risk: {
-    window_days: number
+    window_bars: number
+    window_label: string
     observations_used: number
     benchmark_symbol: string | null
     points: Array<{
