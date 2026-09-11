@@ -34,6 +34,19 @@ import {
   type CampoProblema,
 } from '@/lib/services/advisor'
 import {
+  explicarRecomendacion,
+  viabilidadAportacion,
+  invertirVsAhorrar,
+  type Explicacion,
+  type Viabilidad,
+  type ComparacionAhorro,
+} from '@/lib/services/advisor-explain'
+import {
+  PorQueEstaRecomendacion,
+  ViabilidadCard,
+  InvertirVsAhorrarCard,
+} from '@/components/advisor/advisor-explain'
+import {
   Shield,
   Scale,
   Flame,
@@ -146,6 +159,12 @@ interface ResultsState {
   /** Contribution that reaches PROBABILIDAD_OBJETIVO on the same scenarios. */
   aporteNec: number | null
   recomendacion: string
+  /** Why this came out the way it did, in the user's own numbers. */
+  explicacion: Explicacion | null
+  /** The contribution measured against what they actually earn. */
+  viabilidad: Viabilidad | null
+  /** The same money saved rather than invested. */
+  ahorroVsInversion: ComparacionAhorro | null
 }
 
 type Distribucion = PlanOutcome['distribucion']
@@ -342,6 +361,15 @@ export default function AdvisorPage() {
       )
       const recomendacion = obtenerRecomendacion(prob, aportacionMensual, aporteNec)
 
+      // The three questions a projection raises the moment it appears. All
+      // three read the SAME plan and the same scenario set, so nothing here can
+      // disagree with the chart above it.
+      //
+      // The contribution judged for affordability is the one actually being
+      // recommended — the amount needed to reach the target probability when
+      // there is one, not the amount the user happened to type.
+      const aportacionAJuzgar = aporteNec ?? aportacionMensual
+
       setResults({
         nivel: perfil.nivel,
         nombre: perfil.nombre,
@@ -350,6 +378,9 @@ export default function AdvisorPage() {
         prob,
         aporteNec,
         recomendacion,
+        explicacion: explicarRecomendacion(planParams, plan, meta),
+        viabilidad: viabilidadAportacion(aportacionAJuzgar, ingresos > 0 ? ingresos : null),
+        ahorroVsInversion: invertirVsAhorrar(planParams, plan),
       })
       setLoading(false)
     }, 1500)
@@ -711,6 +742,14 @@ export default function AdvisorPage() {
               meta y este plazo. Amplia el horizonte o ajusta la meta.
             </p>
           )}
+        </div>
+
+        {/* Kept visually apart from the projection above: a model result and an
+            explanation of a model result are different claims. */}
+        <div className="space-y-4">
+          <PorQueEstaRecomendacion explicacion={results.explicacion} />
+          <ViabilidadCard viabilidad={results.viabilidad} />
+          <InvertirVsAhorrarCard comparacion={results.ahorroVsInversion} />
         </div>
 
         {/* H. Reset Button */}
