@@ -12,6 +12,11 @@ import {
   FRONTIER_CAVEAT,
 } from '@/lib/services/optimizer'
 import { compareAllocationStrategies } from '@/lib/services/allocation-strategies'
+import {
+  compareRobustVsClassic,
+  weightSensitivity,
+  type ReturnRange,
+} from '@/lib/services/robust-optimizer'
 
 const TRADING_DAYS = 252
 
@@ -118,6 +123,43 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
 
       const strategies = compareAllocationStrategies(activeSymbols, returnsMatrix, 95)
 
+      // ── How wide is each estimate, really ──────────────────────────────
+      //
+      // The roadmap asks for ranges instead of point estimates ("AAPL: 8%-12%")
+      // and the temptation is to invent a width — plus or minus two points,
+      // say. That would be a number with no source, which is the thing the
+      // roadmap forbids everywhere else.
+      //
+      // So the width comes from the data: the standard error of an annualised
+      // mean estimated from n observations is sigma / sqrt(years). It is the
+      // honest measure of how little the history pins the mean down, and it is
+      // usually shockingly large — which is the lesson, not a defect.
+      const years = (commonDates.length - 1) / TRADING_DAYS
+      const ranges: ReturnRange[] | null =
+        expected && years > 0
+          ? activeSymbols.map((symbol, i) => {
+              const annualVol = Math.sqrt(Math.max(0, cov[i][i]))
+              const standardError = annualVol / Math.sqrt(years)
+              return {
+                symbol,
+                low: expected[i] - standardError,
+                high: expected[i] + standardError,
+              }
+            })
+          : null
+
+      const robust =
+        ranges && activeSymbols.length >= 2
+          ? compareRobustVsClassic(activeSymbols, cov, ranges, {
+              riskFreeRate: riskFree.rate,
+            })
+          : null
+
+      const sensitivity =
+        ranges && activeSymbols.length >= 2
+          ? weightSensitivity(activeSymbols, cov, ranges, { riskFreeRate: riskFree.rate })
+          : null
+
       return {
         symbols: activeSymbols,
         observations: commonDates.length - 1,
@@ -143,6 +185,20 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         // Neither of these needs a forecast, which is the reason they are worth
         // showing next to a frontier that does.
         allocation_strategies: strategies,
+        // What the estimates are worth, and what the optimiser does once that
+        // is admitted. The width is one standard error either side of the mean
+        // — roughly a 68% interval — computed from the data, not chosen.
+        return_ranges: ranges
+          ? ranges.map((r) => ({
+              symbol: r.symbol,
+              low_pct: r.low * 100,
+              high_pct: r.high * 100,
+              width_pp: (r.high - r.low) * 100,
+              basis: 'media historica +/- 1 error estandar (intervalo ~68%)',
+            }))
+          : null,
+        robust_optimization: robust,
+        weight_sensitivity: sensitivity,
         caveat: FRONTIER_CAVEAT,
       }
     }
