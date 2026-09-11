@@ -145,7 +145,16 @@ export function compareStrategies(
   // taken only over strategies this history can actually support.
   const runnable: Array<{ strategy: Strategy; warmup: number }> = []
 
+  // A caller that sends its own strategy AND the examples will send the same
+  // one twice when the user started from an example — two identical rows, and a
+  // duplicate React key downstream. Two rows with one name are indistinguishable
+  // to a reader anyway, so the first wins.
+  const seen = new Set<string>()
+
   for (const strategy of strategies) {
+    if (seen.has(strategy.name)) continue
+    seen.add(strategy.name)
+
     const validation = validateStrategy(strategy)
     if (!validation.valid) {
       skipped.push({

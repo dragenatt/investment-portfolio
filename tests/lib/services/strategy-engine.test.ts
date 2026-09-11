@@ -145,6 +145,14 @@ describe('compareStrategies', () => {
     expect(result.skipped[0].reason).toMatch(/\d+/)
   })
 
+  it('does not run the same strategy twice', () => {
+    // The builder sends the user's strategy AND the examples, so starting from
+    // an example sent it twice: two identical rows and a duplicate React key.
+    const result = compareStrategies([smaCross, rsiReversion, smaCross], series)!
+    const names = result.results.map((r) => r.name)
+    expect(new Set(names).size).toBe(names.length)
+  })
+
   it('reports the buy-and-hold benchmark once, not per strategy', () => {
     const result = compareStrategies([smaCross, rsiReversion], series)!
     expect(Number.isFinite(result.buyAndHoldReturnPct)).toBe(true)

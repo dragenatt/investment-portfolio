@@ -18,6 +18,7 @@ import { useSignal } from '@/lib/hooks/use-signal'
 import { useEvents } from '@/lib/hooks/use-events'
 import { useAssetStats } from '@/lib/hooks/use-asset-stats'
 import { AssetPerformance, AssetRisk } from '@/components/market/asset-stats'
+import { StrategyBuilder } from '@/components/market/strategy-builder'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Plus, Eye, AlertCircle, ArrowUp, ArrowDown, TrendingUp, Briefcase, GitCompareArrows } from 'lucide-react'
 import { toast } from 'sonner'
@@ -320,6 +321,14 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
           <AssetRisk stats={assetStats} />
         </ErrorBoundary>
       )}
+
+      {/* ═══════════════════════════════════════════════════════════════
+          4c. STRATEGY SANDBOX — build a rule by clicking, then see it
+              measured against simply holding the thing
+          ═══════════════════════════════════════════════════════════════ */}
+      <ErrorBoundary>
+        <StrategyBuilder symbol={decodedSymbol} />
+      </ErrorBoundary>
 
       {/* ═══════════════════════════════════════════════════════════════
           5. ABOUT SECTION — Company description
