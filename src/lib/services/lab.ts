@@ -645,7 +645,7 @@ const EXPERIMENTS: Experiment[] = [
     ],
     available: false,
     unavailableReason:
-      'El catalogo de escenarios historicos es la tarea P1-30 del roadmap. Construirlo requiere cifras verificadas de crisis reales, y el roadmap prohibe expresamente inventar drawdowns.',
+      'El motor de stress testing historico ya existe (tarea P1-30), pero no vive aqui: necesita el historial de precios real de TUS posiciones, no parametros sinteticos como el resto del laboratorio. Esta en el analisis de tu cartera, en GET /api/analytics/[pid]/stress. Aqui seguiria sin poder medir nada, y el roadmap prohibe inventar drawdowns.',
   },
 ]
 
