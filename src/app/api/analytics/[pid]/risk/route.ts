@@ -10,6 +10,8 @@ import { calculateCovarianceMatrix } from '@/lib/services/covariance'
 import { riskContributions, describeRiskConcentration } from '@/lib/services/risk-attribution'
 import { analyseDrawdowns, recoveryProfile } from '@/lib/services/drawdown'
 import { analyseTailRisk } from '@/lib/services/var'
+import { principalComponents, describeIndependence } from '@/lib/services/pca'
+import { rollingRiskSeries, detectStressPeriods } from '@/lib/services/rolling-metrics'
 
 
 /**
@@ -173,6 +175,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
       )
 
       let riskAttribution = null
+      // How many genuinely separate bets the book is running, next to the HHI it
+      // is so often confused with. HHI answers "is the money spread out"; this
+      // answers "is the risk spread out", and a book can pass one and fail the
+      // other badly. Both are reported so neither can be read as the whole story.
+      let independence = null
       if (priced.length > 0 && commonDates.length >= 3) {
         const lastDate = commonDates[commonDates.length - 1]
         const marketValues = priced.map(
@@ -209,11 +216,59 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
               })),
             }
           }
+
+          // Eigen-decomposition of the same covariance matrix. Annualising it
+          // above scaled every entry by the same constant, and the variance
+          // shares this reads are ratios, so the scaling cancels out.
+          const pca = principalComponents(cov, priced.map((p) => p.symbol))
+          if (pca) {
+            const hhi = weights.reduce((sum, w) => sum + w * w, 0)
+            independence = {
+              holdings: priced.length,
+              effective_bets: pca.effectiveBets,
+              components_for_90pct: pca.componentsFor90Pct,
+              // The weight-based measure, carried alongside on purpose: the
+              // point of this block is the gap between the two.
+              hhi,
+              hhi_effective_holdings: hhi > 0 ? 1 / hhi : null,
+              summary: describeIndependence(priced.length, pca.effectiveBets),
+              components: pca.components.map((c) => ({
+                index: c.index,
+                variance_explained_pct: c.varianceExplainedPct,
+                cumulative_pct: c.cumulativePct,
+                loadings: c.loadings.map((l) => ({ symbol: l.symbol, loading: l.loading })),
+              })),
+            }
+          }
         }
       }
 
       // Composite risk score
       const riskScore = calculateRiskScore(volatility, maxDrawdown, sharpe)
+
+      // The single volatility number above is an average over the whole history,
+      // which hides the thing that matters most: whether it is getting worse.
+      // A quarter-long window is preferred; a month is the fallback for shorter
+      // histories, and below that there is nothing honest to plot.
+      //
+      // `returns` has one fewer entry than `values`, so it lines up with
+      // dates.slice(1) — the date each return was earned on.
+      const returnDates = dates.slice(1)
+      const MIN_ROLLING_POINTS = 20
+      const rollingWindow = [63, 30].find(
+        (w) => returns.length - w + 1 >= MIN_ROLLING_POINTS,
+      )
+      const rolling = rollingWindow
+        ? rollingRiskSeries(returnDates, returns, {
+            window: rollingWindow,
+            riskFreeAnnual: riskFreeRate,
+            // The benchmark trades on its own calendar. Passing a series that
+            // does not line up would correlate the portfolio against the wrong
+            // days, so it is only included when the two match exactly.
+            benchmarkReturns:
+              benchmarkReturns.length === returns.length ? benchmarkReturns : undefined,
+          })
+        : null
 
       // Drawdown series for chart
       const drawdownValues = values.map((_, i) => {
@@ -257,6 +312,25 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
           underwater: drawdowns.underwater,
         },
         risk_attribution: riskAttribution,
+        independence,
+        rolling_risk: rolling
+          ? {
+              window_days: rolling.window,
+              observations_used: rolling.observationsUsed,
+              benchmark_symbol:
+                rolling.points.some((p) => p.correlation !== null) ? benchmarkSymbol : null,
+              points: rolling.points.map((p) => ({
+                date: p.date,
+                volatility_pct: p.volatilityPct === null ? null : Math.round(p.volatilityPct * 100) / 100,
+                sharpe: p.sharpe === null ? null : Math.round(p.sharpe * 100) / 100,
+                correlation: p.correlation === null ? null : Math.round(p.correlation * 1000) / 1000,
+              })),
+              // Descriptive only: these are stretches where this portfolio's own
+              // volatility ran far above its own normal. They say nothing about
+              // what comes next.
+              stress_periods: detectStressPeriods(rolling),
+            }
+          : null,
         tail_risk: tailRisk,
         recovery: recoveryProfile(drawdowns),
         benchmark: {
