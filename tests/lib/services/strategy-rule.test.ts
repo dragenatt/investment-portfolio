@@ -446,3 +446,72 @@ describe('EXAMPLE_STRATEGIES', () => {
     }
   })
 })
+
+describe('duplicate conditions', () => {
+  const priceAboveSma: Condition = {
+    left: { kind: 'indicator', indicator: 'price' },
+    operator: 'gt',
+    right: { kind: 'indicator', indicator: 'sma', period: 20 },
+  }
+
+  it('warns when the same condition appears twice', () => {
+    // Found by looking at the builder: clicking "+ Condicion" three times adds
+    // the same default three times. Under AND that changes nothing at all, and
+    // the rule reads "... y Precio es mayor que SMA de 20" three times over.
+    const result = validateStrategy({
+      name: 'repetida',
+      buy: { combinator: 'and', conditions: [priceAboveSma, priceAboveSma] },
+      sell: { combinator: 'and', conditions: [] },
+    })
+    expect(result.valid).toBe(true)
+    expect(result.warnings.join(' ').toLowerCase()).toMatch(/repet|duplicad/)
+  })
+
+  it('says how many times it repeats, not just that it does', () => {
+    const result = validateStrategy({
+      name: 'repetida',
+      buy: {
+        combinator: 'and',
+        conditions: [priceAboveSma, priceAboveSma, priceAboveSma],
+      },
+      sell: { combinator: 'and', conditions: [] },
+    })
+    expect(result.warnings.join(' ')).toMatch(/3|tres/)
+  })
+
+  it('does not warn when the conditions genuinely differ', () => {
+    const other: Condition = {
+      left: { kind: 'indicator', indicator: 'rsi', period: 14 },
+      operator: 'lt',
+      right: { kind: 'constant', value: 30 },
+    }
+    const result = validateStrategy({
+      name: 'distintas',
+      buy: { combinator: 'and', conditions: [priceAboveSma, other] },
+      sell: { combinator: 'and', conditions: [] },
+    })
+    expect(result.warnings.join(' ').toLowerCase()).not.toMatch(/repet|duplicad/)
+  })
+
+  it('treats a different period as a different condition', () => {
+    const longer: Condition = {
+      ...priceAboveSma,
+      right: { kind: 'indicator', indicator: 'sma', period: 50 },
+    }
+    const result = validateStrategy({
+      name: 'periodos',
+      buy: { combinator: 'and', conditions: [priceAboveSma, longer] },
+      sell: { combinator: 'and', conditions: [] },
+    })
+    expect(result.warnings.join(' ').toLowerCase()).not.toMatch(/repet|duplicad/)
+  })
+
+  it('checks the sell rule too', () => {
+    const result = validateStrategy({
+      name: 'venta repetida',
+      buy: { combinator: 'and', conditions: [priceAboveSma] },
+      sell: { combinator: 'and', conditions: [priceAboveSma, priceAboveSma] },
+    })
+    expect(result.warnings.join(' ').toLowerCase()).toMatch(/repet|duplicad/)
+  })
+})

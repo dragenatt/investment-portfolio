@@ -305,6 +305,13 @@ export type ValidationResult = {
   longestPeriod: number
 }
 
+/** Two conditions that mean the same thing, however they were built. */
+function sameCondition(a: Condition, b: Condition): boolean {
+  return (
+    a.operator === b.operator && sameOperand(a.left, b.left) && sameOperand(a.right, b.right)
+  )
+}
+
 function sameOperand(a: Operand, b: Operand): boolean {
   if (a.kind !== b.kind) return false
   if (a.kind === 'constant' && b.kind === 'constant') return a.value === b.value
@@ -373,6 +380,32 @@ export function validateStrategy(strategy: Strategy): ValidationResult {
     }
   }
 
+  // Repeated conditions. Found by watching someone use the builder: clicking
+  // "+ Condicion" adds the same default each time, so three clicks give three
+  // identical rows. Under AND that changes nothing whatsoever, and the rule
+  // reads itself back as "... y Precio es mayor que SMA de 20" three times.
+  // Harmless to the maths, and exactly the kind of thing that makes a reader
+  // trust a rule they did not actually write.
+  for (const [side, rule] of [
+    ['compra', strategy.buy],
+    ['venta', strategy.sell],
+  ] as const) {
+    const counted = new Map<number, number>()
+    rule.conditions.forEach((condition, index) => {
+      const firstMatch = rule.conditions.findIndex((other) => sameCondition(other, condition))
+      if (firstMatch < index) counted.set(firstMatch, (counted.get(firstMatch) ?? 1) + 1)
+    })
+
+    for (const [index, times] of counted) {
+      warnings.push(
+        `La condicion de ${side} "${describeCondition(rule.conditions[index])}" esta repetida ${times} veces. ` +
+          (rule.combinator === 'and'
+            ? 'Con "todas (Y)" repetirla no cambia nada: la regla se comporta como si estuviera una sola vez.'
+            : 'Con "cualquiera (O)" repetirla tampoco cambia nada.'),
+      )
+    }
+  }
+
   if (strategy.sell.conditions.length === 0) {
     warnings.push(
       'Sin condicion de venta la estrategia compra y nunca sale, que es basicamente comprar y mantener. No es un error, pero conviene saberlo antes de leer el resultado.',
@@ -389,16 +422,16 @@ function describeOperand(operand: Operand): string {
   return spec.hasPeriod ? `${spec.label} de ${periodFor(operand)}` : spec.label
 }
 
+/** One condition as a phrase. */
+function describeCondition(condition: Condition): string {
+  const operator = OPERATORS.find((o) => o.id === condition.operator)
+  return `${describeOperand(condition.left)} ${operator?.label ?? condition.operator} ${describeOperand(condition.right)}`
+}
+
 /** A rule as a sentence someone can check without reading the data structure. */
 export function describeRule(rule: Rule): string {
   if (rule.conditions.length === 0) return 'Sin condiciones.'
-
-  const parts = rule.conditions.map((condition) => {
-    const operator = OPERATORS.find((o) => o.id === condition.operator)
-    return `${describeOperand(condition.left)} ${operator?.label ?? condition.operator} ${describeOperand(condition.right)}`
-  })
-
-  return parts.join(rule.combinator === 'and' ? ' y ' : ' o ') + '.'
+  return rule.conditions.map(describeCondition).join(rule.combinator === 'and' ? ' y ' : ' o ') + '.'
 }
 
 export type ExampleStrategy = {
