@@ -307,7 +307,12 @@
     "analyze_profile": "Analyze profile",
     "conservative": "Conservative",
     "moderate_profile": "Moderate",
-    "aggressive": "Aggressive"
+    "aggressive": "Aggressive",
+    "stage_preparando": "Preparing data",
+    "stage_calculando": "Working out your profile",
+    "stage_simulando": "Simulating scenarios",
+    "stage_analizando_meta": "Analysing your goal",
+    "stage_recomendando": "Generating recommendation"
   },
   "watchlist": {
     "title": "Watchlists",

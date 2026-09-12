@@ -53,6 +53,12 @@ import {
 } from '@/lib/services/advisor-export'
 import { ExportarPlan } from '@/components/advisor/advisor-export'
 import {
+  crearProgreso,
+  etapasIniciales,
+  type Etapa,
+  type EtapaId,
+} from '@/lib/services/advisor-progress'
+import {
   PorQueEstaRecomendacion,
   ViabilidadCard,
   InvertirVsAhorrarCard,
@@ -71,6 +77,7 @@ import {
   Percent,
 } from 'lucide-react'
 import { useTranslation } from '@/lib/i18n'
+import { cn } from '@/lib/utils'
 import type { Dictionary } from '@/lib/i18n/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -228,6 +235,21 @@ const PERCENTIL_BANDS: Array<{
 ]
 
 /** The confidence the recommended contribution is solved for. */
+/**
+ * Stage id to translated label. Built from `t` rather than held in the service,
+ * so the progress module stays free of presentation and the loading screen
+ * stays translated.
+ */
+const ETIQUETA_ETAPA = (t: {
+  advisor: Record<string, string>
+}): Record<EtapaId, string> => ({
+  preparando: t.advisor.stage_preparando,
+  calculando: t.advisor.stage_calculando,
+  simulando: t.advisor.stage_simulando,
+  'analizando-meta': t.advisor.stage_analizando_meta,
+  recomendando: t.advisor.stage_recomendando,
+})
+
 const PROBABILIDAD_OBJETIVO = 75
 
 /** Scenarios per run: enough for stable deciles without stalling the browser. */
@@ -253,6 +275,7 @@ export default function AdvisorPage() {
   const STEP_TITLES = getStepTitles(t)
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [etapas, setEtapas] = useState<Etapa[]>(etapasIniciales)
   const [results, setResults] = useState<ResultsState | null>(null)
 
   const [form, setForm] = useState<FormState>({
@@ -307,127 +330,163 @@ export default function AdvisorPage() {
     }
   }, [step, form])
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
+    // Five real stages, each announced as it begins and timed as it runs. The
+    // 1.5s setTimeout that used to wrap all of this existed only to make the
+    // work look like work; the analysis is genuinely CPU-bound and takes as
+    // long as it takes.
     setLoading(true)
-    setTimeout(() => {
-      const edad = Number(form.edad)
-      const ingresos = Number(form.ingresos)
-      const horizonte = Number(form.horizonte)
-      const capitalInicial = Number(form.capitalInicial)
-      const aportacionMensual = Number(form.aportacionMensual)
-      const meta = Number(form.meta)
+    setEtapas(etapasIniciales())
+    const progreso = crearProgreso(setEtapas)
 
-      const validacion = validarEntradasAdvisor({
-        edad,
-        ingresos,
-        horizonte,
-        capitalInicial,
-        aportacionMensual,
-        meta,
-        porcentajeInversion: form.porcentajeInversion,
-        riesgo: form.riesgo,
-        experiencia: form.experiencia,
-        estabilidad: form.estabilidad,
-        reaccion: form.reaccion,
-      })
-      if (!validacion.valid) {
+    try {
+      const entradas = await progreso.etapa('preparando', () => {
+        const edad = Number(form.edad)
+        const ingresos = Number(form.ingresos)
+        const horizonte = Number(form.horizonte)
+        const capitalInicial = Number(form.capitalInicial)
+        const aportacionMensual = Number(form.aportacionMensual)
+        const meta = Number(form.meta)
+
+        const validacion = validarEntradasAdvisor({
+          edad,
+          ingresos,
+          horizonte,
+          capitalInicial,
+          aportacionMensual,
+          meta,
+          porcentajeInversion: form.porcentajeInversion,
+          riesgo: form.riesgo,
+          experiencia: form.experiencia,
+          estabilidad: form.estabilidad,
+          reaccion: form.reaccion,
+        })
+
         // The step gate should have caught this; refuse rather than simulate
         // against numbers the model cannot use.
-        setLoading(false)
-        return
-      }
+        if (!validacion.valid) return null
 
-      const perfil = obtenerPerfilFinal({
-        edad,
-        ingresos,
-        riesgo: form.riesgo,
-        horizonte,
-        experiencia: form.experiencia,
-        estabilidad: form.estabilidad,
-        reaccion: form.reaccion,
-        porcentajeInversion: form.porcentajeInversion,
+        return {
+          edad,
+          ingresos,
+          horizonte,
+          capitalInicial,
+          aportacionMensual,
+          meta,
+          validacion,
+        }
       })
 
-      const planParams = {
-        capitalInicial,
-        aportacionMensual,
-        años: horizonte,
-        rendimientoAnual: RENDIMIENTOS[perfil.nivel],
-        volatilidadAnual: VOLATILIDADES[perfil.nivel],
-      }
+      if (!entradas) return
 
-      // One scenario set answers every question about this plan, so the
-      // recommended contribution is scored against the same simulated paths it
-      // was solved on. That is what stops the advisor recommending an amount
-      // and then calling that same amount insufficient.
-      const scenarios = buildScenarios({
-        months: horizonte * 12,
-        simulations: SIMULACIONES,
-        seed: seedFor(capitalInicial, aportacionMensual, horizonte, meta, perfil.nivel),
+      const { edad, ingresos, horizonte, capitalInicial, aportacionMensual, meta, validacion } =
+        entradas
+
+      const { perfil, planParams } = await progreso.etapa('calculando', () => {
+        const perfil = obtenerPerfilFinal({
+          edad,
+          ingresos,
+          riesgo: form.riesgo,
+          horizonte,
+          experiencia: form.experiencia,
+          estabilidad: form.estabilidad,
+          reaccion: form.reaccion,
+          porcentajeInversion: form.porcentajeInversion,
+        })
+
+        return {
+          perfil,
+          planParams: {
+            capitalInicial,
+            aportacionMensual,
+            años: horizonte,
+            rendimientoAnual: RENDIMIENTOS[perfil.nivel],
+            volatilidadAnual: VOLATILIDADES[perfil.nivel],
+          },
+        }
       })
 
-      const plan = evaluarPlan(planParams, meta, scenarios)
-      const prob = plan.probabilidadMetaPct ?? 0
-      const aporteNec = aporteParaProbabilidadMeta(
-        planParams,
-        meta,
-        PROBABILIDAD_OBJETIVO,
-        scenarios,
-      )
-      const recomendacion = obtenerRecomendacion(prob, aportacionMensual, aporteNec)
-
-      // The three questions a projection raises the moment it appears. All
-      // three read the SAME plan and the same scenario set, so nothing here can
-      // disagree with the chart above it.
-      //
-      // The contribution judged for affordability is the one actually being
-      // recommended — the amount needed to reach the target probability when
-      // there is one, not the amount the user happened to type.
-      const aportacionAJuzgar = aporteNec ?? aportacionMensual
-
-      setResults({
-        nivel: perfil.nivel,
-        nombre: perfil.nombre,
-        plan,
-        avisos: validacion.warnings,
-        prob,
-        aporteNec,
-        recomendacion,
-        explicacion: explicarRecomendacion(planParams, plan, meta),
-        viabilidad: viabilidadAportacion(aportacionAJuzgar, ingresos > 0 ? ingresos : null),
-        ahorroVsInversion: invertirVsAhorrar(planParams, plan),
-        // The model portfolio behind the profile is what the diversification
-        // concept describes. No risk-free rate is passed because this projector
-        // does not use one, and the module says so rather than inventing it.
-        educacion: explicacionEducativa(planParams, plan, meta, {
-          cartera: CARTERAS[perfil.nivel],
-        }),
-        // Built here rather than on click, from the same plan and the same
-        // scenario set as everything above, so an exported file cannot disagree
-        // with the screen it came from. analizarSensibilidad has been in
-        // advisor.ts and under test since an earlier wave without ever reaching
-        // a surface; the export is the first thing that needs it.
-        exportable: construirPlanExportable({
-          perfil: { nivel: perfil.nivel, nombre: perfil.nombre, descripcion: PERFIL_DESCRIPCIONES[perfil.nombre] },
-          params: planParams,
-          meta: meta > 0 ? meta : null,
-          outcome: plan,
-          cartera: CARTERAS[perfil.nivel],
-          aporteNecesario: aporteNec,
-          // Warnings carry a prefix rather than being folded in silently: they
-          // are caveats the screen showed, and a document that drops them reads
-          // more confident than the screen it came from.
-          recomendaciones: [
-            recomendacion,
-            ...validacion.warnings.map((aviso) => `Aviso: ${aviso.message}`),
-          ],
-          probabilidadObjetivoPct: PROBABILIDAD_OBJETIVO,
-          sensibilidad: meta > 0 ? analizarSensibilidad(planParams, meta, scenarios) : null,
-          generadoEn: new Date(),
-        }),
+      const { scenarios, plan } = await progreso.etapa('simulando', () => {
+        // One scenario set answers every question about this plan, so the
+        // recommended contribution is scored against the same simulated paths
+        // it was solved on. That is what stops the advisor recommending an
+        // amount and then calling that same amount insufficient.
+        const scenarios = buildScenarios({
+          months: horizonte * 12,
+          simulations: SIMULACIONES,
+          seed: seedFor(capitalInicial, aportacionMensual, horizonte, meta, perfil.nivel),
+        })
+        return { scenarios, plan: evaluarPlan(planParams, meta, scenarios) }
       })
+
+      const { prob, aporteNec, sensibilidad } = await progreso.etapa('analizando-meta', () => ({
+        prob: plan.probabilidadMetaPct ?? 0,
+        aporteNec: aporteParaProbabilidadMeta(planParams, meta, PROBABILIDAD_OBJETIVO, scenarios),
+        sensibilidad: meta > 0 ? analizarSensibilidad(planParams, meta, scenarios) : null,
+      }))
+
+      const resultado = await progreso.etapa('recomendando', () => {
+        const recomendacion = obtenerRecomendacion(prob, aportacionMensual, aporteNec)
+
+        // The three questions a projection raises the moment it appears. All
+        // three read the SAME plan and the same scenario set, so nothing here
+        // can disagree with the chart above it.
+        //
+        // The contribution judged for affordability is the one actually being
+        // recommended — the amount needed to reach the target probability when
+        // there is one, not the amount the user happened to type.
+        const aportacionAJuzgar = aporteNec ?? aportacionMensual
+
+        return {
+          nivel: perfil.nivel,
+          nombre: perfil.nombre,
+          plan,
+          avisos: validacion.warnings,
+          prob,
+          aporteNec,
+          recomendacion,
+          explicacion: explicarRecomendacion(planParams, plan, meta),
+          viabilidad: viabilidadAportacion(aportacionAJuzgar, ingresos > 0 ? ingresos : null),
+          ahorroVsInversion: invertirVsAhorrar(planParams, plan),
+          // The model portfolio behind the profile is what the diversification
+          // concept describes. No risk-free rate is passed because this
+          // projector does not use one, and the module says so rather than
+          // inventing it.
+          educacion: explicacionEducativa(planParams, plan, meta, {
+            cartera: CARTERAS[perfil.nivel],
+          }),
+          // Built here rather than on click, from the same plan and the same
+          // scenario set as everything above, so an exported file cannot
+          // disagree with the screen it came from.
+          exportable: construirPlanExportable({
+            perfil: {
+              nivel: perfil.nivel,
+              nombre: perfil.nombre,
+              descripcion: PERFIL_DESCRIPCIONES[perfil.nombre],
+            },
+            params: planParams,
+            meta: meta > 0 ? meta : null,
+            outcome: plan,
+            cartera: CARTERAS[perfil.nivel],
+            aporteNecesario: aporteNec,
+            // Warnings carry a prefix rather than being folded in silently:
+            // they are caveats the screen showed, and a document that drops
+            // them reads more confident than the screen it came from.
+            recomendaciones: [
+              recomendacion,
+              ...validacion.warnings.map((aviso) => `Aviso: ${aviso.message}`),
+            ],
+            probabilidadObjetivoPct: PROBABILIDAD_OBJETIVO,
+            sensibilidad,
+            generadoEn: new Date(),
+          }),
+        }
+      })
+
+      setResults(resultado)
+    } finally {
       setLoading(false)
-    }, 1500)
+    }
   }, [form])
 
   const handleReset = useCallback(() => {
@@ -451,10 +510,40 @@ export default function AdvisorPage() {
   // ── Loading State ─────────────────────────────────────────────────────────
 
   if (loading) {
+    const activa = etapas.find((etapa) => etapa.estado === 'activa')
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-5">
         <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-        <p className="font-serif text-xl text-muted-foreground">{t.advisor.analyzing_profile}</p>
+        <p className="font-serif text-xl text-muted-foreground">
+          {activa ? ETIQUETA_ETAPA(t)[activa.id] : t.advisor.analyzing_profile}
+        </p>
+
+        {/* Every stage listed, so the one running is visible in context and a
+            stage that fails does not just vanish. The times are measured, not
+            scripted: a stage that takes 3ms says 3ms. */}
+        <ol className="space-y-1.5 text-xs w-full max-w-xs">
+          {etapas.map((etapa) => (
+            <li key={etapa.id} className="flex items-baseline justify-between gap-3">
+              <span
+                className={cn(
+                  etapa.estado === 'pendiente' && 'text-muted-foreground/50',
+                  etapa.estado === 'activa' && 'text-foreground font-medium',
+                  etapa.estado === 'lista' && 'text-muted-foreground',
+                  etapa.estado === 'fallida' && 'text-loss',
+                )}
+              >
+                {ETIQUETA_ETAPA(t)[etapa.id]}
+              </span>
+              <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+                {etapa.estado === 'fallida'
+                  ? 'fallo'
+                  : etapa.ms === null
+                    ? ''
+                    : `${Math.round(etapa.ms)} ms`}
+              </span>
+            </li>
+          ))}
+        </ol>
       </div>
     )
   }
