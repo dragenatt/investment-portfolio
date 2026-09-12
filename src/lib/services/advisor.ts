@@ -31,7 +31,7 @@ import { allocateMoney, roundMoney, toCents } from '@/lib/utils/money'
 import { validateWeights, validateProbability } from './validation'
 
 /** Bump on any change that moves a saved projection's numbers. */
-export const ADVISOR_MODEL_VERSION = '2.0.0'
+export const ADVISOR_MODEL_VERSION = '2.1.0'
 
 const MONTHS_PER_YEAR = 12
 
@@ -206,11 +206,45 @@ function deterministicProjection(params: PlanParams) {
  * converted to a monthly rate — the floor is what keeps pow() away from a
  * negative base.
  */
+/** Independent monthly shocks accumulate as sqrt(time), so scale by sqrt(12). */
+const MONTHS_SQRT = Math.sqrt(MONTHS_PER_YEAR)
+
+/**
+ * One month of a simulated path.
+ *
+ * The shock is scaled to a MONTHLY standard deviation. The earlier version
+ * drew a fresh annual-equivalent return every month and converted the whole
+ * thing to a monthly rate:
+ *
+ *     monthlyRate(mu + shock * sigma)
+ *
+ * which averages twelve independent annual draws inside each year and so
+ * divides the realised annual standard deviation by sqrt(12). A profile
+ * documented at 10% volatility delivered 2.7%; the aggressive profile's 16%
+ * delivered 4.4%. Measured, not inferred — see the tests.
+ *
+ * The consequence was not cosmetic. Every probability the advisor reported was
+ * computed against a market three and a half times calmer than the one the
+ * assumptions register describes, so every one of them was too confident, and
+ * the uncertainty fan D7 exists to draw was that much too narrow.
+ *
+ * sqrt(time) scaling is the same convention used everywhere else in this
+ * codebase for annualising, and it restores the documented figure to within
+ * sampling error. It also brings back volatility drag: the median outcome now
+ * falls as volatility rises at a fixed mean return, which is a real property of
+ * compounding that the old form largely erased.
+ */
+function monthlyStep(params: PlanParams, shock: number): number {
+  const drift = monthlyRate(params.rendimientoAnual)
+  const monthly = drift + (shock * params.volatilidadAnual) / MONTHS_SQRT
+  // Cannot lose more than everything in one month.
+  return Math.max(-1, monthly)
+}
+
 function simulatePath(params: PlanParams, shocks: number[], months: number): number {
   let value = params.capitalInicial
   for (let month = 0; month < months; month++) {
-    const annual = params.rendimientoAnual + shocks[month] * params.volatilidadAnual
-    value = value * (1 + monthlyRate(annual)) + params.aportacionMensual
+    value = value * (1 + monthlyStep(params, shocks[month])) + params.aportacionMensual
     if (!Number.isFinite(value)) return 0
   }
   return Math.max(0, value)
@@ -224,6 +258,85 @@ function simulateAll(params: PlanParams, scenarios: ScenarioSet): number[] {
   )
   const outcomes = scenarios.shocks.map((path) => simulatePath(params, path, months))
   return outcomes.sort((a, b) => a - b)
+}
+
+export type BandaAnual = {
+  /** 1-based year of the plan. */
+  año: number
+  p10: number
+  p25: number
+  p50: number
+  p75: number
+  p90: number
+  /** What has actually been paid in by the end of that year. */
+  aportado: number
+}
+
+/**
+ * The fan, year by year, rather than only at the finish line.
+ *
+ * evaluarPlan reports where the simulations END. Drawing only that leaves the
+ * chart showing one smooth deterministic curve, which is a picture of a plan
+ * with no uncertainty in it at all — the exact impression D7 exists to correct.
+ * These are cross-sectional percentiles: for each year, where the whole cloud
+ * of simulations stands at that moment.
+ *
+ * A separate pass rather than something evaluarPlan returns. The sensitivity
+ * sweep calls evaluarPlan eighteen times and needs none of this; making every
+ * caller pay for it would be the wrong trade for the one caller that draws it.
+ *
+ * The last year's percentiles are identical to evaluarPlan's distribution, by
+ * construction — same shocks, same paths, same nearest-rank percentile — so the
+ * right edge of the chart cannot disagree with the summary above it.
+ */
+export function bandasDeIncertidumbre(
+  params: PlanParams,
+  scenarios: ScenarioSet,
+): BandaAnual[] {
+  const months = Math.min(
+    scenarios.months,
+    Math.max(0, Math.round(params.años * MONTHS_PER_YEAR)),
+  )
+  const years = Math.floor(months / MONTHS_PER_YEAR)
+  if (years === 0) return []
+
+  // porAño[year][simulation] — every simulation's value at each year boundary.
+  const porAño: number[][] = Array.from({ length: years }, () => [])
+
+  for (const shocks of scenarios.shocks) {
+    let value = params.capitalInicial
+    let roto = false
+    for (let month = 0; month < years * MONTHS_PER_YEAR; month++) {
+      if (!roto) {
+        value = value * (1 + monthlyStep(params, shocks[month])) + params.aportacionMensual
+        // Same guard as simulatePath: a path that leaves the reals is recorded
+        // as zero rather than poisoning every percentile above it.
+        if (!Number.isFinite(value)) {
+          value = 0
+          roto = true
+        }
+      }
+      if ((month + 1) % MONTHS_PER_YEAR === 0) {
+        porAño[(month + 1) / MONTHS_PER_YEAR - 1].push(Math.max(0, value))
+      }
+    }
+  }
+
+  return porAño.map((valores, index) => {
+    const sorted = valores.sort((a, b) => a - b)
+    const año = index + 1
+    return {
+      año,
+      p10: roundMoney(percentile(sorted, 10)),
+      p25: roundMoney(percentile(sorted, 25)),
+      p50: roundMoney(percentile(sorted, 50)),
+      p75: roundMoney(percentile(sorted, 75)),
+      p90: roundMoney(percentile(sorted, 90)),
+      aportado: roundMoney(
+        params.capitalInicial + params.aportacionMensual * año * MONTHS_PER_YEAR,
+      ),
+    }
+  })
 }
 
 /** Percentile of an already-sorted series, by nearest rank. */

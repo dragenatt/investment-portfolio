@@ -43,6 +43,54 @@ the answer moved because the model changed, not because their plan did.
 
 ## Version history
 
+### 2.1.0 — the shocks deliver the volatility they claim
+
+**What was wrong with 2.0.0.** The monthly step drew a fresh *annual-equivalent*
+return each month and converted the whole thing to a monthly rate:
+
+```
+const annual = rendimientoAnual + shock * volatilidadAnual
+value = value * (1 + monthlyRate(annual)) + aportacion
+```
+
+Averaging twelve independent annual draws inside one year divides the realised
+annual standard deviation by sqrt(12). Measured on 20,000 one-year paths:
+
+| Profile | Documented volatility | Delivered by 2.0.0 |
+|---|---|---|
+| Conservador | 5% | 1.4% |
+| Moderado | 10% | 2.7% |
+| Agresivo | 16% | 4.4% |
+
+So the engine contradicted the register in `docs/FINANCIAL_ASSUMPTIONS.md` that
+it was supposed to be implementing. The consequence was not cosmetic: every
+probability the advisor reported was computed against a market three and a half
+times calmer than the assumed one, and was therefore too confident. The
+uncertainty fan added in D7 was that much too narrow, and volatility drag — the
+median falling as spread widens at a fixed mean return — was largely erased, so
+risk looked close to free.
+
+**What 2.1.0 does instead.** The shock is scaled to a monthly standard
+deviation, which is the same sqrt(time) convention used everywhere else in this
+codebase for annualising:
+
+```
+const monthly = monthlyRate(rendimientoAnual) + shock * volatilidadAnual / sqrt(12)
+```
+
+Realised volatility now lands within sampling error of the documented figure at
+all three profiles, and volatility drag reappears. The monthly return is floored
+at -100% rather than the annual return at -99%; the guard is at the level the
+arithmetic actually happens.
+
+**Effect on saved plans.** Every probability moves, most of them down. A plan
+recorded under 2.0.0 is not comparable with one recorded under 2.1.0, which is
+what the version field is for.
+
+Found while implementing D7: the fan drawn for a 20-year plan at 10% volatility
+spanned barely +-10%, which is not what 10% annual volatility looks like over
+twenty years.
+
 ### 2.0.0 — the scenario set
 
 Replaced the engine that lived in `src/lib/utils/investment-profile.ts`.

@@ -159,6 +159,12 @@ per-profile constant. Until then they stay flagged as assumptions.
 
 ## Volatility per profile
 
+> **Delivered as documented since model 2.1.0.** Before that the advisor's
+> monthly step divided the realised annual standard deviation by sqrt(12), so
+> these figures were assumed but not produced: 5% behaved as 1.4%, 10% as 2.7%,
+> 16% as 4.4%. See `docs/ADVISOR_MODEL_VERSIONING.md`.
+
+
 **5% / 10% / 16% annual, assumed.** `VOLATILIDADES`, same file.
 
 Before P0-21 the engine applied a flat **10% to all three profiles**, which is

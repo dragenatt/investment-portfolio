@@ -8,8 +8,9 @@ import {
   Cell,
   Legend,
   Tooltip,
-  AreaChart,
+  ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -30,6 +31,8 @@ import {
   evaluarPlan,
   aporteParaProbabilidadMeta,
   analizarSensibilidad,
+  bandasDeIncertidumbre,
+  type BandaAnual,
   validarEntradasAdvisor,
   type PlanOutcome,
   type CampoProblema,
@@ -187,6 +190,8 @@ interface ResultsState {
   educacion: Educacion | null
   /** The whole plan as a document, ready to serialise. */
   exportable: PlanExport | null
+  /** The simulated fan, year by year, for the projection chart. */
+  bandas: BandaAnual[]
 }
 
 type Distribucion = PlanOutcome['distribucion']
@@ -195,6 +200,13 @@ type Distribucion = PlanOutcome['distribucion']
  * Deciles rather than the single best and worst paths. The extremes of a
  * simulation are the least stable statistics it produces — the "worst case"
  * moves every run and says more about the number of draws than about risk.
+ *
+ * These used to run red at P10 through amber to green at P90, which reads as a
+ * danger-to-safety axis. It is not one: it is a likelihood axis, and every band
+ * on it is an equally real outcome of the same plan. A P90 is not good news any
+ * more than a P10 is a warning — colouring them that way is the visual form of
+ * exactly the optimistic-and-alarmist language D7 rules out. One hue at rising
+ * opacity says "further out on the same distribution", which is what they are.
  */
 const PERCENTIL_BANDS: Array<{
   label: string
@@ -205,31 +217,31 @@ const PERCENTIL_BANDS: Array<{
   {
     label: 'P10',
     hint: '1 de cada 10 escenarios termina por debajo de esta cifra',
-    className: 'bg-red-500/10 border-red-500/20',
+    className: 'bg-[var(--chart-1)]/8 border-[var(--chart-1)]/20',
     pick: (d) => d.p10,
   },
   {
     label: 'P25',
     hint: '1 de cada 4 escenarios termina por debajo',
-    className: 'bg-amber-500/10 border-amber-500/20',
+    className: 'bg-[var(--chart-1)]/14 border-[var(--chart-1)]/25',
     pick: (d) => d.p25,
   },
   {
     label: 'Mediana',
     hint: 'la mitad de los escenarios termina por encima y la mitad por debajo',
-    className: 'bg-sky-500/10 border-sky-500/20',
+    className: 'bg-[var(--chart-1)]/22 border-[var(--chart-1)]/35',
     pick: (d) => d.p50,
   },
   {
     label: 'P75',
     hint: '1 de cada 4 escenarios termina por encima',
-    className: 'bg-emerald-500/10 border-emerald-500/20',
+    className: 'bg-[var(--chart-1)]/14 border-[var(--chart-1)]/25',
     pick: (d) => d.p75,
   },
   {
     label: 'P90',
     hint: '1 de cada 10 escenarios termina por encima',
-    className: 'bg-green-500/10 border-green-500/20',
+    className: 'bg-[var(--chart-1)]/8 border-[var(--chart-1)]/20',
     pick: (d) => d.p90,
   },
 ]
@@ -406,7 +418,7 @@ export default function AdvisorPage() {
         }
       })
 
-      const { scenarios, plan } = await progreso.etapa('simulando', () => {
+      const { scenarios, plan, bandas } = await progreso.etapa('simulando', () => {
         // One scenario set answers every question about this plan, so the
         // recommended contribution is scored against the same simulated paths
         // it was solved on. That is what stops the advisor recommending an
@@ -416,7 +428,13 @@ export default function AdvisorPage() {
           simulations: SIMULACIONES,
           seed: seedFor(capitalInicial, aportacionMensual, horizonte, meta, perfil.nivel),
         })
-        return { scenarios, plan: evaluarPlan(planParams, meta, scenarios) }
+        return {
+          scenarios,
+          plan: evaluarPlan(planParams, meta, scenarios),
+          // A second pass over the same shocks, so the chart shows the spread
+          // over time rather than only where the simulations end.
+          bandas: bandasDeIncertidumbre(planParams, scenarios),
+        }
       })
 
       const { prob, aporteNec, sensibilidad } = await progreso.etapa('analizando-meta', () => ({
@@ -458,6 +476,7 @@ export default function AdvisorPage() {
           // Built here rather than on click, from the same plan and the same
           // scenario set as everything above, so an exported file cannot
           // disagree with the screen it came from.
+          bandas,
           exportable: construirPlanExportable({
             perfil: {
               nivel: perfil.nivel,
@@ -570,9 +589,16 @@ export default function AdvisorPage() {
       value: Math.round(value * 100),
     }))
 
-    const chartData = results.plan.proyeccionDeterminista.historial.map((val, i) => ({
-      name: `${t.advisor.years} ${i + 1}`,
-      valor: Math.round(val),
+    // The fan, not a line. A single deterministic curve is a picture of a plan
+    // with no uncertainty in it, which is the impression D7 exists to correct.
+    // The right edge of this chart equals the percentile cards below it by
+    // construction — same shocks, same paths.
+    const chartData = (results.bandas ?? []).map((banda) => ({
+      name: `${t.advisor.years} ${banda.año}`,
+      rango90: [banda.p10, banda.p90] as [number, number],
+      rango50: [banda.p25, banda.p75] as [number, number],
+      mediana: banda.p50,
+      aportado: banda.aportado,
     }))
 
     const probColor =
@@ -718,13 +744,7 @@ export default function AdvisorPage() {
             Proyección de Crecimiento
           </h3>
           <ResponsiveContainer width="100%" height={320}>
-            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              <defs>
-                <linearGradient id="growthGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22C55E" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#22C55E" stopOpacity={0} />
-                </linearGradient>
-              </defs>
+            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
               <YAxis
@@ -734,7 +754,12 @@ export default function AdvisorPage() {
                 width={90}
               />
               <Tooltip
-                formatter={(value) => fmt.format(Number(value))}
+                formatter={(value: unknown, name) => {
+                  if (Array.isArray(value)) {
+                    return [`${fmt.format(Number(value[0]))} – ${fmt.format(Number(value[1]))}`, name]
+                  }
+                  return [fmt.format(Number(value)), name]
+                }}
                 contentStyle={{
                   borderRadius: '12px',
                   border: '1px solid var(--border)',
@@ -742,16 +767,65 @@ export default function AdvisorPage() {
                 }}
                 labelStyle={{ fontWeight: 600 }}
               />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+
+              {/* One hue at two opacities rather than a red-to-green ramp. The
+                  spread is a likelihood axis, not a good-to-bad one, and
+                  colouring it that way tells the reader the opposite. */}
               <Area
                 type="monotone"
-                dataKey="valor"
-                stroke="#22C55E"
-                strokeWidth={2}
-                fill="url(#growthGradient)"
-                name="Valor del portafolio"
+                dataKey="rango90"
+                stroke="none"
+                fill="var(--chart-1)"
+                fillOpacity={0.16}
+                name="8 de cada 10 escenarios (P10–P90)"
+                isAnimationActive={false}
               />
-            </AreaChart>
+              <Area
+                type="monotone"
+                dataKey="rango50"
+                stroke="none"
+                fill="var(--chart-1)"
+                fillOpacity={0.3}
+                name="La mitad central (P25–P75)"
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="mediana"
+                stroke="var(--chart-1)"
+                strokeWidth={2}
+                dot={false}
+                name="Mediana (P50)"
+                isAnimationActive={false}
+              />
+              {/* What was actually paid in. Where the fan's lower edge sits
+                  against this line is the question the chart is really for. */}
+              <Line
+                type="monotone"
+                dataKey="aportado"
+                stroke="var(--muted-foreground)"
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+                dot={false}
+                name="Lo que aportas"
+                isAnimationActive={false}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
+
+          {/* The sentence the roadmap requires, verbatim. */}
+          <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+            Los resultados representan escenarios simulados bajo los supuestos actuales.
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
+            Supuestos: rendimiento {(RENDIMIENTOS[results.nivel] * 100).toFixed(0)}% anual y
+            volatilidad {(VOLATILIDADES[results.nivel] * 100).toFixed(0)}% anual, ambos supuestos de
+            la cartera modelo del perfil {results.nombre} y no mediciones de tus posiciones;{' '}
+            {SIMULACIONES.toLocaleString('es-MX')} trayectorias con rendimientos normales; sin
+            inflacion, comisiones ni impuestos. La banda ancha deja fuera 1 de cada 10 escenarios
+            por abajo y 1 de cada 10 por arriba.
+          </p>
         </div>
 
         {/* E. Financial Summary */}
@@ -762,6 +836,18 @@ export default function AdvisorPage() {
           >
             Resumen Financiero
           </h3>
+          {/* Two "final values" sit on this page and they no longer agree: this
+              block is the textbook compound-interest path with no randomness at
+              all, while the median below is the middle of the simulated cloud.
+              The gap between them is volatility drag, and it grows with
+              volatility. Before the 2.1.0 shock-scaling fix the two were within
+              a rounding error of each other, so nobody had to explain it. */}
+          <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+            Esta tabla es la proyeccion sin aleatoriedad: lo que da una tabla de interes compuesto
+            si el rendimiento supuesto se cumpliera todos los meses. La mediana simulada de abajo es
+            algo menor porque la volatilidad reduce el resultado compuesto aunque el rendimiento
+            promedio sea el mismo.
+          </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-4 rounded-xl bg-secondary">
               <DollarSign className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
