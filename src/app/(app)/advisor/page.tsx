@@ -42,6 +42,11 @@ import {
   type ComparacionAhorro,
 } from '@/lib/services/advisor-explain'
 import {
+  explicacionEducativa,
+  type Educacion,
+} from '@/lib/services/advisor-education'
+import { ModoEducativo } from '@/components/advisor/advisor-education'
+import {
   PorQueEstaRecomendacion,
   ViabilidadCard,
   InvertirVsAhorrarCard,
@@ -165,6 +170,8 @@ interface ResultsState {
   viabilidad: Viabilidad | null
   /** The same money saved rather than invested. */
   ahorroVsInversion: ComparacionAhorro | null
+  /** What every word in the projection means. Teaching, kept apart from result. */
+  educacion: Educacion | null
 }
 
 type Distribucion = PlanOutcome['distribucion']
@@ -381,6 +388,12 @@ export default function AdvisorPage() {
         explicacion: explicarRecomendacion(planParams, plan, meta),
         viabilidad: viabilidadAportacion(aportacionAJuzgar, ingresos > 0 ? ingresos : null),
         ahorroVsInversion: invertirVsAhorrar(planParams, plan),
+        // The model portfolio behind the profile is what the diversification
+        // concept describes. No risk-free rate is passed because this projector
+        // does not use one, and the module says so rather than inventing it.
+        educacion: explicacionEducativa(planParams, plan, meta, {
+          cartera: CARTERAS[perfil.nivel],
+        }),
       })
       setLoading(false)
     }, 1500)
@@ -750,6 +763,7 @@ export default function AdvisorPage() {
           <PorQueEstaRecomendacion explicacion={results.explicacion} />
           <ViabilidadCard viabilidad={results.viabilidad} />
           <InvertirVsAhorrarCard comparacion={results.ahorroVsInversion} />
+          <ModoEducativo educacion={results.educacion} />
         </div>
 
         {/* H. Reset Button */}

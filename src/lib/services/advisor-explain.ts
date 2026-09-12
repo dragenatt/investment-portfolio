@@ -58,12 +58,15 @@ const VOLATILIDAD_BAJA = 0.08
  * argument: that page already formats every figure in MXN, and two different
  * currencies on one screen would be worse than a fixed one.
  */
-const money = (value: number) =>
+export const formatoMoneda = (value: number) =>
   new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: 'MXN',
     maximumFractionDigits: 0,
   }).format(roundMoney(value))
+
+/** Local alias, so the rest of this file reads as prose. */
+const money = formatoMoneda
 
 /**
  * The factors behind a plan, each with the user's number and why it mattered.
