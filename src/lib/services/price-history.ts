@@ -160,15 +160,39 @@ export async function fetchAdjustedPriceHistory(
 
   if (rowsToCache.length > 0) {
     // Service role, not the caller's session: see cacheWriter above.
+    //
+    // The previous version of this block claimed it was "no longer the SILENT
+    // default", and was: it wrapped the upsert in try/catch with an empty
+    // handler. supabase-js does not THROW on a failed write, it returns
+    // { error }, so the catch caught nothing and the error object was dropped
+    // on the floor. The cache stayed empty and said nothing, for the second
+    // time, for a different reason than the first.
+    //
+    // A cache write failing is genuinely not a read failure — the rows are
+    // already in hand and the caller gets them. But it has to be audible, or
+    // the next person measures an empty table and has no idea why.
     const writer = cacheWriter()
-    if (writer) {
+    if (!writer) {
+      console.warn(
+        '[price-history] no se pudo escribir el cache: falta SUPABASE_SERVICE_ROLE_KEY',
+      )
+    } else {
       try {
-        await writer
+        const { error } = await writer
           .from('price_history')
           .upsert(rowsToCache, { onConflict: 'symbol,exchange,date' })
-      } catch {
-        // A cache write failure is still not a read failure — the rows are
-        // already in hand. But it is no longer the SILENT default it was.
+        if (error) {
+          console.warn('[price-history] fallo al escribir el cache', {
+            filas: rowsToCache.length,
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+          })
+        }
+      } catch (thrown) {
+        // Network-level failure, which DOES throw.
+        console.warn('[price-history] la escritura del cache lanzo', thrown)
       }
     }
   }
