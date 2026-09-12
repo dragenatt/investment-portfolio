@@ -56,6 +56,10 @@ import {
 } from '@/lib/services/advisor-export'
 import { ExportarPlan } from '@/components/advisor/advisor-export'
 import {
+  construirDiagnostico,
+  registrarDiagnostico,
+} from '@/lib/services/advisor-telemetry'
+import {
   crearProgreso,
   etapasIniciales,
   type Etapa,
@@ -503,6 +507,23 @@ export default function AdvisorPage() {
       })
 
       setResults(resultado)
+
+      // D8. Shapes and counts only: version, simulation count, horizon, stage
+      // timings, and a code for anything out of range. No amount, no goal, no
+      // projected value — nothing about this user's money that is not needed
+      // to debug the run. Silent unless something is actually wrong.
+      registrarDiagnostico(
+        construirDiagnostico({
+          outcome: plan,
+          cartera: CARTERAS[perfil.nivel],
+          etapas: progreso.etapas(),
+        }),
+      )
+    } catch (error) {
+      // Recorded, then rethrown. Swallowing it would leave the user staring at
+      // the form with no idea anything went wrong.
+      console.warn('[advisor] la ejecucion fallo', { etapas: progreso.etapas(), error })
+      throw error
     } finally {
       setLoading(false)
     }
