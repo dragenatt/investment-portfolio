@@ -22,6 +22,42 @@ const META = 1_200_000
 // comparisons honest: they all run on the same shocks.
 const scenarios = buildScenarios({ months: 30 * 12, simulations: 400, seed: 2026 })
 
+describe('every simulation surface uses the same monthly step', () => {
+  // There are three loops that step a path forward: simulatePath, the
+  // uncertainty bands, and proyectarFechaMeta. The volatility fix in model
+  // 2.1.0 landed in the first two; this pins that the third cannot drift, which
+  // is the failure mode of having the same arithmetic written three times.
+  const set = buildScenarios({ months: 240, simulations: 800, seed: 606 })
+  const plan: PlanParams = {
+    capitalInicial: 50_000,
+    aportacionMensual: 4_000,
+    años: 20,
+    rendimientoAnual: 0.07,
+    volatilidadAnual: 0.16,
+  }
+  // Deliberately well ABOVE the median. Only the wide tail reaches it, so the
+  // invariant below is sensitive to the two loops disagreeing about how wide
+  // the distribution is — a goal most paths clear either way would not be.
+  const META_ALCANZABLE = 3_500_000
+
+  it('never reports fewer paths reaching the goal than finishing above it', () => {
+    // A path can touch the goal and fall back, so arrivals must be at least as
+    // common as ending above. If the two loops used different volatility this
+    // would break, because one cloud would be far wider than the other.
+    const fecha = proyectarFechaMeta(plan, META_ALCANZABLE, set)!
+    const alFinal = evaluarPlan(plan, META_ALCANZABLE, set).probabilidadMetaPct!
+    expect(fecha.probabilidadPct).toBeGreaterThanOrEqual(alFinal - 1e-9)
+  })
+
+  it('agrees with the plan when there is no volatility at all', () => {
+    const quieto = { ...plan, volatilidadAnual: 0 }
+    const fecha = proyectarFechaMeta(quieto, META_ALCANZABLE, set)!
+    const alFinal = evaluarPlan(quieto, META_ALCANZABLE, set).probabilidadMetaPct!
+    // With no randomness every path is identical: both are 0 or both are 100.
+    expect(fecha.probabilidadPct === 0).toBe(alFinal === 0)
+  })
+})
+
 describe('analizarSensibilidad with a scenario set that only covers the base plan', () => {
   // The advisor page builds exactly `horizonte * 12` months of shocks, so the
   // "+5 years" row has nothing to simulate with. simulateAll clamps to the

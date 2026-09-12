@@ -924,8 +924,7 @@ export function proyectarFechaMeta(
     if (value >= meta) arrivedAt = 0
 
     for (let month = 0; month < months && arrivedAt === null; month++) {
-      const annual = params.rendimientoAnual + path[month] * params.volatilidadAnual
-      value = value * (1 + monthlyRate(annual)) + params.aportacionMensual
+      value = value * (1 + monthlyStep(params, path[month])) + params.aportacionMensual
       if (!Number.isFinite(value)) break
       if (value >= meta) arrivedAt = month + 1
     }
