@@ -112,6 +112,13 @@ function mulberry32(seed: number): () => number {
   }
 }
 
+/** Box-Muller. u1 is clamped off zero so log never sees it. */
+function standardNormal(random: () => number): number {
+  const u1 = Math.max(random(), Number.MIN_VALUE)
+  const u2 = random()
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
+}
+
 /**
  * Draw the shocks once, up front.
  *
@@ -127,16 +134,37 @@ export function buildScenarios(request: ScenarioRequest): ScenarioSet {
   const shocks: number[][] = []
   for (let sim = 0; sim < simulations; sim++) {
     const path = new Array<number>(months)
-    for (let month = 0; month < months; month++) {
-      // Box-Muller. u1 is clamped off zero so log never sees it.
-      const u1 = Math.max(random(), Number.MIN_VALUE)
-      const u2 = random()
-      path[month] = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
-    }
+    for (let month = 0; month < months; month++) path[month] = standardNormal(random)
     shocks.push(path)
   }
 
   return { seed: request.seed, simulations, months, shocks }
+}
+
+/**
+ * Lengthen a scenario set without disturbing the months it already holds.
+ *
+ * Rebuilding a longer set from scratch is not an option. buildScenarios consumes
+ * draws path by path, so asking for more months shifts the stream for every
+ * simulation after the first, and the sensitivity table's "current" row would
+ * stop matching the projection printed above it.
+ *
+ * The extra months come from a second, independently seeded stream. The shocks
+ * are iid standard normals, so which generator produced a given one is
+ * immaterial; what matters is that the ones already drawn do not move.
+ */
+function extendScenarios(scenarios: ScenarioSet, months: number): ScenarioSet {
+  if (months <= scenarios.months) return scenarios
+
+  const extra = months - scenarios.months
+  const random = mulberry32((scenarios.seed ^ 0x9e3779b9) >>> 0)
+  const shocks = scenarios.shocks.map((path) => {
+    const extended = path.slice()
+    for (let i = 0; i < extra; i++) extended.push(standardNormal(random))
+    return extended
+  })
+
+  return { ...scenarios, months, shocks }
 }
 
 // ─── Projection ─────────────────────────────────────────────────────────────
@@ -564,9 +592,8 @@ function sweep(
 export function analizarSensibilidad(
   base: PlanParams,
   meta: number,
-  scenarios: ScenarioSet,
+  request: ScenarioSet,
 ): SensitivityAnalysis {
-  const baseline = probabilidadDeMeta(base, meta, scenarios)
   const identity = (params: PlanParams) => ({ params, meta })
 
   const contributions = [
@@ -576,6 +603,15 @@ export function analizarSensibilidad(
   ]
   // A horizon can be shortened but never below a single year.
   const horizons = [Math.max(1, base.años - 5), base.años, base.años + 5]
+
+  // The longest row needs shocks to run on. Callers size their scenario set to
+  // the plan's own horizon, so without this the "+5 years" row simulates only
+  // the months available — simulateAll clamps to them — and reports the BASE
+  // horizon's outcome as though it were the longer one. In the exported plan
+  // that showed up as a 25-year median identical to the 20-year one, peso for
+  // peso. Extending leaves every month already drawn exactly where it was.
+  const scenarios = extendScenarios(request, Math.max(...horizons) * MONTHS_PER_YEAR)
+  const baseline = probabilidadDeMeta(base, meta, scenarios)
   const capitals = [
     roundMoney(base.capitalInicial * 0.8),
     base.capitalInicial,

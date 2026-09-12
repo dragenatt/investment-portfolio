@@ -217,6 +217,17 @@ export function aporteNecesario(
  * model produces a distribution of scenarios, not a forecast, and the wording
  * has to keep saying so.
  */
+/**
+ * Whole pesos, thousands grouped.
+ *
+ * toFixed(0) alone printed "$5128" in prose sitting beside "$5,128" everywhere
+ * else in the same exported plan. Inconsistency inside one document reads worse
+ * than either convention would on its own.
+ */
+function pesos(amount: number): string {
+  return `$${Math.round(amount).toLocaleString('es-MX')}`
+}
+
 export function obtenerRecomendacion(
   prob: number,
   aporteActual: number,
@@ -233,11 +244,11 @@ export function obtenerRecomendacion(
   }
 
   if (prob < 50) {
-    return `El modelo estima ${p}% de probabilidad bajo los supuestos actuales, que es baja. Aportar alrededor de $${aporteSugerido.toFixed(0)} al mes llevaria esa probabilidad al objetivo; extender el plazo o ajustar la meta tiene el mismo efecto.`
+    return `El modelo estima ${p}% de probabilidad bajo los supuestos actuales, que es baja. Aportar alrededor de ${pesos(aporteSugerido)} al mes llevaria esa probabilidad al objetivo; extender el plazo o ajustar la meta tiene el mismo efecto.`
   }
 
   if (prob < 75) {
-    return `El modelo estima ${p}% de probabilidad: la meta es alcanzable, pero con un margen estrecho. Aportar alrededor de $${aporteSugerido.toFixed(0)} al mes reduciria esa dependencia del escenario favorable.`
+    return `El modelo estima ${p}% de probabilidad: la meta es alcanzable, pero con un margen estrecho. Aportar alrededor de ${pesos(aporteSugerido)} al mes reduciria esa dependencia del escenario favorable.`
   }
 
   return `El modelo estima ${p}% de probabilidad de alcanzar la meta bajo los supuestos actuales. Recuerda que es una simulacion, no una garantia.`

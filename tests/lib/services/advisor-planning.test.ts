@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   buildScenarios,
   analizarSensibilidad,
+  evaluarPlan,
   compararEstrategias,
   proyectarFechaMeta,
   verificarConsistencia,
@@ -20,6 +21,41 @@ const META = 1_200_000
 // One long scenario set serves every shorter horizon, which is what keeps the
 // comparisons honest: they all run on the same shocks.
 const scenarios = buildScenarios({ months: 30 * 12, simulations: 400, seed: 2026 })
+
+describe('analizarSensibilidad with a scenario set that only covers the base plan', () => {
+  // The advisor page builds exactly `horizonte * 12` months of shocks, so the
+  // "+5 years" row has nothing to simulate with. simulateAll clamps to the
+  // shocks available, which means that row silently answered the BASE horizon
+  // and reported it as the longer one — visible in the exported plan as a
+  // 25-year median identical to the 20-year one, to the peso.
+  //
+  // The existing tests above never saw it because they build a 30-year set for
+  // a 15-year plan.
+  const exacto = buildScenarios({ months: base.años * 12, simulations: 400, seed: 2026 })
+
+  it('actually simulates the longer horizon instead of repeating the base one', () => {
+    const result = analizarSensibilidad(base, META, exacto)
+    const [corto, actual, largo] = result.horizonte
+    expect(corto.medianaFinal).toBeLessThan(actual.medianaFinal)
+    expect(largo.medianaFinal).toBeGreaterThan(actual.medianaFinal)
+  })
+
+  it('leaves the base row exactly where it was', () => {
+    // Extending the paths must not disturb the months already drawn, or the
+    // sensitivity table would contradict the projection it sits under.
+    const conMargen = buildScenarios({ months: base.años * 12, simulations: 400, seed: 2026 })
+    const base_ = evaluarPlan(base, META, conMargen)
+    const result = analizarSensibilidad(base, META, exacto)
+    const actual = result.horizonte.find((r) => r.esActual)!
+    expect(actual.medianaFinal).toBe(base_.distribucion.p50)
+  })
+
+  it('is deterministic across calls', () => {
+    expect(analizarSensibilidad(base, META, exacto)).toEqual(
+      analizarSensibilidad(base, META, exacto),
+    )
+  })
+})
 
 describe('analizarSensibilidad (P1-4)', () => {
   it('varies the contribution down, flat and up', () => {

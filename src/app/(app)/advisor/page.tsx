@@ -29,6 +29,7 @@ import {
   buildScenarios,
   evaluarPlan,
   aporteParaProbabilidadMeta,
+  analizarSensibilidad,
   validarEntradasAdvisor,
   type PlanOutcome,
   type CampoProblema,
@@ -46,6 +47,11 @@ import {
   type Educacion,
 } from '@/lib/services/advisor-education'
 import { ModoEducativo } from '@/components/advisor/advisor-education'
+import {
+  construirPlanExportable,
+  type PlanExport,
+} from '@/lib/services/advisor-export'
+import { ExportarPlan } from '@/components/advisor/advisor-export'
 import {
   PorQueEstaRecomendacion,
   ViabilidadCard,
@@ -172,6 +178,8 @@ interface ResultsState {
   ahorroVsInversion: ComparacionAhorro | null
   /** What every word in the projection means. Teaching, kept apart from result. */
   educacion: Educacion | null
+  /** The whole plan as a document, ready to serialise. */
+  exportable: PlanExport | null
 }
 
 type Distribucion = PlanOutcome['distribucion']
@@ -393,6 +401,29 @@ export default function AdvisorPage() {
         // does not use one, and the module says so rather than inventing it.
         educacion: explicacionEducativa(planParams, plan, meta, {
           cartera: CARTERAS[perfil.nivel],
+        }),
+        // Built here rather than on click, from the same plan and the same
+        // scenario set as everything above, so an exported file cannot disagree
+        // with the screen it came from. analizarSensibilidad has been in
+        // advisor.ts and under test since an earlier wave without ever reaching
+        // a surface; the export is the first thing that needs it.
+        exportable: construirPlanExportable({
+          perfil: { nivel: perfil.nivel, nombre: perfil.nombre, descripcion: PERFIL_DESCRIPCIONES[perfil.nombre] },
+          params: planParams,
+          meta: meta > 0 ? meta : null,
+          outcome: plan,
+          cartera: CARTERAS[perfil.nivel],
+          aporteNecesario: aporteNec,
+          // Warnings carry a prefix rather than being folded in silently: they
+          // are caveats the screen showed, and a document that drops them reads
+          // more confident than the screen it came from.
+          recomendaciones: [
+            recomendacion,
+            ...validacion.warnings.map((aviso) => `Aviso: ${aviso.message}`),
+          ],
+          probabilidadObjetivoPct: PROBABILIDAD_OBJETIVO,
+          sensibilidad: meta > 0 ? analizarSensibilidad(planParams, meta, scenarios) : null,
+          generadoEn: new Date(),
         }),
       })
       setLoading(false)
@@ -764,6 +795,7 @@ export default function AdvisorPage() {
           <ViabilidadCard viabilidad={results.viabilidad} />
           <InvertirVsAhorrarCard comparacion={results.ahorroVsInversion} />
           <ModoEducativo educacion={results.educacion} />
+          <ExportarPlan plan={results.exportable} />
         </div>
 
         {/* H. Reset Button */}

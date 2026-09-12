@@ -323,6 +323,17 @@ describe('Investment Profile Scoring', () => {
   })
 
   describe('obtenerRecomendacion', () => {
+    it('groups thousands in the suggested contribution', () => {
+      // Found by reading the exported plan: the recommendation said "$5128"
+      // while every other figure in the same document read "$5,128". Small,
+      // but a five-figure amount without separators is genuinely harder to
+      // read at a glance, and inconsistency inside one document is worse than
+      // either convention on its own.
+      const rec = obtenerRecomendacion(20, 4_000, 5_128)
+      expect(rec).toContain('$5,128')
+      expect(rec).not.toContain('$5128')
+    })
+
     // The third argument is the contribution solved against the SAME simulated
     // paths the probability came from, so "suggested <= current" and "the goal
     // is unlikely" can no longer both be true. The old tests passed exactly
