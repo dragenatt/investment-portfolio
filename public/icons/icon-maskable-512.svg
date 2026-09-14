@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Maskable: the background fills the whole square, because the platform
+       applies its own mask (circle, squircle...). The mark stays inside the
+       central 80% safe zone. -->
   <defs>
     <style>
       .bg { fill: #09090b; }
       .text { font-family: Arial, sans-serif; font-weight: bold; fill: #ffffff; font-size: 179.2px; text-anchor: middle; dominant-baseline: central; }
     </style>
   </defs>
-  <circle class="bg" cx="256" cy="256" r="256"/>
-  <text class="text" x="256" y="281.6">IT</text>
+  <rect class="bg" width="512" height="512"/>
+  <text class="text" x="256" y="256">IT</text>
 </svg>

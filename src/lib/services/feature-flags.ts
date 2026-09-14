@@ -64,8 +64,9 @@ const DEFAULTS: Record<FeatureFlag, boolean> = {
   financialLab: true,
   // Shipped in OLA 7 (C2): prices streamed over Supabase Realtime.
   streaming: true,
-  // Not implemented yet.
-  pwa: false,
+  // Shipped in OLA 7 (C4). FEATURE_PWA=false is the kill switch: pages
+  // unregister the service worker and delete its caches.
+  pwa: true,
 }
 
 /** `FEATURE_MONTE_CARLO`, `FEATURE_WALK_FORWARD`, and so on. */

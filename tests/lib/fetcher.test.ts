@@ -92,3 +92,20 @@ describe('apiFetcher', () => {
     await expect(apiFetcher('/api/test')).rejects.toThrow('Unauthorized')
   })
 })
+
+describe('apiFetcher and the service worker', () => {
+  it('reports a saved response to the offline banner and still returns its data', async () => {
+    const { getOfflineStatus, resetOfflineStatusForTests } = await import('@/lib/pwa/offline-data')
+    resetOfflineStatusForTests()
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json', 'x-sw-source': 'cache', 'x-sw-stored-at': '1000' }),
+      json: async () => ({ data: { total: 10 } }),
+    })
+
+    expect(await apiFetcher('/api/portfolio/p1')).toEqual({ total: 10 })
+    expect(getOfflineStatus()).toMatchObject({ showingSavedData: true, oldestSavedAt: 1000 })
+    resetOfflineStatusForTests()
+  })
+})

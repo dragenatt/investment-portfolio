@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { useTranslation } from '@/lib/i18n'
 import { FUNNEL_EVENTS } from '@/lib/analytics/events'
+import { clearOfflineUserData } from '@/lib/pwa/offline-data'
 
 export default function RegisterPage() {
   const { t } = useTranslation()
@@ -54,6 +55,9 @@ export default function RegisterPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event: FUNNEL_EVENTS.ACCOUNT_CREATED }),
     }).catch(() => {})
+
+    // A new session: nothing saved for offline use by a previous user stays.
+    await clearOfflineUserData()
 
     router.push('/dashboard')
   }

@@ -16,7 +16,7 @@ afterEach(() => {
 describe('isEnabled', () => {
   it('uses the documented default when nothing is set', () => {
     expect(isEnabled('backtesting')).toBe(true)
-    expect(isEnabled('pwa')).toBe(false)
+    expect(isEnabled('pwa')).toBe(true)
   })
 
   it('defaults on for every engine that has actually shipped', () => {
@@ -41,8 +41,16 @@ describe('isEnabled', () => {
   })
 
   it('lets the environment turn a feature on', () => {
-    setEnv('FEATURE_PWA', 'true')
-    expect(isEnabled('pwa')).toBe(true)
+    setEnv('FEATURE_STREAMING', 'false')
+    expect(isEnabled('streaming')).toBe(false)
+    setEnv('FEATURE_STREAMING', 'true')
+    expect(isEnabled('streaming')).toBe(true)
+  })
+
+  it('keeps the PWA kill switch working', () => {
+    // FEATURE_PWA=false makes pages unregister the service worker.
+    setEnv('FEATURE_PWA', 'false')
+    expect(isEnabled('pwa')).toBe(false)
   })
 
   it('accepts the spellings an operator actually types', () => {
@@ -85,7 +93,7 @@ describe('allFlags', () => {
   it('keeps unimplemented engines off by default', () => {
     // A half-built feature must not reach a user because someone forgot to gate it
     const off = allFlags().filter((f) => !f.default).map((f) => f.flag)
-    expect(off).toContain('pwa')
+    expect(off).not.toContain('pwa')
     expect(off).not.toContain('streaming')
     // And nothing that has shipped is still hiding behind a stale default.
     expect(off).not.toContain('markowitz')

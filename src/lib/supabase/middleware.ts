@@ -35,7 +35,9 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
-  const publicPaths = ['/', '/login', '/register']
+  // /offline is what the service worker shows for a page it never saved; it
+  // is fetched at install time, signed in or not.
+  const publicPaths = ['/', '/login', '/register', '/offline']
   const isPublicPath = publicPaths.some(p => request.nextUrl.pathname === p)
 
   // Redirect authenticated users away from login/register — to where they were

@@ -5,6 +5,8 @@ import { Toaster } from '@/components/ui/sonner'
 import { getLocaleFromCookies } from '@/lib/i18n/locale'
 import './globals.css'
 import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter'
+import { ServiceWorkerRegistration } from '@/components/pwa/service-worker-registration'
+import { isEnabled } from '@/lib/services/feature-flags'
 
 const plusJakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-sans' })
 const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-serif' })
@@ -58,7 +60,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png" />
         <link rel="icon" href="/icons/icon-512.png" sizes="512x512" type="image/png" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -71,6 +73,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Toaster />
         </ThemeProvider>
         <WebVitalsReporter />
+        <ServiceWorkerRegistration enabled={isEnabled('pwa')} />
       </body>
     </html>
   )

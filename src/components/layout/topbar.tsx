@@ -5,6 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { LogOut, Search, Menu } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { clearOfflineUserData } from '@/lib/pwa/offline-data'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -33,6 +34,8 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
   async function handleLogout() {
     await supabase.auth.signOut()
+    // The saved pages and API responses are this user's portfolio.
+    await clearOfflineUserData()
     router.push('/login')
     router.refresh()
   }

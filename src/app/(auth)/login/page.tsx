@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { useTranslation } from '@/lib/i18n'
 import { safeNextPath } from '@/lib/utils/safe-redirect'
+import { clearOfflineUserData } from '@/lib/pwa/offline-data'
 
 export default function LoginPage() {
   const { t } = useTranslation()
@@ -32,6 +33,10 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
+
+    // Whatever this device saved for offline use belonged to whoever signed in
+    // last, who may not have signed out.
+    await clearOfflineUserData()
 
     // Back to the page that sent them here, if it is a safe same-origin path.
     // Read from the location at submit time rather than useSearchParams, which

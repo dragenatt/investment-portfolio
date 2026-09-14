@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { LogOut, Search, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { clearOfflineUserData } from '@/lib/pwa/offline-data'
 import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -31,6 +32,8 @@ export function Header() {
 
   async function handleLogout() {
     await supabase.auth.signOut()
+    // The saved pages and API responses are this user's portfolio.
+    await clearOfflineUserData()
     router.push('/login')
     router.refresh()
   }

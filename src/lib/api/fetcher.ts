@@ -1,8 +1,14 @@
-export const apiFetcher = async (url: string) => {
+import { noteApiResponse } from '@/lib/pwa/offline-data'
+
+export const apiFetcher =async (url: string) => {
   const res = await fetch(url, {
     credentials: 'include',
     headers: { 'Accept': 'application/json' },
   })
+
+  // The service worker marks responses it answered from its saved copy; the
+  // offline banner needs to know before anything on screen uses them.
+  noteApiResponse(url, res.headers)
 
   // If the response was redirected (e.g., middleware sent us to /login),
   // the user's session has expired — throw a clear auth error so SWR
