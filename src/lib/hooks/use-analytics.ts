@@ -1,5 +1,6 @@
 import useSWR from 'swr'
 import { apiFetcher } from '@/lib/api/fetcher'
+import { useJob } from './use-job'
 import type { ScenarioComparison } from '@/lib/services/scenario-comparison'
 
 // --- Returns ---
@@ -139,12 +140,13 @@ export type MonteCarloData = {
   message?: string
 }
 
+// Monte Carlo, factors and optimisation run as background jobs (C1): the hook
+// starts the job and polls it, and the component still gets { data, isLoading }.
 export function useMonteCarlo(pid: string | null, weeks = 52) {
-  return useSWR<MonteCarloData>(
-    pid ? `/api/analytics/${pid}/monte-carlo?weeks=${weeks}` : null,
-    apiFetcher,
-    { refreshInterval: 600_000 }
-  )
+  return useJob<MonteCarloData>('monteCarlo', pid, { weeks }, {
+    refreshInterval: 600_000,
+    fallbackUrl: pid ? `/api/analytics/${pid}/monte-carlo?weeks=${weeks}` : undefined,
+  })
 }
 
 // --- Attribution ---
@@ -306,11 +308,10 @@ export type FactorsData = {
 }
 
 export function useFactors(pid: string | null) {
-  return useSWR<FactorsData>(
-    pid ? `/api/analytics/${pid}/factors` : null,
-    apiFetcher,
-    { refreshInterval: 1_800_000 }
-  )
+  return useJob<FactorsData>('factors', pid, {}, {
+    refreshInterval: 1_800_000,
+    fallbackUrl: pid ? `/api/analytics/${pid}/factors` : undefined,
+  })
 }
 
 // --- Efficient frontier and allocation strategies (P1-31 / P1-32) ---
@@ -362,11 +363,10 @@ export type OptimizationData = {
 }
 
 export function useOptimization(pid: string | null) {
-  return useSWR<OptimizationData>(
-    pid ? `/api/analytics/${pid}/optimization` : null,
-    apiFetcher,
-    { refreshInterval: 1_800_000 }
-  )
+  return useJob<OptimizationData>('optimization', pid, {}, {
+    refreshInterval: 1_800_000,
+    fallbackUrl: pid ? `/api/analytics/${pid}/optimization` : undefined,
+  })
 }
 
 // --- Scenario comparison (E2) ---

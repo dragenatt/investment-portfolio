@@ -20,6 +20,7 @@ import {
 } from '@/lib/services/snapshots'
 import { fetchAndStoreBenchmarks } from '@/lib/services/benchmarks'
 import { apiHandler } from '@/lib/api/handler'
+import { sweepJobs } from '@/lib/jobs/runner'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -63,6 +64,16 @@ async function getHandler(req: Request) {
     // 4. Fetch benchmark prices
     const benchmarksStored = await fetchAndStoreBenchmarks(supabase)
 
+    // 5. Background jobs (C1): fail unfinished jobs nobody has polled for an hour
+    // past their deadline, and delete finished ones older than a week. Its own
+    // try, so a sweep problem never costs the snapshots above.
+    let jobs: { failed: number; deleted: number } | { error: string }
+    try {
+      jobs = await sweepJobs(supabase)
+    } catch (sweepError) {
+      jobs = { error: sweepError instanceof Error ? sweepError.message : 'Unknown error' }
+    }
+
     const duration = Date.now() - startTime
     await finishCronRun(supabase, runId, {
       processed: snapshotResult.processed,
@@ -80,6 +91,7 @@ async function getHandler(req: Request) {
       snapshots: { processed: snapshotResult.processed, errors: snapshotResult.errors },
       leaderboard: 'refreshed',
       benchmarks: { stored: benchmarksStored },
+      jobs,
       duration: `${duration}ms`,
       timestamp: new Date().toISOString(),
     })
