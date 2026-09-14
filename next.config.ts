@@ -15,6 +15,22 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // C6. The CSP itself is per request (it carries a nonce) and is set in
+        // src/proxy.ts; these are the static ones, on every route.
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Belt and braces with CSP frame-ancestors, for browsers that only
+          // know the older header.
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
+          },
+        ],
+      },
+      {
         // The browser checks for a new worker on navigation; a cached copy of
         // the script would delay a fix, or a kill switch, by the cache lifetime.
         source: "/sw.js",

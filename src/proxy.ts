@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
+import { buildContentSecurityPolicy, createNonce } from '@/lib/security/csp'
 
 // In-memory rate limiter for when Upstash is not configured
 const inMemoryStore = new Map<string, { count: number; resetAt: number }>()
@@ -64,10 +65,25 @@ export async function proxy(request: NextRequest) {
         }
       )
     }
+
+    // JSON responses: no document, so no CSP. Security headers for every route
+    // are set in next.config.ts.
+    return updateSession(request)
   }
 
-  // Update session for non-API routes
-  return updateSession(request)
+  // Pages: a fresh nonce and the CSP that names it (C6). The policy goes on the
+  // request, where Next reads the nonce for its own script tags, and on the
+  // response, where the browser enforces it.
+  const nonce = createNonce()
+  const csp = buildContentSecurityPolicy({
+    nonce,
+    isDev: process.env.NODE_ENV === 'development',
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    posthogHost: process.env.NEXT_PUBLIC_POSTHOG_KEY ? process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com' : undefined,
+  })
+  const response = await updateSession(request, { 'x-nonce': nonce, 'Content-Security-Policy': csp })
+  response.headers.set('Content-Security-Policy', csp)
+  return response
 }
 
 export const config = {

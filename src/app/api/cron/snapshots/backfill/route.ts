@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cronRequestAuthorized } from '@/lib/api/cron-auth'
 import { createAdminSupabase, computePortfolioSnapshot } from '@/lib/services/snapshots'
 import { apiHandler } from '@/lib/api/handler'
 
@@ -6,9 +7,8 @@ export const runtime = 'nodejs'
 export const maxDuration = 300
 
 async function postHandler(req: Request) {
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Fails closed: no CRON_SECRET, no access (C6).
+  if (!cronRequestAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -35,6 +35,8 @@ async function patchHandler(req: Request) {
     .select()
     .single()
 
+  // 23505: unique_violation — the username belongs to someone else.
+  if (dbError?.code === '23505') return error('Ese nombre de usuario ya está en uso', 409)
   if (dbError) return error(dbError.message, 500)
   return success(data)
 }

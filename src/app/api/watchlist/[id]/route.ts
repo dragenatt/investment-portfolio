@@ -1,6 +1,8 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { apiHandler } from '@/lib/api/handler'
+import { validate } from '@/lib/api/validate'
+import { RenameWatchlistSchema } from '@/lib/schemas/watchlist-manage'
 
 async function getHandler(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -28,6 +30,10 @@ async function patchHandler(req: Request, { params }: { params: Promise<{ id: st
 
   let body
   try { body = await req.json() } catch { return error('Invalid JSON', 400) }
+  // The body went straight into .update(): any column the table has was
+  // writable through this route (C6). Only the name is.
+  const parsed = await validate(RenameWatchlistSchema, body)
+  if ('error' in parsed) return parsed.error
 
   // Verify ownership
   const { data: watchlist, error: getError } = await supabase
@@ -41,7 +47,7 @@ async function patchHandler(req: Request, { params }: { params: Promise<{ id: st
 
   const { data, error: dbError } = await supabase
     .from('watchlists')
-    .update(body)
+    .update(parsed.data)
     .eq('id', id)
     .select('*, watchlist_items(*)')
     .single()

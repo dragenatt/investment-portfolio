@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { headers } from 'next/headers'
 import { Plus_Jakarta_Sans, JetBrains_Mono, Fraunces } from 'next/font/google'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
@@ -54,6 +55,7 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocaleFromCookies()
+  const nonce = (await headers()).get('x-nonce') ?? undefined
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -68,7 +70,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="apple-mobile-web-app-title" content="InvestTracker" />
       </head>
       <body className={`${plusJakarta.variable} ${fraunces.variable} ${jetbrains.variable} font-sans antialiased`}>
-        <ThemeProvider>
+        <ThemeProvider nonce={nonce}>
           {children}
           <Toaster />
         </ThemeProvider>

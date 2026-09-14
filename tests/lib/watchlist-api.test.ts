@@ -122,7 +122,8 @@ describe('Watchlist API Routes', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toBe('Database connection failed')
+      // The database text stays in the server log, not the response (C6).
+      expect(data.error).not.toContain('Database connection failed')
     })
   })
 

@@ -11,6 +11,7 @@
  */
 
 import { NextResponse } from 'next/server'
+import { cronRequestAuthorized } from '@/lib/api/cron-auth'
 import {
   runNightlySnapshots,
   refreshLeaderboard,
@@ -26,9 +27,8 @@ export const runtime = 'nodejs'
 export const maxDuration = 300
 
 async function getHandler(req: Request) {
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Fails closed: no CRON_SECRET, no access (C6).
+  if (!cronRequestAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

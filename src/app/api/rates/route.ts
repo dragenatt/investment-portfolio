@@ -7,7 +7,15 @@ import { serviceRoleClient } from '@/lib/supabase/admin'
 const FOREX_PAIRS = [
   { pair: 'USDMXN=X', currency: 'MXN' },
   { pair: 'USDEUR=X', currency: 'EUR' },
-]
+] as const
+
+/**
+ * Used only when the provider is down AND no rate was ever stored — a fresh
+ * database with Yahoo unreachable. Leaving the currency out instead would be
+ * worse: convertCurrency returns the amount unconverted when a rate is missing,
+ * which shows pesos as dollars. Approximate USD rates, mid-2026.
+ */
+const LAST_RESORT_RATES: Record<(typeof FOREX_PAIRS)[number]['currency'], number> = { MXN: 17.5, EUR: 0.92 }
 
 async function getHandler() {
   const supabase = await createServerSupabase()
@@ -53,8 +61,24 @@ async function getHandler() {
         expires_at: expiresAt.toISOString(),
       }, { onConflict: 'symbol,exchange' })
     } else {
-      // Fallback to hardcoded
-      rates[currency] = currency === 'MXN' ? 17.5 : 0.92
+      // Yahoo did not answer. The last rate this app observed, however old, is
+      // a real number from a real market; a constant is not. Only with no
+      // observation at all does the documented last resort apply (C6: a silent
+      // hard-coded rate was the audit's integrity finding for this route).
+      const { data: lastSeen } = await supabase
+        .from('current_prices')
+        .select('price, fetched_at')
+        .eq('symbol', pair)
+        .order('fetched_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (lastSeen?.price) {
+        rates[currency] = lastSeen.price
+        console.warn(`[rates] ${pair}: provider unavailable, using last observed rate from ${lastSeen.fetched_at}`)
+      } else {
+        rates[currency] = LAST_RESORT_RATES[currency]
+        console.error(`[rates] ${pair}: no provider and no stored observation, using last-resort constant`)
+      }
     }
   }
 

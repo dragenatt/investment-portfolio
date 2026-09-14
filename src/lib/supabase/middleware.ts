@@ -2,8 +2,20 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { safeNextPath, loginUrlFor } from '@/lib/utils/safe-redirect'
 
-export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+/**
+ * Refreshes the Supabase session and applies the page redirects.
+ *
+ * `extraRequestHeaders` are forwarded to the page render. The proxy uses it for
+ * the CSP nonce (C6): Next reads the nonce from the request's
+ * Content-Security-Policy header and stamps it on its own script tags.
+ */
+export async function updateSession(request: NextRequest, extraRequestHeaders: Record<string, string> = {}) {
+  const next = () => {
+    const headers = new Headers(request.headers)
+    for (const [name, value] of Object.entries(extraRequestHeaders)) headers.set(name, value)
+    return NextResponse.next({ request: { headers } })
+  }
+  let supabaseResponse = next()
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +29,7 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
-          supabaseResponse = NextResponse.next({ request })
+          supabaseResponse = next()
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )

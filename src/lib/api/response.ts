@@ -39,6 +39,22 @@ export function success<T>(data: T, meta?: ApiResponse['meta'], status = 200) {
   return NextResponse.json({ data: payload, error: null, meta } satisfies ApiResponse<T>, { status })
 }
 
+/**
+ * Error response.
+ *
+ * A 500 never carries its message to the client (C6). 47 routes pass a
+ * database error's text straight through — "duplicate key value violates
+ * unique constraint", "Could not find the function public.get_public_portfolios
+ * (filter, limit, ...)" — which tells an attacker table, column and function
+ * names. The detail is logged here; the client gets a generic sentence. 4xx and
+ * 503 messages are written for users and pass through unchanged.
+ */
+export const GENERIC_SERVER_ERROR = 'Error interno del servidor. Intenta de nuevo.'
+
 export function error(message: string, status = 400) {
+  if (status === 500) {
+    console.error(`[api 500] ${message}`)
+    return NextResponse.json({ data: null, error: GENERIC_SERVER_ERROR } satisfies ApiResponse, { status })
+  }
   return NextResponse.json({ data: null, error: message } satisfies ApiResponse, { status })
 }
