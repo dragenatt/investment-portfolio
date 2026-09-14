@@ -7,6 +7,7 @@ import {
   calculateTWR,
   calculateMWR,
   describeReturnDifference,
+  capitalWeightedAgeDays,
 } from '@/lib/services/returns'
 import { getHistory } from '@/lib/services/market'
 import { apiHandler } from '@/lib/api/handler'
@@ -152,6 +153,10 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
           // Why the two differ, in the terms that caused it. Null when one side
           // could not be computed, because there is nothing to compare.
           difference_explanation: describeReturnDifference(twr, mwr),
+          // How long the money has been invested on average, weighted by size.
+          // An annual MWR on capital that is weeks old is an extrapolation, and
+          // this is what lets the explanation say so.
+          capital_age_days: capitalWeightedAgeDays(cashFlows, new Date()),
         },
         calendar,
         periods: [],

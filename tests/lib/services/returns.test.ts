@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { calculateSimpleReturn, calculateTWR, calculateMWR } from '@/lib/services/returns'
+import { capitalWeightedAgeDays } from '@/lib/services/returns'
 
 describe('calculateSimpleReturn', () => {
   it('calculates positive return', () => {
@@ -63,5 +64,36 @@ describe('calculateMWR', () => {
     // Previously 0, which on a dashboard reads as "you made nothing" rather
     // than "there is nothing to measure". Null is the honest answer.
     expect(calculateMWR([], 0, new Date())).toBeNull()
+  })
+})
+
+describe('capitalWeightedAgeDays', () => {
+  it('weights each contribution by its size', () => {
+    // 10,000 invested 300 days ago and 30,000 invested 20 days ago: the money
+    // has been at work for (10k x 300 + 30k x 20) / 40k = 90 days on average,
+    // even though the first deposit is ten months old.
+    const flows = [
+      { date: '2025-11-17', amount: -10000 },
+      { date: '2026-08-24', amount: -30000 },
+    ]
+    expect(capitalWeightedAgeDays(flows, new Date('2026-09-13'))).toBeCloseTo(90, 6)
+  })
+
+  it('ignores withdrawals, which are not capital put to work', () => {
+    const flows = [
+      { date: '2026-06-15', amount: -10000 },
+      { date: '2026-07-15', amount: 4000 },
+    ]
+    expect(capitalWeightedAgeDays(flows, new Date('2026-09-13'))).toBeCloseTo(90, 6)
+  })
+
+  it('returns null with nothing invested', () => {
+    expect(capitalWeightedAgeDays([], new Date('2026-09-13'))).toBeNull()
+    expect(capitalWeightedAgeDays([{ date: '2026-01-01', amount: 500 }], new Date('2026-09-13'))).toBeNull()
+  })
+
+  it('never goes negative for a flow dated after the end', () => {
+    const flows = [{ date: '2026-10-01', amount: -1000 }]
+    expect(capitalWeightedAgeDays(flows, new Date('2026-09-13'))).toBe(0)
   })
 })

@@ -17,6 +17,7 @@ import { RollingRiskChart } from '@/components/analytics/rolling-risk-chart'
 import { FactorExposure } from '@/components/analytics/factor-exposure'
 import { EfficientFrontierChart } from '@/components/analytics/efficient-frontier-chart'
 import { ScenarioComparisonCard } from '@/components/analytics/scenario-comparison'
+import { MetricExplanationsCard } from '@/components/analytics/metric-explanations'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation, useFactors, useOptimization } from '@/lib/hooks/use-analytics'
@@ -75,6 +76,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           <TabsTrigger value="income">Ingresos</TabsTrigger>
           <TabsTrigger value="allocation">Asignacion</TabsTrigger>
           <TabsTrigger value="scenarios">Escenarios</TabsTrigger>
+          <TabsTrigger value="metrics">Metricas explicadas</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -281,6 +283,13 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
         <TabsContent value="scenarios" className="space-y-6 mt-6">
           <ErrorBoundary>
             <ScenarioComparisonCard pid={id} />
+          </ErrorBoundary>
+        </TabsContent>
+
+        {/* Metrics explained (E3) */}
+        <TabsContent value="metrics" className="space-y-6 mt-6">
+          <ErrorBoundary>
+            <MetricExplanationsCard pid={id} />
           </ErrorBoundary>
         </TabsContent>
       </Tabs>

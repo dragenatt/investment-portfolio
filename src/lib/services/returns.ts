@@ -217,3 +217,33 @@ export function describeReturnDifference(
     'through them. This is common and is not evidence the strategy is wrong.'
   )
 }
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+/**
+ * How long the invested money has actually been at work, in days, weighting
+ * each contribution by its size.
+ *
+ * An annual XIRR on capital that has mostly been invested for a few weeks is
+ * that few weeks' return raised to the power of a year. The date of the first
+ * deposit does not say that — ten thousand invested ten months ago and thirty
+ * thousand invested last month average three months, not ten. Withdrawals are
+ * left out: they are capital leaving, not capital put to work.
+ *
+ * Null when nothing was invested.
+ */
+export function capitalWeightedAgeDays(flows: CashFlow[], endDate: Date): number | null {
+  const end = endDate.getTime()
+  let weighted = 0
+  let invested = 0
+  for (const flow of flows) {
+    if (!(flow.amount < 0)) continue
+    const size = -flow.amount
+    const days = Math.max(0, (end - Date.parse(flow.date)) / MS_PER_DAY)
+    weighted += size * days
+    invested += size
+  }
+  if (!(invested > 0)) return null
+  const age = weighted / invested
+  return Number.isFinite(age) ? age : null
+}

@@ -5,9 +5,11 @@ import type { ScenarioComparison } from '@/lib/services/scenario-comparison'
 // --- Returns ---
 export type ReturnsSummary = {
   simple: number
-  twr: number
-  mwr: number
+  twr: number | null
+  mwr: number | null
   period: string
+  /** Size-weighted average age of the invested capital, in days. */
+  capital_age_days?: number | null
 }
 
 export type CalendarYear = {
@@ -64,6 +66,28 @@ export type RiskData = {
     }>
   } | null
   bar_cadence?: { daysPerBar: number; periodsPerYear: number; label: string }
+  risk_free_rate?: { currency: string; annual_pct: number; source: string; as_of: string | null; is_fallback: boolean }
+  tail_risk?: {
+    confidence: number
+    observations: number
+    historicalPct: number | null
+    parametricPct: number | null
+    cornishFisherPct: number | null
+    conditionalPct: number | null
+    skewness: number | null
+    excessKurtosis: number | null
+    interpretation: string
+  } | null
+  benchmark?: {
+    symbol: string
+    name: string
+    currency: string
+    available: boolean
+    active_return_pct: number
+    /** Null when beta, alpha, tracking error and IR could not be measured. */
+    explanations: unknown | null
+  }
+  dataPoints?: number
   rolling_risk: {
     window_bars: number
     window_label: string
