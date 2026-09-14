@@ -36,7 +36,8 @@ const browser = await chromium.launch()
 const results = []
 
 for (const variant of variants) {
-  const context = await browser.newContext({ viewport: variant.viewport, colorScheme: variant.colorScheme, reducedMotion: 'reduce' })
+  // bypassCSP: the app's nonce CSP (C6) would refuse the injected axe script.
+  const context = await browser.newContext({ viewport: variant.viewport, colorScheme: variant.colorScheme, reducedMotion: 'reduce', bypassCSP: true })
   if (variant.theme) await context.addInitScript((theme) => localStorage.setItem('theme', theme), variant.theme)
   for (const route of routes) {
     const page = await context.newPage()
