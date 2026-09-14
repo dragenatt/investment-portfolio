@@ -114,3 +114,21 @@ export function allocateMoney(total: number, weights: number[]): number[] {
 
   return parts.map((cents) => fromCents(sign * cents))
 }
+
+/**
+ * Money, with its symbol.
+ *
+ * The first version dropped the currency style, so prose read "termina en
+ * 1,879,771" while the card beside it said "$17,189" — inconsistent, and
+ * genuinely ambiguous sitting next to percentages in the same sentence.
+ *
+ * Matches the advisor page's own formatter rather than taking a currency
+ * argument: that page already formats every figure in MXN, and two different
+ * currencies on one screen would be worse than a fixed one.
+ */
+export const formatoMoneda = (value: number) =>
+  new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    maximumFractionDigits: 0,
+  }).format(roundMoney(value))

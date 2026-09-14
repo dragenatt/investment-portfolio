@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Briefcase, TrendingUp, Eye, Lightbulb, Bell, Compass, GitCompareArrows, Settings, X } from 'lucide-react'
+import { LayoutDashboard, Briefcase, TrendingUp, Eye, Lightbulb, Bell, Compass, GitCompareArrows, FlaskConical, Settings, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect, useCallback } from 'react'
 import { useTranslation } from '@/lib/i18n'
@@ -25,6 +25,7 @@ function getToolItems(t: Dictionary): NavItem[] {
     { href: '/alerts', icon: Bell, label: t.nav.alerts, shortcut: 'L' },
     { href: '/discover', icon: Compass, label: 'Descubrir', shortcut: 'X' },
     { href: '/compare', icon: GitCompareArrows, label: 'Comparar', shortcut: 'C' },
+    { href: '/lab', icon: FlaskConical, label: 'Laboratorio', shortcut: 'B' },
   ]
 }
 
