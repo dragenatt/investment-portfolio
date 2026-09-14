@@ -22,6 +22,12 @@ import {
   subtractMoney,
   toCents,
 } from '@/lib/utils/money'
+import {
+  addQuantity,
+  subtractQuantity,
+  multiplyQuantity,
+  isDustRemainder,
+} from '@/lib/utils/quantity'
 import { calculateXIRR, calculateSimpleReturn, type CashFlow } from './returns'
 
 export type RawTransaction = {
@@ -118,7 +124,7 @@ export function deriveTradeHistory(
         const spent = toCents(qty * price + fees)
         costCents += spent
         investedCents += spent
-        quantity += qty
+        quantity = addQuantity(quantity, qty)
         feeCents += toCents(fees)
         // A purchase is money leaving the investor's pocket.
         cashFlows.push({ date, amount: -roundMoney(qty * price + fees) })
@@ -141,12 +147,17 @@ export function deriveTradeHistory(
 
         // The cost released is the share of the remaining basis being sold.
         const costPerShareCents = quantity > 0 ? costCents / quantity : 0
-        const releasedCents = Math.round(costPerShareCents * sellable)
+        const remaining = Math.max(0, subtractQuantity(quantity, sellable))
+        // Same rule as recalculatePosition: a remainder worth under half a cent
+        // at this sale's price closes the position. Its (sub-cent) cost is
+        // released with this sale, so the basis leaves nothing behind.
+        const closesAsDust = isDustRemainder(remaining, price)
+        const releasedCents = closesAsDust ? costCents : Math.round(costPerShareCents * sellable)
         const proceedsCentsThisSale = toCents(sellable * price - fees)
         const pnlCents = proceedsCentsThisSale - releasedCents
 
         costCents = Math.max(0, costCents - releasedCents)
-        quantity = Math.max(0, quantity - sellable)
+        quantity = closesAsDust ? 0 : remaining
         realizedCents += pnlCents
         proceedsCents += proceedsCentsThisSale
         feeCents += toCents(fees)
@@ -179,7 +190,7 @@ export function deriveTradeHistory(
         // total invested does not change, only how many shares it is spread
         // across, so costCents is deliberately untouched.
         const ratio = qty
-        if (ratio > 0) quantity *= ratio
+        if (ratio > 0) quantity = multiplyQuantity(quantity, ratio)
         else warnings.push(`The split on ${date} has a ratio of ${ratio}, which is not usable.`)
         break
       }

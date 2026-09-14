@@ -152,6 +152,8 @@ async function postHandler(req: Request) {
       .select('type, quantity, price, fees')
       .eq('position_id', position.id)
       .order('executed_at', { ascending: true })
+      // Ties on executed_at (the modal records a date, not a time) replay in entry order.
+      .order('created_at', { ascending: true })
 
     if (allTxns) {
       const recalc = recalculatePosition(

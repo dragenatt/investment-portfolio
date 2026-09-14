@@ -145,3 +145,64 @@ describe('recalculatePosition — money precision (P0-3)', () => {
     expect(recalculatePosition(txns).avg_cost).toBe(0.1)
   })
 })
+
+describe('recalculatePosition — quantities and dust', () => {
+  const buy = (quantity: number, price: number) => ({ type: 'buy' as const, quantity, price, fees: 0 })
+  const sell = (quantity: number, price: number) => ({ type: 'sell' as const, quantity, price, fees: 0 })
+
+  it('closes the real RBLX position that was sold down to 0.000003 shares', () => {
+    // The trade modal stores six decimals, the positions table shows four:
+    // the user sold the 78.8022 they could see and 0.000003 stayed behind,
+    // worth $0.0001, counted as a holding by every analytic.
+    const result = recalculatePosition([
+      buy(39.401103, 38.07),
+      buy(39.4011, 38.63),
+      sell(75.8022, 38.63),
+      sell(3, 38.63),
+    ])
+    expect(result.quantity).toBe(0)
+    expect(result.avg_cost).toBe(0)
+  })
+
+  it('leaves exactly zero after selling everything', () => {
+    const result = recalculatePosition([buy(0.1, 100), buy(0.2, 100), sell(0.3, 100)])
+    expect(result.quantity).toBe(0)
+  })
+
+  it('keeps partial sells exact to the decimal', () => {
+    const result = recalculatePosition([buy(10.123456, 50), sell(3.1, 55), sell(2.02, 60)])
+    expect(result.quantity).toBe(5.003456)
+  })
+
+  it('keeps a small remainder that is still worth something', () => {
+    // 0.00004 BTC at $90,000 is $3.60 — not dust.
+    const result = recalculatePosition([buy(1, 90_000), sell(0.99996, 90_000)])
+    expect(result.quantity).toBe(0.00004)
+    expect(result.avg_cost).toBeGreaterThan(0)
+  })
+
+  it('judges dust at the price of the sale that left it', () => {
+    // 0.001 shares left: dust at $1, real money at $1,000.
+    expect(recalculatePosition([buy(1, 1), sell(0.999, 1)]).quantity).toBe(0)
+    expect(recalculatePosition([buy(1, 1000), sell(0.999, 1000)]).quantity).toBe(0.001)
+  })
+
+  it('does not erase a deliberately tiny purchase', () => {
+    // Dust is what a sale leaves behind, not what someone chose to buy.
+    expect(recalculatePosition([buy(0.00001, 38)]).quantity).toBe(0.00001)
+  })
+
+  it('does not let an oversold replay carry a negative quantity into later buys', () => {
+    // Buy 5, sell 10 (possible after editing an earlier buy down), buy 10.
+    // The old replay went to -5 and the final buy landed at 5.
+    const result = recalculatePosition([buy(5, 100), sell(10, 100), buy(10, 120)])
+    expect(result.quantity).toBe(10)
+    expect(result.avg_cost).toBe(120)
+  })
+
+  it('rounds the result of a split', () => {
+    const result = recalculatePosition([buy(3, 90), { type: 'split' as const, quantity: 1 / 3, price: 0, fees: 0 }])
+    expect(result.quantity).toBe(1)
+    expect(result.avg_cost).toBe(270)
+  })
+})

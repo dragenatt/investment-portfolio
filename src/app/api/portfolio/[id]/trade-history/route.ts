@@ -31,6 +31,8 @@ export const GET = apiHandler(async (_req: Request, ctx: { params: Promise<{ id:
     .select('position_id, type, quantity, price, fees, currency, executed_at')
     .in('position_id', positions.map((p) => p.id))
     .order('executed_at', { ascending: true })
+    // Ties on executed_at (the modal records a date, not a time) replay in entry order.
+    .order('created_at', { ascending: true })
 
   const priceMap: Record<string, number> = {}
   try {

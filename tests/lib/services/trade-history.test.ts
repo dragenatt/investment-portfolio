@@ -238,3 +238,36 @@ describe('deriveTradeHistory — robustness', () => {
     expect(deriveTradeHistory(txs, 130, opts)).toEqual(deriveTradeHistory(txs, 130, opts))
   })
 })
+
+describe('deriveTradeHistory — quantities and dust', () => {
+  it('closes the real RBLX position instead of leaving 0.000003 shares open', () => {
+    const result = deriveTradeHistory(
+      [
+        tx('buy', 39.401103, 38.07, '2026-08-18T18:00:00Z'),
+        tx('buy', 39.4011, 38.63, '2026-08-21T18:00:00Z'),
+        tx('sell', 75.8022, 38.63, '2026-08-21T18:00:00Z'),
+        tx('sell', 3, 38.63, '2026-08-21T18:00:00Z'),
+      ],
+      45.5,
+    )!
+    expect(result.quantity).toBe(0)
+    expect(result.costBasis).toBe(0)
+    expect(result.unrealizedPnl).toBe(0)
+  })
+
+  it('agrees with recalculatePosition on the quantity left', () => {
+    const result = deriveTradeHistory(
+      [tx('buy', 10.123456, 50, '2025-01-01'), tx('sell', 3.1, 55, '2025-02-01'), tx('sell', 2.02, 60, '2025-03-01')],
+      60,
+    )!
+    expect(result.quantity).toBe(5.003456)
+  })
+
+  it('releases the cost of the dust into the sale that closed it, so no cent goes missing', () => {
+    const result = deriveTradeHistory([tx('buy', 1, 1, '2025-01-01'), tx('sell', 0.999, 1, '2025-02-01')], 1)!
+    expect(result.quantity).toBe(0)
+    expect(result.costBasis).toBe(0)
+    // Paid $1.00, got $0.999 back -> -$0.00 (rounded), and nothing left on paper.
+    expect(result.realizedPnl + result.unrealizedPnl).toBeCloseTo(-0.001, 2)
+  })
+})
