@@ -1,5 +1,6 @@
 import useSWR from 'swr'
 import { apiFetcher } from '@/lib/api/fetcher'
+import type { ScenarioComparison } from '@/lib/services/scenario-comparison'
 
 // --- Returns ---
 export type ReturnsSummary = {
@@ -341,5 +342,30 @@ export function useOptimization(pid: string | null) {
     pid ? `/api/analytics/${pid}/optimization` : null,
     apiFetcher,
     { refreshInterval: 1_800_000 }
+  )
+}
+
+// --- Scenario comparison (E2) ---
+
+export type { ScenarioComparison, ScenarioMetrics, ScenarioExplanation } from '@/lib/services/scenario-comparison'
+
+export type ScenarioComparisonData = {
+  message?: string | null
+  symbols?: string[]
+  observations?: number
+  from_date?: string
+  to_date?: string
+  risk_free_rate?: { currency: string; annual_pct: number; source: string; as_of: string | null; is_fallback: boolean }
+  available?: Array<{ id: string; name: string; rationale: string }>
+  request?: { horizon_years: number; include: string[]; errors: string[] }
+  comparison?: ScenarioComparison | null
+}
+
+export function useScenarioComparison(pid: string | null, query: string) {
+  return useSWR<ScenarioComparisonData>(
+    pid ? `/api/analytics/${pid}/scenarios?${query}` : null,
+    apiFetcher,
+    // Keep the table on screen while a new selection loads.
+    { keepPreviousData: true, revalidateOnFocus: false }
   )
 }

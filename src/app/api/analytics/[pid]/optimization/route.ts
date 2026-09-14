@@ -3,7 +3,7 @@ import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { apiHandler } from '@/lib/api/handler'
 import { fetchAdjustedPriceHistory } from '@/lib/services/price-history'
-import { calculateDailyReturns } from '@/lib/services/analytics'
+import { alignCommonHistory } from '@/lib/services/common-history'
 import { calculateCovarianceMatrix } from '@/lib/services/covariance'
 import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
 import {
@@ -56,62 +56,24 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         .eq('portfolio_id', pid)
         .gt('quantity', 0)
 
-      // One holding has no allocation problem to solve.
-      if (!positions || positions.length < 2) {
-        return { message: 'Se necesitan al menos dos posiciones para comparar asignaciones.' }
-      }
+      const symbols = (positions ?? []).map((p) => p.symbol)
+      const { rows: history } =
+        symbols.length >= 2
+          ? await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
+          : { rows: [] }
 
-      const symbols = positions.map((p) => p.symbol)
-      const { rows: history } = await fetchAdjustedPriceHistory(supabase, symbols, {
-        limit: undefined,
+      // Only holdings with a real price series, and only dates every one of
+      // them has — see common-history.ts, shared with the scenario comparison.
+      const aligned = alignCommonHistory(positions ?? [], history, {
+        minObservations: MIN_OBSERVATIONS,
       })
+      if ('message' in aligned) return { message: aligned.message }
 
-      const bySymbol = new Map<string, Map<string, number>>()
-      for (const row of history) {
-        let closes = bySymbol.get(row.symbol)
-        if (!closes) {
-          closes = new Map<string, number>()
-          bySymbol.set(row.symbol, closes)
-        }
-        closes.set(row.date, row.close)
-      }
-
-      // Only holdings with a real price series, and only dates every one of them
-      // has. Optimising across assets with different histories would compare
-      // their behaviour on days some of them were not being observed.
-      const priced = positions.filter((p) => (bySymbol.get(p.symbol)?.size ?? 0) > 0)
-      if (priced.length < 2) {
-        return { message: 'No hay suficiente historial de precios para estas posiciones.' }
-      }
-
-      const allDates = [...new Set(history.map((h) => h.date))].sort()
-      const commonDates = allDates.filter((d) =>
-        priced.every((p) => bySymbol.get(p.symbol)!.has(d)),
-      )
-
-      if (commonDates.length < MIN_OBSERVATIONS + 1) {
-        return {
-          message: `Se necesitan al menos ${MIN_OBSERVATIONS} dias de historial comun; hay ${Math.max(0, commonDates.length - 1)}.`,
-        }
-      }
-
-      const activeSymbols = priced.map((p) => p.symbol)
-      const returnsMatrix = priced.map((p) =>
-        calculateDailyReturns(commonDates.map((d) => bySymbol.get(p.symbol)!.get(d)!)),
-      )
+      const { symbols: activeSymbols, commonDates, returnsMatrix, currentWeights, lastDate } = aligned
 
       const dailyCov = calculateCovarianceMatrix(returnsMatrix)
       const cov = dailyCov.map((row) => row.map((v) => v * TRADING_DAYS))
       const expected = historicalExpectedReturns(returnsMatrix)
-
-      // The book as it actually stands, valued at the last common date.
-      const lastDate = commonDates[commonDates.length - 1]
-      const marketValues = priced.map(
-        (p) => p.quantity * (bySymbol.get(p.symbol)!.get(lastDate) ?? 0),
-      )
-      const bookValue = marketValues.reduce((a, b) => a + b, 0)
-      const currentWeights =
-        bookValue > 0 ? marketValues.map((v) => v / bookValue) : undefined
 
       const riskFree = await getRiskFreeRate(portfolio?.currency ?? 'USD')
 

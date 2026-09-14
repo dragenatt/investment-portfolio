@@ -82,6 +82,121 @@ function correlationFromCovariance(cov: number[][]): number[][] {
   )
 }
 
+/** Drift and volatility per asset, and the Cholesky factor of their correlation. */
+export type GbmInputs = {
+  /** Annualised arithmetic mean return per asset. */
+  mu: number[]
+  /** Annualised volatility per asset. */
+  sigma: number[]
+  /** Lower-triangular factor of the correlation matrix (not the covariance). */
+  cholesky: number[][]
+}
+
+/**
+ * GBM parameters from daily return histories, one row per asset.
+ *
+ * μ = mean·252 and σ = calculateVolatility (which already applies √252), the
+ * same way the rest of the analytics layer annualises.
+ */
+export function gbmInputsFromHistory(returnsMatrix: number[][]): GbmInputs {
+  const mu = returnsMatrix.map((returns) =>
+    returns.length > 0
+      ? (returns.reduce((x, y) => x + y, 0) / returns.length) * TRADING_DAYS
+      : 0
+  )
+  const sigma = returnsMatrix.map((returns) => calculateVolatility(returns))
+  const covariance = calculateCovarianceMatrix(returnsMatrix)
+  const cholesky = choleskyDecomposition(correlationFromCovariance(covariance))
+  return { mu, sigma, cholesky }
+}
+
+export type WeightingSimulation = {
+  /** The weights actually used, normalised to sum to 1. */
+  weights: number[]
+  /** valuesByWeek[w][sim] — book value at week w+1 on path `sim`, starting from 1.0. */
+  valuesByWeek: number[][]
+}
+
+function normaliseWeights(weights: number[]): number[] {
+  const sum = weights.reduce((total, w) => total + w, 0)
+  return sum > 0 ? weights.map((w) => w / sum) : weights.map(() => 1 / weights.length)
+}
+
+/**
+ * Several books priced on ONE set of simulated asset paths.
+ *
+ * The shocks are drawn per asset, per week, per path — never per weighting — so
+ * every book in `weightings` lives through exactly the same futures. That is
+ * what makes a comparison between them a comparison of the books and not of
+ * their luck: if one allocation came out ahead on its own draw of the dice, the
+ * difference would be half allocation and half noise, with no way to tell
+ * which half.
+ *
+ * Books are buy-and-hold from week 0: each asset's value drifts with its own
+ * price, the same assumption simulatePortfolioGBM has always made.
+ */
+export function simulateWeightings(params: {
+  inputs: GbmInputs
+  weightings: number[][]
+  weeks: number
+  numSimulations: number
+  seed: number
+}): WeightingSimulation[] {
+  const { inputs, weightings, seed } = params
+  const assetCount = inputs.mu.length
+  const totalWeeks = Math.floor(params.weeks)
+  const paths = Math.floor(params.numSimulations)
+
+  for (const weights of weightings) {
+    if (weights.length !== assetCount) {
+      throw new RangeError(`weighting has ${weights.length} weights for ${assetCount} assets`)
+    }
+  }
+
+  const normalised = weightings.map(normaliseWeights)
+  const results: WeightingSimulation[] = normalised.map((weights) => ({
+    weights,
+    valuesByWeek: Array.from({ length: Math.max(0, totalWeeks) }, () =>
+      new Array<number>(Math.max(0, paths)).fill(0)
+    ),
+  }))
+  if (assetCount === 0 || totalWeeks < 1 || paths < 1) return results
+
+  const dt = 1 / WEEKS_PER_YEAR
+  const sqrtDt = Math.sqrt(dt)
+  const drift = inputs.mu.map((m, i) => (m - (inputs.sigma[i] * inputs.sigma[i]) / 2) * dt)
+  const diffusion = inputs.sigma.map((s) => s * sqrtDt)
+  const cholesky = inputs.cholesky
+
+  const nextNormal = createNormalSampler(seed)
+  const prices = new Array<number>(assetCount).fill(1)
+  const shocks = new Array<number>(assetCount).fill(0)
+
+  for (let sim = 0; sim < paths; sim++) {
+    for (let i = 0; i < assetCount; i++) prices[i] = 1
+
+    for (let week = 0; week < totalWeeks; week++) {
+      for (let i = 0; i < assetCount; i++) shocks[i] = nextNormal()
+
+      for (let i = 0; i < assetCount; i++) {
+        // z = (L·ε)_i — L is lower triangular, so only k ≤ i contribute.
+        let z = 0
+        for (let k = 0; k <= i; k++) z += cholesky[i][k] * shocks[k]
+        prices[i] *= Math.exp(drift[i] + diffusion[i] * z)
+      }
+
+      for (let s = 0; s < normalised.length; s++) {
+        const weights = normalised[s]
+        let value = 0
+        for (let i = 0; i < assetCount; i++) value += weights[i] * prices[i]
+        results[s].valuesByWeek[week][sim] = value
+      }
+    }
+  }
+
+  return results
+}
+
 /**
  * Simulate a portfolio forward with correlated GBM paths.
  *
@@ -105,63 +220,20 @@ export function simulatePortfolioGBM(params: {
     seed = DEFAULT_SEED,
   } = params
 
-  const assetCount = assets.length
   const totalWeeks = Math.floor(weeks)
   const paths = Math.floor(numSimulations)
 
-  if (assetCount === 0 || totalWeeks < 1 || paths < 1) {
+  if (assets.length === 0 || totalWeeks < 1 || paths < 1) {
     return { weeklyBands: [], finalValueDistribution: [], var95: 0 }
   }
 
-  // Normalised so the portfolio is worth exactly 1.0 at week 0.
-  const weightSum = assets.reduce((sum, a) => sum + a.weight, 0)
-  const weights =
-    weightSum > 0
-      ? assets.map((a) => a.weight / weightSum)
-      : assets.map(() => 1 / assetCount)
-
-  const mu = assets.map((a) =>
-    a.historicalReturns.length > 0
-      ? (a.historicalReturns.reduce((x, y) => x + y, 0) / a.historicalReturns.length) * TRADING_DAYS
-      : 0
-  )
-  const sigma = assets.map((a) => calculateVolatility(a.historicalReturns))
-
-  const covariance = calculateCovarianceMatrix(assets.map((a) => a.historicalReturns))
-  const cholesky = choleskyDecomposition(correlationFromCovariance(covariance))
-
-  const dt = 1 / WEEKS_PER_YEAR
-  const sqrtDt = Math.sqrt(dt)
-  const drift = mu.map((m, i) => (m - (sigma[i] * sigma[i]) / 2) * dt)
-  const diffusion = sigma.map((s) => s * sqrtDt)
-
-  const nextNormal = createNormalSampler(seed)
-
-  // valuesByWeek[w][sim] — portfolio value at week w+1 on path `sim`.
-  const valuesByWeek: number[][] = Array.from({ length: totalWeeks }, () =>
-    new Array<number>(paths).fill(0)
-  )
-  const prices = new Array<number>(assetCount).fill(1)
-  const shocks = new Array<number>(assetCount).fill(0)
-
-  for (let sim = 0; sim < paths; sim++) {
-    for (let i = 0; i < assetCount; i++) prices[i] = 1
-
-    for (let week = 0; week < totalWeeks; week++) {
-      for (let i = 0; i < assetCount; i++) shocks[i] = nextNormal()
-
-      let portfolioValue = 0
-      for (let i = 0; i < assetCount; i++) {
-        // z = (L·ε)_i — L is lower triangular, so only k ≤ i contribute.
-        let z = 0
-        for (let k = 0; k <= i; k++) z += cholesky[i][k] * shocks[k]
-
-        prices[i] *= Math.exp(drift[i] + diffusion[i] * z)
-        portfolioValue += weights[i] * prices[i]
-      }
-      valuesByWeek[week][sim] = portfolioValue
-    }
-  }
+  const [{ valuesByWeek }] = simulateWeightings({
+    inputs: gbmInputsFromHistory(assets.map((a) => a.historicalReturns)),
+    weightings: [assets.map((a) => a.weight)],
+    weeks: totalWeeks,
+    numSimulations: paths,
+    seed,
+  })
 
   const weeklyBands: WeeklyBand[] = [{ week: 0, p10: 1, p50: 1, p90: 1 }]
   for (let week = 0; week < totalWeeks; week++) {

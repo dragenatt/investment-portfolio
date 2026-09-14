@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { simulatePortfolioGBM, percentile } from '@/lib/services/monte-carlo'
+import {
+  simulatePortfolioGBM,
+  percentile,
+  simulateWeightings,
+  gbmInputsFromHistory,
+} from '@/lib/services/monte-carlo'
 import { calculateVolatility } from '@/lib/services/analytics'
 
 const TRADING_DAYS = 252
@@ -217,5 +222,75 @@ describe('percentile', () => {
   it('handles degenerate inputs', () => {
     expect(percentile([], 0.5)).toBe(0)
     expect(percentile([7], 0.9)).toBe(7)
+  })
+})
+
+// ─── Shared shocks across weightings (E2) ───────────────────────────────────
+
+describe('simulateWeightings', () => {
+  const pattern = standardizedPattern(200)
+  const history = [
+    seriesWith(0.1, 0.2, pattern),
+    seriesWith(0.05, 0.1, pattern.map((v, i) => (i % 3 === 0 ? -v : v))),
+    seriesWith(0.08, 0.3, pattern.map((v, i) => pattern[(i * 7) % pattern.length] * 0.5 + v * 0.5)),
+  ]
+  const inputs = gbmInputsFromHistory(history)
+  const run = (weightings: number[][], seed = 11) =>
+    simulateWeightings({ inputs, weightings, weeks: 26, numSimulations: 120, seed })
+
+  it('prices every weighting on the very same shocks', () => {
+    // Buy-and-hold is linear in the weights, so on shared paths a 50/50 book is
+    // exactly the average of the two single-asset books at every week and path.
+    // With independent draws per weighting this would fail on the first cell.
+    const [onlyA, onlyB, half] = run([[1, 0, 0], [0, 1, 0], [0.5, 0.5, 0]])
+    for (let week = 0; week < 26; week++) {
+      for (let sim = 0; sim < 120; sim++) {
+        const expected = 0.5 * onlyA.valuesByWeek[week][sim] + 0.5 * onlyB.valuesByWeek[week][sim]
+        expect(half.valuesByWeek[week][sim]).toBeCloseTo(expected, 12)
+      }
+    }
+  })
+
+  it('gives identical weightings identical paths', () => {
+    const [a, b] = run([[0.2, 0.3, 0.5], [0.2, 0.3, 0.5]])
+    expect(a.valuesByWeek).toEqual(b.valuesByWeek)
+  })
+
+  it('normalises weights so every book starts at 1.0', () => {
+    const [scaled, unit] = run([[2, 2, 0], [0.5, 0.5, 0]])
+    expect(scaled.weights).toEqual([0.5, 0.5, 0])
+    expect(scaled.valuesByWeek).toEqual(unit.valuesByWeek)
+  })
+
+  it('falls back to equal weights when the weights sum to nothing', () => {
+    const [zero] = run([[0, 0, 0]])
+    expect(zero.weights).toEqual([1 / 3, 1 / 3, 1 / 3])
+  })
+
+  it('is deterministic for a seed and different for another', () => {
+    expect(run([[1, 0, 0]], 5)[0].valuesByWeek).toEqual(run([[1, 0, 0]], 5)[0].valuesByWeek)
+    expect(run([[1, 0, 0]], 5)[0].valuesByWeek).not.toEqual(run([[1, 0, 0]], 6)[0].valuesByWeek)
+  })
+
+  it('returns one path per simulation for every week', () => {
+    const [result] = run([[0.3, 0.3, 0.4]])
+    expect(result.valuesByWeek).toHaveLength(26)
+    for (const week of result.valuesByWeek) expect(week).toHaveLength(120)
+  })
+
+  it('refuses a weighting whose length does not match the assets', () => {
+    expect(() => run([[1, 0]])).toThrow()
+  })
+
+  it('is what simulatePortfolioGBM runs underneath', () => {
+    const assets = history.map((historicalReturns, i) => ({
+      symbol: `S${i}`,
+      weight: [0.5, 0.3, 0.2][i],
+      historicalReturns,
+    }))
+    const single = simulatePortfolioGBM({ assets, weeks: 26, numSimulations: 120, seed: 11 })
+    const [shared] = run([[0.5, 0.3, 0.2]])
+    const finals = shared.valuesByWeek[25].slice().sort((a, b) => a - b)
+    expect(single.finalValueDistribution).toEqual(finals)
   })
 })
