@@ -37,19 +37,19 @@ describe('PercentageChange', () => {
   it('applies green color class for positive values', () => {
     render(<PercentageChange value={10} />)
     const span = screen.getByText(/\+10.00%/)
-    expect(span).toHaveClass('text-emerald-500')
+    expect(span).toHaveClass('text-gain')
   })
 
   it('applies green color class for zero', () => {
     render(<PercentageChange value={0} />)
     const span = screen.getByText(/\+0.00%/)
-    expect(span).toHaveClass('text-emerald-500')
+    expect(span).toHaveClass('text-gain')
   })
 
   it('applies red color class for negative values', () => {
     render(<PercentageChange value={-5} />)
     const span = screen.getByText(/-5.00%/)
-    expect(span).toHaveClass('text-red-500')
+    expect(span).toHaveClass('text-loss')
   })
 
   it('formats decimal places to exactly 2', () => {
@@ -87,12 +87,12 @@ describe('PercentageChange', () => {
   it('handles large percentage changes', () => {
     render(<PercentageChange value={150.99} />)
     const span = screen.getByText(/\+150.99%/)
-    expect(span).toHaveClass('text-emerald-500')
+    expect(span).toHaveClass('text-gain')
   })
 
   it('handles large negative percentage changes', () => {
     render(<PercentageChange value={-99.99} />)
     const span = screen.getByText(/-99.99%/)
-    expect(span).toHaveClass('text-red-500')
+    expect(span).toHaveClass('text-loss')
   })
 })

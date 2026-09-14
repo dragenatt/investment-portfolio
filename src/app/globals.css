@@ -70,7 +70,10 @@
   --card-foreground: #0F1419;
   --popover: #FFFFFF;
   --popover-foreground: #0F1419;
-  --primary: #6366F1;
+  /* #6366F1 measured 4.47:1 against white text and 4.23:1 on #F7F9FA, under
+     the 4.5:1 WCAG AA needs for body text (C5). #585CEE is the nearest indigo
+     that clears both (5.02 and 4.76). Charts keep #6366F1: graphics need 3:1. */
+  --primary: #585CEE;
   --primary-foreground: #FFFFFF;
   --secondary: #F7F9FA;
   --secondary-foreground: #0F1419;
@@ -78,7 +81,7 @@
   --muted-foreground: #536471;
   --accent: #F7F9FA;
   --accent-foreground: #0F1419;
-  --destructive: #EF4444;
+  --destructive: #DC2626;
   --border: #F0F0F0;
   --input: #F0F0F0;
   --ring: #6366F1;
@@ -115,18 +118,21 @@
   --radius: 0.75rem;
   --sidebar: #FFFFFF;
   --sidebar-foreground: #0F1419;
-  --sidebar-primary: #6366F1;
+  --sidebar-primary: #585CEE;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #F7F9FA;
   --sidebar-accent-foreground: #0F1419;
   --sidebar-border: #F0F0F0;
   --sidebar-ring: #6366F1;
-  --gain: #22C55E;
-  --loss: #EF4444;
-  --good: #22C55E;
-  --good-soft: rgba(34,197,94,0.1);
-  --bad: #EF4444;
-  --bad-soft: rgba(239,68,68,0.1);
+  /* Gain and loss are text as often as they are colour: #22C55E measured 2.28:1
+     on white and #EF4444 3.76:1 (C5). #15803D is 5.02:1 and #DC2626 4.83:1, and
+     both stay above 4.5:1 on the #F7F9FA surfaces. Dark mode already passed. */
+  --gain: #15803D;
+  --loss: #DC2626;
+  --good: #15803D;
+  --good-soft: rgba(21,128,61,0.1);
+  --bad: #DC2626;
+  --bad-soft: rgba(220,38,38,0.08);
   --warn: #B45309;
   --warn-soft: rgba(180,83,9,0.12);
   --bg-secondary: #F7F9FA;
@@ -152,7 +158,9 @@
   --secondary: #0A0A0A;
   --secondary-foreground: #E7E9EA;
   --muted: #0A0A0A;
-  --muted-foreground: #71767B;
+  /* #71767B measured 3.87:1 on the #16181C cards (C5); #8B9096 is 5.52:1 there
+     and 6.5:1 on the black page. */
+  --muted-foreground: #8B9096;
   --accent: #16181C;
   --accent-foreground: #E7E9EA;
   --destructive: #F87171;
@@ -198,6 +206,14 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  /* C5 — focus stays visible on everything. Components that draw their own
+     ring (outline-none + focus-visible:ring) override this; anything else — a
+     plain <button>, a link, a table header — gets a solid 2px outline in the
+     ring colour, at least 3:1 against the page in both themes. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   body {
     @apply bg-background text-foreground;
@@ -326,4 +342,36 @@
 @keyframes flash-red {
   0% { background-color: rgba(239, 68, 68, 0.2); }
   100% { background-color: transparent; }
+}
+
+/* ─── Reduced motion (C5) ───
+   People who ask their system for less motion get none of the decorative kind:
+   entrance fades, staggered cards, the hover lift, the scrolling ticker and the
+   price flash. Elements end in their final state. Spinners keep turning: they
+   are the only sign that something is still loading. Recharts reads the same
+   preference itself (isAnimationActive defaults to 'auto'). */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-ticker-scroll {
+    animation: none !important;
+  }
+  .stagger-enter > *,
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .card-hover:hover,
+  .premium-card:hover {
+    transform: none;
+  }
 }

@@ -246,7 +246,7 @@ export function RiskDashboard({
 
         {/* VaR Highlight */}
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-          <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+          <AlertTriangle className="h-4 w-4 text-warn mt-0.5 shrink-0" aria-hidden="true" />
           <div>
             <p className="text-xs font-medium">VaR 95%</p>
             <p className="text-sm font-mono font-semibold">

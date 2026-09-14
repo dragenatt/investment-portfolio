@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table'
 import { Upload, FileText, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
 import { useTranslation } from '@/lib/i18n'
 
 type ImportState = 'upload' | 'preview' | 'importing' | 'done'
@@ -113,10 +114,8 @@ export default function ImportCSVPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/portfolio">
-          <Button variant="ghost" size="icon-sm">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+        <Link href="/portfolio" className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })} aria-label="Volver a portafolios">
+          <ArrowLeft className="h-4 w-4" />
         </Link>
         <h1 className="text-3xl font-bold">{t.portfolio.import_csv_title}</h1>
       </div>
@@ -146,7 +145,7 @@ export default function ImportCSVPage() {
               </p>
             ) : (
               <Select value={portfolioId} onValueChange={(v) => v && setPortfolioId(v)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full" aria-label={t.portfolio.select_portfolio}>
                   <SelectValue placeholder={t.portfolio.select_portfolio} />
                 </SelectTrigger>
                 <SelectContent>
@@ -260,10 +259,10 @@ export default function ImportCSVPage() {
                           <span
                             className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${
                               row.type === 'buy'
-                                ? 'bg-green-500/10 text-green-600'
+                                ? 'bg-green-500/10 text-gain'
                                 : row.type === 'sell'
-                                  ? 'bg-red-500/10 text-red-600'
-                                  : 'bg-blue-500/10 text-blue-600'
+                                  ? 'bg-red-500/10 text-loss'
+                                  : 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
                             }`}
                           >
                             {row.type === 'buy'
@@ -320,7 +319,7 @@ export default function ImportCSVPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {importResult.imported > 0 ? (
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <CheckCircle2 className="h-5 w-5 text-gain" aria-hidden="true" />
               ) : (
                 <AlertCircle className="h-5 w-5 text-destructive" />
               )}
@@ -329,7 +328,7 @@ export default function ImportCSVPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {importResult.imported > 0 && (
-              <p className="text-sm text-green-600">
+              <p className="text-sm text-gain">
                 {importResult.imported} {t.portfolio.transactions_imported}
               </p>
             )}
@@ -346,9 +345,7 @@ export default function ImportCSVPage() {
               </div>
             )}
             <div className="flex items-center gap-3 pt-2">
-              <Link href="/portfolio">
-                <Button>{t.portfolio.back_to_portfolios}</Button>
-              </Link>
+              <Link href="/portfolio" className={buttonVariants()} aria-label="Volver a portafolios">{t.portfolio.back_to_portfolios}</Link>
               <Button variant="outline" onClick={reset}>
                 {t.portfolio.import_another}
               </Button>

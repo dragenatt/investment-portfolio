@@ -16,6 +16,7 @@ import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { getChartTheme, SERIES_PALETTE } from '@/lib/utils/chart-config'
 import { Layers } from 'lucide-react'
 import type { FactorsData } from '@/lib/hooks/use-analytics'
+import { ChartFigure } from '@/components/charts/chart-figure'
 
 /**
  * Which known risks this portfolio is actually taking.
@@ -128,6 +129,23 @@ export function FactorExposure({ data, isLoading }: Props) {
     tStat: loading.tStat,
   }))
 
+  const describeLoading = (row: Row) =>
+    `${row.factor} ${row.coefficient >= 0 ? '+' : ''}${row.coefficient.toFixed(2)} ± ${row.error.toFixed(2)}${row.significant ? '' : ' (no se distingue del ruido)'}`
+  const summary = `Exposición a ${rows.length} factores de riesgo, cada una con su margen de error: ${rows
+    .map(describeLoading)
+    .join('; ')}.`
+  const table = {
+    caption: 'Exposición por factor',
+    columns: ['Factor', 'Coeficiente', 'Margen de error', 't', 'Lectura'],
+    rows: rows.map((row) => [
+      row.factor,
+      `${row.coefficient >= 0 ? '+' : ''}${row.coefficient.toFixed(2)}`,
+      `± ${row.error.toFixed(2)}`,
+      row.tStat === null ? 'n/d' : row.tStat.toFixed(1),
+      row.significant ? 'Inclinación real' : 'No se distingue del ruido',
+    ]),
+  }
+
   const alphaSignificant =
     regression.alphaTStat === null
       ? Math.abs(regression.alphaAnnualPct) > 0
@@ -137,39 +155,44 @@ export function FactorExposure({ data, isLoading }: Props) {
     <Card>
       {header}
       <CardContent className="space-y-4">
-        <ResponsiveContainer width="100%" height={Math.max(200, rows.length * 44)}>
-          <BarChart data={rows} layout="vertical" margin={{ left: 8, right: 24 }}>
-            <XAxis type="number" {...theme.xAxis} domain={['auto', 'auto']} />
-            <YAxis
-              type="category"
-              dataKey="factor"
-              {...theme.yAxis}
-              width={140}
-              tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-            />
-            <Tooltip content={<FactorTooltip />} cursor={{ fill: 'var(--muted)', fillOpacity: 0.3 }} />
-            {/* Zero is the meaningful baseline here: it is "no tilt at all". */}
-            <ReferenceLine x={0} stroke={theme.grid.stroke} />
-            <Bar dataKey="coefficient" radius={[0, 4, 4, 0]} isAnimationActive={false}>
-              {rows.map((row) => (
-                <Cell
-                  key={row.factor}
-                  fill={row.significant ? SERIES_PALETTE[0] : 'var(--muted)'}
-                  stroke={row.significant ? 'none' : SERIES_PALETTE[0]}
-                  strokeDasharray={row.significant ? undefined : '3 3'}
-                />
-              ))}
-              {/* The part that matters: how much the coefficient could be off by. */}
-              <ErrorBar
-                dataKey="error"
-                width={4}
-                strokeWidth={1.5}
-                stroke="var(--muted-foreground)"
-                direction="x"
+        <ChartFigure
+          summary={summary}
+          table={table}
+        >
+          <ResponsiveContainer width="100%" height={Math.max(200, rows.length * 44)}>
+            <BarChart accessibilityLayer={false} data={rows} layout="vertical" margin={{ left: 8, right: 24 }}>
+              <XAxis type="number" {...theme.xAxis} domain={['auto', 'auto']} />
+              <YAxis
+                type="category"
+                dataKey="factor"
+                {...theme.yAxis}
+                width={140}
+                tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
               />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+              <Tooltip content={<FactorTooltip />} cursor={{ fill: 'var(--muted)', fillOpacity: 0.3 }} />
+              {/* Zero is the meaningful baseline here: it is "no tilt at all". */}
+              <ReferenceLine x={0} stroke={theme.grid.stroke} />
+              <Bar dataKey="coefficient" radius={[0, 4, 4, 0]} isAnimationActive={false}>
+                {rows.map((row) => (
+                  <Cell
+                    key={row.factor}
+                    fill={row.significant ? SERIES_PALETTE[0] : 'var(--muted)'}
+                    stroke={row.significant ? 'none' : SERIES_PALETTE[0]}
+                    strokeDasharray={row.significant ? undefined : '3 3'}
+                  />
+                ))}
+                {/* The part that matters: how much the coefficient could be off by. */}
+                <ErrorBar
+                  dataKey="error"
+                  width={4}
+                  strokeWidth={1.5}
+                  stroke="var(--muted-foreground)"
+                  direction="x"
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartFigure>
 
         <div className="flex flex-wrap gap-4 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1.5">

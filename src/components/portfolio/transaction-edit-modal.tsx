@@ -73,9 +73,9 @@ export function TransactionEditModal({ transaction, open, onOpenChange }: Props)
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>Tipo</Label>
+            <Label htmlFor="tx-edit-type">Tipo</Label>
             <Select value={form.type} onValueChange={v => { if (v) setForm(f => ({ ...f, type: v as typeof f.type })) }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id="tx-edit-type"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="buy">Compra</SelectItem>
                 <SelectItem value="sell">Venta</SelectItem>
@@ -86,23 +86,23 @@ export function TransactionEditModal({ transaction, open, onOpenChange }: Props)
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Cantidad</Label>
-              <Input type="number" step="any" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
+              <Label htmlFor="tx-edit-quantity">Cantidad</Label>
+              <Input id="tx-edit-quantity" type="number" step="any" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
             </div>
             <div>
-              <Label>Precio</Label>
-              <Input type="number" step="any" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
+              <Label htmlFor="tx-edit-price">Precio</Label>
+              <Input id="tx-edit-price" type="number" step="any" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Comisiones</Label>
-              <Input type="number" step="any" value={form.fees} onChange={e => setForm(f => ({ ...f, fees: e.target.value }))} />
+              <Label htmlFor="tx-edit-fees">Comisiones</Label>
+              <Input id="tx-edit-fees" type="number" step="any" value={form.fees} onChange={e => setForm(f => ({ ...f, fees: e.target.value }))} />
             </div>
             <div>
-              <Label>Moneda</Label>
+              <Label htmlFor="tx-edit-currency">Moneda</Label>
               <Select value={form.currency} onValueChange={v => { if (v) setForm(f => ({ ...f, currency: v })) }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="tx-edit-currency"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MXN">MXN</SelectItem>
                   <SelectItem value="USD">USD</SelectItem>
@@ -112,12 +112,12 @@ export function TransactionEditModal({ transaction, open, onOpenChange }: Props)
             </div>
           </div>
           <div>
-            <Label>Fecha de ejecucion</Label>
-            <Input type="datetime-local" value={form.executed_at} onChange={e => setForm(f => ({ ...f, executed_at: e.target.value }))} />
+            <Label htmlFor="tx-edit-executed-at">Fecha de ejecucion</Label>
+            <Input id="tx-edit-executed-at" type="datetime-local" value={form.executed_at} onChange={e => setForm(f => ({ ...f, executed_at: e.target.value }))} />
           </div>
           <div>
-            <Label>Notas</Label>
-            <Input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Opcional..." />
+            <Label htmlFor="tx-edit-notes">Notas</Label>
+            <Input id="tx-edit-notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Opcional..." />
           </div>
         </div>
         <DialogFooter>

@@ -48,7 +48,10 @@ function Lab() {
 
   // Keep the scroll position sensible on a switch: the view is long.
   useEffect(() => {
-    if (requested) window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (requested) {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })
+    }
   }, [requested])
 
   const select = (id: ExperimentId) => {

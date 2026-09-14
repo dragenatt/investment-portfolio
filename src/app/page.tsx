@@ -1,5 +1,6 @@
-import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
+import { cn } from '@/lib/utils'
 import { TrendingUp, BarChart3, Bell, Globe, FileSpreadsheet } from 'lucide-react'
 
 const features = [
@@ -32,15 +33,11 @@ export default function LandingPage() {
       <nav className="flex items-center justify-between px-6 py-4 max-w-6xl mx-auto">
         <span className="font-bold text-xl text-foreground">InvestTracker</span>
         <div className="flex gap-3">
-          <Link href="/login">
-            <Button variant="ghost" className="text-foreground/70 hover:text-foreground hover:bg-secondary">
-              Iniciar sesion
-            </Button>
+          <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), 'text-foreground/70 hover:text-foreground hover:bg-secondary')}>
+            Iniciar sesion
           </Link>
-          <Link href="/register">
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl">
-              Registrarse
-            </Button>
+          <Link href="/register" className={cn(buttonVariants(), 'bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl')}>
+            Registrarse
           </Link>
         </div>
       </nav>
@@ -60,15 +57,11 @@ export default function LandingPage() {
           Rastrea tus inversiones de GBM+, analiza mercados en tiempo real, y toma mejores decisiones financieras.
         </p>
         <div className="flex gap-4 justify-center flex-wrap">
-          <Link href="/register">
-            <Button size="lg" className="text-lg px-8 py-6 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20">
-              Empezar gratis
-            </Button>
+          <Link href="/register" className={cn(buttonVariants({ size: 'lg' }), 'text-lg px-8 py-6 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20')}>
+            Empezar gratis
           </Link>
-          <Link href="/register">
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6 rounded-xl border-border hover:bg-secondary">
-              Comenzar
-            </Button>
+          <Link href="/register" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'text-lg px-8 py-6 rounded-xl border-border hover:bg-secondary')}>
+            Comenzar
           </Link>
         </div>
       </section>

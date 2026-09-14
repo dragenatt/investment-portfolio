@@ -3,12 +3,13 @@
 import { usePortfolios } from '@/lib/hooks/use-portfolios'
 import { useLivePrices } from '@/lib/hooks/use-live-prices'
 import { PortfolioCard } from '@/components/portfolio/portfolio-card'
-import { Button } from '@/components/ui/button'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorDisplay } from '@/components/shared/error-display'
 import { Plus, Briefcase } from 'lucide-react'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
+import { cn } from '@/lib/utils'
 import { useMemo, useCallback } from 'react'
 import { useTranslation } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
@@ -48,10 +49,8 @@ export default function PortfolioListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t.portfolio.title}</h1>
-        <Link href="/portfolio/new">
-          <Button size="sm" className="rounded-full">
-            <Plus className="h-4 w-4 mr-1" /> {t.portfolio.new_portfolio}
-          </Button>
+        <Link href="/portfolio/new" className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}>
+          <Plus className="h-4 w-4 mr-1" /> {t.portfolio.new_portfolio}
         </Link>
       </div>
 

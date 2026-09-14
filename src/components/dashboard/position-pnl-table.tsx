@@ -209,12 +209,13 @@ export function PositionPnLTable({ positions }: Props) {
                     {pos.is_stale && (
                       <span
                         title={pos.freshness?.label ?? 'Price may be out of date'}
-                        aria-label={pos.freshness?.label ?? 'Price may be out of date'}
+                        aria-label={pos.freshness?.label ?? 'Precio posiblemente desactualizado'}
+                        role="img"
                         className="inline-flex"
                       >
                         <AlertTriangle
                           className={`h-3 w-3 shrink-0 ${
-                            pos.freshness?.status === 'unavailable' ? 'text-red-500' : 'text-yellow-500'
+                            pos.freshness?.status === 'unavailable' ? 'text-loss' : 'text-warn'
                           }`}
                         />
                       </span>
@@ -262,12 +263,13 @@ export function PositionPnLTable({ positions }: Props) {
                   {pos.is_stale && (
                     <span
                       title={pos.freshness?.label ?? 'Price may be out of date'}
-                      aria-label={pos.freshness?.label ?? 'Price may be out of date'}
+                      aria-label={pos.freshness?.label ?? 'Precio posiblemente desactualizado'}
+                        role="img"
                       className="inline-flex"
                     >
                       <AlertTriangle
                         className={`h-3 w-3 shrink-0 ${
-                          pos.freshness?.status === 'unavailable' ? 'text-red-500' : 'text-yellow-500'
+                          pos.freshness?.status === 'unavailable' ? 'text-loss' : 'text-warn'
                         }`}
                       />
                     </span>

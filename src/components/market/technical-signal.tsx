@@ -8,7 +8,7 @@ import type { TechnicalSignal, SignalAction } from '@/lib/services/signal'
 
 const ACTION_STYLES: Record<SignalAction, { text: string; bg: string; dot: string }> = {
   buy: { text: 'text-gain', bg: 'bg-gain/10', dot: 'bg-gain' },
-  hold: { text: 'text-amber-500', bg: 'bg-amber-400/10', dot: 'bg-amber-400' },
+  hold: { text: 'text-warn', bg: 'bg-warn-soft', dot: 'bg-warn' },
   sell: { text: 'text-loss', bg: 'bg-loss/10', dot: 'bg-loss' },
 }
 
@@ -84,7 +84,7 @@ export function TechnicalSignalCard({ signal }: { signal: TechnicalSignal }) {
           ))}
         </ul>
 
-        <p className="text-xs text-muted-foreground/70 pt-1 border-t border-border">
+        <p className="text-xs text-muted-foreground pt-1 border-t border-border">
           Señal automática basada en análisis técnico (RSI, medias móviles, Bandas de Bollinger).
           Es informativa y no constituye asesoría de inversión.
         </p>

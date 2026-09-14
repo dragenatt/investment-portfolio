@@ -169,9 +169,9 @@ export default function ComparePage() {
 
       {/* Period Selector */}
       <div className="flex items-center gap-3">
-        <Label className="text-sm font-semibold">Período</Label>
+        <Label htmlFor="compare-period" className="text-sm font-semibold">Período</Label>
         <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-          <SelectTrigger className="w-[140px] rounded-xl">
+          <SelectTrigger id="compare-period" className="w-[140px] rounded-xl">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -209,7 +209,7 @@ export default function ComparePage() {
                     onClick={() => handleRemovePortfolio(id)}
                   >
                     {name}
-                    <span className="text-[10px] opacity-60">{isOwn ? '(tuyo)' : '(público)'}</span>
+                    <span className="text-[10px] text-muted-foreground">{isOwn ? '(tuyo)' : '(público)'}</span>
                     <X className="h-3 w-3" />
                   </Badge>
                 )
@@ -219,11 +219,9 @@ export default function ComparePage() {
 
           {selectedPortfolios.length < 5 && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger>
-                <Button variant="outline" className="rounded-xl gap-2">
-                  <Plus className="h-4 w-4" />
-                  Agregar Portafolio
-                </Button>
+              <DialogTrigger render={<Button variant="outline" className="rounded-xl gap-2" />}>
+                <Plus className="h-4 w-4" />
+                Agregar Portafolio
               </DialogTrigger>
               <DialogContent className="max-w-md rounded-xl">
                 <DialogHeader>
@@ -304,11 +302,9 @@ export default function ComparePage() {
                 Rendimiento Normalizado (Base 100)
               </CardTitle>
               <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-                <DialogTrigger>
-                  <Button variant="outline" className="rounded-xl gap-2" disabled={savingComparison}>
-                    <Save className="h-4 w-4" />
-                    Guardar
-                  </Button>
+                <DialogTrigger render={<Button variant="outline" className="rounded-xl gap-2" disabled={savingComparison} />}>
+                  <Save className="h-4 w-4" />
+                  Guardar
                 </DialogTrigger>
                 <DialogContent className="max-w-sm rounded-xl">
                   <DialogHeader>
@@ -316,8 +312,9 @@ export default function ComparePage() {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Nombre</Label>
+                      <Label htmlFor="compare-save-name">Nombre</Label>
                       <Input
+                        id="compare-save-name"
                         value={saveName}
                         onChange={(e) => setSaveName(e.target.value)}
                         placeholder="Mi comparación"
@@ -421,7 +418,7 @@ export default function ComparePage() {
                         tooltip="Retorno ajustado por riesgo. Más alto = mejor"
                         metrics={comparison.metrics}
                         getValue={(m) => m.sharpeRatio}
-                        format={(v) => <span className={`font-medium ${v !== null && v > 1 ? 'text-emerald-500' : v !== null && v < 0 ? 'text-red-500' : ''}`}>{v !== null ? v.toFixed(2) : '—'}</span>}
+                        format={(v) => <span className={`font-medium ${v !== null && v > 1 ? 'text-gain' : v !== null && v < 0 ? 'text-loss' : ''}`}>{v !== null ? v.toFixed(2) : '—'}</span>}
                         {...getBestWorst('sharpeRatio', true)}
                       />
 
@@ -451,7 +448,7 @@ export default function ComparePage() {
                         tooltip="Mayor caída desde un pico. Menor = mejor"
                         metrics={comparison.metrics}
                         getValue={(m) => m.maxDrawdown}
-                        format={(v) => <span className="font-medium text-red-500">{v !== null ? `${(v * 100).toFixed(2)}%` : '—'}</span>}
+                        format={(v) => <span className="font-medium text-loss">{v !== null ? `${(v * 100).toFixed(2)}%` : '—'}</span>}
                         {...getBestWorst('maxDrawdown', false)}
                       />
 
@@ -477,7 +474,7 @@ export default function ComparePage() {
                         tooltip="Exceso de retorno vs mercado. Positivo = supera al mercado"
                         metrics={comparison.metrics}
                         getValue={(m) => m.alpha}
-                        format={(v) => <span className={`font-medium ${v !== null && v > 0 ? 'text-emerald-500' : v !== null && v < 0 ? 'text-red-500' : ''}`}>{v !== null ? `${(v * 100).toFixed(2)}%` : '—'}</span>}
+                        format={(v) => <span className={`font-medium ${v !== null && v > 0 ? 'text-gain' : v !== null && v < 0 ? 'text-loss' : ''}`}>{v !== null ? `${(v * 100).toFixed(2)}%` : '—'}</span>}
                         {...getBestWorst('alpha', true)}
                       />
 
@@ -509,7 +506,7 @@ export default function ComparePage() {
                         getValue={(m) => m.riskScore}
                         format={(v) => {
                           if (v === null) return <span className="font-medium">—</span>
-                          const color = v <= 3 ? 'text-emerald-500' : v <= 6 ? 'text-yellow-500' : 'text-red-500'
+                          const color = v <= 3 ? 'text-gain' : v <= 6 ? 'text-warn' : 'text-loss'
                           return <span className={`font-bold ${color}`}>{v}/10</span>
                         }}
                         {...getBestWorst('riskScore', false)}
@@ -611,7 +608,7 @@ function MetricRow({
           <td key={m.portfolioId} className="text-right py-3 px-3 relative">
             <div className="flex items-center justify-end gap-1.5">
               {format(value)}
-              {isBest && <Trophy className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
+              {isBest && <Trophy className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" aria-label="Mejor valor" role="img" />}
             </div>
           </td>
         )

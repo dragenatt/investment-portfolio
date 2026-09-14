@@ -88,6 +88,7 @@ export function PortfolioActions({ id, name, description, onMutate }: Props) {
               variant="ghost"
               size="icon-sm"
               className="h-7 w-7 shrink-0"
+              aria-label="Acciones del portafolio"
               onClick={(e) => e.preventDefault()}
             />
           }

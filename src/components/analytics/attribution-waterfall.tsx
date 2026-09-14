@@ -108,7 +108,7 @@ function CustomTooltip({
         {d.allocation_effect != null && (
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">Asignacion</span>
-            <span className={d.allocation_effect >= 0 ? 'text-green-600' : 'text-red-500'}>
+            <span className={d.allocation_effect >= 0 ? 'text-gain' : 'text-loss'}>
               {formatNumber(d.allocation_effect)}%
             </span>
           </div>
@@ -116,7 +116,7 @@ function CustomTooltip({
         {d.selection_effect != null && (
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">Seleccion</span>
-            <span className={d.selection_effect >= 0 ? 'text-green-600' : 'text-red-500'}>
+            <span className={d.selection_effect >= 0 ? 'text-gain' : 'text-loss'}>
               {formatNumber(d.selection_effect)}%
             </span>
           </div>
@@ -124,14 +124,14 @@ function CustomTooltip({
         {d.interaction_effect != null && (
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">Interaccion</span>
-            <span className={d.interaction_effect >= 0 ? 'text-green-600' : 'text-red-500'}>
+            <span className={d.interaction_effect >= 0 ? 'text-gain' : 'text-loss'}>
               {formatNumber(d.interaction_effect)}%
             </span>
           </div>
         )}
         <div className="flex justify-between gap-4 border-t pt-1 mt-1">
           <span className="text-muted-foreground font-medium">Total</span>
-          <span className={d.value >= 0 ? 'text-green-600' : 'text-red-500'}>
+          <span className={d.value >= 0 ? 'text-gain' : 'text-loss'}>
             {formatNumber(d.value)}%
           </span>
         </div>
@@ -141,8 +141,8 @@ function CustomTooltip({
 }
 
 function effectColor(value: number): string {
-  if (value > 0) return 'text-green-600'
-  if (value < 0) return 'text-red-500'
+  if (value > 0) return 'text-gain'
+  if (value < 0) return 'text-loss'
   return 'text-muted-foreground'
 }
 
@@ -229,7 +229,6 @@ export function AttributionWaterfall({ sectors, total, isLoading }: Props) {
               dataKey="value"
               stackId="waterfall"
               radius={[3, 3, 0, 0]}
-              isAnimationActive={true}
             >
               {waterfallData.map((entry, index) => (
                 <Cell key={index} fill={entry.fill} />

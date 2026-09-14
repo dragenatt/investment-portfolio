@@ -179,7 +179,7 @@ export default function MarketPage() {
 
         {/* ── Search Results ── */}
         {searchError && (
-          <p className="text-sm text-red-500">{t.market.search_error}: {searchError.message}</p>
+          <p className="text-sm text-destructive" role="alert">{t.market.search_error}: {searchError.message}</p>
         )}
 
         {searchLoading && (

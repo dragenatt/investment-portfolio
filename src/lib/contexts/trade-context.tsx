@@ -1,6 +1,8 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { shouldHandleCharacterShortcut } from '@/lib/utils/keyboard-shortcuts'
+import { useKeyboardShortcutsEnabled } from '@/lib/hooks/use-keyboard-shortcuts-preference'
 
 export interface TradeOptions {
   symbol?: string
@@ -31,31 +33,22 @@ export function TradeProvider({ children }: { children: ReactNode }) {
     setInitialOptions(null)
   }, [])
 
-  // Global keyboard shortcut: T key opens trade modal
+  const shortcutsEnabled = useKeyboardShortcutsEnabled()
+
+  // Global keyboard shortcut: T opens the trade modal. The shared check skips
+  // text fields, typeahead widgets, open dialogs, modifier combinations, and
+  // applies the user's choice to turn single-key shortcuts off (C5).
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Skip if user is typing in an input, textarea, select, or contenteditable element
-      const target = e.target as HTMLElement
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT' ||
-        target.isContentEditable
-      ) {
-        return
-      }
-
-      if (e.key === 'T' || e.key === 't') {
-        // Don't trigger if modifier keys are held (Ctrl+T, Cmd+T, etc.)
-        if (e.metaKey || e.ctrlKey || e.altKey) return
-        e.preventDefault()
-        openTrade()
-      }
+      if (e.key !== 'T' && e.key !== 't') return
+      if (!shouldHandleCharacterShortcut(e, shortcutsEnabled)) return
+      e.preventDefault()
+      openTrade()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [openTrade])
+  }, [openTrade, shortcutsEnabled])
 
   return (
     <TradeContext.Provider value={{ openTrade, closeTrade, isOpen, initialOptions }}>

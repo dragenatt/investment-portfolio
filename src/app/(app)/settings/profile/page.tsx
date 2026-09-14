@@ -168,7 +168,7 @@ export default function SocialProfileSettingsPage() {
               <p className="text-xs text-muted-foreground">
                 Máximo {bioMaxChars} caracteres
               </p>
-              <p className={`text-xs font-medium ${bioCharCount > bioMaxChars * 0.9 ? 'text-orange-500' : 'text-muted-foreground'}`}>
+              <p className={`text-xs font-medium ${bioCharCount > bioMaxChars * 0.9 ? 'text-warn' : 'text-muted-foreground'}`}>
                 {bioCharCount}/{bioMaxChars}
               </p>
             </div>

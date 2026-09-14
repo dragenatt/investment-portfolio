@@ -24,6 +24,8 @@ import {
 } from '@/lib/utils/chart-config'
 import { formatCurrency } from '@/lib/utils/currency'
 import { Waypoints } from 'lucide-react'
+import { ChartFigure } from '@/components/charts/chart-figure'
+import { seriesTable } from '@/lib/utils/chart-accessibility'
 
 export type MonteCarloBand = {
   week: number
@@ -194,103 +196,123 @@ export function MonteCarloChart({
     )
   }
 
+  const summary = final
+    ? `Proyección a ${bands.length - 1} semanas${simulations ? ` con ${simulations.toLocaleString('es-MX')} trayectorias simuladas` : ''}. Valor de hoy: ${formatCurrency(currentValue, currency)}. En la última semana, el escenario pesimista (P10) es ${formatCurrency(final.p10, currency)}, la mediana (P50) ${formatCurrency(final.p50, currency)} y el optimista (P90) ${formatCurrency(final.p90, currency)}. Es una simulación, no una predicción.`
+    : 'Proyección Monte Carlo.'
+  const table = seriesTable(
+    bands,
+    'Percentiles simulados por semana',
+    ['Semana', 'P10 pesimista', 'P50 mediana', 'P90 optimista'],
+    (band) => [
+      band.week === 0 ? 'Hoy' : `Semana ${band.week}`,
+      formatCurrency(band.p10, currency),
+      formatCurrency(band.p50, currency),
+      formatCurrency(band.p90, currency),
+    ],
+  )
+
   return (
     <Card>
       {header}
       <CardContent>
-        <ResponsiveContainer width="100%" height={280}>
-          <ComposedChart data={chartData}>
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={CONE_COLOR} stopOpacity={0.32} />
-                <stop offset="100%" stopColor={CONE_COLOR} stopOpacity={0.08} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid {...theme.grid} />
-            <XAxis
-              dataKey="week"
-              {...theme.xAxis}
-              interval={tickInterval}
-              tickFormatter={(w: number) => (w === 0 ? 'Hoy' : `S${w}`)}
-            />
-            <YAxis
-              {...theme.yAxis}
-              width={80}
-              domain={['auto', 'auto']}
-              tickFormatter={(v: number) => formatAxisTick(v, 'currency')}
-            />
-            {/* Crosshair and tooltip: an HTML chart is interactive by default. */}
-            <Tooltip content={<CustomTooltip currency={currency} />} cursor={theme.crosshair} />
-            <Legend
-              verticalAlign="top"
-              height={28}
-              iconType="plainline"
-              wrapperStyle={{ fontSize: 11, color: 'var(--muted-foreground)' }}
-            />
-            {/* Where the book stands today, labelled so it is never read as a percentile. */}
-            <ReferenceLine
-              y={currentValue}
-              stroke="var(--muted-foreground)"
-              strokeDasharray="4 4"
-              strokeOpacity={0.7}
-              label={{
-                value: 'Hoy',
-                position: 'insideTopLeft',
-                fontSize: 10,
-                fill: 'var(--muted-foreground)',
-              }}
-            />
-            <Area
-              type="monotone"
-              dataKey="cone"
-              name="Rango P10-P90"
-              stroke="none"
-              fill={`url(#${gradientId})`}
-              isAnimationActive={false}
-              activeDot={false}
-              legendType="rect"
-            />
-            <Line
-              type="monotone"
-              dataKey="p90"
-              name="P90 optimista"
-              stroke={CONE_COLOR}
-              strokeWidth={1}
-              strokeDasharray="3 3"
-              strokeOpacity={0.85}
-              dot={false}
-              isAnimationActive={false}
-              activeDot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="p50"
-              name="P50 mediana"
-              stroke={MEDIAN_COLOR}
-              strokeWidth={LINE_WIDTH}
-              dot={false}
-              isAnimationActive={false}
-              activeDot={{
-                r: ACTIVE_DOT_RADIUS,
-                fill: MEDIAN_COLOR,
-                stroke: 'var(--card)',
-                strokeWidth: MARK_RING_WIDTH,
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="p10"
-              name="P10 pesimista"
-              stroke={CONE_COLOR}
-              strokeWidth={1}
-              strokeDasharray="3 3"
-              strokeOpacity={0.85}
-              dot={false}
-              isAnimationActive={false}
-              activeDot={false}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+        <ChartFigure
+          summary={summary}
+          table={table}
+        >
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart accessibilityLayer={false} data={chartData}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CONE_COLOR} stopOpacity={0.32} />
+                  <stop offset="100%" stopColor={CONE_COLOR} stopOpacity={0.08} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid {...theme.grid} />
+              <XAxis
+                dataKey="week"
+                {...theme.xAxis}
+                interval={tickInterval}
+                tickFormatter={(w: number) => (w === 0 ? 'Hoy' : `S${w}`)}
+              />
+              <YAxis
+                {...theme.yAxis}
+                width={80}
+                domain={['auto', 'auto']}
+                tickFormatter={(v: number) => formatAxisTick(v, 'currency')}
+              />
+              {/* Crosshair and tooltip: an HTML chart is interactive by default. */}
+              <Tooltip content={<CustomTooltip currency={currency} />} cursor={theme.crosshair} />
+              <Legend
+                verticalAlign="top"
+                height={28}
+                iconType="plainline"
+                wrapperStyle={{ fontSize: 11, color: 'var(--muted-foreground)' }}
+              />
+              {/* Where the book stands today, labelled so it is never read as a percentile. */}
+              <ReferenceLine
+                y={currentValue}
+                stroke="var(--muted-foreground)"
+                strokeDasharray="4 4"
+                strokeOpacity={0.7}
+                label={{
+                  value: 'Hoy',
+                  position: 'insideTopLeft',
+                  fontSize: 10,
+                  fill: 'var(--muted-foreground)',
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="cone"
+                name="Rango P10-P90"
+                stroke="none"
+                fill={`url(#${gradientId})`}
+                isAnimationActive={false}
+                activeDot={false}
+                legendType="rect"
+              />
+              <Line
+                type="monotone"
+                dataKey="p90"
+                name="P90 optimista"
+                stroke={CONE_COLOR}
+                strokeWidth={1}
+                strokeDasharray="3 3"
+                strokeOpacity={0.85}
+                dot={false}
+                isAnimationActive={false}
+                activeDot={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="p50"
+                name="P50 mediana"
+                stroke={MEDIAN_COLOR}
+                strokeWidth={LINE_WIDTH}
+                dot={false}
+                isAnimationActive={false}
+                activeDot={{
+                  r: ACTIVE_DOT_RADIUS,
+                  fill: MEDIAN_COLOR,
+                  stroke: 'var(--card)',
+                  strokeWidth: MARK_RING_WIDTH,
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="p10"
+                name="P10 pesimista"
+                stroke={CONE_COLOR}
+                strokeWidth={1}
+                strokeDasharray="3 3"
+                strokeOpacity={0.85}
+                dot={false}
+                isAnimationActive={false}
+                activeDot={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </ChartFigure>
         <p className="mt-2 text-[11px] text-muted-foreground">
           El 80% de las trayectorias simuladas termina entre P10 y P90. Es una simulacion sobre
           rendimientos pasados, no una prediccion: el 20% restante queda fuera del cono, y una

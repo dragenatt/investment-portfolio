@@ -51,6 +51,8 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       {/* Left: hamburger on mobile + search */}
       <div className="flex items-center gap-3 flex-1">
         <button
+          type="button"
+          aria-label="Abrir menú"
           onClick={onMenuClick}
           className="lg:hidden p-2 rounded-lg hover:bg-secondary text-muted-foreground"
         >

@@ -12,7 +12,6 @@ import { cn } from '@/lib/utils'
 import { CompareReturnsChart } from '@/components/charts/lazy-charts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import {
   Table,
   TableHeader,
@@ -31,6 +30,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
 
 // ─── Constants ───────────────────────────────────────────────────────
 const MAX_SYMBOLS = 5
@@ -505,10 +505,8 @@ function ComparePageInner() {
 
       {/* ─── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
-        <Link href="/market">
-          <Button variant="ghost" size="icon" className="rounded-xl">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+        <Link href="/market" className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'rounded-xl')} aria-label="Volver a mercados">
+          <ArrowLeft className="h-4 w-4" />
         </Link>
         <h1 className="text-2xl font-bold">{t.market.compare_assets}</h1>
       </div>
@@ -526,6 +524,8 @@ function ComparePageInner() {
               >
                 {sym}
                 <button
+                  type="button"
+                  aria-label={`Quitar ${sym} de la comparación`}
                   onClick={() => removeSymbol(sym)}
                   className="hover:bg-white/20 rounded-full p-0.5 transition-colors"
                 >

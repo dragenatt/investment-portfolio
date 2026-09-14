@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useSWRConfig } from 'swr'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
 import { useTranslation } from '@/lib/i18n'
 
 const TYPE_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -78,15 +79,13 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href={`/portfolio/${id}`}>
-          <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" /> {t.common.back}</Button>
-        </Link>
+        <Link href={`/portfolio/${id}`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}><ArrowLeft className="h-4 w-4 mr-1" /> {t.common.back}</Link>
         <h1 className="text-2xl font-bold">{t.portfolio.transactions}</h1>
       </div>
 
       <div className="flex gap-3">
         <Select value={typeFilter} onValueChange={v => { if (v) { setTypeFilter(v); setPage(0) } }}>
-          <SelectTrigger className="w-40"><SelectValue placeholder={t.portfolio.type} /></SelectTrigger>
+          <SelectTrigger className="w-40" aria-label={t.portfolio.type}><SelectValue placeholder={t.portfolio.type} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t.portfolio.all_types}</SelectItem>
             <SelectItem value="buy">{t.portfolio.buy}</SelectItem>
@@ -96,7 +95,7 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
           </SelectContent>
         </Select>
         <Select value={symbolFilter} onValueChange={v => { if (v) { setSymbolFilter(v); setPage(0) } }}>
-          <SelectTrigger className="w-40"><SelectValue placeholder={t.portfolio.symbol} /></SelectTrigger>
+          <SelectTrigger className="w-40" aria-label={t.portfolio.symbol}><SelectValue placeholder={t.portfolio.symbol} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t.portfolio.all}</SelectItem>
             {symbols.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -121,7 +120,7 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
                       <th className="p-3 text-right">{t.portfolio.price}</th>
                       <th className="p-3 text-right">{t.portfolio.fees}</th>
                       <th className="p-3 text-right">{t.portfolio.total}</th>
-                      <th className="p-3"></th>
+                      <th className="p-3"><span className="sr-only">Acciones</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -136,10 +135,10 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
                         <td className="p-3 text-right font-mono text-sm font-medium">${(t.quantity * t.price + t.fees).toFixed(2)}</td>
                         <td className="p-3">
                           <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditing(t)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Editar transacción de ${t.position.symbol}`} onClick={() => setEditing(t)}>
                               <Pencil className="h-3 w-3" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => setDeleting(t)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" aria-label={`Eliminar transacción de ${t.position.symbol}`} onClick={() => setDeleting(t)}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
@@ -159,10 +158,10 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
                         <Badge variant={TYPE_COLORS[t.type]} className="text-xs">{TYPE_LABELS[t.type]}</Badge>
                       </div>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditing(t)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Editar transacción de ${t.position.symbol}`} onClick={() => setEditing(t)}>
                           <Pencil className="h-3 w-3" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => setDeleting(t)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" aria-label={`Eliminar transacción de ${t.position.symbol}`} onClick={() => setDeleting(t)}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>

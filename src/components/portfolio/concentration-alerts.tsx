@@ -25,7 +25,7 @@ const severityConfig = {
     icon: AlertTriangle,
     border: '1px solid color-mix(in srgb, #f59e0b 40%, transparent)',
     bg: 'color-mix(in srgb, #f59e0b 5%, transparent)',
-    iconClass: 'text-amber-500',
+    iconClass: 'text-warn',
   },
   critical: {
     icon: ShieldAlert,

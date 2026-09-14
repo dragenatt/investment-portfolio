@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
+import { cn } from '@/lib/utils'
 import { Briefcase, Lightbulb, TrendingUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/lib/i18n'
 
 export function WelcomeEmptyState() {
@@ -22,17 +23,13 @@ export function WelcomeEmptyState() {
           {t.onboarding.welcome_desc}
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
-          <Link href="/portfolio/new">
-            <Button className="rounded-xl gap-2" size="lg">
-              <Briefcase className="h-4 w-4" />
-              {t.onboarding.create_portfolio}
-            </Button>
+          <Link href="/portfolio/new" className={cn(buttonVariants({ size: 'lg' }), 'rounded-xl gap-2')}>
+            <Briefcase className="h-4 w-4" />
+            {t.onboarding.create_portfolio}
           </Link>
-          <Link href="/advisor">
-            <Button variant="outline" className="rounded-xl gap-2" size="lg">
-              <Lightbulb className="h-4 w-4" />
-              {t.onboarding.complete_profile}
-            </Button>
+          <Link href="/advisor" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'rounded-xl gap-2')}>
+            <Lightbulb className="h-4 w-4" />
+            {t.onboarding.complete_profile}
           </Link>
         </div>
       </CardContent>

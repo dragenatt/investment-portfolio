@@ -24,6 +24,7 @@ import { useSWRConfig } from 'swr'
 import { useRouter } from 'next/navigation'
 import { useTrade } from '@/lib/contexts/trade-context'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -299,10 +300,8 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
         </DropdownMenu>
       </div>
 
-      <Link href={`/market/compare?symbols=${encodeURIComponent(decodedSymbol)}`}>
-        <Button variant="outline" className="w-full rounded-xl h-11 gap-2">
-          <GitCompareArrows className="h-4 w-4" /> {t.market.compare_with}
-        </Button>
+      <Link href={`/market/compare?symbols=${encodeURIComponent(decodedSymbol)}`} className={cn(buttonVariants({ variant: 'outline' }), 'w-full rounded-xl h-11 gap-2')}>
+        <GitCompareArrows className="h-4 w-4" /> {t.market.compare_with}
       </Link>
 
       {/* ═══════════════════════════════════════════════════════════════
@@ -497,7 +496,7 @@ function AnalystBar({ rating, t }: { rating: string; t: Dictionary }) {
       </div>
       <div className="flex justify-between text-xs">
         <span className="text-gain font-medium">{t.market.buy} {buy}%</span>
-        <span className="text-amber-500 font-medium">{t.market.hold} {hold}%</span>
+        <span className="text-warn font-medium">{t.market.hold} {hold}%</span>
         <span className="text-loss font-medium">{t.market.sell} {sell}%</span>
       </div>
     </div>

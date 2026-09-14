@@ -67,7 +67,7 @@ export default function LoginPage() {
             </Button>
           </form>
           <p className="text-sm text-muted-foreground text-center mt-4">
-            {t.auth.no_account} <Link href="/register" className="text-primary hover:underline">{t.auth.register_link}</Link>
+            {t.auth.no_account} <Link href="/register" className="text-primary underline underline-offset-4">{t.auth.register_link}</Link>
           </p>
         </CardContent>
       </Card>

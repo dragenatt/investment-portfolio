@@ -165,7 +165,7 @@ export default function PublicProfilePage({
                         <p className="text-xs text-muted-foreground">Retorno</p>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-emerald-500">-</p>
+                        <p className="text-sm font-bold text-gain">-</p>
                         <p className="text-xs text-muted-foreground">Sharpe</p>
                       </div>
                     </div>

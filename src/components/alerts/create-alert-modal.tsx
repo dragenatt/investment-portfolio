@@ -65,11 +65,9 @@ export function CreateAlertModal() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        <Button className="rounded-xl gap-2">
-          <Plus className="h-4 w-4" />
-          {t.dashboard.alert}
-        </Button>
+      <DialogTrigger render={<Button className="rounded-xl gap-2" />}>
+        <Plus className="h-4 w-4" />
+        {t.dashboard.alert}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -91,7 +89,7 @@ export function CreateAlertModal() {
           <div className="space-y-2">
             <Label htmlFor="condition">Condición</Label>
             <Select value={condition} onValueChange={(val) => val && setCondition(val)} disabled={loading}>
-              <SelectTrigger>
+              <SelectTrigger id="condition">
                 <SelectValue placeholder="Selecciona una condición" />
               </SelectTrigger>
               <SelectContent>

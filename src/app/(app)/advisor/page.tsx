@@ -553,7 +553,7 @@ export default function AdvisorPage() {
             <li key={etapa.id} className="flex items-baseline justify-between gap-3">
               <span
                 className={cn(
-                  etapa.estado === 'pendiente' && 'text-muted-foreground/50',
+                  etapa.estado === 'pendiente' && 'text-muted-foreground',
                   etapa.estado === 'activa' && 'text-foreground font-medium',
                   etapa.estado === 'lista' && 'text-muted-foreground',
                   etapa.estado === 'fallida' && 'text-loss',

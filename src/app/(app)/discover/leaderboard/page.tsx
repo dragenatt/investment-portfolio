@@ -17,16 +17,17 @@ type Category = 'returns' | 'sharpe' | 'volatility' | 'consistency'
 type Period = '1M' | '3M' | '1Y'
 
 const getMedalColor = (rank: number) => {
-  if (rank === 1) return 'text-yellow-500'
-  if (rank === 2) return 'text-gray-400'
-  if (rank === 3) return 'text-orange-500'
+  // Text colours: 4.5:1 in both themes. The medal hue stays recognisable.
+  if (rank === 1) return 'text-amber-700 dark:text-amber-400'
+  if (rank === 2) return 'text-slate-600 dark:text-slate-300'
+  if (rank === 3) return 'text-orange-700 dark:text-orange-400'
   return ''
 }
 
 const getMedalIcon = (rank: number) => {
-  if (rank === 1) return <Crown className="h-5 w-5 text-yellow-500" />
-  if (rank === 2) return <Award className="h-5 w-5 text-gray-400" />
-  if (rank === 3) return <Award className="h-5 w-5 text-orange-500" />
+  if (rank === 1) return <Crown className="h-5 w-5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+  if (rank === 2) return <Award className="h-5 w-5 text-slate-500 dark:text-slate-300" aria-hidden="true" />
+  if (rank === 3) return <Award className="h-5 w-5 text-orange-600 dark:text-orange-400" aria-hidden="true" />
   return null
 }
 
@@ -56,7 +57,7 @@ export default function LeaderboardPage() {
 
         {/* Period Selector */}
         <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-          <SelectTrigger className="w-[140px] rounded-xl">
+          <SelectTrigger className="w-[140px] rounded-xl" aria-label="Período del ranking">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -160,7 +161,7 @@ export default function LeaderboardPage() {
                       {/* Trend Indicator */}
                       <td className="text-right py-4 px-4">
                         <div className="flex items-center justify-end gap-2">
-                          <TrendingUp className="h-4 w-4 text-emerald-500" />
+                          <TrendingUp className="h-4 w-4 text-gain" aria-hidden="true" />
                           <span className="text-xs text-muted-foreground">Sube</span>
                         </div>
                       </td>

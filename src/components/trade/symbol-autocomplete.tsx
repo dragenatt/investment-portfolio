@@ -20,6 +20,8 @@ export interface SymbolAutocompleteProps {
   onSelect: (result: SearchResult) => void
   placeholder?: string
   autoFocus?: boolean
+  /** For a <Label htmlFor>. */
+  id?: string
 }
 
 function getRecentSearches(): SearchResult[] {
@@ -67,7 +69,7 @@ function InlineQuote({ symbol }: { symbol: string }) {
       {pct != null && (
         <span
           className={`text-[10px] flex items-center gap-0.5 font-medium ${
-            isPositive ? 'text-emerald-500' : 'text-red-500'
+            isPositive ? 'text-gain' : 'text-loss'
           }`}
         >
           {isPositive ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
@@ -79,7 +81,7 @@ function InlineQuote({ symbol }: { symbol: string }) {
   )
 }
 
-export function SymbolAutocomplete({ value, onSelect, placeholder, autoFocus }: SymbolAutocompleteProps) {
+export function SymbolAutocomplete({ value, onSelect, placeholder, autoFocus, id }: SymbolAutocompleteProps) {
   const [query, setQuery] = useState(value)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
@@ -171,6 +173,7 @@ export function SymbolAutocomplete({ value, onSelect, placeholder, autoFocus }: 
     <div ref={containerRef} className="relative">
       <Input
         ref={inputRef}
+        id={id}
         value={query}
         onChange={e => {
           setQuery(e.target.value)

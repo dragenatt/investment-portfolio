@@ -11,6 +11,8 @@ import { useRouter } from 'next/navigation'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
+import { cn } from '@/lib/utils'
 import { useState, useEffect } from 'react'
 
 export function Header() {
@@ -48,7 +50,7 @@ export function Header() {
 
       <div className="flex items-center gap-2">
         <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
-          <SelectTrigger className="w-20 h-8 border-border">
+          <SelectTrigger className="w-20 h-8 border-border" aria-label="Moneda de visualización">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -60,10 +62,8 @@ export function Header() {
 
         <ThemeToggle />
 
-        <Link href="/settings" className="md:hidden">
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground">
-            <Settings className="h-4 w-4" />
-          </Button>
+        <Link href="/settings" className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'h-9 w-9 text-muted-foreground md:hidden')} aria-label="Ajustes">
+          <Settings className="h-4 w-4" />
         </Link>
 
         <DropdownMenu>

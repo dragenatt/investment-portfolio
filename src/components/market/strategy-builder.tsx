@@ -58,9 +58,12 @@ const emptyCondition = (): Condition => ({
 function OperandEditor({
   operand,
   onChange,
+  ariaLabel,
 }: {
   operand: Operand
   onChange: (next: Operand) => void
+  /** Names the indicator picker for screen readers: which side of which condition. */
+  ariaLabel: string
 }) {
   const spec =
     operand.kind === 'indicator'
@@ -85,7 +88,7 @@ function OperandEditor({
           })
         }}
       >
-        <SelectTrigger className="h-8 w-auto min-w-36 text-xs">
+        <SelectTrigger className="h-8 w-auto min-w-36 text-xs" aria-label={ariaLabel}>
           {/* Base UI renders the raw value unless told how to label it. */}
           <SelectValue>
             {(value) =>
@@ -115,7 +118,7 @@ function OperandEditor({
             onChange({ ...operand, period: Math.round(Number(e.target.value)) })
           }
           className="h-8 w-16 text-xs font-mono"
-          aria-label="Periodo"
+          aria-label={`${ariaLabel}: periodo`}
         />
       )}
 
@@ -125,7 +128,7 @@ function OperandEditor({
           value={operand.value}
           onChange={(e) => onChange({ kind: 'constant', value: Number(e.target.value) })}
           className="h-8 w-20 text-xs font-mono"
-          aria-label="Valor"
+          aria-label={`${ariaLabel}: número`}
         />
       )}
     </div>
@@ -154,7 +157,7 @@ function RuleEditor({
               value={rule.combinator}
               onValueChange={(v) => v && onChange({ ...rule, combinator: v as 'and' | 'or' })}
             >
-              <SelectTrigger className="h-7 w-28 text-[11px]">
+              <SelectTrigger className="h-7 w-28 text-[11px]" aria-label={`Cómo combinar las condiciones: ${title}`}>
                 <SelectValue>
                   {(value) => (value === 'or' ? 'Cualquiera (O)' : 'Todas (Y)')}
                 </SelectValue>
@@ -195,12 +198,13 @@ function RuleEditor({
           <OperandEditor
             operand={condition.left}
             onChange={(left) => update(index, { ...condition, left })}
+            ariaLabel={`Primer valor de la condición ${index + 1}`}
           />
           <Select
             value={condition.operator}
             onValueChange={(v) => v && update(index, { ...condition, operator: v as OperatorId })}
           >
-            <SelectTrigger className="h-8 w-auto min-w-36 text-xs">
+            <SelectTrigger className="h-8 w-auto min-w-36 text-xs" aria-label={`Comparación de la condición ${index + 1}`}>
               <SelectValue>
                 {(value) => OPERATORS.find((o) => o.id === value)?.label ?? String(value)}
               </SelectValue>
@@ -216,6 +220,7 @@ function RuleEditor({
           <OperandEditor
             operand={condition.right}
             onChange={(right) => update(index, { ...condition, right })}
+            ariaLabel={`Segundo valor de la condición ${index + 1}`}
           />
           <button
             type="button"
@@ -223,7 +228,7 @@ function RuleEditor({
               onChange({ ...rule, conditions: rule.conditions.filter((_, i) => i !== index) })
             }
             className="text-muted-foreground hover:text-loss p-1"
-            aria-label="Quitar condicion"
+            aria-label={`Quitar la condición ${index + 1}`}
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -270,7 +275,7 @@ export function StrategyBuilder({ symbol }: { symbol: string }) {
               if (example) setStrategy(example.strategy)
             }}
           >
-            <SelectTrigger className="h-9 w-auto min-w-52 text-xs">
+            <SelectTrigger className="h-9 w-auto min-w-52 text-xs" aria-label="Partir de un ejemplo">
               <SelectValue placeholder="Partir de un ejemplo" />
             </SelectTrigger>
             <SelectContent>

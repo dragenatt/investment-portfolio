@@ -23,6 +23,8 @@ import {
 } from '@/lib/utils/chart-config'
 import { Activity } from 'lucide-react'
 import type { RiskData } from '@/lib/hooks/use-analytics'
+import { ChartFigure } from '@/components/charts/chart-figure'
+import { formatChartDate, seriesTable } from '@/lib/utils/chart-accessibility'
 
 /**
  * Risk over time, rather than one number for the whole history.
@@ -187,77 +189,99 @@ export function RollingRiskChart({ rolling, isLoading }: Props) {
 
   const showZeroLine = metric !== 'volatility'
 
+  const fmt = (v: number | null) => (v === null ? 'n/d' : `${v.toFixed(spec.digits)}${spec.suffix}`)
+  const values = rows.map((row) => row.value as number)
+  const summary =
+    rows.length > 0
+      ? `${spec.label} con ventana móvil de ${rolling.window_label}, de ${formatChartDate(rows[0].date)} a ${formatChartDate(
+          rows[rows.length - 1].date,
+        )}: último valor ${fmt(values[values.length - 1])}, mínimo ${fmt(Math.min(...values))}, máximo ${fmt(Math.max(...values))}.${
+          metric === 'volatility' && rolling.stress_periods.length > 0
+            ? ` ${rolling.stress_periods.length} periodos de estrés, listados debajo.`
+            : ''
+        }`
+      : `${spec.label}: sin valores todavía.`
+  const table = seriesTable(rows, `${spec.label} por fecha`, ['Fecha', spec.label], (row) => [
+    formatChartDate(row.date),
+    fmt(row.value),
+  ])
+
   return (
     <Card>
       {header}
       <CardContent className="space-y-3">
-        <ResponsiveContainer width="100%" height={240}>
-          <ComposedChart data={rows}>
-            <defs>
-              <linearGradient id="rolling-risk-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={SERIES_PALETTE[0]} stopOpacity={0.22} />
-                <stop offset="100%" stopColor={SERIES_PALETTE[0]} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid {...theme.grid} />
-            <XAxis
-              dataKey="date"
-              {...theme.xAxis}
-              minTickGap={40}
-              tickFormatter={(d: string) => d.slice(2, 7)}
-            />
-            <YAxis
-              {...theme.yAxis}
-              width={52}
-              domain={showZeroLine ? ['auto', 'auto'] : [0, 'auto']}
-              tickFormatter={(v: number) => `${v.toFixed(spec.digits === 2 ? 1 : 0)}${spec.suffix}`}
-            />
-            <Tooltip
-              content={<RollingTooltip suffix={spec.suffix} digits={spec.digits} />}
-              cursor={theme.crosshair}
-            />
+        <ChartFigure
+          summary={summary}
+          table={table}
+        >
+          <ResponsiveContainer width="100%" height={240}>
+            <ComposedChart accessibilityLayer={false} data={rows}>
+              <defs>
+                <linearGradient id="rolling-risk-fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={SERIES_PALETTE[0]} stopOpacity={0.22} />
+                  <stop offset="100%" stopColor={SERIES_PALETTE[0]} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid {...theme.grid} />
+              <XAxis
+                dataKey="date"
+                {...theme.xAxis}
+                minTickGap={40}
+                tickFormatter={(d: string) => d.slice(2, 7)}
+              />
+              <YAxis
+                {...theme.yAxis}
+                width={52}
+                domain={showZeroLine ? ['auto', 'auto'] : [0, 'auto']}
+                tickFormatter={(v: number) => `${v.toFixed(spec.digits === 2 ? 1 : 0)}${spec.suffix}`}
+              />
+              <Tooltip
+                content={<RollingTooltip suffix={spec.suffix} digits={spec.digits} />}
+                cursor={theme.crosshair}
+              />
 
-            {/* Stretches where this book's own volatility ran far above its own
-                normal. Descriptive only: it says the past was turbulent, never
-                that the next stretch will be. */}
-            {metric === 'volatility' &&
-              rolling.stress_periods.map((period) => (
-                <ReferenceArea
-                  key={period.fromDate}
-                  x1={period.fromDate}
-                  x2={period.toDate}
-                  fill="var(--warn)"
-                  fillOpacity={0.1}
-                  stroke="var(--warn)"
-                  strokeOpacity={0.35}
-                  strokeDasharray="3 3"
-                />
-              ))}
+              {/* Stretches where this book's own volatility ran far above its own
+                  normal. Descriptive only: it says the past was turbulent, never
+                  that the next stretch will be. */}
+              {metric === 'volatility' &&
+                rolling.stress_periods.map((period) => (
+                  <ReferenceArea
+                    key={period.fromDate}
+                    x1={period.fromDate}
+                    x2={period.toDate}
+                    fill="var(--warn)"
+                    fillOpacity={0.1}
+                    stroke="var(--warn)"
+                    strokeOpacity={0.35}
+                    strokeDasharray="3 3"
+                  />
+                ))}
 
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="none"
-              fill="url(#rolling-risk-fill)"
-              isAnimationActive={false}
-              activeDot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke={SERIES_PALETTE[0]}
-              strokeWidth={LINE_WIDTH}
-              dot={false}
-              isAnimationActive={false}
-              activeDot={{
-                r: ACTIVE_DOT_RADIUS,
-                fill: SERIES_PALETTE[0],
-                stroke: 'var(--card)',
-                strokeWidth: MARK_RING_WIDTH,
-              }}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="none"
+                fill="url(#rolling-risk-fill)"
+                isAnimationActive={false}
+                activeDot={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={SERIES_PALETTE[0]}
+                strokeWidth={LINE_WIDTH}
+                dot={false}
+                isAnimationActive={false}
+                activeDot={{
+                  r: ACTIVE_DOT_RADIUS,
+                  fill: SERIES_PALETTE[0],
+                  stroke: 'var(--card)',
+                  strokeWidth: MARK_RING_WIDTH,
+                }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </ChartFigure>
 
         <p className="text-[11px] text-muted-foreground">{spec.description}</p>
 

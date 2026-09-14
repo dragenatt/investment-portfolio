@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar } from '@/components/ui/avatar'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
+import { cn } from '@/lib/utils'
 import { TrendingUp, TrendingDown, Lock, Eye, GitCompareArrows, Heart, ArrowLeft } from 'lucide-react'
 import { useLike } from '@/lib/hooks/use-social'
 import { useTranslation } from '@/lib/i18n'
@@ -128,11 +130,9 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
             <p className="text-muted-foreground text-center max-w-md mb-6">
               {t.sharing.unavailable_desc}
             </p>
-            <Link href="/discover">
-              <Button variant="outline" className="rounded-xl gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                {t.sharing.back_to_discover}
-              </Button>
+            <Link href="/discover" className={cn(buttonVariants({ variant: 'outline' }), 'rounded-xl gap-2')}>
+              <ArrowLeft className="h-4 w-4" />
+              {t.sharing.back_to_discover}
             </Link>
           </CardContent>
         </Card>
@@ -188,11 +188,9 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
             <Heart className={`h-4 w-4 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
             {portfolio.like_count ?? 0}
           </Button>
-          <Link href={`/compare?add=${id}`}>
-            <Button variant="outline" size="sm" className="rounded-xl gap-1.5">
-              <GitCompareArrows className="h-4 w-4" />
-              {t.sharing.compare}
-            </Button>
+          <Link href={`/compare?add=${id}`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-xl gap-1.5')}>
+            <GitCompareArrows className="h-4 w-4" />
+            {t.sharing.compare}
           </Link>
         </div>
       </div>

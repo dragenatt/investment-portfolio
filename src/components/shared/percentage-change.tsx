@@ -15,7 +15,7 @@ export function PercentageChange({ value, className }: Props) {
   const isPositive = value >= 0
   const sign = isPositive ? '+' : ''
   const arrow = isPositive ? '\u2191' : '\u2193'
-  const colorClass = isPositive ? 'text-emerald-500' : 'text-red-500'
+  const colorClass = isPositive ? 'text-gain' : 'text-loss'
 
   return (
     <span className={cn('font-mono', colorClass, className)}>

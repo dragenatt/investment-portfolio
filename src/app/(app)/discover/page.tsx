@@ -81,7 +81,7 @@ export default function DiscoverPage() {
           />
         </div>
         <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
-          <SelectTrigger className="w-[180px] rounded-xl">
+          <SelectTrigger className="w-[180px] rounded-xl" aria-label="Ordenar portafolios">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

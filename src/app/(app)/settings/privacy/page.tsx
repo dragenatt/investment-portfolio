@@ -153,8 +153,8 @@ export default function PrivacySettingsPage() {
               <CardContent className="space-y-6">
                 {/* Visibility Mode */}
                 <div className="space-y-3">
-                  <Label className="font-semibold">Visibilidad</Label>
-                  <div className="space-y-2">
+                  <Label id={`privacy-visibility-${portfolio.id}`} className="font-semibold">Visibilidad</Label>
+                  <div className="space-y-2" role="radiogroup" aria-labelledby={`privacy-visibility-${portfolio.id}`}>
                     {(['public', 'private', 'shared'] as const).map((mode) => (
                       <div key={mode} className="flex items-center gap-3">
                         <input
@@ -192,9 +192,10 @@ export default function PrivacySettingsPage() {
                 {/* Share Token (only for shared) */}
                 {settings.visibility === 'shared' && settings.shareToken && (
                   <div className="space-y-2 p-3 rounded-lg bg-secondary/30 border border-border">
-                    <Label className="text-xs font-semibold">Token de Compartir</Label>
+                    <Label htmlFor={`privacy-share-token-${portfolio.id}`} className="text-xs font-semibold">Token de Compartir</Label>
                     <div className="flex items-center gap-2">
                       <Input
+                        id={`privacy-share-token-${portfolio.id}`}
                         value={settings.shareToken || ''}
                         readOnly
                         className="rounded-lg text-xs"
@@ -217,8 +218,8 @@ export default function PrivacySettingsPage() {
 
                 {/* Data Visibility Toggles */}
                 <div className="space-y-3 pt-4 border-t border-border">
-                  <Label className="font-semibold">Mostrar Datos</Label>
-                  <div className="space-y-2">
+                  <Label id={`privacy-show-${portfolio.id}`} className="font-semibold">Mostrar Datos</Label>
+                  <div className="space-y-2" role="group" aria-labelledby={`privacy-show-${portfolio.id}`}>
                     {[
                       { key: 'showAmounts', label: 'Montos' },
                       { key: 'showPositions', label: 'Posiciones' },
@@ -243,8 +244,9 @@ export default function PrivacySettingsPage() {
 
                 {/* Tags */}
                 <div className="space-y-2 pt-4 border-t border-border">
-                  <Label className="font-semibold">Etiquetas</Label>
+                  <Label htmlFor={`privacy-tags-${portfolio.id}`} className="font-semibold">Etiquetas</Label>
                   <Input
+                    id={`privacy-tags-${portfolio.id}`}
                     placeholder="Separadas por comas"
                     value={settings.tags?.join(', ') || ''}
                     onChange={(e) => {

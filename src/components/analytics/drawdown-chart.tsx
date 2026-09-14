@@ -14,6 +14,8 @@ import { CardDescription } from '@/components/ui/card'
 import { getChartTheme, formatAxisTick } from '@/lib/utils/chart-config'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { TrendingDown } from 'lucide-react'
+import { ChartFigure } from '@/components/charts/chart-figure'
+import { formatChartDate, formatChartPercent, seriesTable } from '@/lib/utils/chart-accessibility'
 
 type Props = {
   dates: string[]
@@ -78,6 +80,14 @@ export function DrawdownChart({
     drawdown: values[i],
   }))
 
+  const summary = `Caída desde el máximo anterior (drawdown) entre ${formatChartDate(dates[0])} y ${formatChartDate(
+    dates[dates.length - 1],
+  )}. La peor caída fue de ${formatChartPercent(Math.abs(maxDrawdown))} el ${formatChartDate(maxDrawdownDate)}; el último valor es ${formatChartPercent(values[values.length - 1])}.`
+  const table = seriesTable(chartData, 'Drawdown por fecha', ['Fecha', 'Drawdown'], (row) => [
+    formatChartDate(row.date),
+    formatChartPercent(row.drawdown),
+  ])
+
   const maxDrawdownIndex = dates.indexOf(maxDrawdownDate)
   const gradientId = 'drawdown-gradient'
 
@@ -90,48 +100,53 @@ export function DrawdownChart({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={250}>
-          <AreaChart data={chartData}>
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={theme.colors.negative} stopOpacity={0.3} />
-                <stop offset="100%" stopColor={theme.colors.negative} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="date" {...theme.xAxis} />
-            <YAxis
-              {...theme.yAxis}
-              tickFormatter={(v) => formatAxisTick(v, 'percent')}
-              domain={['dataMin', 0]}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="drawdown"
-              stroke={theme.colors.negative}
-              strokeWidth={1.5}
-              fill={`url(#${gradientId})`}
-              dot={false}
-              activeDot={{ r: 4, fill: theme.colors.negative, strokeWidth: 0 }}
-            />
-            {maxDrawdownIndex >= 0 && (
-              <ReferenceDot
-                x={maxDrawdownDate}
-                y={maxDrawdown}
-                r={5}
-                fill={theme.colors.negative}
-                stroke="var(--card)"
-                strokeWidth={2}
-                label={{
-                  value: `${maxDrawdown.toFixed(1)}%`,
-                  position: 'top',
-                  className: 'text-[10px] font-mono fill-[var(--loss)]',
-                  offset: 10,
-                }}
+        <ChartFigure
+          summary={summary}
+          table={table}
+        >
+          <ResponsiveContainer width="100%" height={250}>
+            <AreaChart accessibilityLayer={false} data={chartData}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={theme.colors.negative} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={theme.colors.negative} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="date" {...theme.xAxis} />
+              <YAxis
+                {...theme.yAxis}
+                tickFormatter={(v) => formatAxisTick(v, 'percent')}
+                domain={['dataMin', 0]}
               />
-            )}
-          </AreaChart>
-        </ResponsiveContainer>
+              <Tooltip content={<CustomTooltip />} />
+              <Area
+                type="monotone"
+                dataKey="drawdown"
+                stroke={theme.colors.negative}
+                strokeWidth={1.5}
+                fill={`url(#${gradientId})`}
+                dot={false}
+                activeDot={{ r: 4, fill: theme.colors.negative, strokeWidth: 0 }}
+              />
+              {maxDrawdownIndex >= 0 && (
+                <ReferenceDot
+                  x={maxDrawdownDate}
+                  y={maxDrawdown}
+                  r={5}
+                  fill={theme.colors.negative}
+                  stroke="var(--card)"
+                  strokeWidth={2}
+                  label={{
+                    value: `${maxDrawdown.toFixed(1)}%`,
+                    position: 'top',
+                    className: 'text-[10px] font-mono fill-[var(--loss)]',
+                    offset: 10,
+                  }}
+                />
+              )}
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartFigure>
       </CardContent>
     </Card>
   )

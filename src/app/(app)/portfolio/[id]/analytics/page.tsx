@@ -258,7 +258,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
                         </div>
                         <span className="text-xs text-muted-foreground w-12 text-right">{s.pct.toFixed(1)}%</span>
                         {s.stale && (
-                          <span className="text-xs text-amber-500" title="Precio desactualizado">*</span>
+                          <span className="text-xs text-warn" title="Precio desactualizado">*<span className="sr-only"> (precio desactualizado)</span></span>
                         )}
                       </div>
                     </div>

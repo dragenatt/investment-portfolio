@@ -21,6 +21,7 @@ import {
 } from '@/lib/utils/chart-config'
 import { Spline } from 'lucide-react'
 import type { OptimizationData, FrontierPoint } from '@/lib/hooks/use-analytics'
+import { ChartFigure } from '@/components/charts/chart-figure'
 
 /**
  * The risk/return trade-off, with the book's own position marked on it.
@@ -143,76 +144,101 @@ export function EfficientFrontierChart({ data, isLoading }: Props) {
       ]
     : []
 
+  const point = (m: { volatilityPct: number; expectedReturnPct: number }) =>
+    `${m.expectedReturnPct.toFixed(1)}% de rendimiento esperado con ${m.volatilityPct.toFixed(1)}% de volatilidad`
+  const summary = `Frontera eficiente de ${curve.length} combinaciones. Mejor relación riesgo/rendimiento: ${point(
+    frontier.maxSharpe,
+  )}.${frontier.current ? ` Tu cartera hoy: ${point(frontier.current)}.` : ''}`
+  const table = {
+    caption: 'Puntos de la frontera eficiente',
+    columns: ['Combinación', 'Volatilidad', 'Rendimiento esperado', 'Sharpe'],
+    rows: [
+      ...maxSharpe.map((m) => [m.label, `${m.volatilityPct.toFixed(1)}%`, `${m.expectedReturnPct.toFixed(1)}%`, '']),
+      ...current.map((m) => [m.label, `${m.volatilityPct.toFixed(1)}%`, `${m.expectedReturnPct.toFixed(1)}%`, '']),
+      ...curve.map((c, i) => [
+        `Frontera ${i + 1}`,
+        `${c.volatilityPct.toFixed(1)}%`,
+        `${c.expectedReturnPct.toFixed(1)}%`,
+        c.sharpe != null ? c.sharpe.toFixed(2) : '',
+      ]),
+    ],
+  }
+
   return (
     <Card>
       {header}
       <CardContent className="space-y-3">
-        <ResponsiveContainer width="100%" height={280}>
-          <ComposedChart data={curve} margin={{ top: 8, right: 16 }}>
-            <CartesianGrid {...theme.grid} />
-            <XAxis
-              type="number"
-              dataKey="volatilityPct"
-              {...theme.xAxis}
-              domain={['auto', 'auto']}
-              tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-              label={{
-                value: 'Riesgo (volatilidad anual)',
-                position: 'insideBottom',
-                offset: -4,
-                fontSize: 10,
-                fill: 'var(--muted-foreground)',
-              }}
-            />
-            <YAxis
-              type="number"
-              dataKey="expectedReturnPct"
-              {...theme.yAxis}
-              width={52}
-              domain={['auto', 'auto']}
-              tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-            />
-            <Tooltip content={<FrontierTooltip />} cursor={theme.crosshair} />
-            <Legend
-              verticalAlign="top"
-              height={28}
-              wrapperStyle={{ fontSize: 11, color: 'var(--muted-foreground)' }}
-            />
-
-            <Line
-              type="monotone"
-              dataKey="expectedReturnPct"
-              name="Frontera eficiente"
-              stroke={SERIES_PALETTE[0]}
-              strokeWidth={LINE_WIDTH}
-              dot={false}
-              isAnimationActive={false}
-              activeDot={false}
-              legendType="plainline"
-            />
-            <Scatter
-              data={maxSharpe}
-              name="Mejor riesgo/rendimiento"
-              dataKey="expectedReturnPct"
-              fill={SERIES_PALETTE[1]}
-              stroke="var(--card)"
-              strokeWidth={MARK_RING_WIDTH}
-              shape="diamond"
-              isAnimationActive={false}
-            />
-            {current.length > 0 && (
-              <Scatter
-                data={current}
-                name="Tu cartera hoy"
+        <ChartFigure
+          summary={summary}
+          table={table}
+        >
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart accessibilityLayer={false} data={curve} margin={{ top: 8, right: 16 }}>
+              <CartesianGrid {...theme.grid} />
+              <XAxis
+                type="number"
+                dataKey="volatilityPct"
+                {...theme.xAxis}
+                domain={['auto', 'auto']}
+                tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+                label={{
+                  value: 'Riesgo (volatilidad anual)',
+                  position: 'insideBottom',
+                  offset: -4,
+                  fontSize: 10,
+                  fill: 'var(--muted-foreground)',
+                }}
+              />
+              <YAxis
+                type="number"
                 dataKey="expectedReturnPct"
-                fill={SERIES_PALETTE[2]}
+                {...theme.yAxis}
+                width={52}
+                domain={['auto', 'auto']}
+                tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+              />
+              <Tooltip content={<FrontierTooltip />} cursor={theme.crosshair} />
+              <Legend
+                verticalAlign="top"
+                height={28}
+                wrapperStyle={{ fontSize: 11, color: 'var(--muted-foreground)' }}
+              />
+
+              <Line
+                type="monotone"
+                dataKey="expectedReturnPct"
+                name="Frontera eficiente"
+                stroke={SERIES_PALETTE[0]}
+                strokeWidth={LINE_WIDTH}
+                dot={false}
+                isAnimationActive={false}
+                activeDot={false}
+                legendType="plainline"
+              />
+              <Scatter
+                data={maxSharpe}
+                name="Mejor riesgo/rendimiento"
+                dataKey="expectedReturnPct"
+                fill={SERIES_PALETTE[1]}
                 stroke="var(--card)"
                 strokeWidth={MARK_RING_WIDTH}
+                shape="diamond"
                 isAnimationActive={false}
               />
-            )}
-          </ComposedChart>
-        </ResponsiveContainer>
+              {current.length > 0 && (
+                <Scatter
+                  data={current}
+                  name="Tu cartera hoy"
+                  dataKey="expectedReturnPct"
+                  fill={SERIES_PALETTE[2]}
+                  stroke="var(--card)"
+                  strokeWidth={MARK_RING_WIDTH}
+                  isAnimationActive={false}
+                />
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </ChartFigure>
 
         {frontier.improvement && (
           <div className="rounded-xl bg-muted/40 p-3">

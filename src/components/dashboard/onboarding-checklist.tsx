@@ -88,39 +88,40 @@ export function OnboardingChecklist({ hasPortfolio, hasPosition, hasAdvisorProfi
             {completed}/{steps.length}
           </span>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={dismissChecklist}>
+        <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Ocultar primeros pasos" onClick={dismissChecklist}>
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
       <CardContent className="pt-0">
         {/* Progress bar */}
-        <div className="h-1.5 rounded-full bg-secondary mb-4 overflow-hidden">
+        <div
+          className="h-1.5 rounded-full bg-secondary mb-4 overflow-hidden"
+          role="progressbar"
+          aria-label="Progreso de primeros pasos"
+          aria-valuemin={0}
+          aria-valuemax={steps.length}
+          aria-valuenow={completed}
+        >
           <div
             className="h-full rounded-full bg-primary transition-all duration-500"
             style={{ width: `${(completed / steps.length) * 100}%` }}
           />
         </div>
 
-        <div className="space-y-2">
+        <ul className="space-y-2" aria-label={`${completed} de ${steps.length} pasos completados`}>
           {steps.map((step) => {
             const Icon = step.icon
-            return (
-              <Link
-                key={step.label}
-                href={step.done ? '#' : step.href}
-                className={cn(
-                  'flex items-center gap-3 p-2.5 rounded-xl transition-colors',
-                  step.done
-                    ? 'opacity-60'
-                    : 'hover:bg-secondary cursor-pointer'
-                )}
-              >
-                <div className={cn(
-                  'h-7 w-7 rounded-full flex items-center justify-center shrink-0 transition-colors',
-                  step.done
-                    ? 'bg-primary/15 text-primary'
-                    : 'border border-border text-muted-foreground'
-                )}>
+            const content = (
+              <>
+                <div
+                  aria-hidden="true"
+                  className={cn(
+                    'h-7 w-7 rounded-full flex items-center justify-center shrink-0 transition-colors',
+                    step.done
+                      ? 'bg-primary/15 text-primary'
+                      : 'border border-border text-muted-foreground'
+                  )}
+                >
                   {step.done ? (
                     <Check className="h-3.5 w-3.5" />
                   ) : (
@@ -132,11 +133,28 @@ export function OnboardingChecklist({ hasPortfolio, hasPosition, hasAdvisorProfi
                   step.done && 'line-through text-muted-foreground'
                 )}>
                   {step.label}
+                  {step.done && <span className="sr-only"> (completado)</span>}
                 </span>
-              </Link>
+              </>
+            )
+            // A finished step is a statement, not a destination: it used to be a
+            // link to "#" at 60% opacity, a dead tab stop whose text failed contrast.
+            return (
+              <li key={step.label}>
+                {step.done ? (
+                  <div className="flex items-center gap-3 p-2.5 rounded-xl">{content}</div>
+                ) : (
+                  <Link
+                    href={step.href}
+                    className="flex items-center gap-3 p-2.5 rounded-xl transition-colors hover:bg-secondary"
+                  >
+                    {content}
+                  </Link>
+                )}
+              </li>
             )
           })}
-        </div>
+        </ul>
       </CardContent>
     </Card>
   )

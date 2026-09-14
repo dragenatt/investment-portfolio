@@ -18,6 +18,7 @@ import { useTrade } from '@/lib/contexts/trade-context'
 import { SymbolAutocomplete } from '@/components/trade/symbol-autocomplete'
 import { Loader2, ArrowRightLeft, TrendingUp, TrendingDown } from 'lucide-react'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
 import { useTranslation } from '@/lib/i18n'
 
 /** Auto-detect asset type from search result type field (Twelve Data instrument_type) */
@@ -288,8 +289,9 @@ function TradeForm({ onClose }: { onClose: () => void }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* 1. Symbol Autocomplete */}
       <div className="space-y-2">
-        <Label>{t.trade.symbol}</Label>
+        <Label htmlFor="trade-symbol">{t.trade.symbol}</Label>
         <SymbolAutocomplete
+          id="trade-symbol"
           value={symbolInput}
           onSelect={handleSymbolSelect}
           placeholder="Buscar por nombre o simbolo..."
@@ -319,7 +321,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
               {quote.changePct != null && (
                 <span
                   className={`text-xs flex items-center justify-end gap-0.5 font-medium ${
-                    quote.changePct >= 0 ? 'text-emerald-500' : 'text-red-500'
+                    quote.changePct >= 0 ? 'text-gain' : 'text-loss'
                   }`}
                 >
                   {quote.changePct >= 0 ? (
@@ -340,17 +342,15 @@ function TradeForm({ onClose }: { onClose: () => void }) {
       {!hasPortfolios ? (
         <div className="rounded-lg border border-dashed p-4 text-center space-y-2">
           <p className="text-sm text-muted-foreground">No tienes portafolios</p>
-          <Link href="/portfolio/new">
-            <Button type="button" variant="outline" size="sm">
-              Crear portafolio
-            </Button>
+          <Link href="/portfolio/new" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            Crear portafolio
           </Link>
         </div>
       ) : (
         <div className="space-y-2">
-          <Label>Portafolio</Label>
+          <Label htmlFor="trade-portfolio">Portafolio</Label>
           <Select value={portfolioId} onValueChange={v => v && setPortfolioId(v)}>
-            <SelectTrigger>
+            <SelectTrigger id="trade-portfolio">
               <SelectValue placeholder="Seleccionar portafolio" />
             </SelectTrigger>
             <SelectContent>
@@ -366,8 +366,8 @@ function TradeForm({ onClose }: { onClose: () => void }) {
 
       {/* 4. Type pills: Compra / Venta / Dividendo */}
       <div className="space-y-2">
-        <Label>{t.trade.type}</Label>
-        <div className="flex gap-2">
+        <Label id="trade-type">{t.trade.type}</Label>
+        <div className="flex gap-2" role="group" aria-labelledby="trade-type">
           {([
             { value: 'buy', label: t.trade.buy },
             { value: 'sell', label: t.trade.sell },
@@ -376,6 +376,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
             <button
               key={opt.value}
               type="button"
+              aria-pressed={type === opt.value}
               onClick={() => setType(opt.value)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 type === opt.value
@@ -392,7 +393,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
       {/* 5. Price per unit */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>{t.trade.price_per_unit}</Label>
+          <Label htmlFor="trade-price">{t.trade.price_per_unit}</Label>
           {selectedSymbol && quote?.price != null && (
             <span className="text-xs text-muted-foreground">
               Mercado:{' '}
@@ -409,6 +410,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
           )}
         </div>
         <Input
+          id="trade-price"
           type="number"
           step="any"
           value={price}
@@ -426,8 +428,9 @@ function TradeForm({ onClose }: { onClose: () => void }) {
         </div>
         <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-end">
           <div className="space-y-1.5">
-            <Label className="text-xs">{t.trade.amount_label} ({currency})</Label>
+            <Label htmlFor="trade-amount" className="text-xs">{t.trade.amount_label} ({currency})</Label>
             <Input
+              id="trade-amount"
               type="number"
               step="any"
               value={amount}
@@ -440,8 +443,9 @@ function TradeForm({ onClose }: { onClose: () => void }) {
             <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">{t.trade.quantity_label}</Label>
+            <Label htmlFor="trade-quantity" className="text-xs">{t.trade.quantity_label}</Label>
             <Input
+              id="trade-quantity"
               type="number"
               step="any"
               value={quantity}
@@ -456,8 +460,9 @@ function TradeForm({ onClose }: { onClose: () => void }) {
       {/* 7. Fees + Currency row */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>{t.trade.commission}</Label>
+          <Label htmlFor="trade-fees">{t.trade.commission}</Label>
           <Input
+            id="trade-fees"
             type="number"
             step="any"
             value={fees}
@@ -466,9 +471,9 @@ function TradeForm({ onClose }: { onClose: () => void }) {
           />
         </div>
         <div className="space-y-2">
-          <Label>{t.trade.currency}</Label>
+          <Label htmlFor="trade-currency">{t.trade.currency}</Label>
           <Select value={currency} onValueChange={handleCurrencyChange}>
-            <SelectTrigger>
+            <SelectTrigger id="trade-currency">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -482,8 +487,9 @@ function TradeForm({ onClose }: { onClose: () => void }) {
 
       {/* 8. Date picker */}
       <div className="space-y-2">
-        <Label>Fecha</Label>
+        <Label htmlFor="trade-date">Fecha</Label>
         <input
+          id="trade-date"
           type="date"
           value={date}
           onChange={e => setDate(e.target.value)}

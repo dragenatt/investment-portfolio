@@ -40,7 +40,7 @@ export function FormattedAmount({ value, from, colorize, showSign, compact, clas
   display = `${prefix}${display}`
 
   const colorClass = colorize
-    ? converted >= 0 ? 'text-emerald-500' : 'text-red-500'
+    ? converted >= 0 ? 'text-gain' : 'text-loss'
     : undefined
 
   return <span className={cn('font-mono', colorClass, className)}>{display}</span>

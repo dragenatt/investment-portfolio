@@ -190,9 +190,9 @@ export function TransactionModal({ portfolioId }: Props) {
           {/* Row 1: Tipo + Activo */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Tipo</Label>
+              <Label htmlFor="tx-type">Tipo</Label>
               <Select value={type} onValueChange={(v) => v && setType(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="tx-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="buy">Compra</SelectItem>
                   <SelectItem value="sell">Venta</SelectItem>
@@ -201,9 +201,9 @@ export function TransactionModal({ portfolioId }: Props) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Tipo de activo</Label>
+              <Label htmlFor="tx-asset-type">Tipo de activo</Label>
               <Select value={assetType} onValueChange={(v) => v && setAssetType(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="tx-asset-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="stock">Acción</SelectItem>
                   <SelectItem value="etf">ETF</SelectItem>
@@ -219,8 +219,9 @@ export function TransactionModal({ portfolioId }: Props) {
 
           {/* Row 2: Símbolo con autocomplete */}
           <div className="space-y-2">
-            <Label>Símbolo</Label>
+            <Label htmlFor="tx-symbol">Símbolo</Label>
             <Input
+              id="tx-symbol"
               value={symbol}
               onChange={e => { setSymbol(e.target.value); setSearchQuery(e.target.value) }}
               placeholder="AAPL, BTC-USD, AMXL.MX..."
@@ -251,7 +252,7 @@ export function TransactionModal({ portfolioId }: Props) {
           {/* Row 3: Precio (auto-filled from market) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Precio por unidad</Label>
+              <Label htmlFor="tx-price">Precio por unidad</Label>
               {resolvedSymbol && quote?.price != null && (
                 <span className="text-xs text-muted-foreground">
                   Mercado: <span className="font-mono font-medium text-foreground">${quote.price.toFixed(2)}</span> {quote.currency || currency}
@@ -259,6 +260,7 @@ export function TransactionModal({ portfolioId }: Props) {
               )}
             </div>
             <Input
+              id="tx-price"
               type="number"
               step="any"
               value={price}
@@ -276,10 +278,11 @@ export function TransactionModal({ portfolioId }: Props) {
             </div>
             <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-end">
               <div className="space-y-1.5">
-                <Label className="text-xs">
+                <Label htmlFor="tx-amount" className="text-xs">
                   Monto ({currency})
                 </Label>
                 <Input
+                  id="tx-amount"
                   type="number"
                   step="any"
                   value={amount}
@@ -292,10 +295,11 @@ export function TransactionModal({ portfolioId }: Props) {
                 <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">
+                <Label htmlFor="tx-quantity" className="text-xs">
                   Cantidad (acciones)
                 </Label>
                 <Input
+                  id="tx-quantity"
                   type="number"
                   step="any"
                   value={quantity}
@@ -310,13 +314,13 @@ export function TransactionModal({ portfolioId }: Props) {
           {/* Row 5: Comisión + Moneda */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Comisión</Label>
-              <Input type="number" step="any" value={fees} onChange={e => setFees(e.target.value)} min="0" />
+              <Label htmlFor="tx-fees">Comisión</Label>
+              <Input id="tx-fees" type="number" step="any" value={fees} onChange={e => setFees(e.target.value)} min="0" />
             </div>
             <div className="space-y-2">
-              <Label>Moneda</Label>
+              <Label htmlFor="tx-currency">Moneda</Label>
               <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="tx-currency"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MXN">MXN</SelectItem>
                   <SelectItem value="USD">USD</SelectItem>

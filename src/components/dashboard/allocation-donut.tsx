@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { PieChartIcon } from 'lucide-react'
 import { getChartTheme } from '@/lib/utils/chart-config'
+import { ChartFigure } from '@/components/charts/chart-figure'
 
 const COLORS = getChartTheme().colors.palette
 
@@ -11,6 +12,12 @@ type AllocationData = { name: string; value: number }
 
 export function AllocationDonut({ data }: { data: AllocationData[] }) {
   const total = data.reduce((sum, d) => sum + d.value, 0)
+  const largest = data.length > 0 ? data.reduce((a, b) => (b.value > a.value ? b : a)) : null
+  // The list under the donut already carries every name and percentage, so it
+  // is the text alternative; the figure only needs to say so.
+  const summary = largest && total > 0
+    ? `Distribución en ${data.length} ${data.length === 1 ? 'activo' : 'activos'}; el mayor es ${largest.name} con ${((largest.value / total) * 100).toFixed(1)}%. El porcentaje de cada uno está en la lista siguiente.`
+    : 'Distribución del portafolio.'
 
   return (
     <Card
@@ -37,28 +44,33 @@ export function AllocationDonut({ data }: { data: AllocationData[] }) {
           </div>
         ) : (
           <>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value">
-                  {data.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <ChartFigure
+              summary={summary}
+            >
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart accessibilityLayer={false}>
+                  <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value">
+                    {data.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartFigure>
 
             {/* Legend rows — bordered style */}
-            <div className="mt-3 space-y-0">
+            <ul className="mt-3 space-y-0" aria-label="Distribución por activo">
               {data.map((item, i) => {
                 const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0.0'
                 return (
-                  <div
+                  <li
                     key={item.name}
                     className="flex items-center justify-between px-3 py-2 border-t border-border"
                   >
                     <div className="flex items-center gap-2">
                       <div
+                        aria-hidden="true"
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                         style={{ backgroundColor: COLORS[i % COLORS.length] }}
                       />
@@ -70,10 +82,10 @@ export function AllocationDonut({ data }: { data: AllocationData[] }) {
                     >
                       {pct}%
                     </span>
-                  </div>
+                  </li>
                 )
               })}
-            </div>
+            </ul>
           </>
         )}
       </CardContent>

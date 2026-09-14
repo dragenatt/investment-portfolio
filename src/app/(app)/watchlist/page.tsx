@@ -429,7 +429,7 @@ export default function WatchlistPage() {
                   <span className="text-xs text-muted-foreground">
                     {wl.watchlist_items?.length || 0} {(wl.watchlist_items?.length || 0) === 1 ? 'activo' : 'activos'}
                   </span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setRenamingId(wl.id); setRenameValue(wl.name) }}>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" aria-label={`Renombrar ${wl.name}`} onClick={() => { setRenamingId(wl.id); setRenameValue(wl.name) }}>
                     <Pencil className="h-3 w-3" />
                   </Button>
                 </>
@@ -448,7 +448,7 @@ export default function WatchlistPage() {
                   <><Plus className="h-3 w-3 mr-1" /> Agregar</>
                 )}
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeletingWl({ id: wl.id, name: wl.name })}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" aria-label={`Eliminar la lista ${wl.name}`} onClick={() => setDeletingWl({ id: wl.id, name: wl.name })}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>

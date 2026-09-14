@@ -13,6 +13,7 @@ import { OnboardingTour } from '@/components/shared/onboarding-tour'
 import { useTranslation } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n'
 import { setLocaleCookie } from '@/lib/i18n/locale-client'
+import { setKeyboardShortcutsEnabled, useKeyboardShortcutsEnabled } from '@/lib/hooks/use-keyboard-shortcuts-preference'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => {
   if (r.error) throw new Error(r.error)
@@ -27,6 +28,7 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
   const [baseCurrency, setBaseCurrency] = useState(profile?.base_currency || 'MXN')
   const [showTour, setShowTour] = useState(false)
+  const shortcutsEnabled = useKeyboardShortcutsEnabled()
 
   async function saveProfile() {
     const res = await fetch('/api/user/profile', {
@@ -60,12 +62,12 @@ export default function SettingsPage() {
         <CardHeader><CardTitle className="text-xl">{t.settings.profile}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>{t.settings.name}</Label>
-            <Input className="rounded-xl" value={displayName} onChange={e => setDisplayName(e.target.value)} />
+            <Label htmlFor="settings-name">{t.settings.name}</Label>
+            <Input id="settings-name" className="rounded-xl" value={displayName} onChange={e => setDisplayName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>{t.settings.email}</Label>
-            <Input className="rounded-xl" value={profile?.email || ''} disabled />
+            <Label htmlFor="settings-email">{t.settings.email}</Label>
+            <Input id="settings-email" className="rounded-xl" value={profile?.email || ''} disabled />
           </div>
           <Button className="rounded-xl" onClick={saveProfile}>{t.settings.save_profile}</Button>
         </CardContent>
@@ -75,9 +77,9 @@ export default function SettingsPage() {
         <CardHeader><CardTitle className="text-xl">{t.settings.preferences}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>{t.settings.base_currency}</Label>
+            <Label htmlFor="settings-currency">{t.settings.base_currency}</Label>
             <Select value={baseCurrency} onValueChange={(v) => v && setBaseCurrency(v)}>
-              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="settings-currency" className="rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="MXN">MXN</SelectItem>
                 <SelectItem value="USD">USD</SelectItem>
@@ -86,9 +88,9 @@ export default function SettingsPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>{t.settings.theme}</Label>
+            <Label htmlFor="settings-theme">{t.settings.theme}</Label>
             <Select value={theme} onValueChange={(v) => v && setTheme(v)}>
-              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="settings-theme" className="rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="light">{t.settings.light}</SelectItem>
                 <SelectItem value="dark">{t.settings.dark}</SelectItem>
@@ -97,9 +99,9 @@ export default function SettingsPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>{locale === 'es' ? 'Idioma' : 'Language'}</Label>
+            <Label htmlFor="settings-language">{locale === 'es' ? 'Idioma' : 'Language'}</Label>
             <Select value={locale} onValueChange={(v) => { if (v) { setLocaleCookie(v as Locale); window.location.reload() } }}>
-              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="settings-language" className="rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="es">Español</SelectItem>
                 <SelectItem value="en">English</SelectItem>
@@ -107,6 +109,29 @@ export default function SettingsPage() {
             </Select>
           </div>
           <Button className="rounded-xl" onClick={savePreferences}>{t.settings.save_preferences}</Button>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border-border shadow-sm">
+        <CardHeader><CardTitle className="text-xl">Accesibilidad</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex items-start gap-3">
+            <input
+              id="settings-shortcuts"
+              type="checkbox"
+              className="mt-1 h-4 w-4 accent-primary"
+              checked={shortcutsEnabled}
+              onChange={(e) => setKeyboardShortcutsEnabled(e.target.checked)}
+              aria-describedby="settings-shortcuts-help"
+            />
+            <div>
+              <Label htmlFor="settings-shortcuts">Atajos de una tecla</Label>
+              <p id="settings-shortcuts-help" className="text-sm text-muted-foreground mt-1">
+                D, P, M, W, A, L, X, C, B y S abren secciones; T abre una operación nueva. Desactívalos si usas
+                dictado por voz o un lector de pantalla y se activan sin querer. Ctrl+K sigue abriendo la búsqueda.
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

@@ -47,17 +47,17 @@ export default function NewPortfolioPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label>{t.portfolio.portfolio_name}</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Mi portafolio principal" required />
+              <Label htmlFor="new-portfolio-name">{t.portfolio.portfolio_name}</Label>
+              <Input id="new-portfolio-name" value={name} onChange={e => setName(e.target.value)} placeholder="Mi portafolio principal" required />
             </div>
             <div className="space-y-2">
-              <Label>{t.portfolio.portfolio_description}</Label>
-              <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Inversiones a largo plazo" />
+              <Label htmlFor="new-portfolio-description">{t.portfolio.portfolio_description}</Label>
+              <Input id="new-portfolio-description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Inversiones a largo plazo" />
             </div>
             <div className="space-y-2">
-              <Label>{t.portfolio.base_currency}</Label>
+              <Label htmlFor="new-portfolio-currency">{t.portfolio.base_currency}</Label>
               <Select value={currency} onValueChange={(v) => v && setCurrency(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="new-portfolio-currency"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MXN">{t.portfolio.currency_mxn_full}</SelectItem>
                   <SelectItem value="USD">{t.portfolio.currency_usd_full}</SelectItem>

@@ -55,26 +55,26 @@ describe('FormattedAmount', () => {
   it('adds green color class for positive values when colorize is true', () => {
     render(<FormattedAmount value={100} colorize={true} />)
     const span = screen.getByText('$100.00 USD')
-    expect(span).toHaveClass('text-emerald-500')
+    expect(span).toHaveClass('text-gain')
   })
 
   it('adds red color class for negative values when colorize is true', () => {
     render(<FormattedAmount value={-100} colorize={true} />)
     const span = screen.getByText('-$100.00 USD')
-    expect(span).toHaveClass('text-red-500')
+    expect(span).toHaveClass('text-loss')
   })
 
   it('adds green color class for zero when colorize is true', () => {
     render(<FormattedAmount value={0} colorize={true} />)
     const span = screen.getByText('$0.00 USD')
-    expect(span).toHaveClass('text-emerald-500')
+    expect(span).toHaveClass('text-gain')
   })
 
   it('does not add color class when colorize is false', () => {
     render(<FormattedAmount value={100} colorize={false} />)
     const span = screen.getByText('$100.00 USD')
-    expect(span).not.toHaveClass('text-red-500')
-    expect(span).not.toHaveClass('text-emerald-500')
+    expect(span).not.toHaveClass('text-loss')
+    expect(span).not.toHaveClass('text-gain')
   })
 
   it('formats with compact notation for large numbers', () => {
@@ -98,7 +98,7 @@ describe('FormattedAmount', () => {
   it('combines colorize and showSign correctly', () => {
     render(<FormattedAmount value={100} colorize={true} showSign={true} />)
     const span = screen.getByText('+$100.00 USD')
-    expect(span).toHaveClass('text-emerald-500')
+    expect(span).toHaveClass('text-gain')
   })
 
   it('always has font-mono class', () => {

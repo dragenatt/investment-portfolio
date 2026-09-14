@@ -27,6 +27,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { use, useMemo, useCallback, useState, useEffect } from 'react'
 import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
+import { cn } from '@/lib/utils'
 import { BarChart3, List, Download, TrendingUp, TrendingDown, Plus, Share2, Globe, Lock, Check, Copy } from 'lucide-react'
 import { transactionsToCSV, positionsToCSV, downloadFile } from '@/lib/utils/export'
 import type { ExportTransaction, ExportPosition } from '@/lib/utils/export'
@@ -252,12 +254,8 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           >
             <Plus className="h-4 w-4" /> {t.trade.new_transaction}
           </button>
-          <Link href={`/portfolio/${id}/transactions`}>
-            <Button className="rounded-xl" variant="outline" size="sm"><List className="h-4 w-4 mr-1" /> {t.portfolio.transactions}</Button>
-          </Link>
-          <Link href={`/portfolio/${id}/analytics`}>
-            <Button className="rounded-xl" variant="outline" size="sm"><BarChart3 className="h-4 w-4 mr-1" /> {t.portfolio.analytics}</Button>
-          </Link>
+          <Link href={`/portfolio/${id}/transactions`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-xl')}><List className="h-4 w-4 mr-1" /> {t.portfolio.transactions}</Link>
+          <Link href={`/portfolio/${id}/analytics`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-xl')}><BarChart3 className="h-4 w-4 mr-1" /> {t.portfolio.analytics}</Link>
           <Button className="rounded-xl" variant="outline" size="sm" onClick={() => setShareOpen(true)}>
             <Share2 className="h-4 w-4 mr-1" /> {t.sharing.share}
           </Button>
