@@ -5,6 +5,7 @@ import { FinanceTooltip } from '@/components/shared/finance-tooltip'
 import { cn } from '@/lib/utils'
 import { Activity, LineChart } from 'lucide-react'
 import type { AssetStats } from '@/lib/hooks/use-asset-stats'
+import { changeTone, formatSignedPercent, toneTextClass } from '@/lib/utils/change-tone'
 
 /**
  * Performance and risk for one asset.
@@ -19,12 +20,12 @@ const NOT_AVAILABLE = 'n/d'
 
 function signClass(value: number | null | undefined): string {
   if (value === null || value === undefined) return 'text-muted-foreground'
-  return value >= 0 ? 'text-gain' : 'text-loss'
+  return toneTextClass(changeTone(value, 2))
 }
 
 function pct(value: number | null | undefined, digits = 2): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return NOT_AVAILABLE
-  return `${value >= 0 ? '+' : ''}${value.toFixed(digits)}%`
+  return formatSignedPercent(value, digits)
 }
 
 /** For quantities with no direction, where a leading + would be nonsense. */

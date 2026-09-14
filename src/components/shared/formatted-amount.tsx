@@ -2,6 +2,7 @@
 
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { cn } from '@/lib/utils'
+import { changeTone, toneTextClass } from '@/lib/utils/change-tone'
 
 type Props = {
   value: number | null | undefined
@@ -35,13 +36,13 @@ export function FormattedAmount({ value, from, colorize, showSign, compact, clas
     display = format(Math.abs(converted))
   }
 
-  // Prefix: showSign adds +/- for all values; otherwise only '-' for negatives
-  const prefix = converted < 0 ? '-' : showSign && converted > 0 ? '+' : ''
+  // The tone is decided at cent precision (C9): -0.001 used to print "-$0.00"
+  // and zero was coloured as a gain. Zero is now unsigned and muted.
+  const tone = changeTone(converted, 2)
+  const prefix = tone === 'loss' ? '-' : showSign && tone === 'gain' ? '+' : ''
   display = `${prefix}${display}`
 
-  const colorClass = colorize
-    ? converted >= 0 ? 'text-gain' : 'text-loss'
-    : undefined
+  const colorClass = colorize ? toneTextClass(tone) : undefined
 
   return <span className={cn('font-mono', colorClass, className)}>{display}</span>
 }

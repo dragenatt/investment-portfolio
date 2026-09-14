@@ -8,9 +8,10 @@ import { useTranslation } from '@/lib/i18n'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Search, TrendingUp, TrendingDown, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { Search, TrendingUp, TrendingDown, Loader2, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react'
 import Link from 'next/link'
 import { SectorBrowser } from '@/components/market/sector-browser'
+import { changeTone, formatSignedPercent, formatSignedNumber, toneColor, toneTextClass } from '@/lib/utils/change-tone'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ type SearchResult = {
 // ─── Index Card ─────────────────────────────────────────────────────────────
 
 function IndexCard({ index }: { index: IndexData }) {
-  const isPositive = index.changePct >= 0
+  const tone = changeTone(index.changePct, 2)
 
   return (
     <Link href={`/market/${encodeURIComponent(index.symbol)}`}>
@@ -56,16 +57,18 @@ function IndexCard({ index }: { index: IndexData }) {
           <div className="flex items-center gap-1.5 mt-1">
             <span
               className={`inline-flex items-center gap-0.5 text-xs font-semibold font-mono px-2 py-0.5 rounded-full ${
-                isPositive
+                tone === 'gain'
                   ? 'bg-gain/10 text-gain'
-                  : 'bg-loss/10 text-loss'
+                  : tone === 'loss'
+                    ? 'bg-loss/10 text-loss'
+                    : 'bg-muted text-muted-foreground'
               }`}
             >
-              {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {isPositive ? '+' : ''}{index.changePct.toFixed(2)}%
+              {tone === 'gain' ? <TrendingUp aria-hidden="true" className="h-3 w-3" /> : tone === 'loss' ? <TrendingDown aria-hidden="true" className="h-3 w-3" /> : <Minus aria-hidden="true" className="h-3 w-3" />}
+              {formatSignedPercent(index.changePct, 2)}
             </span>
-            <span className={`text-xs font-mono ${isPositive ? 'text-gain' : 'text-loss'}`}>
-              {isPositive ? '+' : ''}{index.change.toFixed(2)}
+            <span className={`text-xs font-mono ${toneTextClass(tone)}`}>
+              {formatSignedNumber(index.change, 2)}
             </span>
           </div>
         </CardContent>
@@ -112,7 +115,7 @@ function MoverRow({ stock, type }: { stock: MoverData; type: 'gainer' | 'loser' 
                 isPositive ? 'text-gain' : 'text-loss'
               }`}
             >
-              {isPositive ? '+' : ''}{stock.changePct.toFixed(2)}%
+              {formatSignedPercent(stock.changePct, 2)}
             </span>
           </div>
         </div>

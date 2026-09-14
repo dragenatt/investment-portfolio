@@ -1,7 +1,9 @@
+import { formatSignedPercent } from './change-tone'
+
 export function formatPercent(value: number | null | undefined): string {
-  if (value == null) return '--'
-  const sign = value >= 0 ? '+' : ''
-  return `${sign}${value.toFixed(2)}%`
+  // Zero, and anything that rounds to it, carries no sign (C9): "+0.00%" read as
+  // a gain and "-0.00%" as a loss.
+  return formatSignedPercent(value, 2)
 }
 
 export function formatCompact(value: number): string {

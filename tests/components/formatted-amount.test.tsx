@@ -64,10 +64,16 @@ describe('FormattedAmount', () => {
     expect(span).toHaveClass('text-loss')
   })
 
-  it('adds green color class for zero when colorize is true', () => {
+  it('colours zero as neutral, not as a gain, when colorize is true (C9)', () => {
     render(<FormattedAmount value={0} colorize={true} />)
     const span = screen.getByText('$0.00 USD')
-    expect(span).toHaveClass('text-gain')
+    expect(span).toHaveClass('text-muted-foreground')
+    expect(span).not.toHaveClass('text-gain')
+  })
+
+  it('never prints "-$0.00" for a value that rounds to zero', () => {
+    render(<FormattedAmount value={-0.001} colorize={true} showSign />)
+    expect(screen.getByText('$0.00 USD')).toBeInTheDocument()
   })
 
   it('does not add color class when colorize is false', () => {

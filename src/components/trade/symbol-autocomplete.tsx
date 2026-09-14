@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMarketSearch, useQuote } from '@/lib/hooks/use-market'
 import { useDebounce } from '@/lib/hooks/use-debounce'
 import { Input } from '@/components/ui/input'
-import { Loader2, TrendingUp, TrendingDown, Clock } from 'lucide-react'
+import { Loader2, TrendingUp, TrendingDown, Clock, Minus } from 'lucide-react'
+import { changeTone, formatSignedPercent, toneTextClass } from '@/lib/utils/change-tone'
 
 const RECENT_KEY = 'trade_recent_symbols'
 
@@ -62,19 +63,18 @@ function InlineQuote({ symbol }: { symbol: string }) {
   if (isLoading) return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
   if (!quote || quote.price == null) return null
   const pct = quote.changePct
-  const isPositive = (pct ?? 0) >= 0
+  const tone = changeTone(pct, 2)
   return (
     <div className="flex items-center gap-1.5 shrink-0">
       <span className="font-mono text-xs">${quote.price.toFixed(2)}</span>
       {pct != null && (
         <span
           className={`text-[10px] flex items-center gap-0.5 font-medium ${
-            isPositive ? 'text-gain' : 'text-loss'
+            toneTextClass(tone)
           }`}
         >
-          {isPositive ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-          {isPositive ? '+' : ''}
-          {pct.toFixed(2)}%
+          {tone === 'gain' ? <TrendingUp aria-hidden="true" className="h-2.5 w-2.5" /> : tone === 'loss' ? <TrendingDown aria-hidden="true" className="h-2.5 w-2.5" /> : <Minus aria-hidden="true" className="h-2.5 w-2.5" />}
+          {formatSignedPercent(pct, 2)}
         </span>
       )}
     </div>

@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useTranslation } from '@/lib/i18n'
-import { Eye, EyeOff, TrendingUp, TrendingDown } from 'lucide-react'
+import { Eye, EyeOff, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
 import { PercentageChange } from '@/components/shared/percentage-change'
+import { changeTone, toneColor } from '@/lib/utils/change-tone'
 
 type Props = {
   totalValue: number
@@ -20,7 +21,8 @@ type Props = {
 export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCount, todayReturn, todayReturnPct, totalCost }: Props) {
   const { t } = useTranslation()
   const [balanceVisible, setBalanceVisible] = useState(true)
-  const isPositive = totalReturn >= 0
+  const returnTone = changeTone(totalReturn, 2)
+  const todayTone = changeTone(todayReturn, 2)
   const hiddenText = '\u2022\u2022\u2022\u2022\u2022\u2022'
   const investedAmount = totalCost != null ? totalCost : totalValue - totalReturn
 
@@ -49,15 +51,17 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
 
       {/* Return line */}
       <div className="flex items-center gap-1.5">
-        {isPositive ? (
-          <TrendingUp className="h-3.5 w-3.5" style={{ color: 'var(--good)' }} />
+        {returnTone === 'gain' ? (
+          <TrendingUp aria-hidden="true" className="h-3.5 w-3.5" style={{ color: toneColor(returnTone) }} />
+        ) : returnTone === 'loss' ? (
+          <TrendingDown aria-hidden="true" className="h-3.5 w-3.5" style={{ color: toneColor(returnTone) }} />
         ) : (
-          <TrendingDown className="h-3.5 w-3.5" style={{ color: 'var(--bad)' }} />
+          <Minus aria-hidden="true" className="h-3.5 w-3.5" style={{ color: toneColor(returnTone) }} />
         )}
-        <span className="text-sm font-medium" style={{ color: isPositive ? 'var(--good)' : 'var(--bad)' }}>
+        <span className="text-sm font-medium" style={{ color: toneColor(returnTone) }}>
           {balanceVisible ? <FormattedAmount value={totalReturn} showSign /> : hiddenText}
         </span>
-        <span className="text-sm font-mono" style={{ color: isPositive ? 'var(--good)' : 'var(--bad)' }}>
+        <span className="text-sm font-mono" style={{ color: toneColor(returnTone) }}>
           ({balanceVisible ? <PercentageChange value={totalReturnPct} className="text-sm" /> : hiddenText})
         </span>
       </div>
@@ -72,7 +76,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
             <span className="text-border">|</span>
             <span>
               Hoy:{' '}
-              <span className="font-medium" style={{ color: (todayReturn ?? 0) >= 0 ? 'var(--good)' : 'var(--bad)' }}>
+              <span className="font-medium" style={{ color: toneColor(todayTone) }}>
                 {balanceVisible ? <><FormattedAmount value={todayReturn} showSign /> (<PercentageChange value={todayReturnPct} className="text-xs" />)</> : hiddenText}
               </span>
             </span>

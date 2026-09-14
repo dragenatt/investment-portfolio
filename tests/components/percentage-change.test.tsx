@@ -27,11 +27,18 @@ describe('PercentageChange', () => {
     expect(span.textContent).toMatch(/↓/)
   })
 
-  it('renders zero with plus sign and up arrow', () => {
+  it('renders zero without a sign or an arrow — a flat day is not a gain (C9)', () => {
     render(<PercentageChange value={0} />)
-    const span = screen.getByText(/\+0.00%/)
-    expect(span).toBeInTheDocument()
-    expect(span.textContent).toMatch(/↑/)
+    const span = screen.getByText(/0.00%/)
+    expect(span.textContent).not.toMatch(/\+/)
+    expect(span.textContent).not.toMatch(/[↑↓]/)
+    expect(span.textContent).toMatch(/sin cambio/)
+  })
+
+  it('treats a value that rounds to zero as flat, not "-0.00%"', () => {
+    render(<PercentageChange value={-0.001} />)
+    const span = screen.getByText(/0.00%/)
+    expect(span.textContent).not.toMatch(/-0.00/)
   })
 
   it('applies green color class for positive values', () => {
@@ -40,10 +47,11 @@ describe('PercentageChange', () => {
     expect(span).toHaveClass('text-gain')
   })
 
-  it('applies green color class for zero', () => {
+  it('applies the muted colour, not green, for zero', () => {
     render(<PercentageChange value={0} />)
-    const span = screen.getByText(/\+0.00%/)
-    expect(span).toHaveClass('text-gain')
+    const span = screen.getByText(/0.00%/)
+    expect(span).toHaveClass('text-muted-foreground')
+    expect(span).not.toHaveClass('text-gain')
   })
 
   it('applies red color class for negative values', () => {

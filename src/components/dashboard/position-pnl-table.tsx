@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowUp, ArrowDown, ArrowUpDown, AlertTriangle } from 'lucide-react'
+import { ArrowUp, ArrowDown, ArrowUpDown, Clock, CircleSlash } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
 import { PercentageChange } from '@/components/shared/percentage-change'
@@ -78,6 +78,20 @@ function Sparkline({ data, width = 48, height = 16 }: { data: number[]; width?: 
         />
       </svg>
     </>
+  )
+}
+
+/**
+ * A stale price and a missing one used to be the same triangle in two colours
+ * (C9). They are different situations — an old number is still a number, a
+ * missing one is not — so they get different shapes; the text is on the
+ * wrapper's label.
+ */
+function FreshnessIcon({ status }: { status?: string }) {
+  return status === 'unavailable' ? (
+    <CircleSlash aria-hidden="true" className="h-3 w-3 shrink-0 text-loss" />
+  ) : (
+    <Clock aria-hidden="true" className="h-3 w-3 shrink-0 text-warn" />
   )
 }
 
@@ -235,11 +249,7 @@ export function PositionPnLTable({ positions }: Props) {
                       role="img"
                         className="inline-flex"
                       >
-                        <AlertTriangle
-                          className={`h-3 w-3 shrink-0 ${
-                            pos.freshness?.status === 'unavailable' ? 'text-loss' : 'text-warn'
-                          }`}
-                        />
+                        <FreshnessIcon status={pos.freshness?.status} />
                       </span>
                     )}
                   </div>
@@ -289,11 +299,7 @@ export function PositionPnLTable({ positions }: Props) {
                       role="img"
                       className="inline-flex"
                     >
-                      <AlertTriangle
-                        className={`h-3 w-3 shrink-0 ${
-                          pos.freshness?.status === 'unavailable' ? 'text-loss' : 'text-warn'
-                        }`}
-                      />
+                      <FreshnessIcon status={pos.freshness?.status} />
                     </span>
                   )}
                 </div>

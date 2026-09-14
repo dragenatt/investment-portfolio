@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { Copy, Check } from 'lucide-react'
+import { ErrorDisplay } from '@/components/shared/error-display'
 
 type VisibilityMode = 'public' | 'private' | 'shared'
 
@@ -25,7 +26,7 @@ interface PortfolioSettings {
 }
 
 export default function PrivacySettingsPage() {
-  const { data: portfolios = [], isLoading } = usePortfolios()
+  const { data: portfolios = [], isLoading, error: portfoliosError } = usePortfolios()
   const [settings, setSettings] = useState<Record<string, PortfolioSettings>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [saving, setSaving] = useState<Record<string, boolean>>({})
@@ -132,8 +133,10 @@ export default function PrivacySettingsPage() {
         </p>
       </div>
 
-      {/* Portfolio Cards */}
-      {portfolios.length === 0 ? (
+      {/* Portfolio Cards. A failed load is not "No tienes portafolios" (C9). */}
+      {portfoliosError && portfolios.length === 0 ? (
+        <ErrorDisplay error="No se pudieron cargar tus portafolios. Tus datos no se han perdido; vuelve a intentarlo." onRetry={() => window.location.reload()} />
+      ) : portfolios.length === 0 ? (
         <Card className="rounded-xl border-border">
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">No tienes portafolios</p>

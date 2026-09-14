@@ -109,3 +109,18 @@ describe('apiFetcher and the service worker', () => {
     resetOfflineStatusForTests()
   })
 })
+
+describe('apiFetcher errors carry the HTTP status', () => {
+  it('lets a page tell a missing record from a failed request', async () => {
+    const { ApiError, isNotFound } = await import('@/lib/api/fetcher')
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: null, error: 'Portafolio no encontrado' }, 404))
+    const notFound = await apiFetcher('/api/portfolio/x').catch((e) => e)
+    expect(notFound).toBeInstanceOf(ApiError)
+    expect(isNotFound(notFound)).toBe(true)
+
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: null, error: 'Error interno del servidor. Intenta de nuevo.' }, 500))
+    const failed = await apiFetcher('/api/portfolio/x').catch((e) => e)
+    expect(isNotFound(failed)).toBe(false)
+    expect(failed.status).toBe(500)
+  })
+})

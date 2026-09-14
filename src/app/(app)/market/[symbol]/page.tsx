@@ -18,7 +18,7 @@ import { useEvents } from '@/lib/hooks/use-events'
 import { useAssetStats } from '@/lib/hooks/use-asset-stats'
 import { AssetPerformance, AssetRisk } from '@/components/market/asset-stats'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Plus, Eye, AlertCircle, ArrowUp, ArrowDown, TrendingUp, Briefcase, GitCompareArrows } from 'lucide-react'
+import { Plus, Eye, AlertCircle, ArrowUp, ArrowDown, TrendingUp, Briefcase, GitCompareArrows, Minus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSWRConfig } from 'swr'
 import { useRouter } from 'next/navigation'
@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils'
 import { formatPercent } from '@/lib/utils/numbers'
 import { FinanceTooltip } from '@/components/shared/finance-tooltip'
 import { PriceChart, StrategyBuilder } from '@/components/charts/lazy-charts'
+import { changeTone, formatSignedPercent, toneTextClass } from '@/lib/utils/change-tone'
 
 // ─── Helper: format large numbers ───────────────────────────────────
 function formatLargeNumber(n: number | null): string {
@@ -129,7 +130,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
     )
   }
 
-  const isPositive = (quote?.change ?? 0) >= 0
+  const tone = changeTone(quote?.changePct, 2)
   const displayPrice = hoverPrice ?? quote?.price
   const displayName = quote?.name || fundamentals?.name || null
   const showName = displayName && displayName !== decodedSymbol
@@ -160,12 +161,9 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
             <div className="flex items-center gap-2 mt-1">
               <span className={cn(
                 'flex items-center gap-1 text-sm font-medium',
-                isPositive ? 'text-gain' : 'text-loss'
+                toneTextClass(tone)
               )}>
-                {isPositive
-                  ? <ArrowUp className="h-3.5 w-3.5" />
-                  : <ArrowDown className="h-3.5 w-3.5" />
-                }
+                {tone === 'gain' ? <ArrowUp aria-hidden="true" className="h-3.5 w-3.5" /> : tone === 'loss' ? <ArrowDown aria-hidden="true" className="h-3.5 w-3.5" /> : <Minus aria-hidden="true" className="h-3.5 w-3.5" />}
                 <FormattedAmount
                   value={quote.change ?? 0}
                   from={quote.currency}
@@ -216,8 +214,8 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
               const totalReturn = marketValue - costBasis
               const totalReturnPct = costBasis > 0 ? (totalReturn / costBasis) * 100 : 0
               const todayReturn = pos.quantity * (quote.change ?? 0)
-              const isReturnPositive = totalReturn >= 0
-              const isTodayPositive = todayReturn >= 0
+              const returnTone = changeTone(totalReturnPct, 2)
+              const todayTone = changeTone(quote.changePct, 2)
 
               return (
                 <div key={pos.portfolioId} className="space-y-3">
@@ -247,7 +245,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                       <p className="text-xs text-muted-foreground">{t.market.total_return}</p>
                       <div className="flex items-center gap-1">
                         <FormattedAmount value={totalReturn} from={quote.currency} showSign colorize className="text-sm font-semibold" />
-                        <span className={cn('text-xs', isReturnPositive ? 'text-gain' : 'text-loss')}>
+                        <span className={cn('text-xs', toneTextClass(returnTone))}>
                           ({formatPercent(totalReturnPct)})
                         </span>
                       </div>
@@ -256,7 +254,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                       <p className="text-xs text-muted-foreground">{t.market.today_return}</p>
                       <div className="flex items-center gap-1">
                         <FormattedAmount value={todayReturn} from={quote.currency} showSign colorize className="text-sm font-semibold" />
-                        <span className={cn('text-xs', isTodayPositive ? 'text-gain' : 'text-loss')}>
+                        <span className={cn('text-xs', toneTextClass(todayTone))}>
                           ({formatPercent(quote.changePct)})
                         </span>
                       </div>
@@ -419,9 +417,9 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                       return (
                         <span className={cn(
                           'text-xs font-medium',
-                          upside >= 0 ? 'text-gain' : 'text-loss'
+                          toneTextClass(changeTone(upside, 1))
                         )}>
-                          {upside >= 0 ? '+' : ''}{upside.toFixed(1)}% {t.market.vs_current}
+                          {formatSignedPercent(upside, 1)} {t.market.vs_current}
                         </span>
                       )
                     })()}

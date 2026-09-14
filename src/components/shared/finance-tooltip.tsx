@@ -1,14 +1,7 @@
 'use client'
 
 import { HelpCircle } from 'lucide-react'
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipPortal,
-  TooltipPositioner,
-  TooltipContent,
-  TooltipArrow,
-} from '@/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 const TERMS: Record<string, string> = {
   'P/E': 'Price to Earnings — indica cuánto pagan los inversores por cada peso de ganancia. Un P/E alto puede significar que se espera crecimiento futuro.',
@@ -49,23 +42,23 @@ export function FinanceTooltip({ term }: { term: string }) {
   const explanation = TERMS[term]
   if (!explanation) return null
 
+  // A popover, not a tooltip (C9): tooltips open on hover and focus only, so on
+  // a phone tapping the "?" did nothing. This opens on hover, tap, click and
+  // Enter. The visible circle stays 16px; the hit area is 24px (WCAG 2.5.8).
   return (
-    <Tooltip>
-      <TooltipTrigger
-        className="inline-flex items-center justify-center h-4 w-4 rounded-full border border-muted-foreground/30 text-muted-foreground hover:text-foreground hover:border-foreground/50 transition-colors cursor-help"
-        aria-label={`Ayuda: ${term}`}
+    <Popover>
+      <PopoverTrigger
+        openOnHover
+        delay={150}
+        className="relative inline-flex items-center justify-center h-4 w-4 rounded-full border border-muted-foreground/30 text-muted-foreground hover:text-foreground hover:border-foreground/50 transition-colors cursor-help after:absolute after:-inset-1 after:content-['']"
+        aria-label={`Qué significa ${term}`}
       >
-        <HelpCircle className="h-3 w-3" />
-      </TooltipTrigger>
-      <TooltipPortal>
-        <TooltipPositioner side="top" sideOffset={6}>
-          <TooltipContent className="max-w-[260px]">
-            <TooltipArrow />
-            <p className="font-medium text-xs mb-1">{term}</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">{explanation}</p>
-          </TooltipContent>
-        </TooltipPositioner>
-      </TooltipPortal>
-    </Tooltip>
+        <HelpCircle aria-hidden="true" className="h-3 w-3" />
+      </PopoverTrigger>
+      <PopoverContent side="top" sideOffset={6} className="w-auto max-w-[260px] p-3">
+        <p className="font-medium text-xs mb-1">{term}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">{explanation}</p>
+      </PopoverContent>
+    </Popover>
   )
 }

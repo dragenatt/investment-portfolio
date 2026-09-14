@@ -30,7 +30,7 @@ type ImportState = 'upload' | 'preview' | 'importing' | 'done'
 
 export default function ImportCSVPage() {
   const { t } = useTranslation()
-  const { data: portfolios, isLoading: loadingPortfolios } = usePortfolios()
+  const { data: portfolios, isLoading: loadingPortfolios, error: portfoliosError } = usePortfolios()
   const [portfolioId, setPortfolioId] = useState<string>('')
   const [state, setState] = useState<ImportState>('upload')
   const [rows, setRows] = useState<CSVRow[]>([])
@@ -135,6 +135,11 @@ export default function ImportCSVPage() {
             </Label>
             {loadingPortfolios ? (
               <p className="text-sm text-muted-foreground">{t.portfolio.loading_portfolios}</p>
+            ) : portfoliosError && !portfolios ? (
+              // Not "create one first" when the list simply failed to load (C9).
+              <p className="text-sm text-destructive" role="alert">
+                No se pudieron cargar tus portafolios. Recarga la página para intentarlo de nuevo.
+              </p>
             ) : !portfolios || portfolios.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {t.portfolio.no_portfolios_owned}{' '}

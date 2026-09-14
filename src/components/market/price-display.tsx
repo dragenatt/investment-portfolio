@@ -3,7 +3,8 @@
 import { cn } from '@/lib/utils'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
 import { formatPercent } from '@/lib/utils/numbers'
-import { ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowUp, ArrowDown, Minus } from 'lucide-react'
+import { changeTone, toneTextClass } from '@/lib/utils/change-tone'
 
 type Props = {
   price: number
@@ -14,8 +15,8 @@ type Props = {
 }
 
 export function PriceDisplay({ price, change, changePct, currency = 'USD', size = 'md' }: Props) {
-  const isPositive = (change ?? 0) >= 0
-  const colorClass = isPositive ? 'text-gain' : 'text-loss'
+  const tone = changeTone(changePct, 2)
+  const colorClass = toneTextClass(tone)
 
   const sizes = {
     sm: { price: 'text-sm', change: 'text-xs' },
@@ -28,7 +29,7 @@ export function PriceDisplay({ price, change, changePct, currency = 'USD', size 
       <FormattedAmount value={price} from={currency} className={sizes[size].price} />
       {change != null && changePct != null && (
         <span className={cn(sizes[size].change, colorClass, 'flex items-center gap-0.5')}>
-          {isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+          {tone === 'gain' ? <ArrowUp aria-hidden="true" className="h-3 w-3" /> : tone === 'loss' ? <ArrowDown aria-hidden="true" className="h-3 w-3" /> : <Minus aria-hidden="true" className="h-3 w-3" />}
           {formatPercent(changePct)}
         </span>
       )}

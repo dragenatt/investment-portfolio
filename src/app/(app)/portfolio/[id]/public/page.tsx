@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils'
 import { TrendingUp, TrendingDown, Lock, Eye, GitCompareArrows, Heart, ArrowLeft } from 'lucide-react'
 import { useLike } from '@/lib/hooks/use-social'
 import { useTranslation } from '@/lib/i18n'
+import { changeTone, formatSignedPercent, toneTextClass } from '@/lib/utils/change-tone'
 
 type PortfolioData = {
   id: string
@@ -256,7 +257,7 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
                     </TableHeader>
                     <TableBody>
                       {positionsWithPrices.map(pos => {
-                        const isPositive = pos.changePct >= 0
+                        const tone = changeTone(pos.changePct, 2)
                         return (
                           <TableRow key={pos.id}>
                             <TableCell>
@@ -268,8 +269,8 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
                               ${pos.currentPrice.toFixed(2)}
                             </TableCell>
                             <TableCell className="text-right">
-                              <span className={`text-xs font-medium ${isPositive ? 'text-gain' : 'text-loss'}`}>
-                                {isPositive ? '+' : ''}{pos.changePct.toFixed(2)}%
+                              <span className={`text-xs font-medium ${toneTextClass(tone)}`}>
+                                {formatSignedPercent(pos.changePct, 2)}
                               </span>
                             </TableCell>
                             {showAmounts && (

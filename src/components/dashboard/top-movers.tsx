@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
 import { formatPercent } from '@/lib/utils/numbers'
 import { TrendingUp } from 'lucide-react'
+import { changeTone, toneColor } from '@/lib/utils/change-tone'
 
 type Mover = { symbol: string; name: string; price: number; change: number; changePct: number; currency: string }
 
@@ -23,7 +24,7 @@ export function TopMovers({ movers }: { movers: Mover[] }) {
           </div>
         )}
         {movers.map((m, idx) => {
-          const isPositive = (m.change ?? 0) >= 0
+          const tone = changeTone(m.changePct, 2)
           return (
             <div
               key={m.symbol}
@@ -37,9 +38,9 @@ export function TopMovers({ movers }: { movers: Mover[] }) {
                 <FormattedAmount value={m.price} from={m.currency} className="text-sm font-mono" />
                 <span
                   className="text-xs font-mono font-medium"
-                  style={{ color: isPositive ? 'var(--good)' : 'var(--bad)' }}
+                  style={{ color: toneColor(tone) }}
                 >
-                  {isPositive ? '+' : ''}{formatPercent(m.changePct)}
+                  {formatPercent(m.changePct)}
                 </span>
               </div>
             </div>

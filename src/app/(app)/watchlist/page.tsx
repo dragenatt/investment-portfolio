@@ -13,13 +13,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorDisplay } from '@/components/shared/error-display'
-import { Plus, Search, TrendingUp, TrendingDown, Loader2, Pencil, Trash2, Eye, ArrowUp, ArrowDown, ArrowUpDown, Check } from 'lucide-react'
+import { Plus, Search, TrendingUp, TrendingDown, Loader2, Pencil, Trash2, Eye, ArrowUp, ArrowDown, ArrowUpDown, Check, Minus } from 'lucide-react'
 import { useTrade } from '@/lib/contexts/trade-context'
 import { useState, useMemo, useRef } from 'react'
 import { useDebounce } from '@/lib/hooks/use-debounce'
 import { useSWRConfig } from 'swr'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { changeTone, formatSignedPercent, toneTextClass } from '@/lib/utils/change-tone'
 
 type WatchlistItem = { id: string; symbol: string; asset_type: string }
 type Watchlist = { id: string; name: string; watchlist_items: WatchlistItem[] }
@@ -120,13 +121,13 @@ function WatchlistTable({ watchlist, prices, t }: { watchlist: Watchlist; prices
         {sorted.map(item => {
           const q = prices?.[item.symbol]
           const pct = q?.changePct
-          const isPositive = (pct ?? 0) >= 0
+          const tone = changeTone(pct, 2)
           return (
             <TableRow key={item.id} className="group">
               <TableCell>
                 <Link href={`/market/${encodeURIComponent(item.symbol)}`} className="flex items-center gap-2 hover:underline">
                   <span className="font-mono font-semibold text-sm">{item.symbol}</span>
-                  <MiniSparkline positive={isPositive} />
+                  <MiniSparkline positive={tone !== 'loss'} />
                 </Link>
               </TableCell>
               <TableCell className="text-right font-mono text-sm">
@@ -134,9 +135,9 @@ function WatchlistTable({ watchlist, prices, t }: { watchlist: Watchlist; prices
               </TableCell>
               <TableCell className="text-right">
                 {pct != null ? (
-                  <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${isPositive ? 'text-gain' : 'text-loss'}`}>
-                    {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                    {isPositive ? '+' : ''}{pct.toFixed(2)}%
+                  <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${toneTextClass(tone)}`}>
+                    {tone === 'gain' ? <TrendingUp aria-hidden="true" className="h-3 w-3" /> : tone === 'loss' ? <TrendingDown aria-hidden="true" className="h-3 w-3" /> : <Minus aria-hidden="true" className="h-3 w-3" />}
+                    {formatSignedPercent(pct, 2)}
                   </span>
                 ) : <span className="text-muted-foreground text-xs">--</span>}
               </TableCell>

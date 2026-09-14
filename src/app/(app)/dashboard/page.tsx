@@ -15,12 +15,13 @@ import { useMemo, useState } from 'react'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
 import { useTranslation } from '@/lib/i18n'
 import { PortfolioChart, AllocationDonut } from '@/components/charts/lazy-charts'
+import { DataGate } from '@/components/shared/data-gate'
 
 export default function DashboardPage() {
   const { t } = useTranslation()
   const { data: portfolios, isLoading, error, mutate } = usePortfolios()
   const [chartRange, setChartRange] = useState('30')
-  const { data: chartData, isLoading: chartLoading } = usePortfolioHistory(chartRange)
+  const { data: chartData, isLoading: chartLoading, error: chartError } = usePortfolioHistory(chartRange)
 
   const allSymbols = useMemo(() => {
     if (!portfolios) return []
@@ -105,13 +106,16 @@ export default function DashboardPage() {
       </ErrorBoundary>
 
       {/* Chart */}
-      <ErrorBoundary>
-        <PortfolioChart
-          data={chartData ?? []}
-          isLoading={chartLoading}
-          onPeriodChange={setChartRange}
-        />
-      </ErrorBoundary>
+      {/* A failed history load used to say "Agrega transacciones para ver el rendimiento" (C9). */}
+      <DataGate error={chartError} hasData={!!chartData} what="la evolución del portafolio">
+        <ErrorBoundary>
+          <PortfolioChart
+            data={chartData ?? []}
+            isLoading={chartLoading}
+            onPeriodChange={setChartRange}
+          />
+        </ErrorBoundary>
+      </DataGate>
 
       {/* Allocation + Top Movers side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

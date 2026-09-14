@@ -2,12 +2,15 @@
 
 import { use, useState } from 'react'
 import { useTransactions, type Transaction } from '@/lib/hooks/use-transactions'
+import { formatCurrency } from '@/lib/utils/currency'
+import { DIRECTION_LABEL, transactionCash } from '@/lib/utils/transaction-display'
 import { TransactionEditModal } from '@/components/portfolio/transaction-edit-modal'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SkeletonTable } from '@/components/shared/skeleton-table'
+import { ErrorDisplay } from '@/components/shared/error-display'
 import { Pencil, Trash2, ArrowLeft } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useSWRConfig } from 'swr'
@@ -16,11 +19,19 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { useTranslation } from '@/lib/i18n'
 
+// A sale is not a loss: red belongs to losses in this app, and the label already
+// names the type (C9).
 const TYPE_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   buy: 'default',
-  sell: 'destructive',
-  dividend: 'secondary',
+  sell: 'secondary',
+  dividend: 'outline',
   split: 'outline',
+}
+
+/** "1,005.00 USD pagado" — the transaction's own currency, and which way the money went. */
+function cashLabel(t: Transaction): string {
+  const cash = transactionCash(t)
+  return cash ? `${formatCurrency(cash.amount, t.currency)} ${DIRECTION_LABEL[cash.direction]}` : '—'
 }
 
 const PAGE_SIZE = 20
@@ -35,7 +46,7 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
     dividend: t.portfolio.dividend,
     split: t.portfolio.split,
   }
-  const { data: transactions, isLoading } = useTransactions(id)
+  const { data: transactions, isLoading, error } = useTransactions(id)
   const { mutate } = useSWRConfig()
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [symbolFilter, setSymbolFilter] = useState<string>('all')
@@ -75,6 +86,10 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
   }
 
   if (isLoading) return <SkeletonTable />
+  // A failed load used to read "no transactions" (C9).
+  if (error && !transactions) {
+    return <ErrorDisplay error="No se pudieron cargar las transacciones. Tus datos no se han perdido; vuelve a intentarlo." onRetry={() => window.location.reload()} />
+  }
 
   return (
     <div className="space-y-6">
@@ -113,14 +128,14 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
                 <table className="w-full">
                   <thead>
                     <tr className="border-b text-left text-sm text-muted-foreground">
-                      <th className="p-3">{t.portfolio.date}</th>
-                      <th className="p-3">{t.portfolio.symbol}</th>
-                      <th className="p-3">{t.portfolio.type}</th>
-                      <th className="p-3 text-right">{t.portfolio.quantity}</th>
-                      <th className="p-3 text-right">{t.portfolio.price}</th>
-                      <th className="p-3 text-right">{t.portfolio.fees}</th>
-                      <th className="p-3 text-right">{t.portfolio.total}</th>
-                      <th className="p-3"><span className="sr-only">Acciones</span></th>
+                      <th scope="col" className="p-3">{t.portfolio.date}</th>
+                      <th scope="col" className="p-3">{t.portfolio.symbol}</th>
+                      <th scope="col" className="p-3">{t.portfolio.type}</th>
+                      <th scope="col" className="p-3 text-right">{t.portfolio.quantity}</th>
+                      <th scope="col" className="p-3 text-right">{t.portfolio.price}</th>
+                      <th scope="col" className="p-3 text-right">{t.portfolio.fees}</th>
+                      <th scope="col" className="p-3 text-right">{t.portfolio.total}</th>
+                      <th scope="col" className="p-3"><span className="sr-only">Acciones</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -130,9 +145,9 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
                         <td className="p-3 font-mono text-sm font-medium">{t.position.symbol}</td>
                         <td className="p-3"><Badge variant={TYPE_COLORS[t.type]}>{TYPE_LABELS[t.type]}</Badge></td>
                         <td className="p-3 text-right font-mono text-sm">{t.quantity}</td>
-                        <td className="p-3 text-right font-mono text-sm">${t.price.toFixed(2)}</td>
-                        <td className="p-3 text-right font-mono text-sm">${t.fees.toFixed(2)}</td>
-                        <td className="p-3 text-right font-mono text-sm font-medium">${(t.quantity * t.price + t.fees).toFixed(2)}</td>
+                        <td className="p-3 text-right font-mono text-sm">{formatCurrency(t.price, t.currency)}</td>
+                        <td className="p-3 text-right font-mono text-sm">{formatCurrency(t.fees, t.currency)}</td>
+                        <td className="p-3 text-right font-mono text-sm font-medium">{cashLabel(t)}</td>
                         <td className="p-3">
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Editar transacción de ${t.position.symbol}`} onClick={() => setEditing(t)}>
@@ -168,9 +183,9 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
                     </div>
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>{new Date(t.executed_at).toLocaleDateString('es-MX')}</span>
-                      <span className="font-mono">{t.quantity} x ${t.price.toFixed(2)}</span>
+                      <span className="font-mono">{t.quantity} x {formatCurrency(t.price, t.currency)}</span>
                     </div>
-                    <div className="text-right font-mono text-sm font-medium">${(t.quantity * t.price + t.fees).toFixed(2)}</div>
+                    <div className="text-right font-mono text-sm font-medium">{cashLabel(t)}</div>
                   </div>
                 ))}
               </div>

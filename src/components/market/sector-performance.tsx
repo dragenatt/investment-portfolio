@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { changeTone, formatSignedPercent, toneTextClass } from '@/lib/utils/change-tone'
 
 type SectorData = {
   name: string
@@ -16,7 +17,7 @@ export function SectorPerformance({ sectors }: { sectors: SectorData[] }) {
     <div className="space-y-2">
       {sorted.map(sector => {
         const pct = sector.changePct ?? 0
-        const isPositive = pct >= 0
+        const tone = changeTone(pct, 2)
         const width = (Math.abs(pct) / maxAbs) * 100
 
         return (
@@ -32,19 +33,21 @@ export function SectorPerformance({ sectors }: { sectors: SectorData[] }) {
               <div className="flex-1 h-6 bg-muted/40 rounded-md overflow-hidden relative">
                 <div
                   className={`h-full rounded-md transition-all duration-500 ${
-                    isPositive
+                    tone === 'gain'
                       ? 'bg-gain/25 group-hover:bg-gain/35'
-                      : 'bg-loss/25 group-hover:bg-loss/35'
+                      : tone === 'loss'
+                        ? 'bg-loss/25 group-hover:bg-loss/35'
+                        : 'bg-muted group-hover:bg-muted'
                   }`}
                   style={{ width: `${Math.max(3, width)}%` }}
                 />
               </div>
               <span
                 className={`text-xs font-mono font-semibold w-18 text-right ${
-                  isPositive ? 'text-gain' : 'text-loss'
+                  toneTextClass(tone)
                 }`}
               >
-                {isPositive ? '+' : ''}{(sector.changePct ?? 0).toFixed(2)}%
+                {formatSignedPercent(sector.changePct, 2)}
               </span>
             </div>
           </Link>

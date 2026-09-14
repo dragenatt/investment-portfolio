@@ -7,10 +7,11 @@ import { useMarketSearch, useQuote } from '@/lib/hooks/use-market'
 import { useWatchlists } from '@/lib/hooks/use-watchlist'
 import { useDebounce } from '@/lib/hooks/use-debounce'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Check, Clock, Loader2, TrendingUp, TrendingDown } from 'lucide-react'
+import { Plus, Check, Clock, Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { useSWRConfig } from 'swr'
 import { toast } from 'sonner'
 import { useTrade } from '@/lib/contexts/trade-context'
+import { changeTone, formatSignedPercent, toneTextClass } from '@/lib/utils/change-tone'
 
 const RECENT_KEY = 'symbol_search_recent'
 
@@ -35,14 +36,14 @@ function InlineQuote({ symbol }: { symbol: string }) {
   if (isLoading) return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground ml-auto" />
   if (!quote || quote.price == null) return null
   const pct = quote.changePct
-  const isPositive = (pct ?? 0) >= 0
+  const tone = changeTone(pct, 2)
   return (
     <div className="flex items-center gap-2 ml-auto">
       <span className="font-mono text-xs">${quote.price.toFixed(2)}</span>
       {pct != null && (
-        <span className={`text-[10px] flex items-center gap-0.5 font-medium ${isPositive ? 'text-gain' : 'text-loss'}`}>
-          {isPositive ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-          {isPositive ? '+' : ''}{pct.toFixed(2)}%
+        <span className={`text-[10px] flex items-center gap-0.5 font-medium ${toneTextClass(tone)}`}>
+          {tone === 'gain' ? <TrendingUp aria-hidden="true" className="h-2.5 w-2.5" /> : tone === 'loss' ? <TrendingDown aria-hidden="true" className="h-2.5 w-2.5" /> : <Minus aria-hidden="true" className="h-2.5 w-2.5" />}
+          {formatSignedPercent(pct, 2)}
         </span>
       )}
     </div>

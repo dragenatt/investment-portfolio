@@ -1,6 +1,21 @@
 import { noteApiResponse } from '@/lib/pwa/offline-data'
 
-export const apiFetcher =async (url: string) => {
+/**
+ * An error that knows its HTTP status, so a page can tell "this does not exist"
+ * (404) from "this failed" (5xx, offline) and say the right thing (C9).
+ */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+export function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404
+}
+
+export const apiFetcher = async (url: string) => {
   const res = await fetch(url, {
     credentials: 'include',
     headers: { 'Accept': 'application/json' },
@@ -30,10 +45,10 @@ export const apiFetcher =async (url: string) => {
   const json = await res.json()
 
   // API returns { data, error } — check error field first
-  if (json.error) throw new Error(json.error)
+  if (json.error) throw new ApiError(json.error, res.status)
 
   // Guard against unexpected HTTP errors
-  if (!res.ok) throw new Error(`Error del servidor (${res.status})`)
+  if (!res.ok) throw new ApiError(`Error del servidor (${res.status})`, res.status)
 
   return json.data
 }

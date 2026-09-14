@@ -13,6 +13,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { changeTone, toneColor } from '@/lib/utils/change-tone'
 
 type Props = {
   totalValue: number
@@ -54,8 +55,7 @@ function PnlCardSkeleton() {
 }
 
 function PillBadge({ value, pct }: { value?: number; pct?: number }) {
-  const ref = pct ?? value ?? 0
-  const isPositive = ref >= 0
+  const color = toneColor(changeTone(pct ?? value, 2))
 
   return (
     <span
@@ -63,11 +63,9 @@ function PillBadge({ value, pct }: { value?: number; pct?: number }) {
       style={{
         borderRadius: '999px',
         fontSize: '12px',
-        border: `1px solid ${isPositive ? 'var(--good)' : 'var(--bad)'}`,
-        backgroundColor: isPositive
-          ? 'color-mix(in srgb, var(--good) 10%, transparent)'
-          : 'color-mix(in srgb, var(--bad) 10%, transparent)',
-        color: isPositive ? 'var(--good)' : 'var(--bad)',
+        border: `1px solid ${color}`,
+        backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)`,
+        color,
       }}
     >
       <PercentageChange value={pct ?? value} className="text-xs" />
@@ -75,14 +73,13 @@ function PillBadge({ value, pct }: { value?: number; pct?: number }) {
   )
 }
 
+// A flat figure is neutral, not a gain (C9).
 function colorForValue(value: number) {
-  return value >= 0 ? 'var(--good)' : 'var(--bad)'
+  return toneColor(changeTone(value, 2))
 }
 
 function bgForValue(value: number) {
-  return value >= 0
-    ? 'color-mix(in srgb, var(--good) 10%, transparent)'
-    : 'color-mix(in srgb, var(--bad) 10%, transparent)'
+  return `color-mix(in srgb, ${colorForValue(value)} 10%, transparent)`
 }
 
 export function PnlCards({
@@ -128,7 +125,7 @@ export function PnlCards({
     // 2 — P&L Total
     {
       label: 'P&L Total',
-      icon: totalReturn >= 0 ? TrendingUp : TrendingDown,
+      icon: changeTone(totalReturn, 2) === 'loss' ? TrendingDown : TrendingUp,
       value: <FormattedAmount value={totalReturn} showSign />,
       subtitle: <PillBadge pct={totalReturnPct} />,
       color: colorForValue(totalReturn),

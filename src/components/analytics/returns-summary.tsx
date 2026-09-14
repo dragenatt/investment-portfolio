@@ -6,6 +6,7 @@ import { formatNumber } from '@/lib/utils/numbers'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Calculator, TrendingUp, Wallet } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { changeTone, formatSignedPercent, toneColor } from '@/lib/utils/change-tone'
 
 type Props = {
   simple: number
@@ -24,8 +25,9 @@ type MetricDef = {
   value: number
 }
 
+// Zero and anything that rounds to 0.00% is neutral, not a gain (C9).
 function colorForValue(value: number) {
-  return value >= 0 ? 'var(--good)' : 'var(--bad)'
+  return toneColor(changeTone(value, 2))
 }
 
 function bgForValue(value: number) {
@@ -94,7 +96,6 @@ export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
         const Icon = metric.icon
         const color = colorForValue(metric.value)
         const bgColor = bgForValue(metric.value)
-        const isPositive = metric.value >= 0
 
         return (
           <Card key={metric.key} className="relative overflow-hidden premium-card">
@@ -124,7 +125,7 @@ export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
                 className="font-bold"
                 style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', letterSpacing: '-0.02em', color }}
               >
-                {isPositive ? '+' : ''}{formatNumber(metric.value)}%
+                {formatSignedPercent(metric.value, 2)}
               </p>
 
               <p
@@ -144,7 +145,7 @@ export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
                     color,
                   }}
                 >
-                  {isPositive ? '+' : ''}{formatNumber(metric.value)}%
+                  {formatSignedPercent(metric.value, 2)}
                 </span>
               </div>
 

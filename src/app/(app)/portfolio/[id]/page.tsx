@@ -11,6 +11,8 @@ import { ConcentrationAlerts } from '@/components/portfolio/concentration-alerts
 import { useTrade } from '@/lib/contexts/trade-context'
 import { AllocationDonut } from '@/components/charts/lazy-charts'
 import { SkeletonTable } from '@/components/shared/skeleton-table'
+import { ErrorDisplay } from '@/components/shared/error-display'
+import { isNotFound } from '@/lib/api/fetcher'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
@@ -40,7 +42,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
   const { t } = useTranslation()
   const { id } = use(params)
   const { openTrade } = useTrade()
-  const { data: portfolio, isLoading } = usePortfolio(id)
+  const { data: portfolio, isLoading, error: portfolioError } = usePortfolio(id)
   const { data: transactions } = useTransactions(id)
   const { data: alerts, mutate: mutateAlerts } = usePortfolioAlerts(id)
   const { convert } = useCurrency()
@@ -237,6 +239,11 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
     )
   }
 
+  // "Portfolio not found" is for a portfolio that does not exist, not for a
+  // request that failed (C9).
+  if (!portfolio && portfolioError && !isNotFound(portfolioError)) {
+    return <ErrorDisplay error="No se pudo cargar el portafolio. Tus datos no se han perdido; vuelve a intentarlo." onRetry={() => window.location.reload()} />
+  }
   if (!portfolio) return <p className="text-muted-foreground">{t.portfolio.portfolio_not_found}</p>
 
   return (

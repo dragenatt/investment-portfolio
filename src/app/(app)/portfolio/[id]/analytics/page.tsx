@@ -3,6 +3,7 @@
 import { use, useEffect, useRef, useState } from 'react'
 import { FUNNEL_EVENTS } from '@/lib/analytics/events'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
+import { DataGate } from '@/components/shared/data-gate'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { ReturnsSummary } from '@/components/analytics/returns-summary'
@@ -22,11 +23,11 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
   const [horizonWeeks, setHorizonWeeks] = useState(52)
   const { currency } = useCurrency()
 
-  const { data: returns, isLoading: returnsLoading } = useReturns(id)
-  const { data: risk, isLoading: riskLoading } = useRisk(id)
-  const { data: factors, isLoading: factorsLoading } = useFactors(id)
-  const { data: optimization, isLoading: optimizationLoading } = useOptimization(id)
-  const { data: monteCarlo, isLoading: monteCarloLoading } = useMonteCarlo(id, horizonWeeks)
+  const { data: returns, isLoading: returnsLoading, error: returnsError } = useReturns(id)
+  const { data: risk, isLoading: riskLoading, error: riskError } = useRisk(id)
+  const { data: factors, isLoading: factorsLoading, error: factorsError } = useFactors(id)
+  const { data: optimization, isLoading: optimizationLoading, error: optimizationError } = useOptimization(id)
+  const { data: monteCarlo, isLoading: monteCarloLoading, error: monteCarloError } = useMonteCarlo(id, horizonWeeks)
 
   // First Monte Carlo the user actually sees. The once-per-user index in
   // migration 012 does the real deduplication; this ref only avoids re-posting
@@ -42,9 +43,9 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
       body: JSON.stringify({ event: FUNNEL_EVENTS.FIRST_MONTE_CARLO }),
     }).catch(() => {})
   }, [monteCarlo])
-  const { data: attribution, isLoading: attrLoading } = useAttribution(id)
-  const { data: income, isLoading: incomeLoading } = useIncome(id)
-  const { data: allocation, isLoading: allocLoading } = useAllocation(id)
+  const { data: attribution, isLoading: attrLoading, error: attrError } = useAttribution(id)
+  const { data: income, isLoading: incomeLoading, error: incomeError } = useIncome(id)
+  const { data: allocation, isLoading: allocLoading, error: allocError } = useAllocation(id)
 
   return (
     <div className="space-y-6">
@@ -74,6 +75,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6 mt-6">
+          <DataGate error={returnsError} hasData={!!returns} what="los rendimientos">
           <ErrorBoundary>
             <ReturnsSummary
               simple={returns?.summary?.simple ?? 0}
@@ -90,7 +92,9 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               isLoading={returnsLoading}
             />
           </ErrorBoundary>
+          </DataGate>
 
+          <DataGate error={riskError} hasData={!!risk} what="el drawdown">
           <ErrorBoundary>
             <DrawdownChart
               dates={risk?.drawdown_series?.dates ?? []}
@@ -100,12 +104,14 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               isLoading={riskLoading}
             />
           </ErrorBoundary>
+          </DataGate>
         </TabsContent>
 
         {/* Risk Tab */}
         <TabsContent value="risk" className="space-y-6 mt-6">
           {/* Risk over time comes first: one number for the whole history
               hides whether it is getting worse, which is the real question. */}
+          <DataGate error={riskError} hasData={!!risk} what="el análisis de riesgo">
           <ErrorBoundary>
             <RollingRiskChart
               rolling={risk?.rolling_risk ?? null}
@@ -151,7 +157,9 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               isLoading={riskLoading}
             />
           </ErrorBoundary>
+          </DataGate>
 
+          <DataGate error={monteCarloError} hasData={!!monteCarlo} what="la simulación Monte Carlo">
           <ErrorBoundary>
             {monteCarlo?.message ? (
               <Card>
@@ -172,10 +180,12 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               />
             )}
           </ErrorBoundary>
+          </DataGate>
         </TabsContent>
 
         {/* Attribution Tab */}
         <TabsContent value="attribution" className="space-y-6 mt-6">
+          <DataGate error={attrError} hasData={!!attribution} what="la atribución">
           <ErrorBoundary>
             <AttributionWaterfall
               sectors={attribution?.sectors ?? []}
@@ -183,19 +193,25 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               isLoading={attrLoading}
             />
           </ErrorBoundary>
+          </DataGate>
         </TabsContent>
 
         {/* Income Tab */}
         <TabsContent value="factors" className="space-y-6 mt-6">
-          <ErrorBoundary>
-            <FactorExposure data={factors} isLoading={factorsLoading} />
-          </ErrorBoundary>
-          <ErrorBoundary>
-            <EfficientFrontierChart data={optimization} isLoading={optimizationLoading} />
-          </ErrorBoundary>
+          <DataGate error={factorsError} hasData={!!factors} what="la exposición a factores">
+            <ErrorBoundary>
+              <FactorExposure data={factors} isLoading={factorsLoading} />
+            </ErrorBoundary>
+          </DataGate>
+          <DataGate error={optimizationError} hasData={!!optimization} what="la frontera eficiente">
+            <ErrorBoundary>
+              <EfficientFrontierChart data={optimization} isLoading={optimizationLoading} />
+            </ErrorBoundary>
+          </DataGate>
         </TabsContent>
 
         <TabsContent value="income" className="space-y-6 mt-6">
+          <DataGate error={incomeError} hasData={!!income} what="los ingresos">
           <ErrorBoundary>
             <IncomeDashboard
               totals={income?.totals ?? { mtd: 0, ytd: 0, all_time: 0, portfolio_yield: 0 }}
@@ -204,10 +220,12 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               isLoading={incomeLoading}
             />
           </ErrorBoundary>
+          </DataGate>
         </TabsContent>
 
         {/* Allocation Tab */}
         <TabsContent value="allocation" className="space-y-6 mt-6">
+          <DataGate error={allocError} hasData={!!allocation} what="la asignación">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <ErrorBoundary>
               {allocLoading ? <SkeletonChart /> : (
@@ -270,6 +288,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               </CardContent>
             </Card>
           </ErrorBoundary>
+          </DataGate>
         </TabsContent>
 
         {/* Scenarios Tab (E2) */}
