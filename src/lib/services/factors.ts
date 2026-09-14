@@ -223,6 +223,8 @@ export type FactorLoading = {
 export type FactorRegression = {
   /** Intercept, annualised and in percent. */
   alphaAnnualPct: number
+  /** Standard error of that intercept, annualised the same way. */
+  alphaStandardErrorAnnualPct: number
   alphaTStat: number | null
   loadings: FactorLoading[]
   rSquared: number
@@ -371,6 +373,7 @@ export function runFactorRegression(
 
   const result: FactorRegression = {
     alphaAnnualPct: beta[0] * TRADING_DAYS * 100,
+    alphaStandardErrorAnnualPct: standardErrors[0] * TRADING_DAYS * 100,
     alphaTStat: tStatFor(0),
     loadings: factors.map((factor, index) => ({
       factor: factor.name,
@@ -387,6 +390,7 @@ export function runFactorRegression(
 
   const finite =
     Number.isFinite(result.alphaAnnualPct) &&
+    Number.isFinite(result.alphaStandardErrorAnnualPct) &&
     Number.isFinite(result.rSquared) &&
     Number.isFinite(result.adjustedRSquared) &&
     Number.isFinite(result.residualVolatilityPct) &&

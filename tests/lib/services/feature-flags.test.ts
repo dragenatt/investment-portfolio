@@ -16,7 +16,23 @@ afterEach(() => {
 describe('isEnabled', () => {
   it('uses the documented default when nothing is set', () => {
     expect(isEnabled('backtesting')).toBe(true)
-    expect(isEnabled('markowitz')).toBe(false)
+    expect(isEnabled('streaming')).toBe(false)
+  })
+
+  it('defaults on for every engine that has actually shipped', () => {
+    // These five sat at false with a comment saying "not implemented yet" for
+    // two waves after their engines landed (P1-26, P1-31, P1-32). The only
+    // consumer that checked them was the lab, so its Markowitz experiment
+    // showed "disabled by configuration" in production for no reason at all.
+    for (const flag of [
+      'markowitz',
+      'cvarOptimisation',
+      'riskParity',
+      'factorModel',
+      'financialLab',
+    ] as const) {
+      expect(isEnabled(flag)).toBe(true)
+    }
   })
 
   it('lets the environment turn a feature off', () => {
@@ -25,8 +41,8 @@ describe('isEnabled', () => {
   })
 
   it('lets the environment turn a feature on', () => {
-    setEnv('FEATURE_MARKOWITZ', 'true')
-    expect(isEnabled('markowitz')).toBe(true)
+    setEnv('FEATURE_STREAMING', 'true')
+    expect(isEnabled('streaming')).toBe(true)
   })
 
   it('accepts the spellings an operator actually types', () => {
@@ -69,9 +85,11 @@ describe('allFlags', () => {
   it('keeps unimplemented engines off by default', () => {
     // A half-built feature must not reach a user because someone forgot to gate it
     const off = allFlags().filter((f) => !f.default).map((f) => f.flag)
-    expect(off).toContain('markowitz')
-    expect(off).toContain('factorModel')
-    expect(off).toContain('riskParity')
+    expect(off).toContain('streaming')
+    expect(off).toContain('pwa')
+    // And nothing that has shipped is still hiding behind a stale default.
+    expect(off).not.toContain('markowitz')
+    expect(off).not.toContain('financialLab')
   })
 
   it('has the audit trail and notifications on now that migration 013 is applied', () => {

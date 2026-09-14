@@ -195,30 +195,43 @@ export function evaluateOperand(
     return Number.isFinite(operand.value) ? operand.value : null
   }
 
-  const series = lookback > 0 ? closes.slice(0, closes.length - lookback) : closes
-  if (series.length === 0) return null
-  if (!series.every(Number.isFinite)) return null
+  const end = closes.length - Math.max(0, lookback)
+  if (end <= 0) return null
+  for (let i = 0; i < end; i++) {
+    if (!Number.isFinite(closes[i])) return null
+  }
 
   const last = <T,>(values: T[]): T | null => (values.length > 0 ? values[values.length - 1] : null)
   const period = periodFor(operand)
 
+  // The whole history up to the decision bar, for indicators whose last value
+  // depends on all of it (EMA and RSI are recursive).
+  const history = () => (end === closes.length ? closes : closes.slice(0, end))
+  // Only the last `period` bars, for indicators whose last value depends on
+  // nothing else. calculateSMA sums exactly this slice, in this order, for its
+  // final value, so the result is bit-identical to passing the full history —
+  // it just stops recomputing every earlier bar's average to throw it away.
+  // That recomputation, eight times a bar, made a two-year backtest cost
+  // seconds. The tests pin the equality for every indicator.
+  const window = () => closes.slice(Math.max(0, end - period), end)
+
   switch (operand.indicator) {
     case 'price':
-      return series[series.length - 1]
+      return closes[end - 1]
 
     case 'sma':
-      return last(calculateSMA(series, period))
+      return last(calculateSMA(window(), period))
     case 'ema':
-      return last(calculateEMA(series, period))
+      return last(calculateEMA(history(), period))
     case 'rsi':
-      return last(calculateRSI(series, period))
+      return last(calculateRSI(history(), period))
 
     case 'bollingerUpper':
-      return last(calculateBollingerBands(series, period).upper)
+      return last(calculateBollingerBands(window(), period).upper)
     case 'bollingerMiddle':
-      return last(calculateBollingerBands(series, period).middle)
+      return last(calculateBollingerBands(window(), period).middle)
     case 'bollingerLower':
-      return last(calculateBollingerBands(series, period).lower)
+      return last(calculateBollingerBands(window(), period).lower)
 
     default:
       return null

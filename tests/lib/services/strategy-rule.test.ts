@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
+  calculateSMA,
+  calculateEMA,
+  calculateRSI,
+  calculateBollingerBands,
+} from '@/lib/utils/indicators'
+import {
   INDICATOR_SPECS,
   OPERATORS,
   evaluateOperand,
@@ -52,6 +58,49 @@ describe('INDICATOR_SPECS', () => {
 describe('OPERATORS', () => {
   it('covers the four the roadmap asks for', () => {
     expect(OPERATORS.map((o) => o.id)).toEqual(['gt', 'lt', 'crossesAbove', 'crossesBelow'])
+  })
+})
+
+describe('evaluateOperand matches the full-series indicators exactly', () => {
+  // Characterisation for a performance change. Evaluating each operand used to
+  // recompute the indicator over the whole history on every bar, eight times a
+  // bar, which made a two-year backtest cost seconds. The value must not move
+  // by a single bit when that is fixed, or every backtest result changes.
+  const closes = Array.from({ length: 260 }, (_, i) => 100 + 10 * Math.sin(i / 7) + i * 0.13 + ((i * 7919) % 13) / 10)
+  const tail = <T,>(values: T[]) => (values.length ? values[values.length - 1] : null)
+
+  const reference = (indicator: string, series: number[], period: number) => {
+    switch (indicator) {
+      case 'price': return series.length ? series[series.length - 1] : null
+      case 'sma': return tail(calculateSMA(series, period))
+      case 'ema': return tail(calculateEMA(series, period))
+      case 'rsi': return tail(calculateRSI(series, period))
+      case 'bollingerUpper': return tail(calculateBollingerBands(series, period).upper)
+      case 'bollingerMiddle': return tail(calculateBollingerBands(series, period).middle)
+      case 'bollingerLower': return tail(calculateBollingerBands(series, period).lower)
+    }
+    return null
+  }
+
+  for (const indicator of ['price', 'sma', 'ema', 'rsi', 'bollingerUpper', 'bollingerMiddle', 'bollingerLower'] as const) {
+    it(`${indicator}: identical at every length, today and yesterday`, () => {
+      for (const period of [5, 20, 50]) {
+        for (let length = 1; length <= closes.length; length += 7) {
+          const series = closes.slice(0, length)
+          for (const lookback of [0, 1]) {
+            const expected = reference(indicator, series.slice(0, series.length - lookback), period)
+            const actual = evaluateOperand({ kind: 'indicator', indicator, period }, series, lookback)
+            expect(actual, `${indicator} p=${period} n=${length} lb=${lookback}`).toBe(expected)
+          }
+        }
+      }
+    })
+  }
+
+  it('still refuses a series with a non-finite value anywhere in it', () => {
+    const broken = [...closes]
+    broken[3] = Number.NaN
+    expect(evaluateOperand({ kind: 'indicator', indicator: 'sma', period: 20 }, broken)).toBeNull()
   })
 })
 

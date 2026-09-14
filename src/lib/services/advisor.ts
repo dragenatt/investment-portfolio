@@ -29,6 +29,7 @@
 
 import { allocateMoney, roundMoney, toCents } from '@/lib/utils/money'
 import { validateWeights, validateProbability } from './validation'
+import { mulberry32, standardNormal } from '@/lib/utils/random'
 
 /** Bump on any change that moves a saved projection's numbers. */
 export const ADVISOR_MODEL_VERSION = '2.1.0'
@@ -99,25 +100,6 @@ export type PlanOutcome = {
 }
 
 // ─── Seeded randomness ──────────────────────────────────────────────────────
-
-/** mulberry32 — small, fast, and good enough for a teaching projection. */
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = a
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-/** Box-Muller. u1 is clamped off zero so log never sees it. */
-function standardNormal(random: () => number): number {
-  const u1 = Math.max(random(), Number.MIN_VALUE)
-  const u2 = random()
-  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
-}
 
 /**
  * Draw the shocks once, up front.

@@ -11,9 +11,9 @@ import {
 /**
  * The experiment catalogue, or one experiment's results.
  *
- * `GET /api/lab` lists everything, including the experiments whose engine is not
- * built yet — those carry `available: false` and a reason. Hiding them would let
- * the lab quietly look complete.
+ * `GET /api/lab` lists everything, including experiments switched off by
+ * configuration — those carry `available: false` and a reason. Hiding them would
+ * let the lab quietly look complete.
  *
  * `GET /api/lab?experiment=diversification&assets=20&correlation=0` runs one.
  */
@@ -35,6 +35,7 @@ async function getHandler(req: Request) {
         objective: experiment.objective,
         concept: experiment.concept,
         params: experiment.params,
+        simulation: experiment.simulation,
         questions: experiment.questions,
         available: experiment.available,
         unavailableReason: experiment.unavailableReason ?? null,
@@ -71,6 +72,7 @@ async function getHandler(req: Request) {
     title: experiment.title,
     objective: experiment.objective,
     concept: experiment.concept,
+    simulation: experiment.simulation,
     questions: experiment.questions,
     params: experiment.params,
     used: params,

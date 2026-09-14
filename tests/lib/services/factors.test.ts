@@ -74,6 +74,22 @@ describe('runFactorRegression', () => {
     expect(by.value).toBeCloseTo(0.3, 6)
   })
 
+  it('reports the standard error of the alpha, annualised like the alpha itself', () => {
+    // Needed to draw a band around an alpha. Recovering it as alpha / tStat
+    // divides by zero exactly when the estimated alpha is zero, which is the
+    // most common and most important case to show.
+    const noisy = marketFactor.map((m, i) => 0.9 * m + 0.004 * Math.sin(i * 1.7))
+    const result = runFactorRegression(noisy, [{ name: 'market', returns: marketFactor }])!
+    expect(result.alphaStandardErrorAnnualPct).toBeGreaterThan(0)
+    expect(Number.isFinite(result.alphaStandardErrorAnnualPct)).toBe(true)
+    if (result.alphaTStat !== null) {
+      expect(result.alphaAnnualPct / result.alphaStandardErrorAnnualPct).toBeCloseTo(
+        result.alphaTStat,
+        8,
+      )
+    }
+  })
+
   it('finds the intercept and annualises it', () => {
     // A constant 0.0002 daily edge on top of the factors
     const y = marketFactor.map((m) => 0.9 * m + 0.0002)
@@ -209,6 +225,7 @@ describe('runFactorRegression', () => {
 describe('describeFactorExposure', () => {
   const base = {
     alphaAnnualPct: 1.2,
+    alphaStandardErrorAnnualPct: 2.4,
     alphaTStat: 0.4,
     loadings: [
       { factor: 'market', coefficient: 1.1, standardError: 0.05, tStat: 22, significant: true },

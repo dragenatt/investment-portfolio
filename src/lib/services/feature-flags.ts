@@ -53,12 +53,16 @@ const DEFAULTS: Record<FeatureFlag, boolean> = {
   // Migration 013 landed in 9cd1bfa, so audit_log and notifications exist.
   auditTrail: true,
   notifications: true,
-  // Not implemented yet — OLA 3 and beyond.
-  markowitz: false,
-  cvarOptimisation: false,
-  riskParity: false,
-  factorModel: false,
-  financialLab: false,
+  // Shipped in OLA 3–4 (P1-26 factors, P1-31 Markowitz, P1-32 CVaR and risk
+  // parity) and OLA 6 (E1 lab). These stayed false under a "not implemented
+  // yet" comment for two waves after the engines landed; the lab's Markowitz
+  // experiment read the flag and hid itself in production as a result.
+  markowitz: true,
+  cvarOptimisation: true,
+  riskParity: true,
+  factorModel: true,
+  financialLab: true,
+  // Not implemented yet.
   streaming: false,
   pwa: false,
 }
