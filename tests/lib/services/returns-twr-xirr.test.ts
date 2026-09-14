@@ -184,6 +184,29 @@ describe('describeReturnDifference', () => {
     expect(describeReturnDifference(12, 12.05)).toMatch(/agree|similar|coincid/i)
   })
 
+  it('annualises a TWR measured over less than a year before comparing it to MWR', () => {
+    // Found on a real book: TWR 19.52% over 158 days beside an annual MWR of
+    // 18.55% was reported as "0.97 points below" — a cumulative figure against
+    // an annual one. Annualised, the TWR is about 51%, and the gap is ~32 points.
+    const text = describeReturnDifference(19.52, 18.55, { twrDays: 158 })!
+    const annual = (Math.pow(1.1952, 365 / 158) - 1) * 100
+    expect(text).toContain(annual.toFixed(2))
+    expect(text).toContain((annual - 18.55).toFixed(2))
+    // The old, cumulative-versus-annual gap must not reappear. (50.97% itself
+    // contains the digits, hence the unit.)
+    expect(text).not.toContain('0.97 puntos')
+  })
+
+  it('says both figures are extrapolated when the window is under a year', () => {
+    expect(describeReturnDifference(19.52, 18.55, { twrDays: 158 })).toMatch(/anualiz/i)
+    expect(describeReturnDifference(12, 12.05, { twrDays: 400 })).not.toMatch(/extrapol/i)
+  })
+
+  it('writes in Spanish, like the rest of the app', () => {
+    expect(describeReturnDifference(10, 18)).toMatch(/rendimiento/i)
+    expect(describeReturnDifference(10, 18)).not.toMatch(/\bYour\b/)
+  })
+
   it('declines to compare when one side is missing', () => {
     expect(describeReturnDifference(null, 12)).toBeNull()
     expect(describeReturnDifference(12, null)).toBeNull()

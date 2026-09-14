@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { calculateSimpleReturn, calculateTWR, calculateMWR } from '@/lib/services/returns'
-import { capitalWeightedAgeDays } from '@/lib/services/returns'
+import { capitalWeightedAgeDays, calendarReturns } from '@/lib/services/returns'
 
 describe('calculateSimpleReturn', () => {
   it('calculates positive return', () => {
@@ -45,6 +45,34 @@ describe('calculateTWR', () => {
     // Sub-period 3: 18000→20000 = +11.1%
     // TWR = (1+0)(1-0.10)(1+0.111) - 1 ≈ 0%
     expect(result).toBeCloseTo(0, 0)
+  })
+})
+
+describe('calculateTWR — an empty book', () => {
+  it('skips a period in which nothing is invested instead of giving up', () => {
+    // Fully sold on the 3rd, bought back on the 5th. The days in between have
+    // no capital and no return, which is not the same as an unmeasurable one.
+    const snapshots = [
+      { date: '2026-01-01', value: 1000 },
+      { date: '2026-01-02', value: 1100 },
+      { date: '2026-01-03', value: 0 },
+      { date: '2026-01-04', value: 0 },
+      { date: '2026-01-05', value: 0 },
+      { date: '2026-01-06', value: 1050 },
+    ]
+    const cashFlows = [
+      { date: '2026-01-02', amount: -1100 },
+      { date: '2026-01-05', amount: 1000 },
+    ]
+    expect(calculateTWR(snapshots, cashFlows)).toBeCloseTo((1.1 * 1.05 - 1) * 100, 10)
+  })
+
+  it('still refuses a period that starts from nothing and ends with value', () => {
+    const snapshots = [
+      { date: '2026-01-01', value: 0 },
+      { date: '2026-01-02', value: 500 },
+    ]
+    expect(calculateTWR(snapshots, [])).toBeNull()
   })
 })
 
@@ -95,5 +123,61 @@ describe('capitalWeightedAgeDays', () => {
   it('never goes negative for a flow dated after the end', () => {
     const flows = [{ date: '2026-10-01', amount: -1000 }]
     expect(capitalWeightedAgeDays(flows, new Date('2026-09-13'))).toBe(0)
+  })
+})
+
+describe('calendarReturns', () => {
+  it('does not report a deposit as a monthly return', () => {
+    // 1,000 grows 10% in January; 5,000 more is deposited on 1 February and
+    // nothing moves after that. Value-based months would call February +455%.
+    const snapshots = [
+      { date: '2026-01-02', value: 1000 },
+      { date: '2026-01-30', value: 1100 },
+      { date: '2026-02-02', value: 1100 },
+      { date: '2026-02-27', value: 6100 },
+    ]
+    const flows = [{ date: '2026-02-02', amount: 5000 }]
+    const [year] = calendarReturns(snapshots, flows)
+    expect(year.year).toBe(2026)
+    expect(year.months[0]).toBeCloseTo(10, 10)
+    expect(year.months[1]).toBeCloseTo(0, 10)
+  })
+
+  it('measures each month from the previous month\'s last close', () => {
+    const snapshots = [
+      { date: '2026-01-30', value: 100 },
+      { date: '2026-02-02', value: 105 },
+      { date: '2026-02-27', value: 110 },
+    ]
+    const [year] = calendarReturns(snapshots, [])
+    expect(year.months[1]).toBeCloseTo(10, 10)
+  })
+
+  it('compounds the months into the year rather than adding them', () => {
+    const snapshots = [
+      { date: '2026-01-01', value: 100 },
+      { date: '2026-01-31', value: 110 },
+      { date: '2026-02-28', value: 121 },
+    ]
+    const [year] = calendarReturns(snapshots, [])
+    expect(year.months[0]).toBeCloseTo(10, 10)
+    expect(year.months[1]).toBeCloseTo(10, 10)
+    expect(year.total).toBeCloseTo(21, 10)
+  })
+
+  it('leaves months without data empty', () => {
+    const [year] = calendarReturns(
+      [
+        { date: '2026-03-02', value: 100 },
+        { date: '2026-03-31', value: 90 },
+      ],
+      [],
+    )
+    expect(year.months[0]).toBeNull()
+    expect(year.months[2]).toBeCloseTo(-10, 10)
+  })
+
+  it('returns nothing for fewer than two snapshots', () => {
+    expect(calendarReturns([{ date: '2026-01-01', value: 1 }], [])).toEqual([])
   })
 })

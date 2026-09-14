@@ -21,6 +21,8 @@ export type Snapshot = { date: string; value: number }
 export type CashFlow = { date: string; amount: number }
 
 const MS_PER_YEAR = 365 * 24 * 60 * 60 * 1000
+/** Half a cent: below it a book's value is $0.00 at the precision money.ts keeps. */
+const EMPTY_BOOK = 0.005
 
 /** Simple return as a percentage. */
 export function calculateSimpleReturn(currentValue: number, totalCost: number): number {
@@ -58,8 +60,12 @@ export function calculateTWR(snapshots: Snapshot[], cashFlows: CashFlow[]): numb
     }
 
     const openingCapital = sorted[i - 1].value + injected
-    // A period that starts from nothing has no return to measure, and dividing
-    // by it would hand the interface an Infinity.
+    // A period with nothing in it and nothing at the end — the days between
+    // selling everything and buying back in — has no return, which is not the
+    // same as an unmeasurable one. It is skipped rather than failing the chain.
+    if (Math.abs(openingCapital) < EMPTY_BOOK && Math.abs(sorted[i].value) < EMPTY_BOOK) continue
+    // A period that starts from nothing but ends with value has no return to
+    // measure, and dividing by it would hand the interface an Infinity.
     if (openingCapital <= 0) return null
 
     chained *= sorted[i].value / openingCapital
@@ -183,38 +189,61 @@ const AGREEMENT_THRESHOLD_PCT = 0.5
  * The gap is not an error and neither number is more correct: TWR judges the
  * strategy, MWR judges the investor's timing on top of it. Returns null when
  * one side could not be computed, because there is nothing to compare.
+ *
+ * The two must be on the same basis first. calculateMWR is an annual rate;
+ * calculateTWR is the cumulative return over whatever window it was given.
+ * Pass `twrDays` and the TWR is annualised before the comparison — without it,
+ * 19.52% over five months was reported as "0.97 points above" an 18.55% annual
+ * rate, when on the same basis the gap was over thirty points.
  */
 export function describeReturnDifference(
   twr: number | null,
   mwr: number | null,
+  options: { twrDays?: number } = {},
 ): string | null {
   if (twr === null || mwr === null) return null
   if (!Number.isFinite(twr) || !Number.isFinite(mwr)) return null
 
-  const gap = mwr - twr
+  const days = options.twrDays
+  const annualise = days !== undefined && Number.isFinite(days) && days > 0 && twr > -100
+  const comparableTwr = annualise ? (Math.pow(1 + twr / 100, 365 / days!) - 1) * 100 : twr
+  if (!Number.isFinite(comparableTwr)) return null
+
+  const basis = annualise
+    ? `El rendimiento ponderado por tiempo fue ${twr.toFixed(2)}% en ${Math.round(days!)} dias, ${comparableTwr.toFixed(2)}% anualizado, para compararlo con el ponderado por dinero, que ya es una tasa anual. `
+    : ''
+  const shortWindow =
+    annualise && days! < 365
+      ? ' Con menos de un ano de historia, ambas cifras anuales extrapolan: sirven para comparar entre si, no como pronostico.'
+      : ''
+
+  const gap = mwr - comparableTwr
 
   if (Math.abs(gap) < AGREEMENT_THRESHOLD_PCT) {
     return (
-      'Both measures agree, which means the timing of your contributions neither ' +
-      'helped nor hurt: your money was exposed to the same performance the strategy ' +
-      'produced.'
+      basis +
+      'Ambas medidas coinciden, asi que el momento de tus aportaciones ni ayudo ni perjudico: ' +
+      'tu dinero vivio el mismo rendimiento que produjo la estrategia.' +
+      shortWindow
     )
   }
 
   if (gap > 0) {
     return (
-      `Your money-weighted return is ${gap.toFixed(2)} points above the time-weighted one. ` +
-      'The strategy returned less than you did — the difference is timing. More of your ' +
-      'capital happened to be invested during the stronger stretches, so the same strategy ' +
-      'produced a better outcome for you than for someone invested evenly throughout.'
+      basis +
+      `Tu rendimiento ponderado por dinero es ${gap.toFixed(2)} puntos mayor que el ponderado por tiempo. ` +
+      'Tu cuenta rindio mas que la estrategia, y la diferencia es el momento: una parte mayor de tu ' +
+      'capital estuvo invertida durante los tramos buenos.' +
+      shortWindow
     )
   }
 
   return (
-    `Your money-weighted return is ${Math.abs(gap).toFixed(2)} points below the time-weighted one. ` +
-    'The strategy did better than your account did — the difference is timing. More of your ' +
-    'capital arrived before the weaker stretches, so it was the larger balance that lived ' +
-    'through them. This is common and is not evidence the strategy is wrong.'
+    basis +
+    `Tu rendimiento ponderado por dinero es ${Math.abs(gap).toFixed(2)} puntos menor que el ponderado por tiempo. ` +
+    'La estrategia rindio mas que tu cuenta, y la diferencia es el momento: una parte mayor de tu ' +
+    'capital llego tarde o antes de los tramos debiles. Es comun y no demuestra que la estrategia este mal.' +
+    shortWindow
   )
 }
 
@@ -246,4 +275,56 @@ export function capitalWeightedAgeDays(flows: CashFlow[], endDate: Date): number
   if (!(invested > 0)) return null
   const age = weighted / invested
   return Number.isFinite(age) ? age : null
+}
+
+// ─── Calendar returns ───────────────────────────────────────────────────────
+
+export type CalendarYear = {
+  year: number
+  /** Twelve entries, January first; null for a month with no data. */
+  months: (number | null)[]
+  /** The months compounded, not added. */
+  total: number
+}
+
+/**
+ * Month-by-month time-weighted returns, grouped by year.
+ *
+ * Each month runs from the previous month's last snapshot to its own last one,
+ * through calculateTWR, so money added during the month changes the capital
+ * base without being reported as a gain. Measuring months as (end - start) /
+ * start instead would call a month with a large deposit a spectacular return.
+ * The year total compounds the months: +10% and +10% is +21%, not +20%.
+ */
+export function calendarReturns(snapshots: Snapshot[], cashFlows: CashFlow[]): CalendarYear[] {
+  if (snapshots.length < 2) return []
+  const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date))
+
+  const lastIndexByMonth = new Map<string, number>()
+  const firstIndexByMonth = new Map<string, number>()
+  sorted.forEach((snapshot, index) => {
+    const month = snapshot.date.slice(0, 7)
+    if (!firstIndexByMonth.has(month)) firstIndexByMonth.set(month, index)
+    lastIndexByMonth.set(month, index)
+  })
+
+  const years = new Map<number, (number | null)[]>()
+  for (const [month, last] of lastIndexByMonth) {
+    const first = firstIndexByMonth.get(month)!
+    const from = first > 0 ? first - 1 : first
+    const monthReturn = last > from ? calculateTWR(sorted.slice(from, last + 1), cashFlows) : null
+
+    const year = Number(month.slice(0, 4))
+    const monthIndex = Number(month.slice(5, 7)) - 1
+    if (!years.has(year)) years.set(year, new Array<number | null>(12).fill(null))
+    years.get(year)![monthIndex] = monthReturn
+  }
+
+  return [...years.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([year, months]) => ({
+      year,
+      months,
+      total: (months.reduce<number>((growth, m) => growth * (1 + (m ?? 0) / 100), 1) - 1) * 100,
+    }))
 }

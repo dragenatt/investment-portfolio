@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { computeDailyPositions, buildDailyTimeline } from '@/lib/services/portfolio-history'
+import {
+  computeDailyPositions,
+  buildDailyTimeline,
+  reconstructBookHistory,
+  type BookTransaction,
+} from '@/lib/services/portfolio-history'
+import { calculateTWR, calculateMWR } from '@/lib/services/returns'
 
 describe('computeDailyPositions', () => {
   it('returns empty array for no transactions', () => {
@@ -58,5 +64,166 @@ describe('buildDailyTimeline', () => {
     const result = buildDailyTimeline(snapshots, historicalPrices, '2026-01-11')
     expect(result[1].value).toBe(1000)
     expect(result[2].value).toBe(1000)
+  })
+})
+
+// ─── Book history for TWR ───────────────────────────────────────────────────
+
+const t = (
+  date: string,
+  type: BookTransaction['type'],
+  symbol: string,
+  quantity: number,
+  price: number,
+): BookTransaction => ({ executed_at: `${date}T15:00:00Z`, type, symbol, quantity, price })
+
+describe('reconstructBookHistory', () => {
+  it('values the book BEFORE each day\'s activity, and lands the flow right after', () => {
+    // calculateTWR's convention: a snapshot is the book before that day's
+    // trades; a flow dated D belongs to the period that opens at snapshot D.
+    const { snapshots, flows } = reconstructBookHistory([t('2026-01-12', 'buy', 'AAPL', 10, 100)], {
+      AAPL: { '2026-01-12': 100, '2026-01-13': 110 },
+    })
+    expect(snapshots).toEqual([
+      { date: '2026-01-12', value: 0 },
+      { date: '2026-01-13', value: 1100 },
+    ])
+    expect(flows).toEqual([{ date: '2026-01-12', amount: 1000 }])
+    expect(calculateTWR(snapshots, flows)).toBeCloseTo(10, 10)
+  })
+
+  it('uses the holdings of each date, not today\'s holdings', () => {
+    const { snapshots } = reconstructBookHistory(
+      [t('2026-01-12', 'buy', 'AAPL', 10, 100), t('2026-01-14', 'buy', 'AAPL', 30, 100)],
+      { AAPL: { '2026-01-12': 100, '2026-01-13': 100, '2026-01-14': 100, '2026-01-15': 100 } },
+    )
+    expect(snapshots.map((s) => s.value)).toEqual([0, 1000, 1000, 4000])
+  })
+
+  it('does not count a purchase mid-window as performance', () => {
+    const history = reconstructBookHistory(
+      [
+        t('2026-01-12', 'buy', 'AAPL', 10, 100),
+        // Bought above the close: execution slippage, not the book's return.
+        t('2026-01-14', 'buy', 'AAPL', 10, 105),
+      ],
+      { AAPL: { '2026-01-12': 100, '2026-01-13': 100, '2026-01-14': 100, '2026-01-15': 110, '2026-01-16': 110 } },
+    )
+    // Flat until the 15th, then +10% on a book that is by then twice as big.
+    expect(calculateTWR(history.snapshots, history.flows)).toBeCloseTo(10, 10)
+  })
+
+  it('survives a full sell instead of collapsing the chain', () => {
+    // Sold all 10 at 125 on a day that closed at 118. Valuing that flow at the
+    // sale price would leave 1180 - 1250 = -70 of "opening capital" for a
+    // period that ends at 0, and calculateTWR would return null or -100%.
+    const history = reconstructBookHistory(
+      [t('2026-01-12', 'buy', 'AAPL', 10, 100), t('2026-01-14', 'sell', 'AAPL', 10, 125)],
+      { AAPL: { '2026-01-12': 100, '2026-01-13': 120, '2026-01-14': 118, '2026-01-15': 130 } },
+    )
+    expect(history.snapshots.at(-1)).toEqual({ date: '2026-01-15', value: 0 })
+    // +20% then 118/120 while held; nothing after.
+    expect(calculateTWR(history.snapshots, history.flows)).toBeCloseTo((1.2 * (118 / 120) - 1) * 100, 10)
+  })
+
+  it('values a flow on a non-trading day at the last close before it', () => {
+    const history = reconstructBookHistory(
+      [t('2026-01-09', 'buy', 'AAPL', 10, 100), t('2026-01-10', 'buy', 'AAPL', 10, 99)],
+      { AAPL: { '2026-01-09': 100, '2026-01-12': 110 } },
+    )
+    expect(history.flows).toEqual([
+      { date: '2026-01-09', amount: 1000 },
+      { date: '2026-01-10', amount: 1000 },
+    ])
+    expect(calculateTWR(history.snapshots, history.flows)).toBeCloseTo(10, 10)
+  })
+
+  it('counts holdings bought before the window in its first snapshot', () => {
+    const { snapshots, flows } = reconstructBookHistory(
+      [t('2025-06-01', 'buy', 'AAPL', 10, 50)],
+      { AAPL: { '2025-06-02': 50, '2026-01-12': 100, '2026-01-13': 105 } },
+      { from: '2026-01-01' },
+    )
+    expect(snapshots[0]).toEqual({ date: '2026-01-12', value: 1000 })
+    expect(flows).toEqual([])
+  })
+
+  it('values a symbol with no close yet at the price it traded at', () => {
+    const { snapshots } = reconstructBookHistory(
+      [t('2026-01-12', 'buy', 'NEW', 4, 25), t('2026-01-12', 'buy', 'AAPL', 1, 100)],
+      { AAPL: { '2026-01-12': 100, '2026-01-13': 100 } },
+    )
+    expect(snapshots[1]).toEqual({ date: '2026-01-13', value: 200 })
+  })
+
+  it('applies splits without a flow, and ignores dividends', () => {
+    const { snapshots, flows } = reconstructBookHistory(
+      [t('2026-01-12', 'buy', 'AAPL', 10, 100), t('2026-01-13', 'split', 'AAPL', 2, 0), t('2026-01-13', 'dividend', 'AAPL', 10, 1)],
+      { AAPL: { '2026-01-12': 100, '2026-01-13': 50, '2026-01-14': 50 } },
+    )
+    expect(flows).toHaveLength(1)
+    // The split takes effect before the 13th is valued: that close is already
+    // the post-split price, and 10 shares at 50 would be a 50% fall that never
+    // happened.
+    expect(snapshots.map((x) => x.value)).toEqual([0, 1000, 1000])
+  })
+
+  it('returns nothing to measure without transactions or prices', () => {
+    expect(reconstructBookHistory([], { AAPL: { '2026-01-12': 1 } })).toEqual({ snapshots: [], flows: [] })
+    expect(reconstructBookHistory([t('2026-01-12', 'buy', 'AAPL', 1, 1)], {}).snapshots).toEqual([])
+  })
+})
+
+describe('regression: the returns route TWR', () => {
+  // A normal history: three buys over two months and a partial sale.
+  const transactions = [
+    t('2026-04-06', 'buy', 'VOO', 1, 500),
+    t('2026-04-20', 'buy', 'MSFT', 1, 400),
+    t('2026-05-11', 'buy', 'VOO', 0.5, 520),
+    t('2026-05-25', 'sell', 'MSFT', 0.4, 430),
+  ]
+  const dates: string[] = []
+  for (let d = new Date('2026-04-06T00:00:00Z'); d <= new Date('2026-06-05T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 1)) {
+    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) dates.push(d.toISOString().slice(0, 10))
+  }
+  const prices = {
+    VOO: Object.fromEntries(dates.map((date, i) => [date, 500 + i * 1.2])),
+    MSFT: Object.fromEntries(dates.map((date, i) => [date, 400 + i * 0.9])),
+  }
+
+  it('was null with today\'s quantities and XIRR-signed flows', () => {
+    // What the route did: every date valued at the CURRENT holdings, and buys
+    // passed as negative amounts to a function that expects deposits positive.
+    const current = { VOO: 1.5, MSFT: 0.6 }
+    const oldSnapshots = dates.map((date) => ({
+      date,
+      value: current.VOO * prices.VOO[date] + current.MSFT * prices.MSFT[date],
+    }))
+    const oldFlows = transactions.map((x) => ({
+      date: x.executed_at.slice(0, 10),
+      amount: x.type === 'buy' ? -x.quantity * x.price : x.quantity * x.price,
+    }))
+    const old = calculateTWR(oldSnapshots, oldFlows)
+    expect(old === null || Math.abs(old) > 100).toBe(true)
+  })
+
+  it('is now a finite, plausible number', () => {
+    const { snapshots, flows } = reconstructBookHistory(transactions, prices)
+    const twr = calculateTWR(snapshots, flows)
+    expect(twr).not.toBeNull()
+    expect(Number.isFinite(twr!)).toBe(true)
+    // VOO rose about 10% and MSFT about 9% over the window.
+    expect(twr!).toBeGreaterThan(5)
+    expect(twr!).toBeLessThan(12)
+  })
+
+  it('leaves MWR on its own investor-convention flows, unchanged', () => {
+    const investorFlows = transactions.map((x) => ({
+      date: x.executed_at.slice(0, 10),
+      amount: x.type === 'buy' ? -x.quantity * x.price : x.quantity * x.price,
+    }))
+    const last = dates[dates.length - 1]
+    const currentValue = 1.5 * prices.VOO[last] + 0.6 * prices.MSFT[last]
+    expect(Number.isFinite(calculateMWR(investorFlows, currentValue, new Date(`${last}T00:00:00Z`))!)).toBe(true)
   })
 })

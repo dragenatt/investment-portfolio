@@ -1,3 +1,10 @@
+import {
+  addQuantity,
+  subtractQuantity,
+  multiplyQuantity,
+  isDustRemainder,
+} from '@/lib/utils/quantity'
+
 type HistoryTransaction = {
   executed_at: string
   type: 'buy' | 'sell' | 'dividend' | 'split'
@@ -101,4 +108,164 @@ export function buildDailyTimeline(
 function findLastKnownPrice(prices: Record<string, number>, targetDate: string): number {
   const dates = Object.keys(prices).filter(d => d <= targetDate).sort()
   return dates.length > 0 ? prices[dates[dates.length - 1]] : 0
+}
+
+// ─── Book history for the time-weighted return ──────────────────────────────
+
+export type BookTransaction = HistoryTransaction
+
+/** symbol -> date (YYYY-MM-DD) -> close. Raw closes, not split-adjusted. */
+export type PriceMap = Record<string, Record<string, number>>
+
+export type BookHistory = {
+  /** The book's value on each trading date, BEFORE that date's trades. */
+  snapshots: Array<{ date: string; value: number }>
+  /** Buys positive, sales negative, valued at the snapshot's close. */
+  flows: Array<{ date: string; amount: number }>
+}
+
+/** Last close on or before `date`, by binary search over ascending dates. */
+function closeOnOrBefore(dates: string[], closes: Record<string, number>, date: string): number | null {
+  let lo = 0
+  let hi = dates.length - 1
+  let found = -1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (dates[mid] <= date) {
+      found = mid
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  return found >= 0 ? closes[dates[found]] : null
+}
+
+/**
+ * The snapshots and flows calculateTWR needs, rebuilt from the transactions.
+ *
+ * The returns route used to value every historical date at TODAY'S holdings
+ * while the flows recorded when those holdings were actually bought, and passed
+ * buys with XIRR's sign (negative) to a function that expects deposits
+ * positive. The opening capital of the first purchase went negative and the TWR
+ * came back null. This follows calculateTWR's own convention instead:
+ *
+ *   A snapshot on date D is the book BEFORE D's trades, valued at D's close.
+ *   A trade dated D is a flow into the period that opens at snapshot D.
+ *   Splits are not trades: they take effect before D is valued, because D's
+ *   close is already the post-split price.
+ *
+ * Flows are valued at the same close the snapshots use, not at the price the
+ * trade executed at. With execution prices, a full sale at 125 on a day that
+ * closed at 118 leaves -70 of "opening capital" for a period that ends at 0,
+ * and the chain collapses to null or -100%. At the close, a purchase adds
+ * exactly what it adds to the next snapshot, so buying more is never mistaken
+ * for performance; the gap between execution and close is slippage, which a
+ * time-weighted return of the holdings deliberately leaves out.
+ *
+ * Transactions must be in the order they happened; ties on the same date keep
+ * their input order. Quantities use the fixed-precision helpers and the same
+ * dust rule as recalculatePosition.
+ */
+export function reconstructBookHistory(
+  transactions: BookTransaction[],
+  prices: PriceMap,
+  options: { from?: string } = {},
+): BookHistory {
+  if (transactions.length === 0) return { snapshots: [], flows: [] }
+
+  const txns = transactions
+    .map((txn, index) => ({ ...txn, date: txn.executed_at.slice(0, 10), index }))
+    .sort((a, b) => (a.date === b.date ? a.index - b.index : a.date < b.date ? -1 : 1))
+
+  const symbols = [...new Set(txns.map((txn) => txn.symbol))]
+  const priceDates: Record<string, string[]> = {}
+  for (const symbol of symbols) priceDates[symbol] = Object.keys(prices[symbol] ?? {}).sort()
+
+  const firstTrade = txns[0].date
+  const start = options.from && options.from > firstTrade ? options.from : firstTrade
+  const valuationDates = [...new Set(symbols.flatMap((symbol) => priceDates[symbol]))]
+    .filter((date) => date >= start)
+    .sort()
+  if (valuationDates.length === 0) return { snapshots: [], flows: [] }
+
+  const holdings: Record<string, number> = {}
+  const lastTradePrice: Record<string, number> = {}
+
+  const priceOn = (symbol: string, date: string): number => {
+    const close = closeOnOrBefore(priceDates[symbol], prices[symbol] ?? {}, date)
+    if (close !== null && Number.isFinite(close) && close > 0) return close
+    return lastTradePrice[symbol] ?? 0
+  }
+
+  const bookValue = (date: string): number => {
+    let value = 0
+    for (const [symbol, quantity] of Object.entries(holdings)) {
+      if (quantity > 0) value += quantity * priceOn(symbol, date)
+    }
+    return value
+  }
+
+  const snapshots: BookHistory['snapshots'] = []
+  const flows: BookHistory['flows'] = []
+
+  let next = 0
+  // Trades dated before the first valuation build the opening holdings. Their
+  // flows precede the first snapshot, where calculateTWR would ignore them.
+  const apply = (txn: (typeof txns)[number], recordFlow: boolean) => {
+    const held = holdings[txn.symbol] ?? 0
+    if (txn.price > 0) lastTradePrice[txn.symbol] = txn.price
+    switch (txn.type) {
+      case 'buy': {
+        holdings[txn.symbol] = addQuantity(held, txn.quantity)
+        if (recordFlow) flows.push({ date: txn.date, amount: txn.quantity * priceOn(txn.symbol, txn.date) })
+        break
+      }
+      case 'sell': {
+        const sold = Math.min(txn.quantity, held)
+        let remaining = Math.max(0, subtractQuantity(held, sold))
+        if (isDustRemainder(remaining, txn.price)) remaining = 0
+        holdings[txn.symbol] = remaining
+        const removed = held - remaining
+        if (recordFlow && removed > 0) {
+          flows.push({ date: txn.date, amount: -removed * priceOn(txn.symbol, txn.date) })
+        }
+        break
+      }
+      case 'split':
+        if (txn.quantity > 0) holdings[txn.symbol] = multiplyQuantity(held, txn.quantity)
+        break
+      case 'dividend':
+        break
+    }
+  }
+
+  // Trades before the first valuation date build the opening holdings. Any flow
+  // among them precedes the first snapshot, where calculateTWR ignores it.
+  while (next < txns.length && txns[next].date < valuationDates[0]) {
+    apply(txns[next], txns[next].date >= start)
+    next++
+  }
+
+  for (let d = 0; d < valuationDates.length; d++) {
+    const date = valuationDates[d]
+    const following = valuationDates[d + 1]
+
+    // Splits dated today take effect before today is valued.
+    for (let k = next; k < txns.length && txns[k].date === date; k++) {
+      if (txns[k].type === 'split') apply(txns[k], false)
+    }
+
+    snapshots.push({ date, value: bookValue(date) })
+
+    // Then today's trades, and those on any non-trading days before the next
+    // valuation, all flowing into the period that opens here.
+    while (next < txns.length && (following === undefined ? txns[next].date <= date : txns[next].date < following)) {
+      const txn = txns[next]
+      if (!(txn.type === 'split' && txn.date === date)) apply(txn, true)
+      next++
+    }
+  }
+
+  return { snapshots, flows }
 }
