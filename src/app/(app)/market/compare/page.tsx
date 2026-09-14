@@ -6,17 +6,10 @@ import useSWR from 'swr'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useMarketSearch, useQuote } from '@/lib/hooks/use-market'
 import { useTranslation } from '@/lib/i18n'
-import { getChartTheme, SERIES_PALETTE } from '@/lib/utils/chart-config'
+import { SERIES_PALETTE } from '@/lib/utils/chart-config'
 import { formatPercent } from '@/lib/utils/numbers'
 import { cn } from '@/lib/utils'
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-} from 'recharts'
+import { CompareReturnsChart } from '@/components/charts/lazy-charts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -152,35 +145,6 @@ function QuoteDataFetcher({
 }
 
 // ─── Custom Tooltip ──────────────────────────────────────────────────
-function CompareTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean
-  payload?: Array<{ dataKey: string; value: number; color: string }>
-  label?: string
-}) {
-  if (!active || !payload || payload.length === 0) return null
-  return (
-    <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      {payload.map((entry) => (
-        <div key={entry.dataKey} className="flex items-center gap-2 text-sm">
-          <span
-            className="inline-block w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className="font-medium">{entry.dataKey}</span>
-          <span className="font-mono ml-auto">
-            {entry.value >= 0 ? '+' : ''}
-            {entry.value.toFixed(2)}%
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 // ─── Search Results Dropdown ─────────────────────────────────────────
 function SearchDropdown({
@@ -280,7 +244,6 @@ function ComparePageInner() {
   const [sortCol, setSortCol] = useState<SortColumn>('symbol')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
-  const theme = getChartTheme()
 
   // ─── Callbacks ───────────────────────────────────────────────────
   const handleHistoryData = useCallback(
@@ -667,46 +630,7 @@ function ComparePageInner() {
               </div>
             ) : chartData.length > 0 ? (
               <div className="w-full" style={{ height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
-                    <XAxis
-                      dataKey="date"
-                      {...theme.xAxis}
-                      interval="preserveStartEnd"
-                      minTickGap={40}
-                    />
-                    <YAxis
-                      {...theme.yAxis}
-                      domain={['auto', 'auto']}
-                      tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-                    />
-                    <Tooltip
-                      content={<CompareTooltip />}
-                      cursor={{
-                        stroke: 'var(--muted-foreground)',
-                        strokeWidth: 1,
-                        strokeDasharray: '4 4',
-                      }}
-                    />
-                    {symbols.map((sym, i) => (
-                      <Line
-                        key={sym}
-                        type="monotone"
-                        dataKey={sym}
-                        stroke={COLORS[i]}
-                        strokeWidth={2}
-                        dot={false}
-                        activeDot={{
-                          r: 4,
-                          fill: COLORS[i],
-                          stroke: 'var(--card)',
-                          strokeWidth: 2,
-                        }}
-                        connectNulls
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
+                <CompareReturnsChart chartData={chartData} symbols={symbols} colors={COLORS} />
               </div>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-muted-foreground text-sm">

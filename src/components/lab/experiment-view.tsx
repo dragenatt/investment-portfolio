@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { RotateCcw, FlaskConical, BookOpen } from 'lucide-react'
 import { formatByUnit } from '@/lib/utils/lab-format'
-import { ExperimentChart } from './experiment-chart'
 import type { LabCatalogueEntry, ExperimentResult, ParamSpec } from '@/lib/hooks/use-lab'
+import { ExperimentChart } from '@/components/charts/lazy-charts'
 
 /**
  * One experiment, laid out as the seven steps E1 names, in order.

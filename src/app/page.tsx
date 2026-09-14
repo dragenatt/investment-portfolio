@@ -49,7 +49,12 @@ export default function LandingPage() {
       <section className="max-w-4xl mx-auto text-center pt-16 pb-12 px-6">
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 text-foreground">
           Tu portafolio de inversiones,{' '}
-          <span className="text-primary">en un solo lugar</span>
+          {/* Always its own line (C3). Left to wrap, the headline fitted on one
+              line in the fallback font and needed two once Plus Jakarta Sans
+              bold arrived, which pushed the whole page down: a 0.063 layout
+              shift on every first visit. A fixed break makes the line count
+              independent of which font is showing. */}
+          <span className="block text-primary">en un solo lugar</span>
         </h1>
         <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
           Rastrea tus inversiones de GBM+, analiza mercados en tiempo real, y toma mejores decisiones financieras.

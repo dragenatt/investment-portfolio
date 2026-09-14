@@ -2,26 +2,19 @@
 
 import { use, useEffect, useRef, useState } from 'react'
 import { FUNNEL_EVENTS } from '@/lib/analytics/events'
-import { AllocationDonut } from '@/components/dashboard/allocation-donut'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { ReturnsSummary } from '@/components/analytics/returns-summary'
 import { CalendarReturns } from '@/components/analytics/calendar-returns'
-import { DrawdownChart } from '@/components/analytics/drawdown-chart'
 import { RiskDashboard } from '@/components/analytics/risk-dashboard'
-import { AttributionWaterfall } from '@/components/analytics/attribution-waterfall'
-import { IncomeDashboard } from '@/components/analytics/income-dashboard'
-import { MonteCarloChart } from '@/components/analytics/monte-carlo-chart'
-import { RollingRiskChart } from '@/components/analytics/rolling-risk-chart'
-import { FactorExposure } from '@/components/analytics/factor-exposure'
-import { EfficientFrontierChart } from '@/components/analytics/efficient-frontier-chart'
 import { ScenarioComparisonCard } from '@/components/analytics/scenario-comparison'
 import { MetricExplanationsCard } from '@/components/analytics/metric-explanations'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation, useFactors, useOptimization } from '@/lib/hooks/use-analytics'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { AllocationDonut, DrawdownChart, AttributionWaterfall, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart } from '@/components/charts/lazy-charts'
 
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)

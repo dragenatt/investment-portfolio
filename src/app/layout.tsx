@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/providers/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { getLocaleFromCookies } from '@/lib/i18n/locale'
 import './globals.css'
+import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter'
 
 const plusJakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-sans' })
 const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-serif' })
@@ -69,6 +70,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
           <Toaster />
         </ThemeProvider>
+        <WebVitalsReporter />
       </body>
     </html>
   )

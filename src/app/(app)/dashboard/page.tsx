@@ -4,8 +4,6 @@ import { usePortfolios } from '@/lib/hooks/use-portfolios'
 import { useLivePrices } from '@/lib/hooks/use-live-prices'
 import { usePortfolioStats } from '@/lib/hooks/use-portfolio-stats'
 import { KpiCards } from '@/components/dashboard/kpi-cards'
-import { PortfolioChart } from '@/components/dashboard/portfolio-chart'
-import { AllocationDonut } from '@/components/dashboard/allocation-donut'
 import { TopMovers } from '@/components/dashboard/top-movers'
 import { WelcomeEmptyState } from '@/components/dashboard/welcome-empty-state'
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist'
@@ -15,6 +13,7 @@ import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { useMemo, useState } from 'react'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
 import { useTranslation } from '@/lib/i18n'
+import { PortfolioChart, AllocationDonut } from '@/components/charts/lazy-charts'
 
 export default function DashboardPage() {
   const { t } = useTranslation()
