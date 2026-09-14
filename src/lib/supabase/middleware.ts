@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { safeNextPath, loginUrlFor } from '@/lib/utils/safe-redirect'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -37,19 +38,19 @@ export async function updateSession(request: NextRequest) {
   const publicPaths = ['/', '/login', '/register']
   const isPublicPath = publicPaths.some(p => request.nextUrl.pathname === p)
 
-  // Redirect authenticated users away from login/register
+  // Redirect authenticated users away from login/register — to where they were
+  // headed if that is a safe same-origin path, otherwise the dashboard. This
+  // used to clone the URL and change only the pathname, which dropped the user
+  // on /dashboard?next=... with the destination sitting unused in the query.
   if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    const destination = safeNextPath(request.nextUrl.searchParams.get('next'))
+    return NextResponse.redirect(new URL(destination, request.url))
   }
 
-  // Redirect unauthenticated users to login
+  // Redirect unauthenticated users to login, remembering the full path and
+  // query they asked for.
   if (!user && !isPublicPath) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.searchParams.set('next', request.nextUrl.pathname)
-    return NextResponse.redirect(url)
+    return NextResponse.redirect(loginUrlFor(request.nextUrl))
   }
 
   return supabaseResponse

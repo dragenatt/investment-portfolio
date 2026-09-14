@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { useTranslation } from '@/lib/i18n'
+import { safeNextPath } from '@/lib/utils/safe-redirect'
 
 export default function LoginPage() {
   const { t } = useTranslation()
@@ -32,7 +33,10 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    // Back to the page that sent them here, if it is a safe same-origin path.
+    // Read from the location at submit time rather than useSearchParams, which
+    // would need a Suspense boundary around the whole form to prerender.
+    router.push(safeNextPath(new URLSearchParams(window.location.search).get('next')))
   }
 
   return (
