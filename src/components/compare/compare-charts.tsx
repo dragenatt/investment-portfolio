@@ -18,6 +18,8 @@ import {
   PolarRadiusAxis,
   Radar,
 } from 'recharts'
+import { ChartFigure } from '@/components/charts/chart-figure'
+import { formatChartDate, formatChartNumber, seriesTable } from '@/lib/utils/chart-accessibility'
 
 type ComparedPortfolio = { portfolioId: string; portfolioName: string }
 
@@ -31,60 +33,80 @@ export function CompareHistoryChart({
   colors: string[]
 }) {
   const CHART_COLORS = colors
+  const names = history.map((h) => h.portfolioName)
+  const last = chartData[chartData.length - 1]
+  const summary =
+    chartData.length > 0
+      ? `Evolución de ${names.join(', ')} de ${formatChartDate(String(chartData[0].date))} a ${formatChartDate(String(last.date))}. Último valor: ${history
+          .map((h, idx) => {
+            const value = last[`portfolio_${idx}`]
+            return `${h.portfolioName} ${typeof value === 'number' ? formatChartNumber(value) : 'n/d'}`
+          })
+          .join(', ')}.`
+      : 'Evolución de los portafolios comparados.'
+  const table = seriesTable(chartData, 'Valor de cada portafolio por fecha', ['Fecha', ...names], (row) => [
+    formatChartDate(String(row.date)),
+    ...history.map((_, idx) => {
+      const value = row[`portfolio_${idx}`]
+      return typeof value === 'number' ? formatChartNumber(value) : '—'
+    }),
+  ])
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={chartData}>
-        <defs>
-          {history.map((_, idx) => (
-            <linearGradient key={idx} id={`gradient_${idx}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={CHART_COLORS[idx]} stopOpacity={0.2} />
-              <stop offset="95%" stopColor={CHART_COLORS[idx]} stopOpacity={0} />
-            </linearGradient>
-          ))}
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-        <XAxis
-          dataKey="date"
-          stroke="var(--muted-foreground)"
-          style={{ fontSize: '11px' }}
-          tickFormatter={(d) => new Date(d).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
-        />
-        <YAxis
-          stroke="var(--muted-foreground)"
-          style={{ fontSize: '11px' }}
-          domain={['dataMin - 5', 'dataMax + 5']}
-        />
-        <Tooltip
-          contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', fontSize: '12px' }}
-          labelFormatter={(d) => new Date(d as string).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter={(value: any, name: any) => {
-            const idx = parseInt(String(name).replace('portfolio_', ''))
-            const label = history[idx]?.portfolioName || name
-            return [typeof value === 'number' ? `${value.toFixed(2)}` : value, label]
-          }}
-        />
-        <Legend
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter={(value: any) => {
-            const idx = parseInt(String(value).replace('portfolio_', ''))
-            return history[idx]?.portfolioName || value
-          }}
-        />
-        {history.map((_, idx) => (
-          <Area
-            key={idx}
-            type="monotone"
-            dataKey={`portfolio_${idx}`}
-            stroke={CHART_COLORS[idx]}
-            fill={`url(#gradient_${idx})`}
-            strokeWidth={2}
-            dot={false}
-            connectNulls
+    <ChartFigure summary={summary} table={table} fill>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart accessibilityLayer={false} data={chartData}>
+          <defs>
+            {history.map((_, idx) => (
+              <linearGradient key={idx} id={`gradient_${idx}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={CHART_COLORS[idx]} stopOpacity={0.2} />
+                <stop offset="95%" stopColor={CHART_COLORS[idx]} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+          <XAxis
+            dataKey="date"
+            stroke="var(--muted-foreground)"
+            style={{ fontSize: '11px' }}
+            tickFormatter={(d) => new Date(d).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
           />
-        ))}
-      </AreaChart>
-    </ResponsiveContainer>
+          <YAxis
+            stroke="var(--muted-foreground)"
+            style={{ fontSize: '11px' }}
+            domain={['dataMin - 5', 'dataMax + 5']}
+          />
+          <Tooltip
+            contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', fontSize: '12px' }}
+            labelFormatter={(d) => new Date(d as string).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            formatter={(value: any, name: any) => {
+              const idx = parseInt(String(name).replace('portfolio_', ''))
+              const label = history[idx]?.portfolioName || name
+              return [typeof value === 'number' ? `${value.toFixed(2)}` : value, label]
+            }}
+          />
+          <Legend
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            formatter={(value: any) => {
+              const idx = parseInt(String(value).replace('portfolio_', ''))
+              return history[idx]?.portfolioName || value
+            }}
+          />
+          {history.map((_, idx) => (
+            <Area
+              key={idx}
+              type="monotone"
+              dataKey={`portfolio_${idx}`}
+              stroke={CHART_COLORS[idx]}
+              fill={`url(#gradient_${idx})`}
+              strokeWidth={2}
+              dot={false}
+              connectNulls
+            />
+          ))}
+        </AreaChart>
+      </ResponsiveContainer>
+    </ChartFigure>
   )
 }
 
@@ -98,40 +120,55 @@ export function CompareRadarChart({
   colors: string[]
 }) {
   const CHART_COLORS = colors
+  const metrics = radarData.map((row) => String(row.metric))
+  const radarSummary = `Comparación de ${history.map((h) => h.portfolioName).join(', ')} en ${metrics.length} métricas puntuadas de 0 a 100: ${metrics.join(', ')}.`
+  const radarTable = {
+    caption: 'Puntuación de 0 a 100 por métrica',
+    columns: ['Métrica', ...history.map((h) => h.portfolioName)],
+    rows: radarData.map((row) => [
+      String(row.metric),
+      ...history.map((_, idx) => {
+        const value = row[`portfolio_${idx}`]
+        return typeof value === 'number' ? formatChartNumber(value, 0) : '—'
+      }),
+    ]),
+  }
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <RadarChart data={radarData}>
-        <PolarGrid stroke="var(--border)" />
-        <PolarAngleAxis
-          dataKey="metric"
-          tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
-        />
-        <PolarRadiusAxis
-          angle={30}
-          domain={[0, 100]}
-          tick={{ fontSize: 10 }}
-          stroke="var(--border)"
-        />
-        {history.map((h, idx) => (
-          <Radar
-            key={h.portfolioId}
-            name={h.portfolioName}
-            dataKey={`portfolio_${idx}`}
-            stroke={CHART_COLORS[idx]}
-            fill={CHART_COLORS[idx]}
-            fillOpacity={0.15}
-            strokeWidth={2}
+    <ChartFigure summary={radarSummary} table={radarTable} fill>
+      <ResponsiveContainer width="100%" height="100%">
+        <RadarChart accessibilityLayer={false} data={radarData}>
+          <PolarGrid stroke="var(--border)" />
+          <PolarAngleAxis
+            dataKey="metric"
+            tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
           />
-        ))}
-        <Legend
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter={(value: any) => {
-            const idx = parseInt(String(value).replace('portfolio_', ''))
-            return history[idx]?.portfolioName || value
-          }}
-        />
-        <Tooltip />
-      </RadarChart>
-    </ResponsiveContainer>
+          <PolarRadiusAxis
+            angle={30}
+            domain={[0, 100]}
+            tick={{ fontSize: 10 }}
+            stroke="var(--border)"
+          />
+          {history.map((h, idx) => (
+            <Radar
+              key={h.portfolioId}
+              name={h.portfolioName}
+              dataKey={`portfolio_${idx}`}
+              stroke={CHART_COLORS[idx]}
+              fill={CHART_COLORS[idx]}
+              fillOpacity={0.15}
+              strokeWidth={2}
+            />
+          ))}
+          <Legend
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            formatter={(value: any) => {
+              const idx = parseInt(String(value).replace('portfolio_', ''))
+              return history[idx]?.portfolioName || value
+            }}
+          />
+          <Tooltip />
+        </RadarChart>
+      </ResponsiveContainer>
+    </ChartFigure>
   )
 }

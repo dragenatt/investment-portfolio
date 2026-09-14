@@ -215,10 +215,7 @@ export function MonteCarloChart({
     <Card>
       {header}
       <CardContent>
-        <ChartFigure
-          summary={summary}
-          table={table}
-        >
+        <ChartFigure summary={summary} table={table}>
           <ResponsiveContainer width="100%" height={280}>
             <ComposedChart accessibilityLayer={false} data={chartData}>
               <defs>

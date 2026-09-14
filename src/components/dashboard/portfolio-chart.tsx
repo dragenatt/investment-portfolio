@@ -107,10 +107,7 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
           Agrega transacciones para ver el rendimiento
         </div>
       ) : (
-        <ChartFigure
-          summary={summary}
-          table={table}
-        >
+        <ChartFigure summary={summary} table={table}>
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart accessibilityLayer={false} data={data} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
               <defs>

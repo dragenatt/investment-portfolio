@@ -100,10 +100,7 @@ export function DrawdownChart({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartFigure
-          summary={summary}
-          table={table}
-        >
+        <ChartFigure summary={summary} table={table}>
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart accessibilityLayer={false} data={chartData}>
               <defs>

@@ -5,6 +5,8 @@
 
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts'
 import { getChartTheme } from '@/lib/utils/chart-config'
+import { ChartFigure } from '@/components/charts/chart-figure'
+import { formatChartPercent, seriesTable } from '@/lib/utils/chart-accessibility'
 
 function CompareTooltip({
   active,
@@ -47,46 +49,59 @@ export function CompareReturnsChart({
 }) {
   const theme = getChartTheme()
   const COLORS = colors
+  const last = chartData[chartData.length - 1]
+  const summary =
+    chartData.length > 0
+      ? `Rendimiento acumulado de ${symbols.join(', ')} desde ${String(chartData[0].date)}. Al ${String(last.date)}: ${symbols
+          .map((sym) => `${sym} ${typeof last[sym] === 'number' ? formatChartPercent(last[sym] as number) : 'n/d'}`)
+          .join(', ')}.`
+      : 'Rendimiento acumulado de los símbolos comparados.'
+  const table = seriesTable(chartData, 'Rendimiento acumulado por fecha', ['Fecha', ...symbols], (row) => [
+    String(row.date),
+    ...symbols.map((sym) => (typeof row[sym] === 'number' ? formatChartPercent(row[sym] as number) : '—')),
+  ])
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={chartData}>
-        <XAxis
-          dataKey="date"
-          {...theme.xAxis}
-          interval="preserveStartEnd"
-          minTickGap={40}
-        />
-        <YAxis
-          {...theme.yAxis}
-          domain={['auto', 'auto']}
-          tickFormatter={(v: number) => `${v.toFixed(0)}%`}
-        />
-        <Tooltip
-          content={<CompareTooltip />}
-          cursor={{
-            stroke: 'var(--muted-foreground)',
-            strokeWidth: 1,
-            strokeDasharray: '4 4',
-          }}
-        />
-        {symbols.map((sym, i) => (
-          <Line
-            key={sym}
-            type="monotone"
-            dataKey={sym}
-            stroke={COLORS[i]}
-            strokeWidth={2}
-            dot={false}
-            activeDot={{
-              r: 4,
-              fill: COLORS[i],
-              stroke: 'var(--card)',
-              strokeWidth: 2,
-            }}
-            connectNulls
+    <ChartFigure summary={summary} table={table} fill>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart accessibilityLayer={false} data={chartData}>
+          <XAxis
+            dataKey="date"
+            {...theme.xAxis}
+            interval="preserveStartEnd"
+            minTickGap={40}
           />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
+          <YAxis
+            {...theme.yAxis}
+            domain={['auto', 'auto']}
+            tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+          />
+          <Tooltip
+            content={<CompareTooltip />}
+            cursor={{
+              stroke: 'var(--muted-foreground)',
+              strokeWidth: 1,
+              strokeDasharray: '4 4',
+            }}
+          />
+          {symbols.map((sym, i) => (
+            <Line
+              key={sym}
+              type="monotone"
+              dataKey={sym}
+              stroke={COLORS[i]}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{
+                r: 4,
+                fill: COLORS[i],
+                stroke: 'var(--card)',
+                strokeWidth: 2,
+              }}
+              connectNulls
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartFigure>
   )
 }

@@ -16,6 +16,7 @@ import { getChartTheme } from '@/lib/utils/chart-config'
 import { formatNumber } from '@/lib/utils/numbers'
 import { formatAxisTick } from '@/lib/utils/chart-config'
 import { FinanceTooltip } from '@/components/shared/finance-tooltip'
+import { ChartFigure } from '@/components/charts/chart-figure'
 
 type AttributionSector = {
   sector: string
@@ -192,6 +193,12 @@ export function AttributionWaterfall({ sectors, total, isLoading }: Props) {
   }
 
   const waterfallData = buildWaterfallData(sectors, total)
+  // The detail table below the chart already holds every number, so it is the
+  // alternative; the summary gives the totals and points to it.
+  const signed = (v: number) => `${v >= 0 ? '+' : ''}${formatNumber(v)}%`
+  const summary = `Atribución del rendimiento frente al benchmark (Brinson): asignación ${signed(total.allocation_effect)}, selección ${signed(
+    total.selection_effect,
+  )}, interacción ${signed(total.interaction_effect)}; exceso total ${signed(total.total_excess)}. El detalle por sector está en la tabla siguiente.`
 
   return (
     <Card>
@@ -203,60 +210,63 @@ export function AttributionWaterfall({ sectors, total, isLoading }: Props) {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Waterfall Chart */}
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={waterfallData} barCategoryGap="20%">
-            <XAxis
-              dataKey="name"
-              {...theme.xAxis}
-              interval={0}
-              angle={-35}
-              textAnchor="end"
-              height={60}
-            />
-            <YAxis
-              {...theme.yAxis}
-              tickFormatter={(v) => formatAxisTick(v, 'percent')}
-            />
-            <Tooltip
-              content={<CustomTooltip />}
-              cursor={{ fill: 'var(--muted)', fillOpacity: 0.3 }}
-            />
-            <ReferenceLine y={0} stroke={theme.grid.stroke} strokeDasharray="3 3" />
-            {/* Invisible base bar to create stacking offset */}
-            <Bar dataKey="base" stackId="waterfall" fill="transparent" isAnimationActive={false} />
-            {/* Visible value bar stacked on top of base */}
-            <Bar
-              dataKey="value"
-              stackId="waterfall"
-              radius={[3, 3, 0, 0]}
-            >
-              {waterfallData.map((entry, index) => (
-                <Cell key={index} fill={entry.fill} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <ChartFigure summary={summary}>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart accessibilityLayer={false} data={waterfallData} barCategoryGap="20%">
+              <XAxis
+                dataKey="name"
+                {...theme.xAxis}
+                interval={0}
+                angle={-35}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis
+                {...theme.yAxis}
+                tickFormatter={(v) => formatAxisTick(v, 'percent')}
+              />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: 'var(--muted)', fillOpacity: 0.3 }}
+              />
+              <ReferenceLine y={0} stroke={theme.grid.stroke} strokeDasharray="3 3" />
+              {/* Invisible base bar to create stacking offset */}
+              <Bar dataKey="base" stackId="waterfall" fill="transparent" isAnimationActive={false} />
+              {/* Visible value bar stacked on top of base */}
+              <Bar
+                dataKey="value"
+                stackId="waterfall"
+                radius={[3, 3, 0, 0]}
+              >
+                {waterfallData.map((entry, index) => (
+                  <Cell key={index} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartFigure>
 
         {/* Detail Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-xs font-mono">
+            <caption className="sr-only">Atribución por sector, en puntos porcentuales</caption>
             <thead>
               <tr className="border-b text-muted-foreground">
-                <th className="text-left py-2 pr-3 font-medium">Sector</th>
-                <th className="text-right py-2 px-2 font-medium">Peso Port.</th>
-                <th className="text-right py-2 px-2 font-medium">Peso Bench.</th>
-                <th className="text-right py-2 px-2 font-medium">Ret. Port.</th>
-                <th className="text-right py-2 px-2 font-medium">Ret. Bench.</th>
-                <th className="text-right py-2 px-2 font-medium">Asignacion</th>
-                <th className="text-right py-2 px-2 font-medium">Seleccion</th>
-                <th className="text-right py-2 px-2 font-medium">Interaccion</th>
-                <th className="text-right py-2 pl-2 font-medium">Total</th>
+                <th scope="col" className="text-left py-2 pr-3 font-medium">Sector</th>
+                <th scope="col" className="text-right py-2 px-2 font-medium">Peso Port.</th>
+                <th scope="col" className="text-right py-2 px-2 font-medium">Peso Bench.</th>
+                <th scope="col" className="text-right py-2 px-2 font-medium">Ret. Port.</th>
+                <th scope="col" className="text-right py-2 px-2 font-medium">Ret. Bench.</th>
+                <th scope="col" className="text-right py-2 px-2 font-medium">Asignacion</th>
+                <th scope="col" className="text-right py-2 px-2 font-medium">Seleccion</th>
+                <th scope="col" className="text-right py-2 px-2 font-medium">Interaccion</th>
+                <th scope="col" className="text-right py-2 pl-2 font-medium">Total</th>
               </tr>
             </thead>
             <tbody>
               {sectors.map((s) => (
                 <tr key={s.sector} className="border-b border-border/50 hover:bg-muted/30">
-                  <td className="py-2 pr-3 font-medium text-foreground">{s.sector}</td>
+                  <th scope="row" className="py-2 pr-3 font-medium text-foreground text-left">{s.sector}</th>
                   <td className="text-right py-2 px-2">{formatNumber(s.portfolio_weight)}%</td>
                   <td className="text-right py-2 px-2">{formatNumber(s.benchmark_weight)}%</td>
                   <td className="text-right py-2 px-2">{formatNumber(s.portfolio_return)}%</td>
@@ -278,7 +288,7 @@ export function AttributionWaterfall({ sectors, total, isLoading }: Props) {
             </tbody>
             <tfoot>
               <tr className="border-t-2 font-medium">
-                <td className="py-2 pr-3">Total</td>
+                <th scope="row" className="py-2 pr-3 text-left">Total</th>
                 <td className="text-right py-2 px-2">
                   {formatNumber(sectors.reduce((a, s) => a + s.portfolio_weight, 0))}%
                 </td>
@@ -307,21 +317,21 @@ export function AttributionWaterfall({ sectors, total, isLoading }: Props) {
         {/* Legend */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-muted-foreground">
           <div className="flex items-start gap-2">
-            <div className="mt-1 h-2 w-2 rounded-full bg-amber-600 shrink-0" />
+            <div aria-hidden="true" className="mt-1 h-2 w-2 rounded-full bg-amber-600 shrink-0" />
             <p>
               <span className="font-medium text-foreground">Asignacion:</span>{' '}
               Efecto de tus decisiones de peso por sector
             </p>
           </div>
           <div className="flex items-start gap-2">
-            <div className="mt-1 h-2 w-2 rounded-full bg-blue-600 shrink-0" />
+            <div aria-hidden="true" className="mt-1 h-2 w-2 rounded-full bg-blue-600 shrink-0" />
             <p>
               <span className="font-medium text-foreground">Seleccion:</span>{' '}
               Efecto de elegir acciones dentro del sector
             </p>
           </div>
           <div className="flex items-start gap-2">
-            <div className="mt-1 h-2 w-2 rounded-full bg-zinc-500 shrink-0" />
+            <div aria-hidden="true" className="mt-1 h-2 w-2 rounded-full bg-zinc-500 shrink-0" />
             <p>
               <span className="font-medium text-foreground">Interaccion:</span>{' '}
               Efecto combinado

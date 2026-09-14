@@ -191,6 +191,7 @@ export default function ImportCSVPage() {
               </p>
               <input
                 ref={fileInputRef}
+                aria-label={t.portfolio.drag_or_click}
                 type="file"
                 accept=".csv"
                 onChange={handleFileInput}

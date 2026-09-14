@@ -8,6 +8,7 @@ import { formatNumber } from '@/lib/utils/numbers'
 import { getChartTheme, formatAxisTick } from '@/lib/utils/chart-config'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts'
 import { DollarSign, Calendar, TrendingUp, Banknote } from 'lucide-react'
+import { ChartFigure } from '@/components/charts/chart-figure'
 
 type Props = {
   totals: {
@@ -122,6 +123,22 @@ export function IncomeDashboard({ totals, byPosition, monthlyHistory, isLoading 
   const sortedPositions = [...byPosition].sort((a, b) => b.total - a.total)
   const maxTotal = sortedPositions[0]?.total || 1
 
+  const money = (v: number) => `$${formatNumber(v)}`
+  const bestMonth = monthlyHistory.reduce<(typeof monthlyHistory)[number] | null>(
+    (best, m) => (best === null || m.amount > best.amount ? m : best),
+    null,
+  )
+  const incomeSummary = bestMonth
+    ? `Ingresos por dividendos en ${monthlyHistory.length} ${monthlyHistory.length === 1 ? 'mes' : 'meses'}, de ${monthlyHistory[0].month} a ${
+        monthlyHistory[monthlyHistory.length - 1].month
+      }. El mes más alto fue ${bestMonth.month} con ${money(bestMonth.amount)}.`
+    : 'Ingresos mensuales por dividendos.'
+  const incomeTable = {
+    caption: 'Ingresos por dividendos por mes',
+    columns: ['Mes', 'Ingreso'],
+    rows: monthlyHistory.map((m) => [m.month, money(m.amount)]),
+  }
+
   return (
     <div className="space-y-6">
       {/* Summary row */}
@@ -159,14 +176,16 @@ export function IncomeDashboard({ totals, byPosition, monthlyHistory, isLoading 
             <CardTitle className="text-sm font-medium">Ingresos Mensuales</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={monthlyHistory}>
-                <XAxis dataKey="month" {...theme.xAxis} />
-                <YAxis {...theme.yAxis} tickFormatter={v => formatAxisTick(v, 'currency')} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'color-mix(in srgb, var(--muted-foreground) 10%, transparent)' }} />
-                <Bar dataKey="amount" fill={theme.colors.positive} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <ChartFigure summary={incomeSummary} table={incomeTable}>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart accessibilityLayer={false} data={monthlyHistory}>
+                  <XAxis dataKey="month" {...theme.xAxis} />
+                  <YAxis {...theme.yAxis} tickFormatter={v => formatAxisTick(v, 'currency')} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'color-mix(in srgb, var(--muted-foreground) 10%, transparent)' }} />
+                  <Bar dataKey="amount" fill={theme.colors.positive} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartFigure>
           </CardContent>
         </Card>
       )}

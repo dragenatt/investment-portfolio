@@ -547,6 +547,7 @@ function ComparePageInner() {
               <Input
                 className="pl-10 h-10 rounded-xl"
                 placeholder={t.market.search_symbol}
+                aria-label={t.market.search_symbol}
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value)

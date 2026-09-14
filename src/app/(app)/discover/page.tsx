@@ -72,6 +72,7 @@ export default function DiscoverPage() {
         <div className="flex-1 min-w-[200px]">
           <Input
             placeholder="Buscar usuarios..."
+            aria-label="Buscar usuarios"
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value)

@@ -1,12 +1,22 @@
 'use client'
 
 import { useReportWebVitals } from 'next/web-vitals'
+import { shouldReportVitals } from '@/lib/services/web-vitals'
 
 type Metric = Parameters<Parameters<typeof useReportWebVitals>[0]>[0]
 
 // Module-level, so the callback reference never changes: the hook replays every
 // metric collected so far to each new callback it is given.
 function report(metric: Metric) {
+  if (
+    !shouldReportVitals({
+      hostname: window.location.hostname,
+      webdriver: navigator.webdriver,
+      framed: window.top !== window.self,
+    })
+  ) {
+    return
+  }
   const body = JSON.stringify({
     name: metric.name,
     value: metric.value,

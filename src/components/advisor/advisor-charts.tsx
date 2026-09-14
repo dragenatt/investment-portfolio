@@ -17,6 +17,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from 'recharts'
+import { ChartFigure } from '@/components/charts/chart-figure'
 
 export type DonutDatum = { name: string; value: number }
 
@@ -36,33 +37,44 @@ export function AdvisorAllocationDonut({
   colors: string[]
 }) {
   const DONUT_COLORS = colors
+  const summary = `Portafolio sugerido en ${donutData.length} clases de activo: ${donutData
+    .map((d) => `${d.name} ${d.value}%`)
+    .join(', ')}.`
+  const table = {
+    caption: 'Asignación sugerida',
+    columns: ['Clase de activo', 'Peso'],
+    rows: donutData.map((d) => [d.name, `${d.value}%`]),
+  }
   return (
-    <ResponsiveContainer width="100%" height={250}>
-      <PieChart>
-        <Pie
-          data={donutData}
-          cx="50%"
-          cy="50%"
-          innerRadius={60}
-          outerRadius={90}
-          paddingAngle={3}
-          dataKey="value"
-        >
-          {donutData.map((_, idx) => (
-            <Cell key={idx} fill={DONUT_COLORS[idx % DONUT_COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip
-          formatter={(value) => `${value}%`}
-          contentStyle={{
-            borderRadius: '12px',
-            border: '1px solid var(--border)',
-            background: 'var(--card)',
-          }}
-        />
-        <Legend />
-      </PieChart>
-    </ResponsiveContainer>
+    <ChartFigure summary={summary} table={table}>
+      <ResponsiveContainer width="100%" height={250}>
+        <PieChart accessibilityLayer={false}>
+          <Pie
+            rootTabIndex={-1}
+            data={donutData}
+            cx="50%"
+            cy="50%"
+            innerRadius={60}
+            outerRadius={90}
+            paddingAngle={3}
+            dataKey="value"
+          >
+            {donutData.map((_, idx) => (
+              <Cell key={idx} fill={DONUT_COLORS[idx % DONUT_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip
+            formatter={(value) => `${value}%`}
+            contentStyle={{
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+              background: 'var(--card)',
+            }}
+          />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    </ChartFigure>
   )
 }
 
@@ -73,76 +85,97 @@ export function AdvisorProjectionChart({
   chartData: ProjectionDatum[]
   fmt: Intl.NumberFormat
 }) {
+  const last = chartData[chartData.length - 1]
+  const summary = last
+    ? `Proyección de crecimiento hasta ${last.name}: mediana ${fmt.format(last.mediana)}; 8 de cada 10 escenarios terminan entre ${fmt.format(
+        last.rango90[0],
+      )} y ${fmt.format(last.rango90[1])}; lo aportado suma ${fmt.format(last.aportado)}.`
+    : 'Proyección de crecimiento.'
+  const table = {
+    caption: 'Proyección por periodo',
+    columns: ['Periodo', 'P10', 'P25', 'Mediana', 'P75', 'P90', 'Aportado'],
+    rows: chartData.map((d) => [
+      d.name,
+      fmt.format(d.rango90[0]),
+      fmt.format(d.rango50[0]),
+      fmt.format(d.mediana),
+      fmt.format(d.rango50[1]),
+      fmt.format(d.rango90[1]),
+      fmt.format(d.aportado),
+    ]),
+  }
   return (
-    <ResponsiveContainer width="100%" height={320}>
-      <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-        <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
-        <YAxis
-          tickFormatter={(v: number) => fmt.format(v)}
-          tick={{ fontSize: 11 }}
-          stroke="var(--muted-foreground)"
-          width={90}
-        />
-        <Tooltip
-          formatter={(value: unknown, name) => {
-            if (Array.isArray(value)) {
-              return [`${fmt.format(Number(value[0]))} – ${fmt.format(Number(value[1]))}`, name]
-            }
-            return [fmt.format(Number(value)), name]
-          }}
-          contentStyle={{
-            borderRadius: '12px',
-            border: '1px solid var(--border)',
-            background: 'var(--card)',
-          }}
-          labelStyle={{ fontWeight: 600 }}
-        />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
+    <ChartFigure summary={summary} table={table}>
+      <ResponsiveContainer width="100%" height={320}>
+        <ComposedChart accessibilityLayer={false} data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+          <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+          <YAxis
+            tickFormatter={(v: number) => fmt.format(v)}
+            tick={{ fontSize: 11 }}
+            stroke="var(--muted-foreground)"
+            width={90}
+          />
+          <Tooltip
+            formatter={(value: unknown, name) => {
+              if (Array.isArray(value)) {
+                return [`${fmt.format(Number(value[0]))} – ${fmt.format(Number(value[1]))}`, name]
+              }
+              return [fmt.format(Number(value)), name]
+            }}
+            contentStyle={{
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+              background: 'var(--card)',
+            }}
+            labelStyle={{ fontWeight: 600 }}
+          />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
 
-        {/* One hue at two opacities rather than a red-to-green ramp. The
-            spread is a likelihood axis, not a good-to-bad one, and
-            colouring it that way tells the reader the opposite. */}
-        <Area
-          type="monotone"
-          dataKey="rango90"
-          stroke="none"
-          fill="var(--chart-1)"
-          fillOpacity={0.16}
-          name="8 de cada 10 escenarios (P10–P90)"
-          isAnimationActive={false}
-        />
-        <Area
-          type="monotone"
-          dataKey="rango50"
-          stroke="none"
-          fill="var(--chart-1)"
-          fillOpacity={0.3}
-          name="La mitad central (P25–P75)"
-          isAnimationActive={false}
-        />
-        <Line
-          type="monotone"
-          dataKey="mediana"
-          stroke="var(--chart-1)"
-          strokeWidth={2}
-          dot={false}
-          name="Mediana (P50)"
-          isAnimationActive={false}
-        />
-        {/* What was actually paid in. Where the fan's lower edge sits
-            against this line is the question the chart is really for. */}
-        <Line
-          type="monotone"
-          dataKey="aportado"
-          stroke="var(--muted-foreground)"
-          strokeWidth={1.5}
-          strokeDasharray="4 4"
-          dot={false}
-          name="Lo que aportas"
-          isAnimationActive={false}
-        />
-      </ComposedChart>
-    </ResponsiveContainer>
+          {/* One hue at two opacities rather than a red-to-green ramp. The
+              spread is a likelihood axis, not a good-to-bad one, and
+              colouring it that way tells the reader the opposite. */}
+          <Area
+            type="monotone"
+            dataKey="rango90"
+            stroke="none"
+            fill="var(--chart-1)"
+            fillOpacity={0.16}
+            name="8 de cada 10 escenarios (P10–P90)"
+            isAnimationActive={false}
+          />
+          <Area
+            type="monotone"
+            dataKey="rango50"
+            stroke="none"
+            fill="var(--chart-1)"
+            fillOpacity={0.3}
+            name="La mitad central (P25–P75)"
+            isAnimationActive={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="mediana"
+            stroke="var(--chart-1)"
+            strokeWidth={2}
+            dot={false}
+            name="Mediana (P50)"
+            isAnimationActive={false}
+          />
+          {/* What was actually paid in. Where the fan's lower edge sits
+              against this line is the question the chart is really for. */}
+          <Line
+            type="monotone"
+            dataKey="aportado"
+            stroke="var(--muted-foreground)"
+            strokeWidth={1.5}
+            strokeDasharray="4 4"
+            dot={false}
+            name="Lo que aportas"
+            isAnimationActive={false}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </ChartFigure>
   )
 }

@@ -155,10 +155,7 @@ export function FactorExposure({ data, isLoading }: Props) {
     <Card>
       {header}
       <CardContent className="space-y-4">
-        <ChartFigure
-          summary={summary}
-          table={table}
-        >
+        <ChartFigure summary={summary} table={table}>
           <ResponsiveContainer width="100%" height={Math.max(200, rows.length * 44)}>
             <BarChart accessibilityLayer={false} data={rows} layout="vertical" margin={{ left: 8, right: 24 }}>
               <XAxis type="number" {...theme.xAxis} domain={['auto', 'auto']} />

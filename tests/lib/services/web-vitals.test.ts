@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normaliseRoute, parseVital, VITAL_NAMES } from '@/lib/services/web-vitals'
+import { normaliseRoute, parseVital, shouldReportVitals, VITAL_NAMES } from '@/lib/services/web-vitals'
 
 describe('normaliseRoute', () => {
   it('collapses ids so every portfolio counts as one route', () => {
@@ -68,5 +68,22 @@ describe('parseVital', () => {
   it('rejects a body that is not an object', () => {
     expect(parseVital(null)).toBeNull()
     expect(parseVital('LCP')).toBeNull()
+  })
+})
+
+describe('shouldReportVitals', () => {
+  it('reports real visits to the deployed site', () => {
+    expect(shouldReportVitals({ hostname: 'project-tri0w.vercel.app' })).toBe(true)
+  })
+
+  it('ignores local builds, which write to the same production table', () => {
+    for (const hostname of ['localhost', '127.0.0.1', '[::1]', 'app.localhost', 'mac.local']) {
+      expect(shouldReportVitals({ hostname })).toBe(false)
+    }
+  })
+
+  it('ignores automated browsers and pages loaded inside a frame', () => {
+    expect(shouldReportVitals({ hostname: 'project-tri0w.vercel.app', webdriver: true })).toBe(false)
+    expect(shouldReportVitals({ hostname: 'project-tri0w.vercel.app', framed: true })).toBe(false)
   })
 })

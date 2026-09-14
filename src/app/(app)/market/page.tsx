@@ -171,6 +171,7 @@ export default function MarketPage() {
           <Input
             className="pl-11 h-11 text-sm rounded-xl border-border bg-muted/30 focus:bg-background transition-colors"
             placeholder={t.market.search_placeholder}
+            aria-label={t.market.search_placeholder}
             value={query}
             onChange={e => setQuery(e.target.value)}
           />

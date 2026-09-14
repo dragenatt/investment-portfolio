@@ -77,3 +77,20 @@ export function parseVital(body: unknown): VitalRow | null {
 
   return { name: name as VitalName, value, rating, navigation_type: navigationType, route }
 }
+
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]'])
+
+/**
+ * Whether this page view should report at all. Field data is for real visits:
+ * a local build writes to the same production table, and the accessibility and
+ * performance audits loaded hundreds of pages from localhost, automated
+ * browsers and off-screen iframes — about 230 rows of lab noise in one hour
+ * before this check existed.
+ */
+export function shouldReportVitals(context: { hostname: string; webdriver?: boolean; framed?: boolean }): boolean {
+  if (context.webdriver) return false
+  if (context.framed) return false
+  const host = context.hostname.toLowerCase()
+  if (LOCAL_HOSTS.has(host) || host.endsWith('.local') || host.endsWith('.localhost')) return false
+  return true
+}

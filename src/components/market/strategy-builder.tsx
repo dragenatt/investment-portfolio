@@ -38,6 +38,8 @@ import {
   type OperatorId,
 } from '@/lib/services/strategy-rule'
 import { useStrategyBacktest } from '@/lib/hooks/use-strategy'
+import { ChartFigure } from '@/components/charts/chart-figure'
+import { formatChartDate, formatChartMoney, seriesTable } from '@/lib/utils/chart-accessibility'
 
 /**
  * Build a trading rule by clicking, then watch it lose to buy-and-hold.
@@ -253,6 +255,17 @@ export function StrategyBuilder({ symbol }: { symbol: string }) {
   // scatter cap is three. Only the user's own run is plotted, against its
   // benchmark — the rest of the table carries the comparison numerically.
   const curve = own?.backtest.equityCurve ?? []
+  const lastPoint = curve[curve.length - 1]
+  const curveSummary = lastPoint
+    ? `Capital simulado de tu estrategia frente a comprar y mantener, de ${formatChartDate(curve[0].date)} a ${formatChartDate(
+        lastPoint.date,
+      )}: tu estrategia termina en ${formatChartMoney(lastPoint.strategy, '')} y comprar y mantener en ${formatChartMoney(lastPoint.buyAndHold, '')}.`
+    : ''
+  const curveTable = seriesTable(curve, 'Capital simulado por fecha', ['Fecha', 'Tu estrategia', 'Comprar y mantener'], (point) => [
+    formatChartDate(point.date),
+    formatChartMoney(point.strategy, ''),
+    formatChartMoney(point.buyAndHold, ''),
+  ])
 
   return (
     <Card className="rounded-2xl border-border shadow-sm">
@@ -354,59 +367,61 @@ export function StrategyBuilder({ symbol }: { symbol: string }) {
             </div>
 
             {curve.length > 0 && (
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={curve}>
-                  <CartesianGrid {...theme.grid} />
-                  <XAxis
-                    dataKey="date"
-                    {...theme.xAxis}
-                    minTickGap={40}
-                    tickFormatter={(d: string) => d.slice(5)}
-                  />
-                  {/* Auto domain: anchoring at zero squashes both curves into a band at
-                      the top, where the difference between them is invisible. */}
-                  <YAxis
-                    {...theme.yAxis}
-                    width={56}
-                    domain={['auto', 'auto']}
-                    tickFormatter={(v: number) => `$${Math.round(v)}`}
-                  />
-                  <Tooltip
-                    cursor={theme.crosshair}
-                    contentStyle={{
-                      background: 'var(--card)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 8,
-                      fontSize: 11,
-                    }}
-                    formatter={(v) => (typeof v === 'number' ? `$${v.toFixed(2)}` : String(v))}
-                  />
-                  <Legend
-                    verticalAlign="top"
-                    height={24}
-                    wrapperStyle={{ fontSize: 11, color: 'var(--muted-foreground)' }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="strategy"
-                    name="Tu estrategia"
-                    stroke={SERIES_PALETTE[0]}
-                    strokeWidth={LINE_WIDTH}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="buyAndHold"
-                    name="Comprar y mantener"
-                    stroke={SERIES_PALETTE[1]}
-                    strokeWidth={LINE_WIDTH}
-                    strokeDasharray="4 4"
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <ChartFigure summary={curveSummary} table={curveTable}>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart accessibilityLayer={false} data={curve}>
+                    <CartesianGrid {...theme.grid} />
+                    <XAxis
+                      dataKey="date"
+                      {...theme.xAxis}
+                      minTickGap={40}
+                      tickFormatter={(d: string) => d.slice(5)}
+                    />
+                    {/* Auto domain: anchoring at zero squashes both curves into a band at
+                        the top, where the difference between them is invisible. */}
+                    <YAxis
+                      {...theme.yAxis}
+                      width={56}
+                      domain={['auto', 'auto']}
+                      tickFormatter={(v: number) => `$${Math.round(v)}`}
+                    />
+                    <Tooltip
+                      cursor={theme.crosshair}
+                      contentStyle={{
+                        background: 'var(--card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 8,
+                        fontSize: 11,
+                      }}
+                      formatter={(v) => (typeof v === 'number' ? `$${v.toFixed(2)}` : String(v))}
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      height={24}
+                      wrapperStyle={{ fontSize: 11, color: 'var(--muted-foreground)' }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="strategy"
+                      name="Tu estrategia"
+                      stroke={SERIES_PALETTE[0]}
+                      strokeWidth={LINE_WIDTH}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="buyAndHold"
+                      name="Comprar y mantener"
+                      stroke={SERIES_PALETTE[1]}
+                      strokeWidth={LINE_WIDTH}
+                      strokeDasharray="4 4"
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartFigure>
             )}
 
             <div className="overflow-x-auto">

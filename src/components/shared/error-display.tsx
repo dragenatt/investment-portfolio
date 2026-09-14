@@ -18,11 +18,12 @@ export function ErrorDisplay({ error, onRetry, compact }: Props) {
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2 text-sm py-2">
-        <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+      <div className="flex items-center gap-2 text-sm py-2" role="alert">
+        <AlertCircle aria-hidden="true" className="h-4 w-4 text-destructive shrink-0" />
         <span className="text-destructive">{message}</span>
         {onRetry && (
           <button
+            type="button"
             onClick={onRetry}
             className="text-primary hover:underline font-medium ml-1"
           >
@@ -34,10 +35,10 @@ export function ErrorDisplay({ error, onRetry, compact }: Props) {
   }
 
   return (
-    <Card className="rounded-2xl border-destructive/30 shadow-sm">
+    <Card className="rounded-2xl border-destructive/30 shadow-sm" role="alert">
       <CardContent className="flex flex-col items-center justify-center py-12">
         <div className="p-4 rounded-2xl bg-destructive/10 mb-4">
-          <AlertCircle className="h-8 w-8 text-destructive" />
+          <AlertCircle aria-hidden="true" className="h-8 w-8 text-destructive" />
         </div>
         <h3 className="font-semibold text-lg mb-2">Algo salió mal</h3>
         <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">

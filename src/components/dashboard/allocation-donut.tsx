@@ -44,12 +44,11 @@ export function AllocationDonut({ data }: { data: AllocationData[] }) {
           </div>
         ) : (
           <>
-            <ChartFigure
-              summary={summary}
-            >
+            <ChartFigure summary={summary}>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart accessibilityLayer={false}>
-                  <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value">
+                  {/* rootTabIndex: Pie is focusable by default, even with the accessibility layer off. */}
+                  <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value" rootTabIndex={-1}>
                     {data.map((_, i) => (
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}

@@ -14,6 +14,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getChartTheme, formatAxisTick } from '@/lib/utils/chart-config'
+import { ChartFigure } from '@/components/charts/chart-figure'
+import { formatChartDate, formatChartNumber, seriesTable } from '@/lib/utils/chart-accessibility'
 
 type Props = {
   timeline: Array<{ date: string; value: number; normalized: number }>
@@ -32,10 +34,12 @@ function CustomTooltip({
   active,
   payload,
   label,
+  benchmarkSymbol,
 }: {
   active?: boolean
   payload?: Array<{ dataKey: string; value: number; color: string }>
   label?: string
+  benchmarkSymbol?: string
 }) {
   if (!active || !payload?.length) return null
 
@@ -68,7 +72,7 @@ function CustomTooltip({
       )}
       {benchmarkVal != null && (
         <p className="text-sm font-mono" style={{ color: benchmarkEntry?.color }}>
-          SPY: {benchmarkVal.toFixed(2)}
+          {benchmarkSymbol ?? 'Benchmark'}: {benchmarkVal.toFixed(2)}
         </p>
       )}
       {diff != null && (
@@ -126,6 +130,33 @@ export function BenchmarkOverlay({
 
   const hasData = mergedData.length > 0
 
+  // Both series start at 100, so their last values compare directly.
+  const lastOf = (key: 'portfolio' | 'benchmark') => {
+    for (let i = mergedData.length - 1; i >= 0; i--) {
+      const value = mergedData[i][key]
+      if (value !== null) return value
+    }
+    return null
+  }
+  const lastPortfolio = lastOf('portfolio')
+  const lastBenchmark = lastOf('benchmark')
+  const summary = hasData
+    ? `Tu portafolio frente a ${benchmarkSymbol}, ambos con base 100, de ${formatChartDate(mergedData[0].date)} a ${formatChartDate(
+        mergedData[mergedData.length - 1].date,
+      )}: tu portafolio termina en ${lastPortfolio === null ? 'n/d' : formatChartNumber(lastPortfolio)} y ${benchmarkSymbol} en ${
+        lastBenchmark === null ? 'n/d' : formatChartNumber(lastBenchmark)
+      }.${
+        lastPortfolio !== null && lastBenchmark !== null
+          ? ` Diferencia: ${lastPortfolio - lastBenchmark >= 0 ? '+' : ''}${formatChartNumber(lastPortfolio - lastBenchmark)} puntos.`
+          : ''
+      }`
+    : ''
+  const table = seriesTable(mergedData, `Tu portafolio y ${benchmarkSymbol}, base 100`, ['Fecha', 'Tu portafolio', benchmarkSymbol], (row) => [
+    formatChartDate(row.date),
+    row.portfolio === null ? '—' : formatChartNumber(row.portfolio),
+    row.benchmark === null ? '—' : formatChartNumber(row.benchmark),
+  ])
+
   return (
     <Card className="overflow-hidden premium-card">
       <CardHeader className="pb-2">
@@ -162,84 +193,86 @@ export function BenchmarkOverlay({
             </p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart
-              data={mergedData}
-              margin={{ top: 8, right: 12, left: 4, bottom: 0 }}
-            >
-              <XAxis
-                dataKey="date"
-                {...theme.xAxis}
-                tickFormatter={(v: string) =>
-                  new Date(v).toLocaleDateString('es-MX', {
-                    month: 'short',
-                    day: 'numeric',
-                  })
-                }
-              />
-              <YAxis
-                {...theme.yAxis}
-                tickFormatter={(v: number) => formatAxisTick(v, 'number')}
-              />
-              <Tooltip
-                content={<CustomTooltip />}
-                cursor={{
-                  stroke: 'var(--muted-foreground)',
-                  strokeWidth: 1,
-                  strokeDasharray: '4 4',
-                }}
-              />
-              <Legend
-                formatter={(value: string) => (
-                  <span className="text-xs">
-                    {value === 'portfolio' ? 'Mi Portfolio' : benchmarkSymbol}
-                  </span>
-                )}
-              />
-              <ReferenceLine
-                y={100}
-                stroke="var(--border)"
-                strokeDasharray="3 3"
-                label={{
-                  value: '100',
-                  position: 'insideTopLeft',
-                  fill: 'var(--muted-foreground)',
-                  fontSize: 10,
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="portfolio"
-                name="Mi Portfolio"
-                stroke={theme.colors.primary}
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{
-                  r: 4,
-                  fill: theme.colors.primary,
-                  stroke: 'var(--card)',
-                  strokeWidth: 2,
-                }}
-                connectNulls
-              />
-              <Line
-                type="monotone"
-                dataKey="benchmark"
-                name={benchmarkSymbol}
-                stroke={theme.colors.benchmarks[0]}
-                strokeWidth={1.5}
-                strokeDasharray="6 3"
-                dot={false}
-                activeDot={{
-                  r: 3,
-                  fill: theme.colors.benchmarks[0],
-                  stroke: 'var(--card)',
-                  strokeWidth: 2,
-                }}
-                connectNulls
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <ChartFigure summary={summary} table={table}>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart accessibilityLayer={false}
+                data={mergedData}
+                margin={{ top: 8, right: 12, left: 4, bottom: 0 }}
+              >
+                <XAxis
+                  dataKey="date"
+                  {...theme.xAxis}
+                  tickFormatter={(v: string) =>
+                    new Date(v).toLocaleDateString('es-MX', {
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  }
+                />
+                <YAxis
+                  {...theme.yAxis}
+                  tickFormatter={(v: number) => formatAxisTick(v, 'number')}
+                />
+                <Tooltip
+                  content={<CustomTooltip benchmarkSymbol={benchmarkSymbol} />}
+                  cursor={{
+                    stroke: 'var(--muted-foreground)',
+                    strokeWidth: 1,
+                    strokeDasharray: '4 4',
+                  }}
+                />
+                <Legend
+                  formatter={(value: string) => (
+                    <span className="text-xs">
+                      {value === 'portfolio' ? 'Mi Portfolio' : benchmarkSymbol}
+                    </span>
+                  )}
+                />
+                <ReferenceLine
+                  y={100}
+                  stroke="var(--border)"
+                  strokeDasharray="3 3"
+                  label={{
+                    value: '100',
+                    position: 'insideTopLeft',
+                    fill: 'var(--muted-foreground)',
+                    fontSize: 10,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="portfolio"
+                  name="Mi Portfolio"
+                  stroke={theme.colors.primary}
+                  strokeWidth={2.5}
+                  dot={false}
+                  activeDot={{
+                    r: 4,
+                    fill: theme.colors.primary,
+                    stroke: 'var(--card)',
+                    strokeWidth: 2,
+                  }}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="benchmark"
+                  name={benchmarkSymbol}
+                  stroke={theme.colors.benchmarks[0]}
+                  strokeWidth={1.5}
+                  strokeDasharray="6 3"
+                  dot={false}
+                  activeDot={{
+                    r: 3,
+                    fill: theme.colors.benchmarks[0],
+                    stroke: 'var(--card)',
+                    strokeWidth: 2,
+                  }}
+                  connectNulls
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartFigure>
         )}
       </CardContent>
     </Card>

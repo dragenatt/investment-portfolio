@@ -133,6 +133,7 @@ function PillButton({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={`btn-press rounded-full px-4 py-2 text-sm font-medium transition-colors ${
         active
@@ -941,8 +942,9 @@ export default function AdvisorPage() {
         {step === 0 && (
           <>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Edad</label>
+              <label htmlFor="advisor-edad" className="block text-sm font-medium mb-1.5">Edad</label>
               <input
+                id="advisor-edad"
                 type="number"
                 placeholder="25"
                 value={form.edad}
@@ -951,12 +953,13 @@ export default function AdvisorPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Ingresos mensuales</label>
+              <label htmlFor="advisor-ingresos" className="block text-sm font-medium mb-1.5">Ingresos mensuales</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">
                   $
                 </span>
                 <input
+                  id="advisor-ingresos"
                   type="number"
                   placeholder="30,000"
                   value={form.ingresos}
@@ -972,15 +975,17 @@ export default function AdvisorPage() {
         {step === 1 && (
           <>
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <label htmlFor="advisor-riesgo" className="block text-sm font-medium mb-2">
                 ¿Cuál es tu tolerancia al riesgo?
               </label>
               <input
+                id="advisor-riesgo"
                 type="range"
                 min={1}
                 max={10}
                 value={form.riesgo}
                 onChange={(e) => updateField('riesgo', Number(e.target.value))}
+                aria-valuetext={`${form.riesgo} de 10`}
                 className="w-full accent-primary"
               />
               <div className="flex justify-between text-xs text-muted-foreground mt-1">
@@ -991,10 +996,10 @@ export default function AdvisorPage() {
               <p className="text-center text-sm font-mono font-semibold mt-1">{form.riesgo}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <p id="advisor-experiencia" className="block text-sm font-medium mb-2">
                 ¿Qué experiencia tienes invirtiendo?
-              </label>
-              <div className="flex flex-wrap gap-2">
+              </p>
+              <div className="flex flex-wrap gap-2" role="group" aria-labelledby="advisor-experiencia">
                 {(['Ninguna', 'Poca', 'Media', 'Alta'] as const).map((label, i) => (
                   <PillButton
                     key={label}
@@ -1006,10 +1011,10 @@ export default function AdvisorPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <p id="advisor-reaccion" className="block text-sm font-medium mb-2">
                 Si tu inversión pierde 20%, ¿qué harías?
-              </label>
-              <div className="flex flex-wrap gap-2">
+              </p>
+              <div className="flex flex-wrap gap-2" role="group" aria-labelledby="advisor-reaccion">
                 {(['Vender todo', 'Vender algo', 'Mantener', 'Comprar más'] as const).map(
                   (label, i) => (
                     <PillButton
@@ -1029,9 +1034,10 @@ export default function AdvisorPage() {
         {step === 2 && (
           <>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Horizonte de inversión</label>
+              <label htmlFor="advisor-horizonte" className="block text-sm font-medium mb-1.5">Horizonte de inversión</label>
               <div className="relative">
                 <input
+                  id="advisor-horizonte"
                   type="number"
                   placeholder="5"
                   value={form.horizonte}
@@ -1044,8 +1050,10 @@ export default function AdvisorPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Estabilidad de ingresos</label>
-              <div className="flex flex-wrap gap-2">
+              <p id="advisor-estabilidad" className="block text-sm font-medium mb-2">
+                Estabilidad de ingresos
+              </p>
+              <div className="flex flex-wrap gap-2" role="group" aria-labelledby="advisor-estabilidad">
                 {(
                   ['Muy inestable', 'Algo inestable', 'Estable', 'Muy estable'] as const
                 ).map((label, i) => (
@@ -1059,15 +1067,17 @@ export default function AdvisorPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <label htmlFor="advisor-porcentaje" className="block text-sm font-medium mb-2">
                 ¿Qué % de tus ingresos puedes invertir?
               </label>
               <input
+                id="advisor-porcentaje"
                 type="range"
                 min={0}
                 max={100}
                 value={form.porcentajeInversion}
                 onChange={(e) => updateField('porcentajeInversion', Number(e.target.value))}
+                aria-valuetext={`${form.porcentajeInversion}%`}
                 className="w-full accent-primary"
               />
               <p className="text-center text-sm font-mono font-semibold mt-1">
@@ -1081,7 +1091,7 @@ export default function AdvisorPage() {
         {step === 3 && (
           <>
             <div>
-              <label className="block text-sm font-medium mb-1.5">
+              <label htmlFor="advisor-capital" className="block text-sm font-medium mb-1.5">
                 Capital inicial a invertir
               </label>
               <div className="relative">
@@ -1089,6 +1099,7 @@ export default function AdvisorPage() {
                   $
                 </span>
                 <input
+                  id="advisor-capital"
                   type="number"
                   placeholder="100,000"
                   value={form.capitalInicial}
@@ -1098,12 +1109,13 @@ export default function AdvisorPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Aportación mensual</label>
+              <label htmlFor="advisor-aportacion" className="block text-sm font-medium mb-1.5">Aportación mensual</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">
                   $
                 </span>
                 <input
+                  id="advisor-aportacion"
                   type="number"
                   placeholder="5,000"
                   value={form.aportacionMensual}
@@ -1113,12 +1125,13 @@ export default function AdvisorPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Meta financiera</label>
+              <label htmlFor="advisor-meta" className="block text-sm font-medium mb-1.5">Meta financiera</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">
                   $
                 </span>
                 <input
+                  id="advisor-meta"
                   type="number"
                   placeholder="1,000,000"
                   value={form.meta}

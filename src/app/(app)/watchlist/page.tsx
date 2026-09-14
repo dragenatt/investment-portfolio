@@ -234,11 +234,19 @@ function AddSymbolPanel({ watchlistId, existingSymbols, t }: { watchlistId: stri
   return (
     <div className="mb-4 space-y-1">
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search aria-hidden="true" className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        {/* The arrow keys already moved through results; now a screen reader
+            hears which one is highlighted (C5, ARIA combobox pattern). */}
         <Input
           ref={inputRef}
           className="pl-8 rounded-xl border-border"
           placeholder={t.watchlist.search_placeholder}
+          aria-label={t.watchlist.search_placeholder}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={Boolean(results && results.length > 0)}
+          aria-controls="watchlist-search-results"
+          aria-activedescendant={highlightIdx >= 0 && results?.[highlightIdx] ? `watchlist-result-${results[highlightIdx].symbol}` : undefined}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -257,27 +265,32 @@ function AddSymbolPanel({ watchlistId, existingSymbols, t }: { watchlistId: stri
         <div className="py-1">
           <p className="text-xs text-muted-foreground px-2 py-1 font-medium">{t.watchlist.recent_searches}</p>
           {recentSearches.map(sym => (
-            <div
+            <button
+              type="button"
               key={sym}
-              className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-muted cursor-pointer text-sm"
+              className="flex w-full items-center justify-between px-2 py-1.5 rounded-lg hover:bg-muted cursor-pointer text-sm"
               onClick={() => setSearchQuery(sym)}
             >
               <span className="font-mono font-medium">{sym}</span>
-              <Search className="h-3 w-3 text-muted-foreground" />
-            </div>
+              <Search aria-hidden="true" className="h-3 w-3 text-muted-foreground" />
+            </button>
           ))}
         </div>
       )}
 
       {/* Search results with inline price info and one-tap add */}
       {results && results.length > 0 && (
-        <div className="max-h-64 overflow-y-auto">
+        <div className="max-h-64 overflow-y-auto" role="listbox" id="watchlist-search-results" aria-label="Resultados">
           {results.map((r, idx) => {
             const isAdded = alreadyAdded.has(r.symbol)
             const isAdding = addingSymbol === r.symbol
             return (
               <div
                 key={r.symbol}
+                id={`watchlist-result-${r.symbol}`}
+                role="option"
+                aria-selected={idx === highlightIdx}
+                aria-disabled={isAdded || undefined}
                 className={`flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer transition-colors ${
                   idx === highlightIdx ? 'bg-muted' : 'hover:bg-muted/50'
                 }`}
@@ -386,11 +399,12 @@ export default function WatchlistPage() {
           <Input
             className="w-48 rounded-xl border-border"
             placeholder={t.watchlist.new_watchlist}
+            aria-label={t.watchlist.new_watchlist}
             value={newName}
             onChange={e => setNewName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleCreate()}
           />
-          <Button className="rounded-xl" size="sm" onClick={handleCreate} disabled={creating}>
+          <Button className="rounded-xl" size="sm" onClick={handleCreate} disabled={creating} aria-label={t.watchlist.new_watchlist}>
             {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           </Button>
         </div>
@@ -414,6 +428,7 @@ export default function WatchlistPage() {
               {renamingId === wl.id ? (
                 <Input
                   className="h-8 w-48 rounded-xl border-border"
+                  aria-label={`Nuevo nombre para ${wl.name}`}
                   value={renameValue}
                   onChange={e => setRenameValue(e.target.value)}
                   onBlur={() => handleRename(wl.id)}

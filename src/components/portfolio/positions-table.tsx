@@ -8,6 +8,7 @@ import { PercentageChange } from '@/components/shared/percentage-change'
 import { useState } from 'react'
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { FinanceTooltip } from '@/components/shared/finance-tooltip'
 
@@ -28,10 +29,10 @@ type Position = {
 type SortKey = 'symbol' | 'quantity' | 'avg_cost' | 'currentPrice' | 'value' | 'gainLoss' | 'gainPct'
 
 function SortIcon({ k, sortKey, sortDir }: { k: SortKey; sortKey: SortKey; sortDir: 'asc' | 'desc' }) {
-  if (sortKey !== k) return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />
+  if (sortKey !== k) return <ArrowUpDown aria-hidden="true" className="ml-1 h-3 w-3 opacity-40" />
   return sortDir === 'asc'
-    ? <ArrowUp className="ml-1 h-3 w-3" />
-    : <ArrowDown className="ml-1 h-3 w-3" />
+    ? <ArrowUp aria-hidden="true" className="ml-1 h-3 w-3" />
+    : <ArrowDown aria-hidden="true" className="ml-1 h-3 w-3" />
 }
 
 function SortHeader({ k, children, className, sortKey, sortDir, onToggle }: {
@@ -44,10 +45,15 @@ function SortHeader({ k, children, className, sortKey, sortDir, onToggle }: {
         'inline-flex items-center gap-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors',
         className,
       )}
+      type="button"
       onClick={() => onToggle(k)}
     >
       {children}
       <SortIcon k={k} sortKey={sortKey} sortDir={sortDir} />
+      {/* The arrow is an icon; the order is words for screen readers (C5). */}
+      {sortKey === k && (
+        <span className="sr-only">{sortDir === 'asc' ? ', orden ascendente' : ', orden descendente'}</span>
+      )}
     </button>
   )
 }
@@ -139,7 +145,13 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
                 >
                   <TableCell>
                     <div>
-                      <span className="font-semibold font-mono">{pos.symbol}</span>
+                      <Link
+                        href={`/market/${encodeURIComponent(pos.symbol)}`}
+                        className="font-semibold font-mono hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {pos.symbol}
+                      </Link>
                       {pos.name && (
                         <p className="text-xs text-muted-foreground truncate max-w-[160px]">{pos.name}</p>
                       )}
@@ -170,10 +182,10 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
           const { priceCur, currentPrice, value, gainLoss, gainPct } = getPositionCalcs(pos)
 
           return (
-            <div
+            <Link
               key={pos.id}
-              className="border border-border rounded-2xl p-3 cursor-pointer hover:bg-muted/50 active:scale-[0.99] transition-all"
-              onClick={() => handleRowClick(pos.symbol)}
+              href={`/market/${encodeURIComponent(pos.symbol)}`}
+              className="block border border-border rounded-2xl p-3 hover:bg-muted/50 active:scale-[0.99] transition-all"
             >
               <div className="flex justify-between items-start">
                 <div>
@@ -193,7 +205,7 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
                   </p>
                 </div>
               </div>
-            </div>
+            </Link>
           )
         })}
       </div>

@@ -10,6 +10,7 @@ import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
+import { ErrorDisplay } from '@/components/shared/error-display'
 import { useMemo, useState } from 'react'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
 import { useTranslation } from '@/lib/i18n'
@@ -17,7 +18,7 @@ import { PortfolioChart, AllocationDonut } from '@/components/charts/lazy-charts
 
 export default function DashboardPage() {
   const { t } = useTranslation()
-  const { data: portfolios, isLoading } = usePortfolios()
+  const { data: portfolios, isLoading, error, mutate } = usePortfolios()
   const [chartRange, setChartRange] = useState('30')
   const { data: chartData, isLoading: chartLoading } = usePortfolioHistory(chartRange)
 
@@ -53,6 +54,20 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <SkeletonCard />
         <SkeletonChart />
+      </div>
+    )
+  }
+
+  // A failed request is not an empty account. Before this check, a 429 from
+  // the rate limiter, a server error or an offline 503 with nothing saved told
+  // someone with money invested to "create your first portfolio" (C5).
+  if (error && !portfolios) {
+    return (
+      <div className="space-y-6">
+        <ErrorDisplay
+          error="No se pudieron cargar tus portafolios. Tus datos no se han perdido."
+          onRetry={() => mutate()}
+        />
       </div>
     )
   }

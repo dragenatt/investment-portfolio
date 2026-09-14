@@ -540,7 +540,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
 
 export function UniversalTradeModal() {
   const { t } = useTranslation()
-  const { isOpen, closeTrade } = useTrade()
+  const { isOpen, closeTrade, returnFocusRef } = useTrade()
   const isMobile = useIsMobile()
 
   const handleOpenChange = useCallback(
@@ -553,7 +553,7 @@ export function UniversalTradeModal() {
   if (isMobile) {
     return (
       <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-2xl">
+        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-2xl" finalFocus={returnFocusRef}>
           <SheetHeader>
             <SheetTitle>{t.trade.new_transaction}</SheetTitle>
           </SheetHeader>
@@ -567,7 +567,7 @@ export function UniversalTradeModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" finalFocus={returnFocusRef}>
         <DialogHeader>
           <DialogTitle>{t.trade.new_transaction}</DialogTitle>
         </DialogHeader>

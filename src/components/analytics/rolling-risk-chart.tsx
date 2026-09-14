@@ -210,10 +210,7 @@ export function RollingRiskChart({ rolling, isLoading }: Props) {
     <Card>
       {header}
       <CardContent className="space-y-3">
-        <ChartFigure
-          summary={summary}
-          table={table}
-        >
+        <ChartFigure summary={summary} table={table}>
           <ResponsiveContainer width="100%" height={240}>
             <ComposedChart accessibilityLayer={false} data={rows}>
               <defs>

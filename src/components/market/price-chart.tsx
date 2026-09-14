@@ -21,6 +21,8 @@ import {
   calculateRSI,
   calculateBollingerBands,
 } from '@/lib/utils/indicators'
+import { ChartFigure } from '@/components/charts/chart-figure'
+import { describeChange, formatChartDate, formatChartMoney, formatChartNumber, seriesTable } from '@/lib/utils/chart-accessibility'
 
 const rangeMap: Record<string, string> = {
   '1D': '1d', '1S': '5d', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1A': '1y', '5A': 'max',
@@ -177,6 +179,30 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
 
   const showRSI = activeIndicators.has('rsi') && rsiData
 
+  const indicatorColumns = (Object.keys(INDICATOR_CONFIG) as IndicatorKey[])
+    .filter((key) => activeIndicators.has(key) && key !== 'bollinger')
+  const summary =
+    chartData.length >= 2
+      ? `Precio de ${symbol} en ${range}: ${describeChange(
+          { label: formatChartDate(chartData[0].rawDate), value: firstPrice },
+          { label: formatChartDate(chartData[chartData.length - 1].rawDate), value: lastPrice },
+          (v) => formatChartMoney(v, ''),
+        )}.${indicatorColumns.length > 0 ? ` Indicadores activos: ${indicatorColumns.map((k) => INDICATOR_CONFIG[k].label).join(', ')}.` : ''}`
+      : `Precio de ${symbol}: sin datos para ${range}.`
+  const table = seriesTable<{ point: Record<string, unknown>; rsi: number | null }>(
+    enrichedData.map((point: Record<string, unknown>, i: number) => ({ point, rsi: indicators.rsi?.[i] ?? null })),
+    `Precio de ${symbol} por fecha`,
+    ['Fecha', 'Cierre', ...indicatorColumns.map((k) => INDICATOR_CONFIG[k].label)],
+    ({ point, rsi }) => [
+      formatChartDate(String(point.rawDate)),
+      formatChartMoney(Number(point.price), ''),
+      ...indicatorColumns.map((k) => {
+        const value = k === 'rsi' ? rsi : (point[k] as number | null | undefined)
+        return value == null ? '—' : formatChartNumber(value)
+      }),
+    ],
+  )
+
   return (
     <div>
       {/* Range change indicator */}
@@ -189,193 +215,202 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
       {/* Main chart */}
       <div
         className="w-full"
-        style={{ height: 300 }}
+        style={{ minHeight: 300, height: 300 }}
         onMouseLeave={() => onPriceHover?.(null)}
       >
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={enrichedData}>
-            <defs>
-              <linearGradient id={`color-${symbol}-${range}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={color} stopOpacity={0.15} />
-                <stop offset="95%" stopColor={color} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis
-              dataKey="date"
-              {...theme.xAxis}
-              interval="preserveStartEnd"
-              minTickGap={40}
-            />
-            <YAxis
-              {...theme.yAxis}
-              domain={['auto', 'auto']}
-              hide
-            />
-            <Tooltip
-              content={<HoverTooltip onHoverRef={onHoverRef} />}
-              cursor={theme.crosshair}
-            />
+        <ChartFigure summary={summary} table={table} fill>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart accessibilityLayer={false} data={enrichedData}>
+              <defs>
+                <linearGradient id={`color-${symbol}-${range}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={color} stopOpacity={0.15} />
+                  <stop offset="95%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis
+                dataKey="date"
+                {...theme.xAxis}
+                interval="preserveStartEnd"
+                minTickGap={40}
+              />
+              <YAxis
+                {...theme.yAxis}
+                domain={['auto', 'auto']}
+                hide
+              />
+              <Tooltip
+                content={<HoverTooltip onHoverRef={onHoverRef} />}
+                cursor={theme.crosshair}
+              />
 
-            {/* Bollinger Bands — shaded area between upper and lower */}
-            {activeIndicators.has('bollinger') && (
-              <>
-                <Area
-                  type="monotone"
-                  dataKey="bbUpper"
-                  stroke="none"
-                  fill={INDICATOR_CONFIG.bollinger.color}
-                  fillOpacity={0.1}
-                  dot={false}
-                  activeDot={false}
-                  isAnimationActive={false}
-                  connectNulls={false}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="bbLower"
-                  stroke="none"
-                  fill="var(--card)"
-                  fillOpacity={1}
-                  dot={false}
-                  activeDot={false}
-                  isAnimationActive={false}
-                  connectNulls={false}
-                />
+              {/* Bollinger Bands — shaded area between upper and lower */}
+              {activeIndicators.has('bollinger') && (
+                <>
+                  <Area
+                    type="monotone"
+                    dataKey="bbUpper"
+                    stroke="none"
+                    fill={INDICATOR_CONFIG.bollinger.color}
+                    fillOpacity={0.1}
+                    dot={false}
+                    activeDot={false}
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="bbLower"
+                    stroke="none"
+                    fill="var(--card)"
+                    fillOpacity={1}
+                    dot={false}
+                    activeDot={false}
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="bbUpper"
+                    stroke={INDICATOR_CONFIG.bollinger.color}
+                    strokeWidth={1}
+                    strokeDasharray="4 2"
+                    dot={false}
+                    activeDot={false}
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="bbLower"
+                    stroke={INDICATOR_CONFIG.bollinger.color}
+                    strokeWidth={1}
+                    strokeDasharray="4 2"
+                    dot={false}
+                    activeDot={false}
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="bbMiddle"
+                    stroke={INDICATOR_CONFIG.bollinger.color}
+                    strokeWidth={1}
+                    strokeOpacity={0.5}
+                    strokeDasharray="2 2"
+                    dot={false}
+                    activeDot={false}
+                    isAnimationActive={false}
+                    connectNulls={false}
+                  />
+                </>
+              )}
+
+              {/* Main price area */}
+              <Area
+                type="monotone"
+                dataKey="price"
+                stroke={color}
+                fill={`url(#color-${symbol}-${range})`}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, fill: color, stroke: 'var(--card)', strokeWidth: 2 }}
+              />
+
+              {/* SMA 20 */}
+              {activeIndicators.has('sma20') && (
                 <Line
                   type="monotone"
-                  dataKey="bbUpper"
-                  stroke={INDICATOR_CONFIG.bollinger.color}
-                  strokeWidth={1}
+                  dataKey="sma20"
+                  stroke={INDICATOR_CONFIG.sma20.color}
+                  strokeWidth={1.5}
+                  strokeDasharray="6 3"
+                  dot={false}
+                  activeDot={false}
+                  isAnimationActive={false}
+                  connectNulls={false}
+                />
+              )}
+
+              {/* SMA 50 */}
+              {activeIndicators.has('sma50') && (
+                <Line
+                  type="monotone"
+                  dataKey="sma50"
+                  stroke={INDICATOR_CONFIG.sma50.color}
+                  strokeWidth={1.5}
+                  strokeDasharray="6 3"
+                  dot={false}
+                  activeDot={false}
+                  isAnimationActive={false}
+                  connectNulls={false}
+                />
+              )}
+
+              {/* EMA 20 */}
+              {activeIndicators.has('ema20') && (
+                <Line
+                  type="monotone"
+                  dataKey="ema20"
+                  stroke={INDICATOR_CONFIG.ema20.color}
+                  strokeWidth={1.5}
                   strokeDasharray="4 2"
                   dot={false}
                   activeDot={false}
                   isAnimationActive={false}
                   connectNulls={false}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="bbLower"
-                  stroke={INDICATOR_CONFIG.bollinger.color}
-                  strokeWidth={1}
-                  strokeDasharray="4 2"
-                  dot={false}
-                  activeDot={false}
-                  isAnimationActive={false}
-                  connectNulls={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="bbMiddle"
-                  stroke={INDICATOR_CONFIG.bollinger.color}
-                  strokeWidth={1}
-                  strokeOpacity={0.5}
-                  strokeDasharray="2 2"
-                  dot={false}
-                  activeDot={false}
-                  isAnimationActive={false}
-                  connectNulls={false}
-                />
-              </>
-            )}
-
-            {/* Main price area */}
-            <Area
-              type="monotone"
-              dataKey="price"
-              stroke={color}
-              fill={`url(#color-${symbol}-${range})`}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4, fill: color, stroke: 'var(--card)', strokeWidth: 2 }}
-            />
-
-            {/* SMA 20 */}
-            {activeIndicators.has('sma20') && (
-              <Line
-                type="monotone"
-                dataKey="sma20"
-                stroke={INDICATOR_CONFIG.sma20.color}
-                strokeWidth={1.5}
-                strokeDasharray="6 3"
-                dot={false}
-                activeDot={false}
-                isAnimationActive={false}
-                connectNulls={false}
-              />
-            )}
-
-            {/* SMA 50 */}
-            {activeIndicators.has('sma50') && (
-              <Line
-                type="monotone"
-                dataKey="sma50"
-                stroke={INDICATOR_CONFIG.sma50.color}
-                strokeWidth={1.5}
-                strokeDasharray="6 3"
-                dot={false}
-                activeDot={false}
-                isAnimationActive={false}
-                connectNulls={false}
-              />
-            )}
-
-            {/* EMA 20 */}
-            {activeIndicators.has('ema20') && (
-              <Line
-                type="monotone"
-                dataKey="ema20"
-                stroke={INDICATOR_CONFIG.ema20.color}
-                strokeWidth={1.5}
-                strokeDasharray="4 2"
-                dot={false}
-                activeDot={false}
-                isAnimationActive={false}
-                connectNulls={false}
-              />
-            )}
-          </ComposedChart>
-        </ResponsiveContainer>
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </ChartFigure>
       </div>
 
       {/* RSI sub-chart */}
       {showRSI && (
         <div className="w-full mt-1" style={{ height: 100 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={rsiData}>
-              <XAxis dataKey="date" hide />
-              <YAxis
-                domain={[0, 100]}
-                ticks={[30, 50, 70]}
-                tick={{ fontSize: 9 }}
-                tickLine={false}
-                axisLine={false}
-                width={30}
-              />
-              <ReferenceLine y={70} stroke={theme.colors.negative} strokeDasharray="3 3" strokeOpacity={0.5} />
-              <ReferenceLine y={30} stroke={theme.colors.positive} strokeDasharray="3 3" strokeOpacity={0.5} />
-              <Area
-                type="monotone"
-                dataKey="rsi"
-                stroke={INDICATOR_CONFIG.rsi.color}
-                fill={INDICATOR_CONFIG.rsi.color}
-                fillOpacity={0.08}
-                strokeWidth={1.5}
-                dot={false}
-                activeDot={false}
-                isAnimationActive={false}
-                connectNulls={false}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <ChartFigure
+            fill
+            summary={`RSI de 14 periodos, entre 0 y 100; por encima de 70 se lee como sobrecompra y por debajo de 30 como sobreventa. Sus valores están en la tabla del precio.`}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart accessibilityLayer={false} data={rsiData}>
+                <XAxis dataKey="date" hide />
+                <YAxis
+                  domain={[0, 100]}
+                  ticks={[30, 50, 70]}
+                  tick={{ fontSize: 9 }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={30}
+                />
+                <ReferenceLine y={70} stroke={theme.colors.negative} strokeDasharray="3 3" strokeOpacity={0.5} />
+                <ReferenceLine y={30} stroke={theme.colors.positive} strokeDasharray="3 3" strokeOpacity={0.5} />
+                <Area
+                  type="monotone"
+                  dataKey="rsi"
+                  stroke={INDICATOR_CONFIG.rsi.color}
+                  fill={INDICATOR_CONFIG.rsi.color}
+                  fillOpacity={0.08}
+                  strokeWidth={1.5}
+                  dot={false}
+                  activeDot={false}
+                  isAnimationActive={false}
+                  connectNulls={false}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </ChartFigure>
           <p className="text-[10px] text-muted-foreground text-center -mt-1">RSI (14)</p>
         </div>
       )}
 
       {/* Timeframe pills */}
-      <div className="flex items-center justify-center gap-1 mt-3">
+      <div className="flex items-center justify-center gap-1 mt-3" role="group" aria-label="Rango de tiempo">
         {Object.keys(rangeMap).map(r => (
           <button
             key={r}
+            type="button"
+            aria-pressed={r === range}
             onClick={() => setRange(r)}
             className={cn(
               'px-3 py-1.5 rounded-full text-xs font-medium transition-colors',
@@ -392,13 +427,15 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
       </div>
 
       {/* Indicator toggle pills */}
-      <div className="flex items-center justify-center gap-1 mt-2 flex-wrap">
+      <div className="flex items-center justify-center gap-1 mt-2 flex-wrap" role="group" aria-label="Indicadores técnicos">
         {(Object.keys(INDICATOR_CONFIG) as IndicatorKey[]).map(key => {
           const cfg = INDICATOR_CONFIG[key]
           const isActive = activeIndicators.has(key)
           return (
             <button
               key={key}
+              type="button"
+              aria-pressed={isActive}
               onClick={() => toggleIndicator(key)}
               title={cfg.tooltip}
               className={cn(

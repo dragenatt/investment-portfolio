@@ -85,8 +85,8 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         <ThemeToggle />
 
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-accent h-9 w-9">
-            <Avatar className="h-8 w-8">
+          <DropdownMenuTrigger aria-label="Menú de la cuenta" className="inline-flex items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-accent h-9 w-9">
+            <Avatar className="h-8 w-8" aria-hidden="true">
               <AvatarFallback className="bg-primary/10 text-primary text-sm">{initials}</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>

@@ -47,12 +47,12 @@ export function Breadcrumbs() {
   })
 
   return (
-    <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-4">
+    <nav aria-label="Ruta de navegación" className="flex items-center gap-1 text-sm text-muted-foreground mb-4">
       {crumbs.map((crumb: { href: string; label: string; isLast: boolean }, i: number) => (
         <span key={crumb.href} className="flex items-center gap-1">
-          {i > 0 && <ChevronRight className="h-3 w-3" />}
+          {i > 0 && <ChevronRight aria-hidden="true" className="h-3 w-3" />}
           {crumb.isLast ? (
-            <span className="text-foreground font-medium">{crumb.label}</span>
+            <span aria-current="page" className="text-foreground font-medium">{crumb.label}</span>
           ) : (
             <Link href={crumb.href} className="hover:text-foreground transition-colors">
               {crumb.label}

@@ -230,6 +230,7 @@ export default function ComparePage() {
                 <div className="space-y-3 max-h-[400px] overflow-y-auto">
                   <Input
                     placeholder="Buscar..."
+                    aria-label="Buscar portafolio"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="rounded-xl"

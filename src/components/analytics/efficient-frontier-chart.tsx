@@ -168,10 +168,7 @@ export function EfficientFrontierChart({ data, isLoading }: Props) {
     <Card>
       {header}
       <CardContent className="space-y-3">
-        <ChartFigure
-          summary={summary}
-          table={table}
-        >
+        <ChartFigure summary={summary} table={table}>
           <ResponsiveContainer width="100%" height={280}>
             <ComposedChart accessibilityLayer={false} data={curve} margin={{ top: 8, right: 16 }}>
               <CartesianGrid {...theme.grid} />

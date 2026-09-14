@@ -16,6 +16,8 @@ import {
 import { getChartTheme, seriesColor, LINE_WIDTH, CHART_INK } from '@/lib/utils/chart-config'
 import { formatByUnit } from '@/lib/utils/lab-format'
 import type { ChartSpec } from '@/lib/services/lab'
+import { ChartFigure } from '@/components/charts/chart-figure'
+import { seriesTable } from '@/lib/utils/chart-accessibility'
 
 /**
  * Draws any lab experiment from the chart description its result carries.
@@ -116,37 +118,56 @@ export function ExperimentChart({
     </>
   )
 
+  const xText = (row: Record<string, number>, index: number) =>
+    categorical ? (chart.xCategories![index] ?? String(row[chart.x])) : formatByUnit(row[chart.x], chart.xUnit, 2)
+  const first = series[0]
+  const last = series[series.length - 1]
+  const summary = `${chart.kind === 'bar' ? 'Barras' : 'Líneas'} de ${chart.series.map((s) => s.label).join(', ')} según ${chart.xLabel}, de ${xText(
+    first,
+    0,
+  )} a ${xText(last, series.length - 1)}. Al final: ${chart.series
+    .map((s) => `${s.label} ${formatByUnit(last[s.key], s.unit, 2)}`)
+    .join(', ')}.${chart.referenceY ? ` Línea de referencia: ${chart.referenceY.label}.` : ''}`
+  const table = seriesTable(
+    series.map((row, index) => ({ row, index })),
+    `Datos del experimento: ${chart.series.map((s) => s.label).join(', ')}`,
+    [chart.xLabel, ...chart.series.map((s) => s.label)],
+    ({ row, index }) => [xText(row, index), ...chart.series.map((s) => formatByUnit(row[s.key], s.unit, 2))],
+  )
+
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      {chart.kind === 'bar' ? (
-        <BarChart data={series} margin={{ top: 4, right: 12, bottom: 8, left: 0 }}>
-          {common}
-          {chart.series.map((s, index) => (
-            <Bar
-              key={s.key}
-              dataKey={s.key}
-              fill={seriesColor(index) ?? CHART_INK.axis}
-              radius={[3, 3, 0, 0]}
-              isAnimationActive={false}
-            />
-          ))}
-        </BarChart>
-      ) : (
-        <LineChart data={series} margin={{ top: 4, right: 12, bottom: 8, left: 0 }}>
-          {common}
-          {chart.series.map((s, index) => (
-            <Line
-              key={s.key}
-              type="monotone"
-              dataKey={s.key}
-              stroke={seriesColor(index) ?? CHART_INK.axis}
-              strokeWidth={LINE_WIDTH}
-              dot={false}
-              isAnimationActive={false}
-            />
-          ))}
-        </LineChart>
-      )}
-    </ResponsiveContainer>
+    <ChartFigure summary={summary} table={table}>
+      <ResponsiveContainer width="100%" height={280}>
+        {chart.kind === 'bar' ? (
+          <BarChart accessibilityLayer={false} data={series} margin={{ top: 4, right: 12, bottom: 8, left: 0 }}>
+            {common}
+            {chart.series.map((s, index) => (
+              <Bar
+                key={s.key}
+                dataKey={s.key}
+                fill={seriesColor(index) ?? CHART_INK.axis}
+                radius={[3, 3, 0, 0]}
+                isAnimationActive={false}
+              />
+            ))}
+          </BarChart>
+        ) : (
+          <LineChart accessibilityLayer={false} data={series} margin={{ top: 4, right: 12, bottom: 8, left: 0 }}>
+            {common}
+            {chart.series.map((s, index) => (
+              <Line
+                key={s.key}
+                type="monotone"
+                dataKey={s.key}
+                stroke={seriesColor(index) ?? CHART_INK.axis}
+                strokeWidth={LINE_WIDTH}
+                dot={false}
+                isAnimationActive={false}
+              />
+            ))}
+          </LineChart>
+        )}
+      </ResponsiveContainer>
+    </ChartFigure>
   )
 }

@@ -26,7 +26,9 @@ const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 
 const variants = [
   { name: 'desktop-light', viewport: { width: 1280, height: 800 }, colorScheme: 'light' },
-  { name: 'desktop-dark', viewport: { width: 1280, height: 800 }, colorScheme: 'dark' },
+  // The app's default theme is light whatever the system says, so dark mode is
+  // selected the way the theme toggle stores it, not through colorScheme alone.
+  { name: 'desktop-dark', viewport: { width: 1280, height: 800 }, colorScheme: 'dark', theme: 'dark' },
   { name: 'phone-light', viewport: { width: 390, height: 844 }, colorScheme: 'light' },
 ]
 
@@ -35,6 +37,7 @@ const results = []
 
 for (const variant of variants) {
   const context = await browser.newContext({ viewport: variant.viewport, colorScheme: variant.colorScheme, reducedMotion: 'reduce' })
+  if (variant.theme) await context.addInitScript((theme) => localStorage.setItem('theme', theme), variant.theme)
   for (const route of routes) {
     const page = await context.newPage()
     await page.goto(base + route, { waitUntil: 'networkidle' })

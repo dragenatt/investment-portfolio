@@ -82,6 +82,11 @@ order by route, name;
 This is the source for future before/after comparisons of signed-in pages. It
 started collecting with this change; there is no field "before".
 
+Only real visits report (added in C5): views from `localhost`, automated
+browsers (`navigator.webdriver`) and pages inside a frame send nothing. Before
+that check, local audits wrote about 230 rows of lab data into this table on
+2026-09-14 between 07:00 and 08:00 UTC; read field data from after that hour.
+
 ## Findings and changes
 
 ### 1. The client Sentry SDK shipped to every page and could never report

@@ -22,16 +22,21 @@ export function ChartFigure({
   table,
   children,
   className,
+  fill = false,
 }: {
   summary: string
   table?: ChartTable | null
   children: ReactNode
   className?: string
+  /** For charts sized height="100%": the figure fills its parent and the chart takes what the table toggle leaves. */
+  fill?: boolean
 }) {
   const captionId = useId()
   return (
-    <figure className={cn('m-0', className)} aria-labelledby={captionId}>
-      <div aria-hidden="true">{children}</div>
+    <figure className={cn('m-0', fill && 'flex h-full flex-col', className)} aria-labelledby={captionId}>
+      <div aria-hidden="true" className={cn(fill && 'min-h-0 flex-1')}>
+        {children}
+      </div>
       <figcaption id={captionId} className="sr-only">
         {summary}
       </figcaption>

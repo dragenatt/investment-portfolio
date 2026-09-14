@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode, type RefObject } from 'react'
 import { shouldHandleCharacterShortcut } from '@/lib/utils/keyboard-shortcuts'
 import { useKeyboardShortcutsEnabled } from '@/lib/hooks/use-keyboard-shortcuts-preference'
 
@@ -15,6 +15,13 @@ export interface TradeContextValue {
   closeTrade: () => void
   isOpen: boolean
   initialOptions: TradeOptions | null
+  /**
+   * Where focus was when the modal opened. The modal is opened by buttons all
+   * over the app and by the T shortcut, so there is no single trigger for the
+   * dialog to return focus to; without this, closing it dropped keyboard users
+   * at the top of the page (C5).
+   */
+  returnFocusRef: RefObject<HTMLElement | null>
 }
 
 const TradeContext = createContext<TradeContextValue | null>(null)
@@ -23,7 +30,11 @@ export function TradeProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
   const [initialOptions, setInitialOptions] = useState<TradeOptions | null>(null)
 
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+
   const openTrade = useCallback((opts?: TradeOptions) => {
+    const active = typeof document !== 'undefined' ? document.activeElement : null
+    returnFocusRef.current = active instanceof HTMLElement && active !== document.body ? active : null
     setInitialOptions(opts ?? null)
     setIsOpen(true)
   }, [])
@@ -51,7 +62,7 @@ export function TradeProvider({ children }: { children: ReactNode }) {
   }, [openTrade, shortcutsEnabled])
 
   return (
-    <TradeContext.Provider value={{ openTrade, closeTrade, isOpen, initialOptions }}>
+    <TradeContext.Provider value={{ openTrade, closeTrade, isOpen, initialOptions, returnFocusRef }}>
       {children}
     </TradeContext.Provider>
   )

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { ArrowUp, ArrowDown, ArrowUpDown, AlertTriangle } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
@@ -56,25 +57,35 @@ function Sparkline({ data, width = 48, height = 16 }: { data: number[]; width?: 
     .join(' ')
   const isPositive = data[data.length - 1] >= data[0]
   const color = isPositive ? 'var(--good)' : 'var(--bad)'
+  const first = data[0]
+  const change = first !== 0 ? ((data[data.length - 1] - first) / Math.abs(first)) * 100 : null
+  // The line is drawn for the eye; the words are what a screen reader gets (C5).
+  const description =
+    change === null
+      ? 'Últimos 7 días'
+      : `Últimos 7 días: ${Math.abs(change) < 0.005 ? 'sin cambio' : `${change > 0 ? 'sube' : 'baja'} ${Math.abs(change).toFixed(2)}%`}`
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <polyline
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <>
+      <span className="sr-only">{description}</span>
+      <svg aria-hidden="true" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <polyline
+          points={points}
+          fill="none"
+          stroke={color}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </>
   )
 }
 
 function SortIcon({ k, sortKey, sortDir }: { k: SortKey; sortKey: SortKey; sortDir: 'asc' | 'desc' }) {
-  if (sortKey !== k) return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />
+  if (sortKey !== k) return <ArrowUpDown aria-hidden="true" className="ml-1 h-3 w-3 opacity-40" />
   return sortDir === 'asc'
-    ? <ArrowUp className="ml-1 h-3 w-3" />
-    : <ArrowDown className="ml-1 h-3 w-3" />
+    ? <ArrowUp aria-hidden="true" className="ml-1 h-3 w-3" />
+    : <ArrowDown aria-hidden="true" className="ml-1 h-3 w-3" />
 }
 
 function SortHeader({ k, children, className, sortKey, sortDir, onToggle }: {
@@ -87,10 +98,15 @@ function SortHeader({ k, children, className, sortKey, sortDir, onToggle }: {
         'inline-flex items-center gap-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors',
         className,
       )}
+      type="button"
       onClick={() => onToggle(k)}
     >
       {children}
       <SortIcon k={k} sortKey={sortKey} sortDir={sortDir} />
+      {/* The arrow is an icon; the order is words for screen readers (C5). */}
+      {sortKey === k && (
+        <span className="sr-only">{sortDir === 'asc' ? ', orden ascendente' : ', orden descendente'}</span>
+      )}
     </button>
   )
 }
@@ -193,7 +209,13 @@ export function PositionPnLTable({ positions }: Props) {
               >
                 <TableCell>
                   <div>
-                    <span className="font-semibold font-mono">{pos.symbol}</span>
+                    <Link
+                      href={`/market/${encodeURIComponent(pos.symbol)}`}
+                      className="font-semibold font-mono hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {pos.symbol}
+                    </Link>
                     {pos.name && (
                       <p className="text-xs text-muted-foreground truncate max-w-[160px]">{pos.name}</p>
                     )}
@@ -208,9 +230,9 @@ export function PositionPnLTable({ positions }: Props) {
                     <FormattedAmount value={pos.current_price} from={pos.currency} />
                     {pos.is_stale && (
                       <span
-                        title={pos.freshness?.label ?? 'Price may be out of date'}
+                        title={pos.freshness?.label ?? 'Precio posiblemente desactualizado'}
                         aria-label={pos.freshness?.label ?? 'Precio posiblemente desactualizado'}
-                        role="img"
+                      role="img"
                         className="inline-flex"
                       >
                         <AlertTriangle
@@ -251,10 +273,10 @@ export function PositionPnLTable({ positions }: Props) {
           {positionCount} {positionCount === 1 ? 'posicion' : 'posiciones'}
         </p>
         {sorted.map(pos => (
-          <div
+          <Link
             key={pos.id}
-            className="border border-border rounded-2xl p-3 cursor-pointer hover:bg-muted/50 active:scale-[0.99] transition-all"
-            onClick={() => handleRowClick(pos.symbol)}
+            href={`/market/${encodeURIComponent(pos.symbol)}`}
+            className="block border border-border rounded-2xl p-3 hover:bg-muted/50 active:scale-[0.99] transition-all"
           >
             <div className="flex justify-between items-start gap-2">
               <div className="min-w-0 flex-shrink">
@@ -262,9 +284,9 @@ export function PositionPnLTable({ positions }: Props) {
                   <p className="font-semibold font-mono text-sm">{pos.symbol}</p>
                   {pos.is_stale && (
                     <span
-                      title={pos.freshness?.label ?? 'Price may be out of date'}
+                      title={pos.freshness?.label ?? 'Precio posiblemente desactualizado'}
                       aria-label={pos.freshness?.label ?? 'Precio posiblemente desactualizado'}
-                        role="img"
+                      role="img"
                       className="inline-flex"
                     >
                       <AlertTriangle
@@ -295,7 +317,7 @@ export function PositionPnLTable({ positions }: Props) {
                 </p>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </>
