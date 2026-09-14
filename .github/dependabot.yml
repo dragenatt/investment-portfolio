@@ -1,0 +1,62 @@
+# C7. Weekly dependency updates, grouped so they arrive as a few reviewable PRs
+# instead of one per package. Security updates are not grouped or delayed:
+# GitHub opens those as soon as an advisory is published, and CI's
+# dependency-audit job fails until they are merged.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Mexico_City
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    groups:
+      # Next and its ESLint config move together, or lint breaks.
+      next:
+        patterns:
+          - next
+          - eslint-config-next
+          - "@next/*"
+      react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+      supabase:
+        patterns:
+          - "@supabase/*"
+      testing:
+        patterns:
+          - vitest
+          - "@vitest/*"
+          - "@playwright/test"
+          - jsdom
+          - "@testing-library/*"
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Majors of the framework and the database client change APIs the app
+      # depends on; they get a deliberate upgrade, not a weekly PR.
+      - dependency-name: next
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-dom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@supabase/*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies

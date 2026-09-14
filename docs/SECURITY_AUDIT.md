@@ -38,7 +38,7 @@ itself.
 | 11 | Profile website/avatar accepted `javascript:` URLs | A03 Injection (XSS) | Low (latent) | Fixed |
 | 12 | 500 responses returned database error text (47 routes) | A05 | Low | Fixed |
 | 13 | Hard-coded FX rates used silently when the provider failed | A04 / A08 integrity | Medium | Fixed |
-| 14 | 25 known-vulnerable dependencies, 1 critical (`next`) | A06 Vulnerable Components | Critical | Open → C7 |
+| 14 | 25 known-vulnerable dependencies, 1 critical (`next`) | A06 Vulnerable Components | Critical | Fixed in C7 (0 remaining) |
 | 15 | Rate limiting is per serverless instance; Upstash optional | A04 / A07 | Medium | Open → C8 |
 | 16 | Leaked-password protection disabled in Supabase Auth | A07 | Medium | Open — owner action |
 | 17 | `share_token` of public portfolios readable by signed-in users | A01 | Low | Accepted, documented |
@@ -235,13 +235,17 @@ constants remain only for a database with no observation at all and log an
 error when used. Removing the currency instead would be worse:
 `convertCurrency` returns amounts unconverted when a rate is missing.
 
-### 14. Vulnerable dependencies — A06, Critical — open, next task (C7)
+### 14. Vulnerable dependencies — A06, Critical — fixed in C7
 
 `npm audit` on 2026-09-14: **25** (1 critical, 14 high, 7 moderate, 3 low). The
 critical one is `next` itself (denial of service in Server Components; fixed in
 16.3.5). Most high ones are transitive build/test tooling (`brace-expansion`,
-`js-yaml`, `hono`, `fast-uri`, `ip-address`). C7 upgrades them and adds
-`npm audit --audit-level=high` to CI with Dependabot.
+`js-yaml`, `hono`, `fast-uri`, `ip-address`).
+
+**Fixed in C7:** `next` and `eslint-config-next` 16.2.0 → 16.3.5 and
+`npm audit fix` for the transitive ones — `npm audit` reports **0**. CI now runs
+`npm audit --audit-level=high` in its own job, and Dependabot opens weekly
+grouped update PRs.
 
 ### 15. Rate limiting — A04/A07, Medium — open (C8)
 

@@ -8,6 +8,27 @@ on:
   pull_request:
 
 jobs:
+  # C7. Fails the build on any known high or critical vulnerability in the
+  # dependency tree, dev tooling included: build and test tools run with the
+  # same access to secrets as the app. Its own job, so a red X names the cause
+  # and the tests still report. Dependabot (.github/dependabot.yml) opens the
+  # upgrade PRs that turn it green again.
+  dependency-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      # Against the lockfile, without installing: what CI and Vercel would install.
+      - name: npm audit (high and critical fail the build)
+        run: npm audit --audit-level=high
+
   test:
     runs-on: ubuntu-latest
 
@@ -58,6 +79,20 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Even the public half talks to Supabase (the login page creates a
+      # client; the wrong-password test goes to Supabase Auth). Without these
+      # secrets the dev server throws on every request and Playwright used to
+      # time out after two minutes with nothing to say why.
+      - name: Check e2e configuration
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
+            echo "::error title=E2E not configured::Add the repository secrets NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (Settings > Secrets and variables > Actions). Both are the public values the browser already receives."
+            exit 1
+          fi
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
