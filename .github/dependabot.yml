@@ -42,15 +42,14 @@ updates:
           - minor
           - patch
     ignore:
-      # Majors of the framework and the database client change APIs the app
-      # depends on; they get a deliberate upgrade, not a weekly PR.
-      - dependency-name: next
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react-dom
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@supabase/*"
+      # No major version bumps in the weekly PRs. The first run opened eleven,
+      # among them TypeScript 5 -> 7, ESLint 9 -> 10, lucide-react 0.x -> 1.x
+      # and @types/node 20 -> 26 (the runtime is Node 20): each changes APIs or
+      # rules and fails CI on its own. Majors get a deliberate upgrade. Security
+      # fixes are not affected: GitHub raises those as Dependabot security
+      # updates regardless of this list, and the dependency-audit job fails
+      # until they land.
+      - dependency-name: "*"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
