@@ -62,8 +62,9 @@ const DEFAULTS: Record<FeatureFlag, boolean> = {
   riskParity: true,
   factorModel: true,
   financialLab: true,
+  // Shipped in OLA 7 (C2): prices streamed over Supabase Realtime.
+  streaming: true,
   // Not implemented yet.
-  streaming: false,
   pwa: false,
 }
 

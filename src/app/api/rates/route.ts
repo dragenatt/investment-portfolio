@@ -2,6 +2,7 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { getQuote } from '@/lib/services/market'
 import { apiHandler } from '@/lib/api/handler'
+import { serviceRoleClient } from '@/lib/supabase/admin'
 
 const FOREX_PAIRS = [
   { pair: 'USDMXN=X', currency: 'MXN' },
@@ -38,7 +39,9 @@ async function getHandler() {
       // Cache for 1 hour
       const now = new Date()
       const expiresAt = new Date(now.getTime() + 60 * 60 * 1000)
-      await supabase.from('current_prices').upsert({
+      // current_prices is shared and no longer writable by users (migration
+      // 018), so the cache write goes through the service role.
+      await serviceRoleClient()?.from('current_prices').upsert({
         symbol: pair,
         exchange: 'FX',
         price: quote.price,

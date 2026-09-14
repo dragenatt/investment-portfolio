@@ -10,7 +10,8 @@
 // and the Monte Carlo endpoint. Two copies of a data path is two places for the
 // ordering to drift apart, which is exactly what roadmap rule #2 forbids.
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { serviceRoleClient } from '@/lib/supabase/admin'
 import { getHistory } from './market'
 import { adjustSeriesBySymbol } from './corporate-actions'
 
@@ -70,12 +71,7 @@ const DEFAULT_MIN_STORED_ROWS = 10
  * survived: nothing was broken enough to notice.
  */
 function cacheWriter(): SupabaseClient | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !serviceKey) return null
-  return createClient(url, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
+  return serviceRoleClient()
 }
 
 function coverage(rows: PriceRow[], symbols: string[]): { covered: string[]; missing: string[] } {

@@ -12,7 +12,8 @@
  * - Diversification score (HHI)
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { serviceRoleClient } from '@/lib/supabase/admin'
 import { getBenchmarkSeries, getPortfolioBenchmark } from './benchmarks'
 import { calculateBetaAlpha, calculateDailyReturns, type BetaAlpha } from './analytics'
 import { getRiskFreeRate } from './risk-free-rate'
@@ -62,12 +63,11 @@ const TRADING_DAYS_PER_YEAR = 252
 
 // ─── Supabase Admin Client ──────────────────────────────────────────────────
 
+/** The service-role client, required: crons and jobs cannot run without it. */
 export function createAdminSupabase(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  return createClient(url, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
+  const client = serviceRoleClient()
+  if (!client) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured')
+  return client
 }
 
 // ─── Cron Monitoring ────────────────────────────────────────────────────────
