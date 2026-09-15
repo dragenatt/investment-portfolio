@@ -4,6 +4,7 @@ import type { RiskSources } from '@/lib/services/risk-sources'
 import type { ModelComparison } from '@/lib/services/model-comparison'
 import type { PortfolioHealth } from '@/lib/services/portfolio-health'
 import type { PortfolioDiagnostic as PortfolioDiagnosticResult } from '@/lib/services/portfolio-diagnostic'
+import type { EstimateReliability, PortfolioScenarioRequest, ScenarioResult } from '@/lib/services/scenario-engine'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useJob } from './use-job'
 import type { ScenarioComparison } from '@/lib/services/scenario-comparison'
@@ -235,6 +236,25 @@ export type DiagnosticData = Partial<PortfolioDiagnosticResult> & {
 
 export function useDiagnostic(pid: string | null) {
   return useSWR<DiagnosticData>(pid ? `/api/analytics/${pid}/diagnostic` : null, apiFetcher, { revalidateOnFocus: false })
+}
+
+// --- Scenario engine (P2-9) ---
+export type ScenarioEngineData = {
+  message?: string
+  request?: PortfolioScenarioRequest
+  allocation?: { preset: string; name: string; weights: Array<{ symbol: string; weight: number }> }
+  capital?: number
+  benchmark?: { symbol: string; name: string } | null
+  result?: ScenarioResult
+  estimates?: EstimateReliability | null
+  window?: { from: string; to: string }
+}
+
+export function useScenarioEngine(pid: string | null, query: string) {
+  return useSWR<ScenarioEngineData>(pid ? `/api/analytics/${pid}/scenario-engine?${query}` : null, apiFetcher, {
+    keepPreviousData: true,
+    revalidateOnFocus: false,
+  })
 }
 
 // --- Income ---

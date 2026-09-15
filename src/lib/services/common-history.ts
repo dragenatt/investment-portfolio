@@ -22,6 +22,8 @@ export type CommonHistory = {
   returnsMatrix: number[][]
   /** Market-value weights at the last common date, or undefined if the book is worth nothing. */
   currentWeights: number[] | undefined
+  /** Quantity times close on the last common date, summed over the priced holdings. */
+  bookValue: number
   lastDate: string
 }
 
@@ -77,6 +79,7 @@ export function alignCommonHistory(
     commonDates,
     returnsMatrix,
     currentWeights: bookValue > 0 ? marketValues.map((v) => v / bookValue) : undefined,
+    bookValue,
     lastDate,
   }
 }

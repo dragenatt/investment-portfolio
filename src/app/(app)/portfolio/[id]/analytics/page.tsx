@@ -10,6 +10,7 @@ import { ReturnsSummary } from '@/components/analytics/returns-summary'
 import { CalendarReturns } from '@/components/analytics/calendar-returns'
 import { RiskDashboard } from '@/components/analytics/risk-dashboard'
 import { ScenarioComparisonCard } from '@/components/analytics/scenario-comparison'
+import { ScenarioEngineCard } from '@/components/analytics/scenario-engine'
 import { MetricExplanationsCard } from '@/components/analytics/metric-explanations'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -317,6 +318,9 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
         <TabsContent value="scenarios" className="space-y-6 mt-6">
           <ErrorBoundary>
             <ScenarioComparisonCard pid={id} />
+          </ErrorBoundary>
+          <ErrorBoundary>
+            <ScenarioEngineCard pid={id} currency={currency} />
           </ErrorBoundary>
         </TabsContent>
 

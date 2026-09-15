@@ -36,6 +36,9 @@ modules consume it.
 | Default benchmark | SPY | symbol | assumed | `benchmarks.ts` |
 | Portfolio Health thresholds | nine components, 0–100 | score | cited limits + **educational convention** | `portfolio-health.ts` |
 | Liquidity participation | 20% of daily volume | fraction | assumed (convention) | `portfolio-health.ts` |
+| Scenario engine process | correlated GBM, monthly steps | model | assumed | `scenario-engine.ts` |
+| Scenario engine paths | 1,000 per request (max 10,000) | count | assumed | `scenario-engine.ts` |
+| Reliable history for a projection | 3 years | years | assumed (convention) | `scenario-engine.ts` |
 | Inflation | — | — | **not modelled** | — |
 | Commissions and spreads | — | — | **not modelled** | — |
 | Taxes | — | — | **not modelled** | — |
@@ -241,6 +244,32 @@ and the interface shows it next to each score.
 All measures are in-sample on the risk window (`loadRiskInputs`), with today's
 weights. A component without the data it needs is **unavailable** and left
 out of the average — never scored as zero or as perfect.
+
+## Scenario engine (P2-9)
+
+**One scenario definition and one simulator** (`scenario-engine.ts`) for every
+projection: capital, weights, monthly contributions (optionally rising each
+year), horizon, benchmark, risk model, costs, inflation, rebalancing policy and
+shocks.
+
+- **Process.** Each holding follows a geometric Brownian motion with correlated
+  shocks, stepped monthly — the generator the portfolio Monte Carlo already uses
+  (`forEachCorrelatedStep`), so a scenario and the cone agree on the same inputs.
+- **Risk model.** From history by default: annualised mean, volatility and
+  correlation of the holdings' daily returns. A user may set one expected annual
+  return for every holding instead; volatility and correlation stay historical,
+  and the result's `riskSource` says which was used.
+- **Reliability.** The standard error of the annualised historical mean,
+  σ / √years, is reported with every portfolio projection. Under 3 years of
+  history, or with a standard error larger than half the mean, the projection is
+  flagged as resting on an unreliable centre (convention).
+- **Costs.** The cost model (`costs.ts`); nothing is charged unless given, and
+  the result says the figures are gross. Commissions apply to money invested and
+  to rebalancing turnover, custody as a monthly drag; capital-gains tax is
+  reported as the tax on a liquidation at the horizon, not charged along the way.
+- **Reproducibility.** The filled-in scenario is serialised canonically and
+  hashed (FNV-1a) into a key; the key seeds the random stream when no seed is
+  given. Key, seed, path count and engine version travel with every result.
 
 ---
 

@@ -110,6 +110,58 @@ export function gbmInputsFromHistory(returnsMatrix: number[][]): GbmInputs {
   return { mu, sigma, cholesky }
 }
 
+/**
+ * Walk correlated GBM price paths step by step — the one generator every
+ * simulation here is built on.
+ *
+ * `onStep(sim, step, relatives)` receives each asset's price relative to the
+ * start of the path (1.0 at step 0) after `step + 1` steps. The shocks are drawn
+ * per path, per step, per asset, in that order, from one seeded stream, so any
+ * two consumers asking for the same inputs, steps and seed see the same futures.
+ * `relatives` is reused between calls; copy it to keep it.
+ *
+ * Weekly for the portfolio cone and the scenario comparison, monthly for the
+ * scenario engine (P2-9): the discretisation is the caller's choice, the
+ * process is not.
+ */
+export function forEachCorrelatedStep(
+  params: { inputs: GbmInputs; steps: number; stepsPerYear: number; numSimulations: number; seed: number },
+  onStep: (sim: number, step: number, relatives: number[]) => void,
+): void {
+  const { inputs, seed } = params
+  const assetCount = inputs.mu.length
+  const steps = Math.floor(params.steps)
+  const paths = Math.floor(params.numSimulations)
+  if (assetCount === 0 || steps < 1 || paths < 1 || !(params.stepsPerYear > 0)) return
+
+  const dt = 1 / params.stepsPerYear
+  const sqrtDt = Math.sqrt(dt)
+  const drift = inputs.mu.map((m, i) => (m - (inputs.sigma[i] * inputs.sigma[i]) / 2) * dt)
+  const diffusion = inputs.sigma.map((s) => s * sqrtDt)
+  const cholesky = inputs.cholesky
+
+  const nextNormal = createNormalSampler(seed)
+  const prices = new Array<number>(assetCount).fill(1)
+  const shocks = new Array<number>(assetCount).fill(0)
+
+  for (let sim = 0; sim < paths; sim++) {
+    for (let i = 0; i < assetCount; i++) prices[i] = 1
+
+    for (let step = 0; step < steps; step++) {
+      for (let i = 0; i < assetCount; i++) shocks[i] = nextNormal()
+
+      for (let i = 0; i < assetCount; i++) {
+        // z = (L·ε)_i — L is lower triangular, so only k ≤ i contribute.
+        let z = 0
+        for (let k = 0; k <= i; k++) z += cholesky[i][k] * shocks[k]
+        prices[i] *= Math.exp(drift[i] + diffusion[i] * z)
+      }
+
+      onStep(sim, step, prices)
+    }
+  }
+}
+
 export type WeightingSimulation = {
   /** The weights actually used, normalised to sum to 1. */
   weights: number[]
@@ -162,37 +214,14 @@ export function simulateWeightings(params: {
   }))
   if (assetCount === 0 || totalWeeks < 1 || paths < 1) return results
 
-  const dt = 1 / WEEKS_PER_YEAR
-  const sqrtDt = Math.sqrt(dt)
-  const drift = inputs.mu.map((m, i) => (m - (inputs.sigma[i] * inputs.sigma[i]) / 2) * dt)
-  const diffusion = inputs.sigma.map((s) => s * sqrtDt)
-  const cholesky = inputs.cholesky
-
-  const nextNormal = createNormalSampler(seed)
-  const prices = new Array<number>(assetCount).fill(1)
-  const shocks = new Array<number>(assetCount).fill(0)
-
-  for (let sim = 0; sim < paths; sim++) {
-    for (let i = 0; i < assetCount; i++) prices[i] = 1
-
-    for (let week = 0; week < totalWeeks; week++) {
-      for (let i = 0; i < assetCount; i++) shocks[i] = nextNormal()
-
-      for (let i = 0; i < assetCount; i++) {
-        // z = (L·ε)_i — L is lower triangular, so only k ≤ i contribute.
-        let z = 0
-        for (let k = 0; k <= i; k++) z += cholesky[i][k] * shocks[k]
-        prices[i] *= Math.exp(drift[i] + diffusion[i] * z)
-      }
-
-      for (let s = 0; s < normalised.length; s++) {
-        const weights = normalised[s]
-        let value = 0
-        for (let i = 0; i < assetCount; i++) value += weights[i] * prices[i]
-        results[s].valuesByWeek[week][sim] = value
-      }
+  forEachCorrelatedStep({ inputs, steps: totalWeeks, stepsPerYear: WEEKS_PER_YEAR, numSimulations: paths, seed }, (sim, week, relatives) => {
+    for (let s = 0; s < normalised.length; s++) {
+      const weights = normalised[s]
+      let value = 0
+      for (let i = 0; i < assetCount; i++) value += weights[i] * relatives[i]
+      results[s].valuesByWeek[week][sim] = value
     }
-  }
+  })
 
   return results
 }
