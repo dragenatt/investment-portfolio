@@ -25,7 +25,10 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
           observations: income.monthly_history.length,
           cadence: 'mensual',
         },
-        assumptions: [{ name: 'Dividendos', value: 'Solo los que se registraron como operación; nada se estima', source: 'dividend-analytics.ts' }],
+        assumptions: [
+          { name: 'Dividendos', value: 'Solo los que se registraron como operación; nada se estima', source: 'dividend-analytics.ts' },
+          { name: 'Rendimiento por dividendos', value: 'Dividendos de los últimos 12 meses sobre el valor actual de las posiciones (cotización guardada o costo)', source: 'dividend-analytics.ts' },
+        ],
       }),
     }
   })
