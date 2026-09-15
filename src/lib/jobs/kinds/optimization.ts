@@ -15,6 +15,7 @@ import {
   type ReturnRange,
 } from '@/lib/services/robust-optimizer'
 import { compareBlackLittermanVsMarkowitz } from '@/lib/services/black-litterman'
+import { compareModels } from '@/lib/services/model-comparison'
 
 const TRADING_DAYS = 252
 
@@ -128,6 +129,22 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
         })
       : null
 
+  // ── The five models on one ruler (P2-6) ──────────────────────────────
+  //
+  // Same holdings, same window, same estimates and ranges as everything above,
+  // each model's weights measured the same way. No winner is picked.
+  const modelComparison = expected
+    ? compareModels({
+        symbols: activeSymbols,
+        returnsMatrix,
+        cov,
+        estimatedReturns: expected,
+        riskFreeRate: riskFree.rate,
+        currentWeights,
+        ranges,
+      })
+    : null
+
   return {
     symbols: activeSymbols,
     observations: commonDates.length - 1,
@@ -175,6 +192,7 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
             'Los rendimientos de equilibrio se derivan de TUS pesos actuales, no de una cartera de mercado por capitalizacion. Responden a "que tendrias que estar creyendo para que tu asignacion actual fuera optima", que es una pregunta util pero no es el prior clasico del modelo.',
         }
       : null,
+    model_comparison: modelComparison,
     caveat: FRONTIER_CAVEAT,
   }
 }

@@ -39,6 +39,10 @@ export const TemporalAttribution = dynamic(
   () => import('@/components/analytics/temporal-attribution').then((m) => m.TemporalAttribution),
   { ssr: false, loading },
 )
+export const ModelComparison = dynamic(
+  () => import('@/components/analytics/model-comparison').then((m) => m.ModelComparison),
+  { ssr: false, loading },
+)
 export const RiskSources = dynamic(
   () => import('@/components/analytics/risk-sources').then((m) => m.RiskSources),
   { ssr: false, loading },

@@ -1,6 +1,7 @@
 import useSWR from 'swr'
 import type { Ranking } from '@/lib/services/discover'
 import type { RiskSources } from '@/lib/services/risk-sources'
+import type { ModelComparison } from '@/lib/services/model-comparison'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useJob } from './use-job'
 import type { ScenarioComparison } from '@/lib/services/scenario-comparison'
@@ -390,6 +391,7 @@ export type OptimizationData = {
     }>
     caveat: string
   } | null
+  model_comparison?: ModelComparison | null
   caveat?: string
 }
 

@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation, useFactors, useOptimization } from '@/lib/hooks/use-analytics'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, RiskSources, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart } from '@/components/charts/lazy-charts'
+import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, RiskSources, ModelComparison, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart } from '@/components/charts/lazy-charts'
 
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -215,6 +215,11 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           <DataGate error={optimizationError} hasData={!!optimization} what="la frontera eficiente">
             <ErrorBoundary>
               <EfficientFrontierChart data={optimization} isLoading={optimizationLoading} />
+            </ErrorBoundary>
+          </DataGate>
+          <DataGate error={optimizationError} hasData={!!optimization} what="la comparación de modelos">
+            <ErrorBoundary>
+              <ModelComparison data={optimization?.model_comparison} isLoading={optimizationLoading} />
             </ErrorBoundary>
           </DataGate>
         </TabsContent>
