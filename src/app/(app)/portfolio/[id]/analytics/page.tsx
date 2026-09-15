@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation, useFactors, useOptimization } from '@/lib/hooks/use-analytics'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, RiskSources, ModelComparison, PortfolioHealth, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart } from '@/components/charts/lazy-charts'
+import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, RiskSources, ModelComparison, PortfolioHealth, PortfolioDiagnostic, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart } from '@/components/charts/lazy-charts'
 
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -77,6 +77,10 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
         <TabsContent value="overview" className="space-y-6 mt-6">
           <ErrorBoundary>
             <PortfolioHealth portfolioId={id} />
+          </ErrorBoundary>
+
+          <ErrorBoundary>
+            <PortfolioDiagnostic portfolioId={id} />
           </ErrorBoundary>
 
           <DataGate error={returnsError} hasData={!!returns} what="los rendimientos">

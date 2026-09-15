@@ -39,6 +39,10 @@ export const TemporalAttribution = dynamic(
   () => import('@/components/analytics/temporal-attribution').then((m) => m.TemporalAttribution),
   { ssr: false, loading },
 )
+export const PortfolioDiagnostic = dynamic(
+  () => import('@/components/analytics/portfolio-diagnostic').then((m) => m.PortfolioDiagnostic),
+  { ssr: false, loading },
+)
 export const PortfolioHealth = dynamic(
   () => import('@/components/analytics/portfolio-health').then((m) => m.PortfolioHealth),
   { ssr: false, loading },

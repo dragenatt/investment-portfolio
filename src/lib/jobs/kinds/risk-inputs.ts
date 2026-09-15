@@ -5,7 +5,7 @@ import { detectCadence, type Cadence } from '@/lib/services/asset-metrics'
 import { getPortfolioBenchmark, BENCHMARKS } from '@/lib/services/benchmarks'
 import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
 import { loadFactorReturns } from '@/lib/jobs/kinds/factors'
-import { alignRiskInputs, MIN_RISK_OBSERVATIONS, sectorLabel, type AlignedRiskInputs } from '@/lib/services/risk-sources'
+import { alignRiskInputs, MIN_RISK_OBSERVATIONS, realSector, sectorLabel, type AlignedRiskInputs } from '@/lib/services/risk-sources'
 
 const TRADING_DAYS = 252
 
@@ -64,7 +64,9 @@ export async function loadRiskInputs(supabase: SupabaseClient, pid: string): Pro
   const companySectors: Record<string, string | null> = {}
   const companyCountries: Record<string, string | null> = {}
   for (const company of companies ?? []) {
-    companySectors[company.symbol as string] = (company.sector as string | null) ?? null
+    // "ETF" in a sector field is an asset class, and grading it as a sector
+    // would call a broad index fund a sector concentration.
+    companySectors[company.symbol as string] = realSector(company.sector as string | null)
     companyCountries[company.symbol as string] = (company.hq as string | null) ?? null
   }
   const sectors: Record<string, string> = {}

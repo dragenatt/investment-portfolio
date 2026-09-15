@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { alignRiskInputs, analyseRiskSources, MIN_RISK_OBSERVATIONS, MIN_SERIES_COVERAGE, sectorLabel, type RiskSourcesInput } from '@/lib/services/risk-sources'
+import { alignRiskInputs, analyseRiskSources, MIN_RISK_OBSERVATIONS, MIN_SERIES_COVERAGE, realSector, sectorLabel, type RiskSourcesInput } from '@/lib/services/risk-sources'
 import { runFactorRegression } from '@/lib/services/factors'
 import { mulberry32, standardNormal } from '@/lib/utils/random'
 
@@ -190,6 +190,11 @@ describe('sectorLabel', () => {
     expect(sectorLabel('  ', 'etf')).toBe('ETF')
     expect(sectorLabel(undefined, 'warrant')).toBe('Warrant')
     expect(sectorLabel(null, null)).toBe('Sin clasificar')
+    // Some company data puts the asset class in the sector field.
+    expect(sectorLabel('ETF', 'etf')).toBe('ETF')
+    expect(sectorLabel('Index', 'index')).toBe('Índices')
+    expect(realSector('ETF')).toBeNull()
+    expect(realSector(' Technology ')).toBe('Technology')
   })
 })
 

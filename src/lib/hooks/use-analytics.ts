@@ -3,6 +3,7 @@ import type { Ranking } from '@/lib/services/discover'
 import type { RiskSources } from '@/lib/services/risk-sources'
 import type { ModelComparison } from '@/lib/services/model-comparison'
 import type { PortfolioHealth } from '@/lib/services/portfolio-health'
+import type { PortfolioDiagnostic as PortfolioDiagnosticResult } from '@/lib/services/portfolio-diagnostic'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useJob } from './use-job'
 import type { ScenarioComparison } from '@/lib/services/scenario-comparison'
@@ -223,6 +224,17 @@ export type HealthData = Partial<PortfolioHealth> & {
 
 export function useHealth(pid: string | null) {
   return useSWR<HealthData>(pid ? `/api/analytics/${pid}/health` : null, apiFetcher, { revalidateOnFocus: false })
+}
+
+// --- Portfolio diagnostic (P2-8) ---
+export type DiagnosticData = Partial<PortfolioDiagnosticResult> & {
+  risk_window?: { from: string; to: string } | null
+  return_window?: { from: string; to: string } | null
+  benchmark?: { symbol: string; name: string }
+}
+
+export function useDiagnostic(pid: string | null) {
+  return useSWR<DiagnosticData>(pid ? `/api/analytics/${pid}/diagnostic` : null, apiFetcher, { revalidateOnFocus: false })
 }
 
 // --- Income ---
