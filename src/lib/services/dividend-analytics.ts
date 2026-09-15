@@ -12,6 +12,8 @@ export async function getIncomeAnalytics(supabase: SupabaseClient, portfolioId: 
     .eq('type', 'dividend')
     .eq('position.portfolio_id', portfolioId)
     .order('executed_at', { ascending: true })
+    // Ties on executed_at (the modal records a date, not a time) replay in entry order.
+    .order('created_at', { ascending: true })
 
   const allDivs = dividends ?? []
 
