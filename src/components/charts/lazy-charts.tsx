@@ -39,6 +39,10 @@ export const TemporalAttribution = dynamic(
   () => import('@/components/analytics/temporal-attribution').then((m) => m.TemporalAttribution),
   { ssr: false, loading },
 )
+export const RiskSources = dynamic(
+  () => import('@/components/analytics/risk-sources').then((m) => m.RiskSources),
+  { ssr: false, loading },
+)
 export const IncomeDashboard = dynamic(
   () => import('@/components/analytics/income-dashboard').then((m) => m.IncomeDashboard),
   { ssr: false, loading },

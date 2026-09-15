@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation, useFactors, useOptimization } from '@/lib/hooks/use-analytics'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart } from '@/components/charts/lazy-charts'
+import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, RiskSources, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart } from '@/components/charts/lazy-charts'
 
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -109,6 +109,11 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
 
         {/* Risk Tab */}
         <TabsContent value="risk" className="space-y-6 mt-6">
+          {/* The question first (P2-5): where the risk comes from, before how much of it there is. */}
+          <ErrorBoundary>
+            <RiskSources portfolioId={id} />
+          </ErrorBoundary>
+
           {/* Risk over time comes first: one number for the whole history
               hides whether it is getting worse, which is the real question. */}
           <DataGate error={riskError} hasData={!!risk} what="el análisis de riesgo">

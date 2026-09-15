@@ -1,5 +1,6 @@
 import useSWR from 'swr'
 import type { Ranking } from '@/lib/services/discover'
+import type { RiskSources } from '@/lib/services/risk-sources'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useJob } from './use-job'
 import type { ScenarioComparison } from '@/lib/services/scenario-comparison'
@@ -193,6 +194,21 @@ export function useTemporalAttribution(pid: string | null, granularity: string, 
     apiFetcher,
     { keepPreviousData: true, revalidateOnFocus: false },
   )
+}
+
+// --- Risk sources (P2-5) ---
+export type RiskSourcesData = Partial<RiskSources> & {
+  message?: string
+  window?: { from: string; to: string; intervals_used: number; intervals_available: number; cadence: string }
+  excluded_symbols?: string[]
+  omitted?: { benchmark?: string; factors?: string }
+  benchmark?: { symbol: string; name: string }
+}
+
+export function useRiskSources(pid: string | null) {
+  return useSWR<RiskSourcesData>(pid ? `/api/analytics/${pid}/risk-sources` : null, apiFetcher, {
+    revalidateOnFocus: false,
+  })
 }
 
 // --- Income ---
