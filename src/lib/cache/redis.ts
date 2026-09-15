@@ -143,13 +143,65 @@ export async function getCachedLeaderboard(category: string, period: string): Pr
 }
 
 // Price caching
+
+/**
+ * What the price cache keeps per symbol. The previous close travels with the
+ * price: a cached entry holding the price alone gave every quote served from it
+ * a null daily change, so the day's move vanished whenever the cache answered.
+ */
+export type CachedPriceEntry = {
+  price: number
+  previousClose: number | null
+  currency: string | null
+}
+
+export type PriceDetail = { previousClose?: number | null; currency?: string | null }
+
+function priceRecord(symbol: string, price: number, detail: PriceDetail, timestamp: number) {
+  return { symbol, price, previousClose: detail.previousClose ?? null, currency: detail.currency ?? null, timestamp }
+}
+
+function toPriceEntry(data: unknown): CachedPriceEntry | null {
+  const parsed = typeof data === 'string' ? JSON.parse(data) : data
+  if (!parsed || typeof parsed.price !== 'number') return null
+  return {
+    price: parsed.price,
+    previousClose: typeof parsed.previousClose === 'number' ? parsed.previousClose : null,
+    currency: typeof parsed.currency === 'string' ? parsed.currency : null,
+  }
+}
+
 export async function cachePrice(
   symbol: string,
   price: number,
-  ttl: number = 300 // 5 minutes default
+  ttl: number = 300, // 5 minutes default
+  detail: PriceDetail = {}
 ): Promise<void> {
   const key = `${CACHE_KEYS.PRICE}${symbol.toUpperCase()}`
-  await cacheSet(key, { symbol, price, timestamp: Date.now() }, ttl)
+  await cacheSet(key, priceRecord(symbol, price, detail, Date.now()), ttl)
+}
+
+/** Cached price entries, with their previous close; null where nothing is cached. */
+export async function getCachedPriceEntries(symbols: string[]): Promise<Record<string, CachedPriceEntry | null>> {
+  const none = () => Object.fromEntries(symbols.map((s) => [s, null]))
+  try {
+    const redis = getRedisClient()
+    if (!redis || symbols.length === 0) return none()
+
+    const values = await redis.mget(...symbols.map((s) => `${CACHE_KEYS.PRICE}${s.toUpperCase()}`))
+    return Object.fromEntries(
+      symbols.map((symbol, index) => {
+        try {
+          return [symbol, toPriceEntry(values[index])]
+        } catch {
+          return [symbol, null]
+        }
+      })
+    )
+  } catch (error) {
+    console.error('Cache get price entries error:', error)
+    return none()
+  }
 }
 
 export async function getCachedPrice(symbol: string): Promise<number | null> {
@@ -160,7 +212,7 @@ export async function getCachedPrice(symbol: string): Promise<number | null> {
 
 // Batch price caching
 export async function cacheBatchPrices(
-  prices: Record<string, number>,
+  prices: Record<string, number | (PriceDetail & { price: number })>,
   ttl: number = 300 // 5 minutes default
 ): Promise<void> {
   try {
@@ -170,9 +222,12 @@ export async function cacheBatchPrices(
     const timestamp = Date.now()
     const pipeline = redis.pipeline()
 
-    for (const [symbol, price] of Object.entries(prices)) {
+    for (const [symbol, value] of Object.entries(prices)) {
       const key = `${CACHE_KEYS.PRICE}${symbol.toUpperCase()}`
-      pipeline.setex(key, ttl, JSON.stringify({ symbol, price, timestamp }))
+      const record = typeof value === 'number'
+        ? priceRecord(symbol, value, {}, timestamp)
+        : priceRecord(symbol, value.price, value, timestamp)
+      pipeline.setex(key, ttl, JSON.stringify(record))
     }
 
     await pipeline.exec()

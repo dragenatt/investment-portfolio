@@ -38,6 +38,7 @@ import {
   getCachedPrice,
   cacheBatchPrices,
   getCachedBatchPrices,
+  getCachedPriceEntries,
   cachePortfolioSnapshot,
   getCachedSnapshot,
 } from '@/lib/cache/redis'
@@ -151,6 +152,20 @@ describe('Redis Cache Operations', () => {
       expect(result.AAPL).toBe(150)
       expect(result.GOOGL).toBe(140)
       expect(result.MSFT).toBeNull()
+    })
+
+    it('keeps the previous close with the price, and reads entries written before it was kept', async () => {
+      await cacheBatchPrices({ MSFT: { price: 505.41, previousClose: 495.63, currency: 'USD' } }, 300)
+      const written = JSON.parse(mockPipelineSetex.mock.calls.at(-1)![2])
+      expect(written).toMatchObject({ symbol: 'MSFT', price: 505.41, previousClose: 495.63, currency: 'USD' })
+
+      mockMget.mockResolvedValueOnce([JSON.stringify(written), { symbol: 'AAPL', price: 150, timestamp: 1 }, null])
+      const entries = await getCachedPriceEntries(['MSFT', 'AAPL', 'VOO'])
+      expect(entries).toEqual({
+        MSFT: { price: 505.41, previousClose: 495.63, currency: 'USD' },
+        AAPL: { price: 150, previousClose: null, currency: null },
+        VOO: null,
+      })
     })
 
     it('returns null for all symbols on error', async () => {

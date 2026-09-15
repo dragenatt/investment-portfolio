@@ -15,7 +15,7 @@
 import * as twelveData from './twelve-data'
 import * as finnhub from './finnhub'
 import { CircuitBreaker, withRetry } from './resilience'
-import { getCachedPrice, cachePrice, getCachedBatchPrices, cacheBatchPrices } from '@/lib/cache/redis'
+import { cachePrice, cacheBatchPrices, getCachedPriceEntries, type CachedPriceEntry } from '@/lib/cache/redis'
 
 // ─── Symbol normalization ───────────────────────────────────────────────────
 // Maps Yahoo-style index symbols to Twelve Data format.
@@ -92,6 +92,31 @@ function setCache(symbol: string, data: QuoteResult) {
   quoteCache.set(symbol.toUpperCase(), { data, expiresAt: Date.now() + CACHE_TTL_MS })
 }
 
+/**
+ * A quote rebuilt from the shared price cache. The daily change is recomputed
+ * from the cached previous close, so a quote served from the cache moves the
+ * day's P&L like one fresh from a provider.
+ */
+function quoteFromCache(symbol: string, entry: CachedPriceEntry): QuoteResult {
+  const previousClose = entry.previousClose != null && entry.previousClose > 0 ? entry.previousClose : null
+  const change = previousClose != null ? entry.price - previousClose : null
+  return {
+    symbol: symbol.toUpperCase(),
+    price: entry.price,
+    previousClose,
+    change,
+    changePct: previousClose != null && change != null ? (change / previousClose) * 100 : null,
+    currency: entry.currency ?? 'USD',
+    exchange: '',
+  }
+}
+
+/** Write a quote to the shared price cache, previous close included. */
+function sharePrice(symbol: string, quote: Pick<QuoteResult, 'price' | 'previousClose' | 'currency'>) {
+  if (quote.price == null) return
+  cachePrice(symbol, quote.price, 300, { previousClose: quote.previousClose, currency: quote.currency })
+}
+
 /** Clear the in-memory cache (useful for testing) */
 export function clearQuoteCache() {
   quoteCache.clear()
@@ -164,7 +189,11 @@ async function yahooQuote(symbol: string): Promise<QuoteResult | null> {
 
   const meta = result.meta
   const price = meta.regularMarketPrice ?? null
-  const previousClose = meta.previousClose ?? null
+  // Yahoo's chart meta no longer carries `previousClose`; it sends
+  // `chartPreviousClose`, the close before the chart's first bar, which for
+  // range=1d is the previous session's close. Reading only the old field left
+  // every quote without a daily change, so "Hoy" sat at zero on every screen.
+  const previousClose = meta.previousClose ?? meta.chartPreviousClose ?? null
   const change = (price != null && previousClose != null) ? price - previousClose : null
   const changePct = (change != null && previousClose && previousClose !== 0) ? (change / previousClose) * 100 : null
   return {
@@ -275,17 +304,9 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
   if (memCached) return memCached
 
   // 2. Redis cache
-  const redisCached = await getCachedPrice(symbol)
+  const redisCached = (await getCachedPriceEntries([symbol]))[symbol]
   if (redisCached) {
-    const quoteResult: QuoteResult = {
-      symbol: symbol.toUpperCase(),
-      price: redisCached,
-      previousClose: null,
-      change: null,
-      changePct: null,
-      currency: 'USD',
-      exchange: '',
-    }
+    const quoteResult = quoteFromCache(symbol, redisCached)
     setCache(symbol, quoteResult)
     return quoteResult
   }
@@ -300,7 +321,7 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
       if (quote?.price != null) {
         const normalized = { ...quote, symbol, name: resolveSymbolName(symbol, quote.name) }
         setCache(symbol, normalized)
-        if (normalized.price != null) cachePrice(symbol, normalized.price, 300)
+        sharePrice(symbol, normalized)
         return normalized
       }
     } catch { /* fall through */ }
@@ -324,7 +345,7 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
           name: resolveSymbolName(symbol),
         }
         setCache(symbol, quoteResult)
-        if (quoteResult.price != null) cachePrice(symbol, quoteResult.price, 300)
+        sharePrice(symbol, quoteResult)
         return quoteResult
       }
     } catch { /* fall through */ }
@@ -337,7 +358,7 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
     )
     if (quote) {
       setCache(symbol, quote)
-      if (quote.price != null) cachePrice(symbol, quote.price, 300)
+      sharePrice(symbol, quote)
     }
     return quote
   } catch {
@@ -391,20 +412,12 @@ export async function getBatchQuotes(
   if (uncached.length === 0) return results
 
   // 2. Check Redis cache for remaining symbols (skipped when fresh)
-  const redisCachedPrices = fresh ? {} : await getCachedBatchPrices(uncached)
+  const redisCachedPrices: Record<string, CachedPriceEntry | null> = fresh ? {} : await getCachedPriceEntries(uncached)
   const stillMissing: string[] = []
   for (const s of uncached) {
-    const redisPrice = redisCachedPrices[s]
-    if (redisPrice != null) {
-      const entry: QuoteResult = {
-        symbol: s.toUpperCase(),
-        price: redisPrice,
-        previousClose: null,
-        change: null,
-        changePct: null,
-        currency: 'USD',
-        exchange: '',
-      }
+    const redisEntry = redisCachedPrices[s]
+    if (redisEntry) {
+      const entry = quoteFromCache(s, redisEntry)
       setCache(s, entry)
       results[s.toUpperCase()] = {
         price: entry.price,
@@ -457,7 +470,9 @@ export async function getBatchQuotes(
             name: resolveSymbolName(original, q.name),
           }
           setCache(original, entry)
-          if (entry.price != null) cacheBatchPrices({ [original]: entry.price }, 300)
+          if (entry.price != null) {
+            cacheBatchPrices({ [original]: { price: entry.price, previousClose: entry.previousClose, currency: entry.currency } }, 300)
+          }
           results[original] = {
             price: entry.price,
             previousClose: entry.previousClose,
@@ -519,7 +534,7 @@ async function fetchFinnhubBatch(
             exchange: q.exchange,
           }
           setCache(s, entry)
-          if (entry.price != null) cachePrice(s, entry.price, 300)
+          sharePrice(s, entry)
           results[q.symbol || s] = {
             price: entry.price,
             previousClose: entry.previousClose,
@@ -547,7 +562,7 @@ async function fetchYahooBatch(
         )
         if (q) {
           setCache(s, q)
-          if (q.price != null) cachePrice(s, q.price, 300)
+          sharePrice(s, q)
           results[q.symbol || s] = {
             price: q.price,
             previousClose: q.previousClose,

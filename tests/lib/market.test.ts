@@ -47,6 +47,32 @@ describe('getQuote', () => {
     expect(quote!.currency).toBe('USD')
   })
 
+  it('takes the daily change from chartPreviousClose, the field Yahoo sends today', async () => {
+    // Recorded 2026-09-15: the chart meta has no previousClose at all.
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        chart: {
+          result: [{
+            meta: {
+              symbol: 'AAPL',
+              regularMarketPrice: 333.08,
+              chartPreviousClose: 332.27,
+              regularMarketChangePercent: 0.244,
+              currency: 'USD',
+              exchangeName: 'NMS',
+            },
+          }],
+        },
+      }),
+    })
+
+    const quote = await getQuote('AAPL')
+    expect(quote!.previousClose).toBe(332.27)
+    expect(quote!.change).toBeCloseTo(0.81, 2)
+    expect(quote!.changePct).toBeCloseTo(0.244, 2)
+  })
+
   it('returns null when Yahoo returns no result', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

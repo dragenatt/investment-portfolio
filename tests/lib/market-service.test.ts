@@ -24,9 +24,8 @@ vi.mock('@/lib/services/finnhub', () => ({
 
 // Mock Redis cache
 vi.mock('@/lib/cache/redis', () => ({
-  getCachedPrice: vi.fn().mockResolvedValue(null),
   cachePrice: vi.fn(),
-  getCachedBatchPrices: vi.fn().mockResolvedValue({}),
+  getCachedPriceEntries: vi.fn().mockResolvedValue({}),
   cacheBatchPrices: vi.fn(),
 }))
 
@@ -84,7 +83,7 @@ describe('Market Service', () => {
 
       expect(result).toEqual(mockQuote)
       expect(twelveData.getQuote).toHaveBeenCalledWith('AAPL')
-      expect(cache.cachePrice).toHaveBeenCalledWith('AAPL', 150.25, expect.any(Number))
+      expect(cache.cachePrice).toHaveBeenCalledWith('AAPL', 150.25, expect.any(Number), { previousClose: 149.5, currency: 'USD' })
     })
 
     it('falls back to Finnhub when Twelve Data fails', async () => {
@@ -149,14 +148,28 @@ describe('Market Service', () => {
 
     it('uses Redis cache when available', async () => {
       const cachedPrice = 145.75
-      vi.mocked(cache.getCachedPrice).mockResolvedValueOnce(cachedPrice)
+      vi.mocked(cache.getCachedPriceEntries).mockResolvedValueOnce({
+        MSFT: { price: cachedPrice, previousClose: null, currency: null },
+      })
 
       const result = await getQuote('MSFT')
 
       expect(result?.price).toBe(cachedPrice)
-      expect(cache.getCachedPrice).toHaveBeenCalledWith('MSFT')
+      expect(cache.getCachedPriceEntries).toHaveBeenCalledWith(['MSFT'])
       // Should not call external services
       expect(twelveData.getQuote).not.toHaveBeenCalled()
+    })
+
+    it('keeps the daily change when the quote comes from the Redis cache', async () => {
+      vi.mocked(cache.getCachedPriceEntries).mockResolvedValueOnce({
+        MSFT: { price: 505.41, previousClose: 495.63, currency: 'USD' },
+      })
+
+      const result = await getQuote('MSFT')
+
+      expect(result?.previousClose).toBe(495.63)
+      expect(result?.change).toBeCloseTo(9.78, 2)
+      expect(result?.changePct).toBeCloseTo(1.9733, 3)
     })
 
     it('handles timeout gracefully', async () => {
@@ -254,7 +267,7 @@ describe('Market Service', () => {
       }
 
       vi.mocked(twelveData.getBatchQuotes).mockResolvedValueOnce(mockBatchQuotes)
-      vi.mocked(cache.getCachedBatchPrices).mockResolvedValueOnce({})
+      vi.mocked(cache.getCachedPriceEntries).mockResolvedValueOnce({})
 
       const result = await getBatchQuotes(['AAPL', 'GOOGL'])
 
@@ -268,8 +281,8 @@ describe('Market Service', () => {
 
     it('serves cached symbols and fetches only uncached', async () => {
       const cachedPrices = {
-        AAPL: 150,
-        MSFT: 380,
+        AAPL: { price: 150, previousClose: 148, currency: 'USD' },
+        MSFT: { price: 380, previousClose: null, currency: null },
       }
 
       const uncachedQuote = {
@@ -285,13 +298,15 @@ describe('Market Service', () => {
         },
       }
 
-      vi.mocked(cache.getCachedBatchPrices).mockResolvedValueOnce(cachedPrices)
+      vi.mocked(cache.getCachedPriceEntries).mockResolvedValueOnce(cachedPrices)
       vi.mocked(twelveData.getBatchQuotes).mockResolvedValueOnce(uncachedQuote)
 
       const result = await getBatchQuotes(['AAPL', 'GOOGL', 'MSFT'])
 
       expect(result.AAPL.price).toBe(150)
+      expect(result.AAPL.changePct).toBeCloseTo((2 / 148) * 100, 6)
       expect(result.MSFT.price).toBe(380)
+      expect(result.MSFT.changePct).toBeNull()
       expect(result.GOOGL.price).toBe(140)
 
       // Should only fetch uncached symbol
@@ -309,7 +324,7 @@ describe('Market Service', () => {
         exchange: 'NASDAQ',
       }
 
-      vi.mocked(cache.getCachedBatchPrices).mockResolvedValueOnce({})
+      vi.mocked(cache.getCachedPriceEntries).mockResolvedValueOnce({})
       vi.mocked(twelveData.getBatchQuotes).mockRejectedValueOnce(new Error('Batch failed'))
 
       // When batch fails, code falls through to Finnhub individual calls
@@ -343,7 +358,7 @@ describe('Market Service', () => {
         },
       }
 
-      vi.mocked(cache.getCachedBatchPrices).mockResolvedValueOnce({})
+      vi.mocked(cache.getCachedPriceEntries).mockResolvedValueOnce({})
       vi.mocked(twelveData.getBatchQuotes).mockResolvedValueOnce(mockBatchQuotes)
 
       const result = await getBatchQuotes(['AAPL'])
@@ -551,7 +566,7 @@ describe('Market Service', () => {
       const result = await getQuote('AAPL')
 
       expect(result).toEqual(mockQuote)
-      expect(cache.cachePrice).toHaveBeenCalledWith('AAPL', 150, 300)
+      expect(cache.cachePrice).toHaveBeenCalledWith('AAPL', 150, 300, { previousClose: 149, currency: 'USD' })
     })
   })
 })

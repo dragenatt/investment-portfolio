@@ -136,6 +136,33 @@ export async function getHistory(
     .reverse() // Twelve Data returns newest first, we want chronological
 }
 
+type QuoteItem = Record<string, string>
+
+/**
+ * The quotes in a /quote response, each with the key it came under.
+ *
+ * One symbol comes back as the quote itself. Several come back as an object
+ * keyed by symbol — { AAPL: {...}, MSFT: {...} } — not as an array. Reading
+ * that object as a single quote found no `close` in it, so every batch of two or
+ * more symbols parsed to nothing and fell through to the next provider, which
+ * is why batch prices arrived without their daily change.
+ */
+export function quoteItems(data: unknown): Array<[string, QuoteItem]> {
+  if (Array.isArray(data)) {
+    return data.filter(isObject).map((item) => [String(item.symbol ?? ''), item as QuoteItem])
+  }
+  if (!isObject(data)) return []
+  // A single quote, or a top-level error for the whole request.
+  if ('symbol' in data || 'close' in data || 'code' in data) return [[String(data.symbol ?? ''), data as QuoteItem]]
+  return Object.entries(data)
+    .filter((entry): entry is [string, Record<string, unknown>] => isObject(entry[1]))
+    .map(([key, item]) => [key, item as QuoteItem])
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 /**
  * Batch quote endpoint — fetches up to 20 symbols in a single API call.
  * Twelve Data /quote?symbol=AAPL,MSFT,GOOG returns all quotes at once.
@@ -158,10 +185,7 @@ export async function getBatchQuotes(
   const data = await res.json()
   const results: Record<string, TwelveDataQuote> = {}
 
-  // Single symbol returns an object; multiple returns an array
-  const items: Array<Record<string, string>> = Array.isArray(data) ? data : [data]
-
-  for (const item of items) {
+  for (const [key, item] of quoteItems(data)) {
     if (item.status === 'error' || item.code) continue
 
     const price = item.close ? parseFloat(item.close) : null
@@ -169,7 +193,7 @@ export async function getBatchQuotes(
     const change = item.change ? parseFloat(item.change) : null
     const changePct = item.percent_change ? parseFloat(item.percent_change) : null
 
-    const sym = item.symbol || ''
+    const sym = item.symbol || key
     if (sym) {
       results[sym] = {
         symbol: sym,
