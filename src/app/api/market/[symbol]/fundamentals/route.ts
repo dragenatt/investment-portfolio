@@ -5,6 +5,9 @@ import { withCacheStaleWhileRevalidate } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { apiHandler } from '@/lib/api/handler'
 
+/** No stored fundamentals and no quote: the symbol is unknown, which is a 404, not a server error. */
+class SymbolNotFound extends Error {}
+
 async function getHandler(
   _req: Request,
   { params }: { params: Promise<{ symbol: string }> }
@@ -15,7 +18,9 @@ async function getHandler(
   if (!user) return error('Unauthorized', 401)
 
   // Wrap everything in a stale-while-revalidate cache
-  const data = await withCacheStaleWhileRevalidate(
+  let data
+  try {
+    data = await withCacheStaleWhileRevalidate(
     `${CACHE_KEYS.MARKET_FUNDAMENTALS}${symbol.toUpperCase()}`,
     86400, // 24 hour TTL
     3600,  // stale after 1 hour
@@ -41,7 +46,8 @@ async function getHandler(
 
       // No cache at all: return basic quote data
       const quote = await getQuote(symbol)
-      if (!quote) throw new Error('Symbol not found')
+      // Thrown, not returned: a null here would be cached for a day.
+      if (!quote) throw new SymbolNotFound()
 
       return {
         symbol: quote.symbol,
@@ -56,6 +62,12 @@ async function getHandler(
       }
     }
   )
+  } catch (thrown) {
+    // Positions in symbols no provider covers (COCA34, FIBRAMQ12, BITCOIN.XBT...)
+    // were logged to error_events as server errors on every portfolio view.
+    if (thrown instanceof SymbolNotFound) return error('Symbol not found', 404)
+    throw thrown
+  }
   if (!data) return error('Symbol not found', 404)
   return success(data)
 }
