@@ -39,7 +39,7 @@ itself.
 | 12 | 500 responses returned database error text (47 routes) | A05 | Low | Fixed |
 | 13 | Hard-coded FX rates used silently when the provider failed | A04 / A08 integrity | Medium | Fixed |
 | 14 | 25 known-vulnerable dependencies, 1 critical (`next`) | A06 Vulnerable Components | Critical | Fixed in C7 (0 remaining) |
-| 15 | Rate limiting is per serverless instance; Upstash optional | A04 / A07 | Medium | Open → C8 |
+| 15 | Rate limiting is per serverless instance; Upstash optional | A04 / A07 | Medium | Partly fixed in C8 (per-user limits); Upstash open — owner |
 | 16 | Leaked-password protection disabled in Supabase Auth | A07 | Medium | Open — owner action |
 | 17 | `share_token` of public portfolios readable by signed-in users | A01 | Low | Accepted, documented |
 | 18 | Session cookies readable by JavaScript (`@supabase/ssr` design) | A07 | Low | Accepted, mitigated by CSP |
@@ -257,8 +257,14 @@ in `src/lib/api/rate-limit.ts` use Upstash only when its variables are set and
 allow everything otherwise. Login brute force is limited by Supabase Auth's own
 rate limits.
 
+**Update (C8).** `docs/LOAD_TEST_RESULTS.md` §3 measured it: request 61 from one
+address is refused, and page loads alone make 6–14 API calls, so signed-in users
+behind one address hit it. The proxy now applies 600/min per address, then
+300/min per signed-in user or 60/min per address without a session
+(`src/lib/api/request-limits.ts`). The counters are still per instance.
+
 **Recommendation.** Configure Upstash in production (the code is ready) and
-move the proxy's per-IP limit onto it. C8 measures the current behaviour under
+move the proxy's counters onto it. C8 measures the current behaviour under
 load. Also observed: during the accessibility audit, loading 20 pages back to
 back tripped the limit for a single real user.
 

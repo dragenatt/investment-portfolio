@@ -9,7 +9,10 @@ import { safeNextPath, loginUrlFor } from '@/lib/utils/safe-redirect'
  * the CSP nonce (C6): Next reads the nonce from the request's
  * Content-Security-Policy header and stamps it on its own script tags.
  */
-export async function updateSession(request: NextRequest, extraRequestHeaders: Record<string, string> = {}) {
+export async function updateSession(
+  request: NextRequest,
+  extraRequestHeaders: Record<string, string> = {},
+): Promise<{ response: NextResponse; userId: string | null }> {
   const next = () => {
     const headers = new Headers(request.headers)
     for (const [name, value] of Object.entries(extraRequestHeaders)) headers.set(name, value)
@@ -42,9 +45,10 @@ export async function updateSession(request: NextRequest, extraRequestHeaders: R
   // for both page routes AND API routes
   const { data: { user } } = await supabase.auth.getUser()
 
-  // API routes handle their own auth checks after token refresh
+  // API routes handle their own auth checks after token refresh. The user id
+  // goes back to the proxy, which limits signed-in requests per user (C8).
   if (request.nextUrl.pathname.startsWith('/api/')) {
-    return supabaseResponse
+    return { response: supabaseResponse, userId: user?.id ?? null }
   }
 
   // /offline is what the service worker shows for a page it never saved; it
@@ -58,14 +62,14 @@ export async function updateSession(request: NextRequest, extraRequestHeaders: R
   // on /dashboard?next=... with the destination sitting unused in the query.
   if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
     const destination = safeNextPath(request.nextUrl.searchParams.get('next'))
-    return NextResponse.redirect(new URL(destination, request.url))
+    return { response: NextResponse.redirect(new URL(destination, request.url)), userId: user.id }
   }
 
   // Redirect unauthenticated users to login, remembering the full path and
   // query they asked for.
   if (!user && !isPublicPath) {
-    return NextResponse.redirect(loginUrlFor(request.nextUrl))
+    return { response: NextResponse.redirect(loginUrlFor(request.nextUrl)), userId: null }
   }
 
-  return supabaseResponse
+  return { response: supabaseResponse, userId: user?.id ?? null }
 }

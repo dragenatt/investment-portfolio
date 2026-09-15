@@ -108,10 +108,20 @@ What this shows and what it means in production:
   pages back to back got a real signed-in user 429s. Before C9, a 429 on the
   dashboard even told that user to "create your first portfolio".
 
-The recommendation is the one already in `docs/SECURITY_AUDIT.md` (finding 15):
-count on Upstash, which the code supports, and limit signed-in requests per user
-rather than per address, keeping a per-address limit for requests without a
-session. Configuring Upstash is an owner action (an account and two environment
+**Changed after this test** (`src/lib/api/request-limits.ts`): three budgets
+instead of one — 600/min per address before the session is read (a flood
+ceiling that a NAT full of people does not reach, and that stops junk cookies
+from making the proxy call Supabase Auth without limit), then 300/min per
+signed-in user, or 60/min per address without a session. `Retry-After` now
+counts down to the end of the window, and a refused request keeps any session
+cookie the proxy just refreshed. Re-run on the production build: without a
+session the 61st request is still refused (also with a junk session cookie);
+signed in, 80 requests in 34 s all answered 200, where the old limit refused
+from the 61st.
+
+Still per instance. The remaining recommendation is the one in
+`docs/SECURITY_AUDIT.md` (finding 15): move these counters to Upstash, which the
+code supports. Configuring Upstash is an owner action (an account and two environment
 variables). **Before doing it**, note finding 21 of the same document: analytics
 cache keys were scoped to the caller in `8ee59b9`, found during this test —
 turning caching on earlier would have served one user's private analytics to
