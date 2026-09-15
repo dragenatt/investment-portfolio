@@ -2,6 +2,7 @@ import useSWR from 'swr'
 import type { Ranking } from '@/lib/services/discover'
 import type { RiskSources } from '@/lib/services/risk-sources'
 import type { ModelComparison } from '@/lib/services/model-comparison'
+import type { PortfolioHealth } from '@/lib/services/portfolio-health'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useJob } from './use-job'
 import type { ScenarioComparison } from '@/lib/services/scenario-comparison'
@@ -210,6 +211,18 @@ export function useRiskSources(pid: string | null) {
   return useSWR<RiskSourcesData>(pid ? `/api/analytics/${pid}/risk-sources` : null, apiFetcher, {
     revalidateOnFocus: false,
   })
+}
+
+// --- Portfolio Health (P2-7) ---
+export type HealthData = Partial<PortfolioHealth> & {
+  message?: string
+  window?: { from: string; to: string; intervals_used: number; cadence: string }
+  excluded_symbols?: string[]
+  benchmark?: { symbol: string; name: string }
+}
+
+export function useHealth(pid: string | null) {
+  return useSWR<HealthData>(pid ? `/api/analytics/${pid}/health` : null, apiFetcher, { revalidateOnFocus: false })
 }
 
 // --- Income ---

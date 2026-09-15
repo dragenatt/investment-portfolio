@@ -34,6 +34,8 @@ modules consume it.
 | Simulated return floor | -99% | annual fraction | assumed (guard) | `advisor.ts` |
 | Covariance window | 252 | days | assumed | `monte-carlo.ts` |
 | Default benchmark | SPY | symbol | assumed | `benchmarks.ts` |
+| Portfolio Health thresholds | nine components, 0–100 | score | cited limits + **educational convention** | `portfolio-health.ts` |
+| Liquidity participation | 20% of daily volume | fraction | assumed (convention) | `portfolio-health.ts` |
 | Inflation | — | — | **not modelled** | — |
 | Commissions and spreads | — | — | **not modelled** | — |
 | Taxes | — | — | **not modelled** | — |
@@ -214,6 +216,31 @@ history is allowed to speak for today.
 `benchmark_symbol` (P0-14) — and note the currency caveat under the risk-free
 rate: a peso portfolio measured against a dollar benchmark carries an exchange
 rate inside its alpha.
+
+## Portfolio Health (P2-7)
+
+**An educational score, not a standard.** `portfolio-health.ts` grades nine
+aspects of how a portfolio is built, each from 0 to 100, and averages the ones
+that have data (at least four are required for an overall score). Bands:
+75 and above "Sólida", 50–74 "Mejorable", below 50 "Frágil". Every component is
+linear between a full mark and a zero mark; what those marks rest on differs,
+and the interface shows it next to each score.
+
+| Component | Measured | 100 at | 0 at | Basis |
+|---|---|---|---|---|
+| Diversificación | effective independent bets (entropy of the covariance eigenvalues) | ≥ 5 | 1 | convention |
+| Concentración | average of: largest single issuer; sum of single issuers above 5% | ≤ 10%; ≤ 40% | 40%; 100% | full marks from the UCITS 5/10/40 limits (Directive 2009/65/EC, art. 52), which are written for funds; the zero marks and the averaging are convention. ETFs and indices count as baskets, not issuers |
+| Riesgo | annualised volatility ÷ benchmark volatility, same intervals | ≤ 1 | 2 | convention |
+| Caídas | max drawdown ÷ benchmark max drawdown (weights held constant) | ≤ 1 | 2 | convention; when the benchmark fell less than 2%, absolute drawdown instead: ≤ 10% / 40% |
+| Liquidez | share of measured value sellable within 3 business days trading at most 20% of average daily volume (20 sessions) | 100% | 0% | "highly liquid investment" of SEC Rule 22e-4 (3 business days); the 20% participation rate is convention. Indices are not tradable and are left out |
+| Exposición sectorial | largest company sector, as a share of the whole book | ≤ 35% | 70% | 35% is the sector concentration threshold `exposure.ts` already uses; 70% is convention. Requires known sectors for ≥ 50% of the book |
+| Exposición geográfica | largest region | ≤ 65% | 100% | reference: the United States is roughly 60–65% of MSCI ACWI, so a book no more concentrated than the global market scores full; exact marks are convention. Not scored when regions can only be guessed from currency |
+| Exposición factorial | count of significant loadings of 0.5 or more on non-market factors | 0 | 3 | convention (34 points each) |
+| Consistencia con el benchmark | annualised tracking error | ≤ 4% | ≥ 12% | reference: index-tracking funds run tracking errors of a few points and active management commonly 4–8%; exact marks are convention |
+
+All measures are in-sample on the risk window (`loadRiskInputs`), with today's
+weights. A component without the data it needs is **unavailable** and left
+out of the average — never scored as zero or as perfect.
 
 ---
 
