@@ -12,7 +12,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
   if (!user) return error('Unauthorized', 401)
 
   const data = await withCache(
-    `${CACHE_KEYS.ANALYTICS_INCOME}${pid}`,
+    `${CACHE_KEYS.ANALYTICS_INCOME}${user.id}:${pid}`,
     600,
     () => getIncomeAnalytics(supabase, pid)
   )

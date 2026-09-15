@@ -28,7 +28,7 @@ async function getHandler(req: Request) {
   if (portfolioIds.length === 0) return error('At least one portfolio ID required', 400)
 
   // Use cache helper for history data
-  const cacheKey = `${CACHE_KEYS.PORTFOLIO_COMPARISON}history:${portfolioIds.sort().join(',')}:${period}`
+  const cacheKey = `${CACHE_KEYS.PORTFOLIO_COMPARISON}history:${user.id}:${portfolioIds.sort().join(',')}:${period}`
   
   const history = await withCache(
     cacheKey,

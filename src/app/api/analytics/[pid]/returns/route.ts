@@ -28,7 +28,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   const period = url.searchParams.get('period') || '1Y'
 
   const data = await withCache(
-    `${CACHE_KEYS.ANALYTICS_RETURNS}${pid}:${period}`,
+    `${CACHE_KEYS.ANALYTICS_RETURNS}${user.id}:${pid}:${period}`,
     600,
     async () => {
       const cutoff = getPeriodCutoff(period)

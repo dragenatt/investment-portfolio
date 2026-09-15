@@ -45,6 +45,7 @@ itself.
 | 18 | Session cookies readable by JavaScript (`@supabase/ssr` design) | A07 | Low | Accepted, mitigated by CSP |
 | 19 | Remaining SECURITY DEFINER functions flagged by the linter | A01 | Info | Reviewed, by design |
 | 20 | SQL injection, SSRF, secrets, logging, authentication on routes | A03 / A10 / A02 / A09 | Info | Reviewed, no issue |
+| 21 | Analytics cache keyed by portfolio id, not by caller (found in C8) | A01 | High (latent) | Fixed |
 
 ## Findings
 
@@ -317,6 +318,32 @@ fixed in finding 4, `soft_delete_portfolio`, `toggle_follow`,
 - **Logging (A09).** Sentry is configured with `sendDefaultPii: false` and
   route pathnames only; API errors are recorded to `error_events` without
   bodies or query strings.
+
+### 21. Analytics results cached by portfolio id — A01, High (latent) — fixed
+
+Found during C8, after this audit.
+
+**Evidence.** Thirteen routes — the twelve under `/api/analytics/[pid]/*` that
+cache, and `/api/compare/history` — computed with the signed-in user's
+Supabase client, so RLS decided what went into the result, then stored it under
+a key made of the portfolio id alone (`analytics:risk:<pid>`). `withCache` reads
+the key before anything touches the database.
+
+**Risk.** With Upstash configured — the recommendation of finding 15 — the
+first person to open a portfolio's analytics fills the cache, and any signed-in
+user who requests that portfolio id afterwards is served the result: positions,
+weights, value, returns of a private portfolio, without RLS running for them.
+Caching is disabled while the Upstash variables are unset, which is the case
+today, so nothing was exposed. It would have been switched on by following this
+document.
+
+**Solution.** Every such key now includes the caller (`analytics:risk:<user>:<pid>`),
+so a cached value is only ever returned to the identity RLS computed it for.
+`tests/lib/cache/cache-key-scope.test.ts` scans every route's `withCache`,
+`cacheGet` and `cacheSet` keys and fails when one lacks `user.id` without being
+a public market or discovery key; it flags all twelve analytics routes against
+the previous code. Background jobs were already safe: `jobKey()` hashes the user
+id, and `analytics_jobs` rows are owner-only under RLS.
 
 ## Re-running the checks
 

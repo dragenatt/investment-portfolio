@@ -54,7 +54,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   if (!user) return error('Unauthorized', 401)
 
   const data = await withCache(
-    `${CACHE_KEYS.ANALYTICS_PERFORMANCE}${pid}`,
+    `${CACHE_KEYS.ANALYTICS_PERFORMANCE}${user.id}:${pid}`,
     300,
     async () => {
       // Get portfolio positions

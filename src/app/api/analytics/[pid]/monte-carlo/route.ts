@@ -20,7 +20,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ pid: str
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const data = await withCache(`${CACHE_KEYS.ANALYTICS_MONTE_CARLO}${pid}:${weeks}`, 300, () =>
+  const data = await withCache(`${CACHE_KEYS.ANALYTICS_MONTE_CARLO}${user.id}:${pid}:${weeks}`, 300, () =>
     computeMonteCarlo(supabase, pid, { weeks }),
   )
   return success(data)

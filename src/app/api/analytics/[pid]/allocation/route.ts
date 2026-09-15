@@ -11,7 +11,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
   if (!user) return error('Unauthorized', 401)
 
   const data = await withCache(
-    `${CACHE_KEYS.ANALYTICS_ALLOCATION}${pid}`,
+    `${CACHE_KEYS.ANALYTICS_ALLOCATION}${user.id}:${pid}`,
     300,
     async () => {
       // Get positions

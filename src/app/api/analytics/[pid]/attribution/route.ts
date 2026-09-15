@@ -20,7 +20,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   const period = url.searchParams.get('period') || '1M'
 
   const data = await withCache(
-    `${CACHE_KEYS.ANALYTICS_ATTRIBUTION}${pid}:${period}`,
+    `${CACHE_KEYS.ANALYTICS_ATTRIBUTION}${user.id}:${pid}:${period}`,
     3600,
     async () => {
       // Get positions with asset type

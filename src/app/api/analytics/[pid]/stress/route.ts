@@ -14,7 +14,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const data = await withCache(`analytics:stress:${pid}`, 3600, () => computeStress(supabase, pid, {}))
+  const data = await withCache(`analytics:stress:${user.id}:${pid}`, 3600, () => computeStress(supabase, pid, {}))
 
   return success(data)
 }

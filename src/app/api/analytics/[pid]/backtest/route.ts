@@ -17,7 +17,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   const url = new URL(req.url)
   const costPct = Number(url.searchParams.get('cost') ?? 0.1)
 
-  const data = await withCache(`analytics:backtest:${pid}:${costPct}`, 3600, () =>
+  const data = await withCache(`analytics:backtest:${user.id}:${pid}:${costPct}`, 3600, () =>
     computeBacktest(supabase, pid, { costPct }),
   )
 

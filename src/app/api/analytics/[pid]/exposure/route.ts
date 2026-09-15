@@ -24,7 +24,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
   if (!user) return error('Unauthorized', 401)
 
   const data = await withCache(
-    `analytics:exposure:${pid}`,
+    `analytics:exposure:${user.id}:${pid}`,
     900,
     async () => {
       const { data: portfolio } = await supabase
