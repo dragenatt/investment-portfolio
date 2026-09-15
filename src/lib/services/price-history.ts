@@ -35,7 +35,7 @@ export type FetchOptions = {
   limit?: number
   /** Range requested from the provider chain when the stored tier is thin. */
   range?: string
-  /** Stored rows below this count send the request on to the providers. */
+  /** A symbol with fewer stored rows than this is fetched from the providers. */
   minStoredRows?: number
 }
 
@@ -113,14 +113,53 @@ export async function fetchAdjustedPriceHistory(
     .order('date', { ascending: false })
     .limit(limit)
 
-  if (stored && stored.length >= minStoredRows) {
-    const storedRows = stored as PriceRow[]
-    const added = await topUpStoredHistory(lastStoredDates(storedRows))
-    const rows = adjustSeriesBySymbol(mergeRows(storedRows, added))
+  // The stored tier is judged per symbol. Judged across the whole request, a
+  // book whose older holdings were stored never fetched a newer one: the other
+  // rows cleared the threshold, the new symbol came back as `missing`, and it
+  // stayed out of every risk figure for good.
+  const storedRows = (stored ?? []) as PriceRow[]
+  const storedCount = new Map<string, number>()
+  for (const row of storedRows) storedCount.set(row.symbol, (storedCount.get(row.symbol) ?? 0) + 1)
+  const thin = new Set(symbols.filter((s) => (storedCount.get(s) ?? 0) < minStoredRows))
+
+  if (thin.size < symbols.length) {
+    const kept = storedRows.filter((r) => !thin.has(r.symbol))
+    const added = await topUpStoredHistory(lastStoredDates(kept))
+
+    // Thin symbols go to the providers, at most once per retry window each, so
+    // a symbol no provider knows does not cost three timeouts on every request.
+    const now = Date.now()
+    const due = [...thin].filter((symbol) => {
+      const key = `thin:${symbol}`
+      const attempted = lastTopUpAttempt.get(key)
+      if (attempted !== undefined && now - attempted < TOP_UP_RETRY_MS) return false
+      lastTopUpAttempt.set(key, now)
+      return true
+    })
+    const fromProviders = await fetchFromProviders(due, range)
+    const thinStored = storedRows.filter((r) => thin.has(r.symbol))
+
+    const rows = adjustSeriesBySymbol(mergeRows([...kept, ...thinStored], [...added, ...fromProviders]))
     return { rows, source: 'stored', ...coverage(rows, symbols) }
   }
 
   // ── Tier 2: the live provider chain ──────────────────────────────────────
+  const fetched = await fetchFromProviders(symbols, range)
+  if (fetched.length === 0) return { rows: [], source: 'none', covered: [], missing: symbols }
+
+  const rows = adjustSeriesBySymbol(fetched)
+  return { rows, source: 'provider', ...coverage(rows, symbols) }
+}
+
+/**
+ * Daily closes from the provider chain, written through as they arrive.
+ *
+ * One symbol failing must not take the whole book down; it is simply absent
+ * from the result and shows up in `missing` for the caller to report. An
+ * unfinished session is served but not stored (see topUpStoredHistory).
+ */
+async function fetchFromProviders(symbols: string[], range: string): Promise<PriceRow[]> {
+  if (symbols.length === 0) return []
   const fetched: PriceRow[] = []
   const rowsToCache: StoredBar[] = []
   const settled = lastSettledSession()
@@ -133,22 +172,16 @@ export async function fetchAdjustedPriceHistory(
           if (point.close == null) continue
           const date = new Date(point.date).toISOString().slice(0, 10)
           fetched.push({ symbol, date, close: point.close })
-          // An unfinished session is served but not stored (see topUpStoredHistory).
           if (date <= settled) rowsToCache.push(storedBar(symbol, date, point))
         }
       } catch {
-        // One symbol failing must not take the whole book down; it shows up in
-        // `missing` so the caller can say so.
+        // Absent from the result; see above.
       }
     }),
   )
 
   await writeThrough(rowsToCache)
-
-  if (fetched.length === 0) return { rows: [], source: 'none', covered: [], missing: symbols }
-
-  const rows = adjustSeriesBySymbol(fetched)
-  return { rows, source: 'provider', ...coverage(rows, symbols) }
+  return fetched
 }
 
 // ─── Keeping the stored tier current ────────────────────────────────────────

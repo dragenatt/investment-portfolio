@@ -7,9 +7,10 @@ import {
   buildFactorReturns,
   runFactorRegression,
   describeFactorExposure,
+  type BuiltFactorReturns,
   type FactorBar,
 } from '@/lib/services/factors'
-import { loadStoredFactorReturns, storeFactorReturns } from '@/lib/services/factor-store'
+import { factorRebuildDue, loadStoredFactorReturns, storeFactorReturns } from '@/lib/services/factor-store'
 import { portfolioValueSeries } from '@/lib/services/portfolio-series'
 
 /** Fewer aligned days than this and the loadings are noise with error bars. */
@@ -17,6 +18,53 @@ const MIN_REGRESSION_DAYS = 60
 
 /** How far back the stored tier is asked for. */
 const LOOKBACK_DAYS = 400
+
+/** When this instance last tried to rebuild the factor series. */
+let lastRebuildAttempt: number | null = null
+
+/**
+ * The factor return series: the stored tier first, built from the ETF histories
+ * and written through when it is missing. Shared by the factor regression and
+ * the risk sources (P2-5), so both regress on the same series.
+ */
+export async function loadFactorReturns(
+  supabase: SupabaseClient,
+  riskFreeRate: number,
+): Promise<{ built: BuiltFactorReturns; source: 'stored' | 'built' } | null> {
+  const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000)
+    .toISOString()
+    .slice(0, 10)
+
+  // Stored tier first, exactly as price_history does. Building costs seven
+  // ETF histories; reading costs one query — unless the stored series is stale
+  // or incomplete (see factorRebuildDue).
+  const stored = await loadStoredFactorReturns(supabase, since)
+  if (!factorRebuildDue(stored, lastRebuildAttempt)) return { built: stored!, source: 'stored' }
+  lastRebuildAttempt = Date.now()
+
+  const factorSymbols = [...new Set(FACTOR_DEFINITIONS.flatMap((f) => f.symbols))]
+  const { rows: factorRows } = await fetchAdjustedPriceHistory(supabase, factorSymbols, {
+    limit: undefined,
+  })
+
+  const prices = new Map<string, FactorBar[]>()
+  for (const row of factorRows as PriceRow[]) {
+    const bars = prices.get(row.symbol) ?? []
+    bars.push({ date: row.date, close: row.close })
+    prices.set(row.symbol, bars)
+  }
+
+  const built = buildFactorReturns(prices, riskFreeRate)
+  // A rebuild that came out worse — fewer factors, or none — does not replace
+  // what is stored; the stored series is served until the next attempt.
+  if (!built || (stored && built.factors.length < stored.factors.length)) {
+    return stored ? { built: stored, source: 'stored' } : null
+  }
+  // Write-through. A failed write is not a failed request: the answer is
+  // already in hand and the next call simply rebuilds.
+  await storeFactorReturns(built)
+  return { built, source: 'built' }
+}
 
 /**
  * Which known risks this portfolio is actually taking.
@@ -70,34 +118,9 @@ export async function computeFactors(supabase: SupabaseClient, pid: string, _par
 
   const riskFree = await getRiskFreeRate(portfolio?.currency ?? 'USD')
 
-  const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000)
-    .toISOString()
-    .slice(0, 10)
-
-  // Stored tier first, exactly as price_history does. Building costs seven
-  // ETF histories; reading costs one query.
-  let built = await loadStoredFactorReturns(supabase, since)
-  let source: 'stored' | 'built' = 'stored'
-
-  if (!built) {
-    const factorSymbols = [...new Set(FACTOR_DEFINITIONS.flatMap((f) => f.symbols))]
-    const { rows: factorRows } = await fetchAdjustedPriceHistory(supabase, factorSymbols, {
-      limit: undefined,
-    })
-
-    const prices = new Map<string, FactorBar[]>()
-    for (const row of factorRows as PriceRow[]) {
-      const bars = prices.get(row.symbol) ?? []
-      bars.push({ date: row.date, close: row.close })
-      prices.set(row.symbol, bars)
-    }
-
-    built = buildFactorReturns(prices, riskFree.rate)
-    source = 'built'
-    // Write-through. A failed write is not a failed request: the answer is
-    // already in hand and the next call simply rebuilds.
-    if (built) await storeFactorReturns(built)
-  }
+  const loaded = await loadFactorReturns(supabase, riskFree.rate)
+  const built = loaded?.built ?? null
+  const source = loaded?.source ?? 'built'
 
   if (!built) {
     return {

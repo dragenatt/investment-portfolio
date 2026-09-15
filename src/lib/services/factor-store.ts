@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { FACTOR_DEFINITIONS, type BuiltFactorReturns, type BuiltFactor } from './factors'
+import { isHistoryStale, TOP_UP_RETRY_MS } from './price-history'
 
 // Persistence for the factor series. The mathematics lives in factors.ts and
 // stays pure; this file is the only part that touches a database.
@@ -89,6 +90,30 @@ export async function loadStoredFactorReturns(
   }))
 
   return { dates, factors, omitted }
+}
+
+/**
+ * Whether the stored factor series should be rebuilt before it is used.
+ *
+ * The stored tier used to be served whenever it held sixty days, with no
+ * question of how recent they were or which factors they covered. It was first
+ * built when only SPY had price history, so it held the market factor alone,
+ * and it ended on the day it was built: every factor regression since has been
+ * a one-factor regression on a series that stopped moving.
+ *
+ * A rebuild is due when the series ends before the last settled session or is
+ * missing factors — at most once per retry window, since a holiday or an ETF no
+ * provider returns would otherwise trigger one on every request.
+ */
+export function factorRebuildDue(
+  stored: BuiltFactorReturns | null,
+  lastAttemptMs: number | null,
+  now: Date = new Date(),
+): boolean {
+  if (!stored) return true
+  const incomplete = stored.omitted.length > 0 || isHistoryStale(stored.dates[stored.dates.length - 1], now)
+  if (!incomplete) return false
+  return lastAttemptMs === null || now.getTime() - lastAttemptMs >= TOP_UP_RETRY_MS
 }
 
 /**

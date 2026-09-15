@@ -166,3 +166,45 @@ describe('fetchAdjustedPriceHistory stored tier', () => {
     }
   })
 })
+
+describe('fetchAdjustedPriceHistory: a new holding next to stored ones', () => {
+  function storedOnly(rows: Array<{ symbol: string; date: string; close: number }>) {
+    const query = {
+      select: () => query,
+      in: () => query,
+      order: () => query,
+      limit: () => Promise.resolve({ data: rows }),
+    }
+    return { from: () => query } as never
+  }
+
+  it('fetches the symbol the table has nothing for, instead of reporting it missing forever', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-15T16:00:00Z'))
+    try {
+      const dates = ['2026-09-14', '2026-09-11', '2026-09-10', '2026-09-09', '2026-09-08', '2026-09-04', '2026-09-03', '2026-09-02', '2026-09-01', '2026-08-31']
+      const client = storedOnly(dates.map((date, i) => ({ symbol: 'AAPL', date, close: 330 - i })))
+      getHistory.mockImplementation(async (symbol: string) => (symbol === 'NVDA' ? [bar('2026-09-11', 205), bar('2026-09-14', 210.96)] : []))
+
+      const result = await fetchAdjustedPriceHistory(client, ['AAPL', 'NVDA'])
+
+      // Before: AAPL's ten rows cleared the threshold and NVDA came back missing without a provider call.
+      expect(getHistory).toHaveBeenCalledWith('NVDA', '6mo')
+      expect(getHistory).not.toHaveBeenCalledWith('AAPL', expect.anything())
+      expect(result.covered).toEqual(['AAPL', 'NVDA'])
+      expect(result.missing).toEqual([])
+      expect(upsert.mock.calls.flatMap((c) => c[0]).map((r: { symbol: string; date: string }) => `${r.symbol} ${r.date}`)).toEqual([
+        'NVDA 2026-09-11',
+        'NVDA 2026-09-14',
+      ])
+
+      // A symbol no provider knows is not asked for again on the next request.
+      getHistory.mockClear()
+      await fetchAdjustedPriceHistory(storedOnly(dates.map((date, i) => ({ symbol: 'AAPL', date, close: 330 - i }))), ['AAPL', 'COCA34'])
+      await fetchAdjustedPriceHistory(storedOnly(dates.map((date, i) => ({ symbol: 'AAPL', date, close: 330 - i }))), ['AAPL', 'COCA34'])
+      expect(getHistory.mock.calls.filter(([s]) => s === 'COCA34')).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
