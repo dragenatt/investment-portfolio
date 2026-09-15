@@ -3,6 +3,7 @@ import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
+import { lastStoredDates, mergeRows, topUpStoredHistory } from '@/lib/services/price-history'
 import { apiHandler } from '@/lib/api/handler'
 
 type PriceRow = { symbol: string; date: string; close: number }
@@ -23,7 +24,7 @@ async function getPriceHistory(
     .order('date', { ascending: true })
 
   if (dbHistory && dbHistory.length >= 10) {
-    return dbHistory
+    return mergeRows(dbHistory, await topUpStoredHistory(lastStoredDates(dbHistory)))
   }
 
   // 2. Fallback: fetch from Yahoo Finance for each symbol

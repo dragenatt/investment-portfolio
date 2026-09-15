@@ -4,6 +4,7 @@ import { rateLimit } from '@/lib/api/rate-limit'
 import { cacheGet, cacheSet } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
 import { computeDailyPositions, buildDailyTimeline } from '@/lib/services/portfolio-history'
+import { lastSettledSession, topUpStoredHistory, writeThrough } from '@/lib/services/price-history'
 import { apiHandler } from '@/lib/api/handler'
 
 const RANGE_MAP: Record<string, string> = {
@@ -140,6 +141,17 @@ async function getHandler(req: Request) {
     }
   }
 
+  // Stored closes stop where the last provider call stopped; without this the
+  // chart carried that close forward to today and the line went flat.
+  const storedLast: Record<string, string> = {}
+  for (const [symbol, priceMap] of Object.entries(historicalPrices)) {
+    const dates = Object.keys(priceMap).sort()
+    if (dates.length > 0) storedLast[symbol] = dates[dates.length - 1]
+  }
+  for (const row of await topUpStoredHistory(storedLast)) {
+    historicalPrices[row.symbol][row.date] = row.close
+  }
+
   // Fetch from Yahoo for uncached symbols
   const uncachedSymbols = symbols.filter(s => !historicalPrices[s] || Object.keys(historicalPrices[s]).length === 0)
 
@@ -153,27 +165,30 @@ async function getHandler(req: Request) {
       chunk.map(async (symbol) => {
         const history = await getHistory(symbol, yahooRange)
         const priceMap: Record<string, number> = {}
-        const rowsToCache: Array<{ symbol: string; exchange: string; date: string; open: number; high: number; low: number; close: number; volume: number }> = []
+        const rowsToCache: Parameters<typeof writeThrough>[0] = []
+        const settled = lastSettledSession()
         for (const point of history) {
           const date = new Date(point.date).toISOString().slice(0, 10)
           if (point.close != null) {
             priceMap[date] = point.close
-            rowsToCache.push({
-              symbol,
-              exchange: 'yahoo',
-              date,
-              open: point.open ?? 0,
-              high: point.high ?? 0,
-              low: point.low ?? 0,
-              close: point.close,
-              volume: point.volume ?? 0,
-            })
+            // Only finished sessions are stored, and through the service role:
+            // the user's client is denied by RLS, so this write never landed.
+            if (date <= settled) {
+              rowsToCache.push({
+                symbol,
+                exchange: 'yahoo',
+                date,
+                open: point.open ?? 0,
+                high: point.high ?? 0,
+                low: point.low ?? 0,
+                close: point.close,
+                volume: point.volume ?? 0,
+              })
+            }
           }
         }
 
-        if (rowsToCache.length > 0) {
-          await supabase.from('price_history').upsert(rowsToCache, { onConflict: 'symbol,exchange,date' }).select()
-        }
+        await writeThrough(rowsToCache)
 
         return { symbol, priceMap }
       })

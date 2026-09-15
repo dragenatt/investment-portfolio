@@ -6,6 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { BookTransaction, PriceMap } from '@/lib/services/portfolio-history'
 import { getHistory } from '@/lib/services/market'
+import { topUpStoredHistory } from '@/lib/services/price-history'
 
 export const RETURN_PERIODS = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as const
 export type ReturnPeriod = (typeof RETURN_PERIODS)[number]
@@ -61,7 +62,11 @@ export async function loadBookTransactions(supabase: SupabaseClient, pid: string
   }))
 }
 
-/** Closes from the cutoff on: the stored price history first, the market provider when it has fewer than 5 rows. */
+/**
+ * Closes from the cutoff on: the stored price history first — with the sessions
+ * it is missing fetched and written through — and the market provider when it
+ * has fewer than 5 rows.
+ */
 export async function loadPriceMap(
   supabase: SupabaseClient,
   symbols: string[],
@@ -82,6 +87,8 @@ export async function loadPriceMap(
         if (cached && cached.length >= 5) {
           priceMap[symbol] = {}
           for (const row of cached) priceMap[symbol][row.date] = row.close
+          const added = await topUpStoredHistory({ [symbol]: cached[cached.length - 1].date as string })
+          for (const row of added) priceMap[symbol][row.date] = row.close
           return
         }
 
