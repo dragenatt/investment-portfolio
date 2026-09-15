@@ -8,8 +8,8 @@
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "background_color": "#F4F3EE",
+  "theme_color": "#1D5A85",
   "orientation": "any",
   "categories": ["finance", "business"],
   "icons": [

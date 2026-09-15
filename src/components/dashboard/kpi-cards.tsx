@@ -69,11 +69,11 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
       {/* Inline stats */}
       <div className="flex items-center gap-4 pt-2 text-xs text-muted-foreground">
         <span>Invertido: {balanceVisible ? <FormattedAmount value={investedAmount} className="font-medium text-foreground" /> : hiddenText}</span>
-        <span className="text-border">|</span>
+        <span aria-hidden="true" className="text-border">|</span>
         <span>{positionCount} posiciones</span>
         {todayReturn != null && (
           <>
-            <span className="text-border">|</span>
+            <span aria-hidden="true" className="text-border">|</span>
             <span>
               Hoy:{' '}
               <span className="font-medium" style={{ color: toneColor(todayTone) }}>

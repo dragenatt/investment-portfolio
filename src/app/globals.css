@@ -64,28 +64,36 @@
 /* ─── Light mode variables ─── */
 
 :root {
-  --background: #FFFFFF;
-  --foreground: #0F1419;
+  --background: #F4F3EE;
+  --foreground: #121A23;
   --card: #FFFFFF;
-  --card-foreground: #0F1419;
+  --card-foreground: #121A23;
   --popover: #FFFFFF;
-  --popover-foreground: #0F1419;
-  /* #6366F1 measured 4.47:1 against white text and 4.23:1 on #F7F9FA, under
-     the 4.5:1 WCAG AA needs for body text (C5). #4F53E3 clears that on white
-     (5.71) and on its own 10% tint over #F7F9FA (4.69), where badges and
-     selected pills put it. Charts keep #6366F1: graphics need 3:1. */
-  --primary: #4F53E3;
+  --popover-foreground: #121A23;
+  /* ── Identity (D10) ────────────────────────────────────────────────────
+     A ledger, not a SaaS template: warm paper page (#F4F3EE) with white cards
+     on hairline borders you can see, ink text (#121A23), and one serious
+     petrol blue (#1D5A85) for action and emphasis instead of the default
+     indigo. Corners tighten to 0.5rem. Dark mode is ink-blue, not pure black.
+
+     Every text pair was measured before it shipped (WCAG AA, 4.5:1), including
+     each colour on its own 10-12% tint over the page and over --secondary,
+     where badges and selected pills put it: foreground 14.6+, muted 5.0+,
+     primary 5.2+, gain 4.8+, loss 4.7+, warn 4.5+; dark mode 5.8+ everywhere.
+     Focus ring at 80% is 4.2:1 on the page. */
+  --brand: #1D5A85;
+  --primary: #1D5A85;
   --primary-foreground: #FFFFFF;
-  --secondary: #F7F9FA;
-  --secondary-foreground: #0F1419;
-  --muted: #F7F9FA;
-  --muted-foreground: #536471;
-  --accent: #F7F9FA;
-  --accent-foreground: #0F1419;
-  --destructive: #C81E1E;
-  --border: #F0F0F0;
-  --input: #F0F0F0;
-  --ring: #6366F1;
+  --secondary: #ECEAE3;
+  --secondary-foreground: #121A23;
+  --muted: #ECEAE3;
+  --muted-foreground: #56606B;
+  --accent: #E6EEF3;
+  --accent-foreground: #121A23;
+  --destructive: #BB1C1C;
+  --border: #DEDBD1;
+  --input: #D3CFC4;
+  --ring: #1D5A85;
   /* ── Categorical series palette ─────────────────────────────────────────
      Eight hues in FIXED order, assigned in sequence and never cycled. The
      order is the colour-vision-safety mechanism, so it does not change.
@@ -108,7 +116,7 @@
      these eight do not have. The first THREE slots do, in both modes
      (worst all-pairs dE 13.8). Those forms cap at three series: fold the rest
      into "Other" or facet. Do not add a ninth hue. */
-  --chart-1: #6366F1;  /* indigo  — the brand primary, so slot 1 is on-brand */
+  --chart-1: #6366F1;  /* indigo  — kept: slot order is what was CVD-validated */
   --chart-2: #EA580C;  /* orange  */
   --chart-3: #0D9488;  /* teal    */
   --chart-4: #A16207;  /* gold    */
@@ -116,61 +124,62 @@
   --chart-6: #0891B2;  /* cyan    */
   --chart-7: #7C3AED;  /* violet  */
   --chart-8: #A0522D;  /* brown   */
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #0F1419;
-  --sidebar-primary: #4F53E3;
+  --sidebar-foreground: #121A23;
+  --sidebar-primary: #1D5A85;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F7F9FA;
-  --sidebar-accent-foreground: #0F1419;
-  --sidebar-border: #F0F0F0;
-  --sidebar-ring: #6366F1;
-  /* Gain and loss are text as often as they are colour: #22C55E measured 2.28:1
-     on white and #EF4444 3.76:1 (C5). #137333 and #C81E1E stay above 4.5:1 on
-     white (5.95, 5.74) and on their own 10% tints over #F7F9FA (4.91, 4.61),
-     where the change badges sit. Dark mode already passed. */
-  --gain: #137333;
-  --loss: #C81E1E;
-  --good: #137333;
-  --good-soft: rgba(19,115,51,0.1);
-  --bad: #C81E1E;
-  --bad-soft: rgba(200,30,30,0.08);
-  /* #B45309 measured 4.25:1 on its own 12% tint; #A24A07 is 5.0 (C5). */
-  --warn: #A24A07;
-  --warn-soft: rgba(162,74,7,0.12);
-  --bg-secondary: #F7F9FA;
-  --chart-line: #6366F1;
-  --chart-fill-start: rgba(99,102,241,0.15);
-  --chart-fill-end: rgba(99,102,241,0);
-  --shimmer: #F7F9FA;
-  --gradient-hero-start: #FFFFFF;
-  --gradient-hero-end: #F7F9FA;
+  --sidebar-accent: #ECEAE3;
+  --sidebar-accent-foreground: #121A23;
+  --sidebar-border: #DEDBD1;
+  --sidebar-ring: #1D5A85;
+  /* Gain and loss are text as often as they are colour (C5). On the paper
+     page their own tints are darker than on white, so both went one step
+     deeper in D10: #11692F and #BB1C1C stay above 4.5:1 on white, the page,
+     --secondary and their 10% tints. Same hues; the names do not change. */
+  --gain: #11692F;
+  --loss: #BB1C1C;
+  --good: #11692F;
+  --good-soft: rgba(17,105,47,0.10);
+  --bad: #BB1C1C;
+  --bad-soft: rgba(187,28,28,0.08);
+  /* 4.5:1+ on its own 12% tint over the page and over --secondary. */
+  --warn: #9A4607;
+  --warn-soft: rgba(154,70,7,0.12);
+  --bg-secondary: #ECEAE3;
+  --chart-line: #1D5A85;
+  --chart-fill-start: rgba(29,90,133,0.14);
+  --chart-fill-end: rgba(29,90,133,0);
+  --shimmer: #ECEAE3;
+  --gradient-hero-start: #F4F3EE;
+  --gradient-hero-end: #ECEAE3;
 }
 
 /* ─── Dark mode variables ─── */
 
 .dark {
-  --background: #000000;
-  --foreground: #E7E9EA;
-  --card: #16181C;
-  --card-foreground: #E7E9EA;
-  --popover: #16181C;
-  --popover-foreground: #E7E9EA;
-  --primary: #818CF8;
-  --primary-foreground: #000000;
-  --secondary: #0A0A0A;
-  --secondary-foreground: #E7E9EA;
-  --muted: #0A0A0A;
-  /* #71767B measured 3.87:1 on the #16181C cards (C5); #8B9096 is 5.52:1 there
-     and 6.5:1 on the black page. */
-  --muted-foreground: #8B9096;
-  --accent: #16181C;
-  --accent-foreground: #E7E9EA;
+  --brand: #7DB8E2;
+  --background: #0A0F14;
+  --foreground: #E4E8EC;
+  --card: #111820;
+  --card-foreground: #E4E8EC;
+  --popover: #111820;
+  --popover-foreground: #E4E8EC;
+  --primary: #7DB8E2;
+  --primary-foreground: #0A0F14;
+  --secondary: #0E151C;
+  --secondary-foreground: #E4E8EC;
+  --muted: #0E151C;
+  /* 6.2:1 on the cards, 6.6:1 on the page. */
+  --muted-foreground: #8D99A5;
+  --accent: #16212B;
+  --accent-foreground: #E4E8EC;
   --destructive: #F87171;
-  --border: #2F3336;
-  --input: #2F3336;
-  --ring: #818CF8;
-  /* Same steps as light: validated against #16181C, not flipped. See :root. */
+  --border: #26323D;
+  --input: #30404D;
+  --ring: #7DB8E2;
+  /* Same steps as light. Validated against #16181C; on the D10 card #111820
+     the weakest slot is still 3.1:1, above the 3:1 graphics need. */
   --chart-1: #6366F1;
   --chart-2: #EA580C;
   --chart-3: #0D9488;
@@ -179,14 +188,14 @@
   --chart-6: #0891B2;
   --chart-7: #7C3AED;
   --chart-8: #A0522D;
-  --sidebar: #16181C;
-  --sidebar-foreground: #E7E9EA;
-  --sidebar-primary: #818CF8;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #16181C;
-  --sidebar-accent-foreground: #E7E9EA;
-  --sidebar-border: #2F3336;
-  --sidebar-ring: #818CF8;
+  --sidebar: #111820;
+  --sidebar-foreground: #E4E8EC;
+  --sidebar-primary: #7DB8E2;
+  --sidebar-primary-foreground: #0A0F14;
+  --sidebar-accent: #16212B;
+  --sidebar-accent-foreground: #E4E8EC;
+  --sidebar-border: #26323D;
+  --sidebar-ring: #7DB8E2;
   --gain: #4ADE80;
   --loss: #F87171;
   --good: #4ADE80;
@@ -195,13 +204,13 @@
   --bad-soft: rgba(248,113,113,0.12);
   --warn: #F59E0B;
   --warn-soft: rgba(245,158,11,0.14);
-  --bg-secondary: #0A0A0A;
-  --chart-line: #818CF8;
-  --chart-fill-start: rgba(129,140,248,0.2);
-  --chart-fill-end: rgba(129,140,248,0);
-  --shimmer: #16181C;
-  --gradient-hero-start: #000000;
-  --gradient-hero-end: #16181C;
+  --bg-secondary: #0E151C;
+  --chart-line: #7DB8E2;
+  --chart-fill-start: rgba(125,184,226,0.18);
+  --chart-fill-end: rgba(125,184,226,0);
+  --shimmer: #16212B;
+  --gradient-hero-start: #0A0F14;
+  --gradient-hero-end: #111820;
 }
 
 /* ─── Base layer ─── */
@@ -229,22 +238,24 @@
 /* ─── Utility classes ─── */
 
 /* Premium card */
+/* D10: a sheet on the ledger, not a floating tile — the token radius, a
+   hairline border that carries the edge, and a shadow only as deep as paper.
+   No lift on hover: a figure should not move when the pointer crosses it. */
 .premium-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
-  transition: box-shadow 200ms ease, transform 200ms ease;
+  border-radius: calc(var(--radius) * 1.5);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 6%, transparent);
+  transition: box-shadow 200ms ease, border-color 200ms ease;
 }
 .premium-card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-  transform: translateY(-1px);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--foreground) 8%, transparent);
 }
 .dark .premium-card {
   box-shadow: none;
 }
 .dark .premium-card:hover {
-  border-color: #3E4144;
+  border-color: color-mix(in srgb, var(--foreground) 22%, var(--border));
 }
 
 /* Stagger enter animation */

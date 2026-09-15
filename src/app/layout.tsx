@@ -47,7 +47,11 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#09090b',
+  // The browser chrome follows the page (D10): paper in light mode, ink in dark.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F4F3EE' },
+    { media: '(prefers-color-scheme: dark)', color: '#0A0F14' },
+  ],
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
