@@ -351,6 +351,14 @@ a public market or discovery key; it flags all twelve analytics routes against
 the previous code. Background jobs were already safe: `jobKey()` hashes the user
 id, and `analytics_jobs` rows are owner-only under RLS.
 
+**Missed, fixed 2026-09-15.** The scenario comparison cached its inputs
+(holdings' returns and current weights) under `analytics:scenario-inputs:<pid>`
+through `withCache<Inputs>(...)`. The scan's pattern only matched `withCache(`
+without a type argument, so it never saw that call. The key now carries the
+user, and the scan matches every cache wrapper with or without a type argument
+(it also found the fundamentals key, which is public market data and is listed
+as such).
+
 ## Re-running the checks
 
 ```bash

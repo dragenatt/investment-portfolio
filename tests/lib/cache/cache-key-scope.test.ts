@@ -22,6 +22,7 @@ const PUBLIC_KEY_PREFIXES = [
   'market:',
   '${CACHE_KEYS.MARKET_EVENTS}',
   '${CACHE_KEYS.MARKET_HISTORY}',
+  '${CACHE_KEYS.MARKET_FUNDAMENTALS}',
   '${CACHE_KEYS.PRICE}',
   'discover:',
   '${CACHE_KEYS.PORTFOLIO_COMPARISON}public:',
@@ -38,7 +39,9 @@ function routeFiles(dir: string): string[] {
 /** The first argument of every withCache / cacheGet / cacheSet call, resolved through a local `cacheKey` const. */
 function cacheKeys(source: string): string[] {
   const keys: string[] = []
-  const calls = /\b(?:withCache|cacheGet(?:<[^>]*>)?|cacheSet)\(\s*([^,]+),/g
+  // Any cache wrapper, with or without a type argument: `withCache<Inputs>(` slipped past
+  // a pattern that only knew `withCache(`, and a per-user key without the user with it.
+  const calls = /\b(?:withCache\w*|cacheGet|cacheSet)(?:<[^>]*>)?\(\s*([^,]+),/g
   for (const match of source.matchAll(calls)) {
     // Drop comments written inside the call, before the key.
     let arg = match[1].replace(/\/\/[^\n]*\n/g, '').trim()

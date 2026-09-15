@@ -49,7 +49,8 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const inputs = await withCache<Inputs>(`analytics:scenario-inputs:${pid}`, 900, async () => {
+  // Scoped to the caller: RLS decided what went into these inputs.
+  const inputs = await withCache<Inputs>(`analytics:scenario-inputs:${user.id}:${pid}`, 900, async () => {
     const { data: portfolio } = await supabase
       .from('portfolios')
       .select('currency:base_currency')
