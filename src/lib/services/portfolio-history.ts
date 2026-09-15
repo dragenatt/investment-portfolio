@@ -105,6 +105,38 @@ export function buildDailyTimeline(
   return timeline
 }
 
+/** Days a portfolio's first snapshot may start after the window does: a weekend, or a missed run. */
+const SNAPSHOT_START_SLACK_DAYS = 3
+
+/**
+ * Whether stored nightly snapshots can draw the value chart for a window on
+ * their own: every portfolio needs a snapshot within a few days of the window's
+ * start. Counting rows was not enough — two portfolios reach seven rows in four
+ * nights, and the chart would have begun wherever snapshots began instead of
+ * where the range the reader picked begins.
+ */
+export function snapshotsCoverWindow(
+  rows: Array<{ portfolio_id: string; snapshot_date: string }>,
+  portfolioIds: string[],
+  cutoff: string,
+): boolean {
+  if (portfolioIds.length === 0) return false
+  const latestStart = new Date(`${cutoff}T00:00:00Z`)
+  latestStart.setUTCDate(latestStart.getUTCDate() + SNAPSHOT_START_SLACK_DAYS)
+  const limit = latestStart.toISOString().slice(0, 10)
+
+  const firstDate = new Map<string, string>()
+  for (const row of rows) {
+    if (row.snapshot_date < cutoff) continue
+    const first = firstDate.get(row.portfolio_id)
+    if (!first || row.snapshot_date < first) firstDate.set(row.portfolio_id, row.snapshot_date)
+  }
+  return portfolioIds.every((id) => {
+    const first = firstDate.get(id)
+    return first !== undefined && first <= limit
+  })
+}
+
 function findLastKnownPrice(prices: Record<string, number>, targetDate: string): number {
   const dates = Object.keys(prices).filter(d => d <= targetDate).sort()
   return dates.length > 0 ? prices[dates[dates.length - 1]] : 0

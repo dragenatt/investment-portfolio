@@ -17,6 +17,7 @@ import { serviceRoleClient } from '@/lib/supabase/admin'
 import { getBenchmarkSeries, getPortfolioBenchmark } from './benchmarks'
 import { calculateBetaAlpha, calculateDailyReturns, type BetaAlpha } from './analytics'
 import { getRiskFreeRate } from './risk-free-rate'
+import { getBatchQuotes } from './market'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -91,7 +92,10 @@ export async function finishCronRun(
 ): Promise<void> {
   if (!runId) return
   const status = result.errors === 0 ? 'success' : result.processed > 0 ? 'partial' : 'failed'
-  await supabase
+  // No duration here: the routes write it once they have measured it. This used
+  // to send Date.now() as a placeholder, which overflows the integer column, so
+  // Postgres rejected the whole update and every run stayed 'running' forever.
+  const { error } = await supabase
     .from('cron_runs')
     .update({
       status,
@@ -99,13 +103,20 @@ export async function finishCronRun(
       portfolios_processed: result.processed,
       portfolios_failed: result.errors,
       error_details: result.errorDetails ?? null,
-      duration_ms: Date.now(), // will be calculated in route
     })
     .eq('id', runId)
+  if (error) console.error('[cron] could not record the end of the run', runId, error.message)
 }
 
 // ─── Price Fetching ─────────────────────────────────────────────────────────
 
+/**
+ * Closing prices for the snapshot, through the same provider chain as every
+ * screen — Twelve Data, Finnhub, then Yahoo. This used to call Twelve Data and
+ * Finnhub directly and stop there, so without those keys every position was
+ * valued at its average cost and the snapshot recorded no market movement.
+ * `fresh` skips the five-minute price cache: a snapshot is the day's record.
+ */
 async function fetchCurrentPrices(
   symbols: string[]
 ): Promise<Record<string, number>> {
@@ -113,64 +124,15 @@ async function fetchCurrentPrices(
 
   if (symbols.length === 0) return prices
 
-  // Try Twelve Data batch endpoint first
-  const apiKey = process.env.TWELVE_DATA_API_KEY
-  if (apiKey) {
-    try {
-      const batchSize = 8 // Twelve Data free tier limit
-      for (let i = 0; i < symbols.length; i += batchSize) {
-        const batch = symbols.slice(i, i + batchSize)
-        const symbolStr = batch.join(',')
-        const res = await fetch(
-          `https://api.twelvedata.com/price?symbol=${symbolStr}&apikey=${apiKey}`,
-          { signal: AbortSignal.timeout(10000) }
-        )
-        if (res.ok) {
-          const data = await res.json()
-          // Single symbol returns { price: "123.45" }
-          // Multiple symbols returns { AAPL: { price: "..." }, ... }
-          if (batch.length === 1 && data.price) {
-            prices[batch[0]] = parseFloat(data.price)
-          } else {
-            for (const sym of batch) {
-              if (data[sym]?.price) {
-                prices[sym] = parseFloat(data[sym].price)
-              }
-            }
-          }
-        }
-        // Rate limit: wait 1s between batches
-        if (i + batchSize < symbols.length) {
-          await new Promise(r => setTimeout(r, 1200))
-        }
-      }
-    } catch (err) {
-      console.warn('[snapshots] Twelve Data batch failed, trying Finnhub fallback', err)
+  try {
+    const quotes = await getBatchQuotes(symbols, { fresh: true })
+    for (const symbol of symbols) {
+      const price = (quotes[symbol] ?? quotes[symbol.toUpperCase()])?.price
+      if (price != null && price > 0) prices[symbol] = price
     }
-  }
-
-  // Fallback to Finnhub for missing symbols
-  const finnhubKey = process.env.FINNHUB_API_KEY
-  const missing = symbols.filter(s => !(s in prices))
-  if (finnhubKey && missing.length > 0) {
-    for (const symbol of missing) {
-      try {
-        const res = await fetch(
-          `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${finnhubKey}`,
-          { signal: AbortSignal.timeout(8000) }
-        )
-        if (res.ok) {
-          const data = await res.json()
-          if (data.c && data.c > 0) {
-            prices[symbol] = data.c
-          }
-        }
-        // Finnhub rate limit: 60/min
-        await new Promise(r => setTimeout(r, 1100))
-      } catch {
-        console.warn(`[snapshots] Failed to fetch price for ${symbol}`)
-      }
-    }
+  } catch (err) {
+    // Unpriced positions fall back to their average cost below.
+    console.warn('[snapshots] provider chain failed', err)
   }
 
   return prices
@@ -327,9 +289,12 @@ export async function computePortfolioSnapshot(
   today: string // YYYY-MM-DD
 ): Promise<SnapshotResult | null> {
   // 1. Fetch portfolio + positions
+  // The column is base_currency; asking for `currency` failed every portfolio
+  // with "column portfolios.currency does not exist", so no snapshot had been
+  // written since the column was renamed.
   const { data: portfolio, error: pErr } = await supabase
     .from('portfolios')
-    .select('id, name, currency, user_id')
+    .select('id, name, currency:base_currency, user_id')
     .eq('id', portfolioId)
     .single()
 
@@ -566,10 +531,11 @@ export async function runNightlySnapshots(): Promise<{
   const supabase = createAdminSupabase()
   const today = new Date().toISOString().split('T')[0]
 
-  // Fetch all portfolios that have at least one position
+  // Every portfolio that has not been deleted
   const { data: portfolios, error: fetchErr } = await supabase
     .from('portfolios')
     .select('id')
+    .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
   if (fetchErr || !portfolios) {
@@ -605,8 +571,10 @@ export async function runNightlySnapshots(): Promise<{
           processed++
           processedIds.push(result.value.portfolio_id)
         }
-      } else if (result.status === 'rejected') {
-        console.error('[snapshots] Computation failed:', result.reason)
+      } else {
+        // A snapshot that could not be computed is a failure, not a skip: it was
+        // counted as neither, so a run that wrote nothing reported success.
+        if (result.status === 'rejected') console.error('[snapshots] Computation failed:', result.reason)
         errors++
       }
     }

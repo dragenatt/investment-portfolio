@@ -3,7 +3,7 @@ import { success, error } from '@/lib/api/response'
 import { rateLimit } from '@/lib/api/rate-limit'
 import { cacheGet, cacheSet } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
-import { computeDailyPositions, buildDailyTimeline } from '@/lib/services/portfolio-history'
+import { computeDailyPositions, buildDailyTimeline, snapshotsCoverWindow } from '@/lib/services/portfolio-history'
 import { lastSettledSession, topUpStoredHistory, writeThrough } from '@/lib/services/price-history'
 import { apiHandler } from '@/lib/api/handler'
 
@@ -50,12 +50,12 @@ async function getHandler(req: Request) {
   // PRIMARY SOURCE: Use portfolio_snapshots if available
   const { data: snapshotData } = await supabase
     .from('portfolio_snapshots')
-    .select('snapshot_date, total_value')
+    .select('portfolio_id, snapshot_date, total_value')
     .in('portfolio_id', portfolioIds)
     .gte('snapshot_date', cutoffStr)
     .order('snapshot_date', { ascending: true })
 
-  if (snapshotData && snapshotData.length >= 7) {
+  if (snapshotData && snapshotsCoverWindow(snapshotData, portfolioIds, cutoffStr)) {
     // Aggregate across portfolios by date
     const dateValues: Record<string, number> = {}
     for (const snap of snapshotData) {

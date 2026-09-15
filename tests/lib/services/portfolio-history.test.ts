@@ -3,6 +3,7 @@ import {
   computeDailyPositions,
   buildDailyTimeline,
   reconstructBookHistory,
+  snapshotsCoverWindow,
   type BookTransaction,
 } from '@/lib/services/portfolio-history'
 import { calculateTWR, calculateMWR } from '@/lib/services/returns'
@@ -261,5 +262,29 @@ describe('reconstructBookHistory by holding (P2-4)', () => {
       { date: '2026-03-04', symbol: 'MSFT', amount: -90 },
     ])
     expect(history.symbolFlows.map((f) => f.amount)).toEqual(history.flows.map((f) => f.amount))
+  })
+})
+
+describe('snapshotsCoverWindow', () => {
+  const nights = (portfolio_id: string, dates: string[]) => dates.map((snapshot_date) => ({ portfolio_id, snapshot_date }))
+
+  it('does not let a few nights of snapshots stand in for a month', () => {
+    // Two portfolios, four nights: eight rows, which the old ">= 7 rows" rule took as enough.
+    const rows = [
+      ...nights('a', ['2026-09-12', '2026-09-13', '2026-09-14', '2026-09-15']),
+      ...nights('b', ['2026-09-12', '2026-09-13', '2026-09-14', '2026-09-15']),
+    ]
+    expect(snapshotsCoverWindow(rows, ['a', 'b'], '2026-08-16')).toBe(false)
+  })
+
+  it('accepts snapshots that start with the window, allowing a weekend', () => {
+    const rows = [...nights('a', ['2026-08-18', '2026-08-19']), ...nights('b', ['2026-08-16', '2026-08-17'])]
+    expect(snapshotsCoverWindow(rows, ['a', 'b'], '2026-08-16')).toBe(true)
+    expect(snapshotsCoverWindow(rows, ['a', 'b'], '2026-08-14')).toBe(false)
+  })
+
+  it('needs every portfolio, not just one', () => {
+    expect(snapshotsCoverWindow(nights('a', ['2026-08-16']), ['a', 'b'], '2026-08-16')).toBe(false)
+    expect(snapshotsCoverWindow([], [], '2026-08-16')).toBe(false)
   })
 })
