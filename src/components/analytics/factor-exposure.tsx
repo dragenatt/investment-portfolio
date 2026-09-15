@@ -58,7 +58,7 @@ function FactorTooltip({
   return (
     <div className="rounded-lg border bg-card px-3 py-2 shadow-md space-y-1 max-w-64">
       <p className="text-xs font-medium text-foreground">{row.factor}</p>
-      <p className="text-sm font-mono font-semibold text-foreground">
+      <p className="text-sm font-financial font-semibold text-foreground">
         {row.coefficient >= 0 ? '+' : ''}
         {row.coefficient.toFixed(2)}
         <span className="text-[11px] font-normal text-muted-foreground">
@@ -85,7 +85,7 @@ export function FactorExposure({ data, isLoading }: Props) {
         Exposicion factorial
       </CardTitle>
       {data?.regression && data.from_date && (
-        <CardDescription className="text-xs">
+        <CardDescription className="text-xs font-financial">
           {data.regression.observations} dias ({data.from_date} a {data.to_date}) · R²{' '}
           {(data.regression.rSquared * 100).toFixed(0)}%
         </CardDescription>
@@ -216,7 +216,7 @@ export function FactorExposure({ data, isLoading }: Props) {
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-xs text-muted-foreground">Alfa tras descontar factores</span>
             <span
-              className={`text-sm font-mono font-semibold ${
+              className={`text-sm font-financial font-semibold ${
                 alphaSignificant
                   ? regression.alphaAnnualPct >= 0
                     ? 'text-gain'

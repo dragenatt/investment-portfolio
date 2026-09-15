@@ -144,10 +144,10 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
                         <td className="p-3 text-sm">{new Date(t.executed_at).toLocaleDateString('es-MX')}</td>
                         <td className="p-3 font-mono text-sm font-medium">{t.position.symbol}</td>
                         <td className="p-3"><Badge variant={TYPE_COLORS[t.type]}>{TYPE_LABELS[t.type]}</Badge></td>
-                        <td className="p-3 text-right font-mono text-sm">{t.quantity}</td>
-                        <td className="p-3 text-right font-mono text-sm">{formatCurrency(t.price, t.currency)}</td>
-                        <td className="p-3 text-right font-mono text-sm">{formatCurrency(t.fees, t.currency)}</td>
-                        <td className="p-3 text-right font-mono text-sm font-medium">{cashLabel(t)}</td>
+                        <td className="p-3 text-right font-financial text-sm">{t.quantity}</td>
+                        <td className="p-3 text-right font-financial text-sm">{formatCurrency(t.price, t.currency)}</td>
+                        <td className="p-3 text-right font-financial text-sm">{formatCurrency(t.fees, t.currency)}</td>
+                        <td className="p-3 text-right font-financial text-sm font-medium">{cashLabel(t)}</td>
                         <td className="p-3">
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Editar transacción de ${t.position.symbol}`} onClick={() => setEditing(t)}>
@@ -183,9 +183,9 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
                     </div>
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>{new Date(t.executed_at).toLocaleDateString('es-MX')}</span>
-                      <span className="font-mono">{t.quantity} x {formatCurrency(t.price, t.currency)}</span>
+                      <span className="font-financial">{t.quantity} x {formatCurrency(t.price, t.currency)}</span>
                     </div>
-                    <div className="text-right font-mono text-sm font-medium">{cashLabel(t)}</div>
+                    <div className="text-right font-financial text-sm font-medium">{cashLabel(t)}</div>
                   </div>
                 ))}
               </div>

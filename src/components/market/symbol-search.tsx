@@ -39,9 +39,9 @@ function InlineQuote({ symbol }: { symbol: string }) {
   const tone = changeTone(pct, 2)
   return (
     <div className="flex items-center gap-2 ml-auto">
-      <span className="font-mono text-xs">${quote.price.toFixed(2)}</span>
+      <span className="font-financial text-xs">${quote.price.toFixed(2)}</span>
       {pct != null && (
-        <span className={`text-[10px] flex items-center gap-0.5 font-medium ${toneTextClass(tone)}`}>
+        <span className={`font-financial text-[10px] flex items-center gap-0.5 font-medium ${toneTextClass(tone)}`}>
           {tone === 'gain' ? <TrendingUp aria-hidden="true" className="h-2.5 w-2.5" /> : tone === 'loss' ? <TrendingDown aria-hidden="true" className="h-2.5 w-2.5" /> : <Minus aria-hidden="true" className="h-2.5 w-2.5" />}
           {formatSignedPercent(pct, 2)}
         </span>

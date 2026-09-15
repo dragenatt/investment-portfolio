@@ -76,7 +76,7 @@ export function AllocationDonut({ data }: { data: AllocationData[] }) {
                       <span className="text-sm font-medium">{item.name}</span>
                     </div>
                     <span
-                      className="font-mono text-sm"
+                      className="font-financial text-sm"
                       style={{ color: 'var(--muted-foreground)' }}
                     >
                       {pct}%

@@ -49,14 +49,14 @@ function IndexCard({ index }: { index: IndexData }) {
       <Card className="card-hover cursor-pointer h-full">
         <CardContent className="p-4">
           <p className="text-sm font-medium text-muted-foreground mb-1">{index.name}</p>
-          <p className="font-mono font-bold text-xl">
+          <p className="font-financial font-bold text-xl">
             {index.price > 0
               ? index.price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
               : '--'}
           </p>
           <div className="flex items-center gap-1.5 mt-1">
             <span
-              className={`inline-flex items-center gap-0.5 text-xs font-semibold font-mono px-2 py-0.5 rounded-full ${
+              className={`inline-flex items-center gap-0.5 text-xs font-semibold font-financial px-2 py-0.5 rounded-full ${
                 tone === 'gain'
                   ? 'bg-gain/10 text-gain'
                   : tone === 'loss'
@@ -67,7 +67,7 @@ function IndexCard({ index }: { index: IndexData }) {
               {tone === 'gain' ? <TrendingUp aria-hidden="true" className="h-3 w-3" /> : tone === 'loss' ? <TrendingDown aria-hidden="true" className="h-3 w-3" /> : <Minus aria-hidden="true" className="h-3 w-3" />}
               {formatSignedPercent(index.changePct, 2)}
             </span>
-            <span className={`text-xs font-mono ${toneTextClass(tone)}`}>
+            <span className={`text-xs font-financial ${toneTextClass(tone)}`}>
               {formatSignedNumber(index.change, 2)}
             </span>
           </div>
@@ -101,7 +101,7 @@ function MoverRow({ stock, type }: { stock: MoverData; type: 'gainer' | 'loser' 
           </div>
         </div>
         <div className="text-right">
-          <p className="font-mono text-sm font-medium">
+          <p className="font-financial text-sm font-medium">
             ${stock.price > 0 ? stock.price.toFixed(2) : '--'}
           </p>
           <div className="flex items-center justify-end gap-0.5">
@@ -111,7 +111,7 @@ function MoverRow({ stock, type }: { stock: MoverData; type: 'gainer' | 'loser' 
               <ArrowDownRight className="h-3 w-3 text-loss" />
             )}
             <span
-              className={`text-xs font-mono font-semibold ${
+              className={`text-xs font-financial font-semibold ${
                 isPositive ? 'text-gain' : 'text-loss'
               }`}
             >

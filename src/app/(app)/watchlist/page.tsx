@@ -130,12 +130,12 @@ function WatchlistTable({ watchlist, prices, t }: { watchlist: Watchlist; prices
                   <MiniSparkline positive={tone !== 'loss'} />
                 </Link>
               </TableCell>
-              <TableCell className="text-right font-mono text-sm">
+              <TableCell className="text-right font-financial text-sm">
                 {q?.price != null ? `$${q.price.toFixed(2)}` : <span className="text-muted-foreground">--</span>}
               </TableCell>
               <TableCell className="text-right">
                 {pct != null ? (
-                  <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${toneTextClass(tone)}`}>
+                  <span className={`font-financial inline-flex items-center gap-0.5 text-xs font-medium ${toneTextClass(tone)}`}>
                     {tone === 'gain' ? <TrendingUp aria-hidden="true" className="h-3 w-3" /> : tone === 'loss' ? <TrendingDown aria-hidden="true" className="h-3 w-3" /> : <Minus aria-hidden="true" className="h-3 w-3" />}
                     {formatSignedPercent(pct, 2)}
                   </span>

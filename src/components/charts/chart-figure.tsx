@@ -70,7 +70,7 @@ export function ChartFigure({
                           {cell}
                         </th>
                       ) : (
-                        <td key={c} className="px-3 py-1.5 text-right font-mono">
+                        <td key={c} className="px-3 py-1.5 text-right font-financial">
                           {cell}
                         </td>
                       ),

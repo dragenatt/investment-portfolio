@@ -317,10 +317,10 @@ function TradeForm({ onClose }: { onClose: () => void }) {
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : quote?.price != null ? (
             <div className="text-right shrink-0">
-              <div className="font-mono font-semibold">${quote.price.toFixed(2)}</div>
+              <div className="font-financial font-semibold">${quote.price.toFixed(2)}</div>
               {quote.changePct != null && (
                 <span
-                  className={`text-xs flex items-center justify-end gap-0.5 font-medium ${
+                  className={`font-financial text-xs flex items-center justify-end gap-0.5 font-medium ${
                     quote.changePct >= 0 ? 'text-gain' : 'text-loss'
                   }`}
                 >
@@ -397,12 +397,12 @@ function TradeForm({ onClose }: { onClose: () => void }) {
           {selectedSymbol && quote?.price != null && (
             <span className="text-xs text-muted-foreground">
               Mercado:{' '}
-              <span className="font-mono font-medium text-foreground">
+              <span className="font-financial font-medium text-foreground">
                 {convertCurrency(quote.price, quoteCurrency, currency, rates).toFixed(2)}
               </span>{' '}
               {currency}
               {quoteCurrency !== currency && (
-                <span className="ml-1 opacity-70">
+                <span className="ml-1 opacity-70 font-financial">
                   ({quote.price.toFixed(2)} {quoteCurrency})
                 </span>
               )}
@@ -502,7 +502,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
         {effectiveQuantity > 0 && effectivePrice > 0 && selectedSymbol && (
           <p className="text-sm">
             {typeLabels[type] || 'Registraras'}{' '}
-            <span className="font-mono font-semibold">{effectiveQuantity.toFixed(6)}</span>{' '}
+            <span className="font-financial font-semibold">{effectiveQuantity.toFixed(6)}</span>{' '}
             de <span className="font-semibold">{selectedSymbol.symbol.toUpperCase()}</span>{' '}
             a <FormattedAmount value={effectivePrice} from={currency} className="text-sm font-semibold" />
             /unidad ={' '}

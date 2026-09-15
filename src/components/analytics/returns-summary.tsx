@@ -122,8 +122,8 @@ export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
               </div>
 
               <p
-                className="font-bold"
-                style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', letterSpacing: '-0.02em', color }}
+                className="font-bold font-financial"
+                style={{ fontSize: '22px', color }}
               >
                 {formatSignedPercent(metric.value, 2)}
               </p>
@@ -136,7 +136,7 @@ export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
 
               <div style={{ marginTop: '6px' }}>
                 <span
-                  className="inline-flex items-center font-mono px-2 py-0.5"
+                  className="inline-flex items-center font-financial px-2 py-0.5"
                   style={{
                     borderRadius: '999px',
                     fontSize: '12px',

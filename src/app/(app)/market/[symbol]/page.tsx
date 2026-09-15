@@ -170,7 +170,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                   showSign
                   className="text-sm font-medium"
                 />
-                <span>({formatPercent(quote.changePct)})</span>
+                <span className="font-financial">({formatPercent(quote.changePct)})</span>
               </span>
               <span className="text-xs text-muted-foreground px-2 py-0.5 rounded-full bg-muted">
                 {t.market.today}
@@ -231,7 +231,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <p className="text-xs text-muted-foreground">{t.market.shares}</p>
-                      <p className="text-sm font-semibold font-mono">{pos.quantity}</p>
+                      <p className="text-sm font-semibold font-financial">{pos.quantity}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">{t.market.market_value}</p>
@@ -245,7 +245,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                       <p className="text-xs text-muted-foreground">{t.market.total_return}</p>
                       <div className="flex items-center gap-1">
                         <FormattedAmount value={totalReturn} from={quote.currency} showSign colorize className="text-sm font-semibold" />
-                        <span className={cn('text-xs', toneTextClass(returnTone))}>
+                        <span className={cn('font-financial', 'text-xs', toneTextClass(returnTone))}>
                           ({formatPercent(totalReturnPct)})
                         </span>
                       </div>
@@ -254,7 +254,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                       <p className="text-xs text-muted-foreground">{t.market.today_return}</p>
                       <div className="flex items-center gap-1">
                         <FormattedAmount value={todayReturn} from={quote.currency} showSign colorize className="text-sm font-semibold" />
-                        <span className={cn('text-xs', toneTextClass(todayTone))}>
+                        <span className={cn('font-financial', 'text-xs', toneTextClass(todayTone))}>
                           ({formatPercent(quote.changePct)})
                         </span>
                       </div>
@@ -371,9 +371,9 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                 return (
                   <div className="mt-4">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>${low.toFixed(2)}</span>
+                      <span className="font-financial">${low.toFixed(2)}</span>
                       <span className="text-xs font-medium">{t.market.range_52w}</span>
-                      <span>${high.toFixed(2)}</span>
+                      <span className="font-financial">${high.toFixed(2)}</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden relative">
                       <div
@@ -409,14 +409,14 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                 </div>
                 {fundamentals.analyst_target_price && (
                   <div className="text-right">
-                    <p className="text-2xl font-bold font-mono">${Number(fundamentals.analyst_target_price).toFixed(2)}</p>
+                    <p className="text-2xl font-bold font-financial">${Number(fundamentals.analyst_target_price).toFixed(2)}</p>
                     <p className="text-xs text-muted-foreground">{t.market.price_target}</p>
                     {quote?.price && (() => {
                       const target = Number(fundamentals.analyst_target_price)
                       const upside = ((target - quote.price) / quote.price) * 100
                       return (
                         <span className={cn(
-                          'text-xs font-medium',
+                          'font-financial', 'text-xs font-medium',
                           toneTextClass(changeTone(upside, 1))
                         )}>
                           {formatSignedPercent(upside, 1)} {t.market.vs_current}
@@ -463,7 +463,7 @@ function StatRow({ label, value }: { label: string; value: string }) {
         {label}
         {tooltipTerm && <FinanceTooltip term={tooltipTerm} />}
       </span>
-      <span className="text-sm font-semibold font-mono">{value}</span>
+      <span className="text-sm font-semibold font-financial">{value}</span>
     </div>
   )
 }

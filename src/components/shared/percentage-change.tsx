@@ -10,7 +10,7 @@ type Props = {
 
 export function PercentageChange({ value, className }: Props) {
   if (value == null) {
-    return <span className={cn('font-mono', className)}>--</span>
+    return <span className={cn('font-financial', className)}>--</span>
   }
 
   // Sign, arrow and colour all come from the same rounded tone (C9); a flat day
@@ -20,7 +20,7 @@ export function PercentageChange({ value, className }: Props) {
   const arrow = tone === 'gain' ? '\u2191' : tone === 'loss' ? '\u2193' : ''
 
   return (
-    <span className={cn('font-mono', toneTextClass(tone), className)}>
+    <span className={cn('font-financial', toneTextClass(tone), className)}>
       {formatSignedPercent(value, 2)}
       {arrow && <span aria-hidden="true"> {arrow}</span>}
       {tone === 'flat' && <span className="sr-only"> ({toneWord(tone)})</span>}

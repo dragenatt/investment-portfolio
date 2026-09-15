@@ -562,7 +562,7 @@ export default function AdvisorPage() {
               >
                 {ETIQUETA_ETAPA(t)[etapa.id]}
               </span>
-              <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+              <span className="font-financial text-[10px] text-muted-foreground shrink-0">
                 {etapa.estado === 'fallida'
                   ? 'fallo'
                   : etapa.ms === null
@@ -676,8 +676,8 @@ export default function AdvisorPage() {
                 {carteraEntries.map(([asset, pct], i) => (
                   <tr key={asset} className="border-b border-border/50">
                     <td className="py-2">{asset}</td>
-                    <td className="text-right font-mono">{(pct * 100).toFixed(0)}%</td>
-                    <td className="text-right font-mono">{fmt.format(montoInicial[i])}</td>
+                    <td className="text-right font-financial">{(pct * 100).toFixed(0)}%</td>
+                    <td className="text-right font-financial">{fmt.format(montoInicial[i])}</td>
                   </tr>
                 ))}
               </tbody>
@@ -704,8 +704,8 @@ export default function AdvisorPage() {
                 {carteraEntries.map(([asset, pct], i) => (
                   <tr key={asset} className="border-b border-border/50">
                     <td className="py-2">{asset}</td>
-                    <td className="text-right font-mono">{(pct * 100).toFixed(0)}%</td>
-                    <td className="text-right font-mono">
+                    <td className="text-right font-financial">{(pct * 100).toFixed(0)}%</td>
+                    <td className="text-right font-financial">
                       {fmt.format(montoMensual[i])}
                     </td>
                   </tr>
@@ -714,7 +714,7 @@ export default function AdvisorPage() {
             </table>
             <div className="mt-4 pt-4 border-t border-border flex justify-between font-semibold">
               <span>Total mensual</span>
-              <span className="font-mono">{fmt.format(aportacionMensual)}</span>
+              <span className="font-financial">{fmt.format(aportacionMensual)}</span>
             </div>
           </div>
         </div>
@@ -768,28 +768,28 @@ export default function AdvisorPage() {
               <DollarSign className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
               <p className="text-xs text-muted-foreground mb-1">Capital aportado</p>
               <p className="font-serif font-bold text-lg">
-                <span className="font-mono">{fmt.format(results.plan.proyeccionDeterminista.capitalAportado)}</span>
+                <span className="font-financial">{fmt.format(results.plan.proyeccionDeterminista.capitalAportado)}</span>
               </p>
             </div>
             <div className="text-center p-4 rounded-xl bg-secondary">
               <TrendingUp className="h-5 w-5 mx-auto mb-2 text-gain" />
               <p className="text-xs text-muted-foreground mb-1">Rendimiento generado</p>
               <p className="font-serif font-bold text-lg text-gain">
-                <span className="font-mono">{fmt.format(results.plan.proyeccionDeterminista.ganancia)}</span>
+                <span className="font-financial">{fmt.format(results.plan.proyeccionDeterminista.ganancia)}</span>
               </p>
             </div>
             <div className="text-center p-4 rounded-xl bg-secondary">
               <BarChart3 className="h-5 w-5 mx-auto mb-2 text-primary" />
               <p className="text-xs text-muted-foreground mb-1">Valor final del portafolio</p>
               <p className="font-serif font-bold text-lg">
-                <span className="font-mono">{fmt.format(results.plan.proyeccionDeterminista.valorFinal)}</span>
+                <span className="font-financial">{fmt.format(results.plan.proyeccionDeterminista.valorFinal)}</span>
               </p>
             </div>
             <div className="text-center p-4 rounded-xl bg-secondary">
               <Percent className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
               <p className="text-xs text-muted-foreground mb-1">Rentabilidad total</p>
               <p className="font-serif font-bold text-lg">
-                <span className="font-mono">
+                <span className="font-financial">
                   {results.plan.proyeccionDeterminista.rentabilidadTotalPct.toFixed(1)}%
                 </span>
               </p>
@@ -814,7 +814,7 @@ export default function AdvisorPage() {
               >
                 <p className="text-xs font-medium text-muted-foreground mb-1">{band.label}</p>
                 <p className="font-serif font-bold text-lg">
-                  <span className="font-mono">
+                  <span className="font-financial">
                     {fmt.format(band.pick(results.plan.distribucion))}
                   </span>
                 </p>
@@ -842,8 +842,8 @@ export default function AdvisorPage() {
             <Target className={`h-6 w-6 ${probTextColor}`} />
             <div className="flex-1">
               <div className="flex justify-between text-sm mb-1">
-                <span>Meta: {fmt.format(meta)}</span>
-                <span className={`font-mono font-semibold ${probTextColor}`}>
+                <span className="font-financial">Meta: {fmt.format(meta)}</span>
+                <span className={`font-financial font-semibold ${probTextColor}`}>
                   {results.prob.toFixed(1)}%
                 </span>
               </div>
@@ -867,7 +867,7 @@ export default function AdvisorPage() {
           {results.aporteNec !== null && results.aporteNec > 0 && (
             <p className="text-sm mt-2 font-medium">
               Aporte mensual para llegar a {PROBABILIDAD_OBJETIVO}% de probabilidad:{' '}
-              <span className="font-mono text-primary">{fmt.format(results.aporteNec)}</span>
+              <span className="font-financial text-primary">{fmt.format(results.aporteNec)}</span>
             </p>
           )}
           {results.aporteNec === null && (
@@ -949,13 +949,13 @@ export default function AdvisorPage() {
                 placeholder="25"
                 value={form.edad}
                 onChange={(e) => updateField('edad', e.target.value)}
-                className="w-full rounded-xl border border-border bg-secondary px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded-xl border border-border bg-secondary px-4 py-2.5 text-sm font-financial focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
               <label htmlFor="advisor-ingresos" className="block text-sm font-medium mb-1.5">Ingresos mensuales</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-financial">
                   $
                 </span>
                 <input
@@ -964,7 +964,7 @@ export default function AdvisorPage() {
                   placeholder="30,000"
                   value={form.ingresos}
                   onChange={(e) => updateField('ingresos', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-secondary pl-8 pr-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-xl border border-border bg-secondary pl-8 pr-4 py-2.5 text-sm font-financial focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
@@ -993,7 +993,7 @@ export default function AdvisorPage() {
                 <span>5 — Medio</span>
                 <span>10 — Muy alto</span>
               </div>
-              <p className="text-center text-sm font-mono font-semibold mt-1">{form.riesgo}</p>
+              <p className="text-center text-sm font-financial font-semibold mt-1">{form.riesgo}</p>
             </div>
             <div>
               <p id="advisor-experiencia" className="block text-sm font-medium mb-2">
@@ -1042,7 +1042,7 @@ export default function AdvisorPage() {
                   placeholder="5"
                   value={form.horizonte}
                   onChange={(e) => updateField('horizonte', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-secondary px-4 py-2.5 pr-16 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-xl border border-border bg-secondary px-4 py-2.5 pr-16 text-sm font-financial focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                   años
@@ -1080,7 +1080,7 @@ export default function AdvisorPage() {
                 aria-valuetext={`${form.porcentajeInversion}%`}
                 className="w-full accent-primary"
               />
-              <p className="text-center text-sm font-mono font-semibold mt-1">
+              <p className="text-center text-sm font-financial font-semibold mt-1">
                 {form.porcentajeInversion}%
               </p>
             </div>
@@ -1095,7 +1095,7 @@ export default function AdvisorPage() {
                 Capital inicial a invertir
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-financial">
                   $
                 </span>
                 <input
@@ -1104,14 +1104,14 @@ export default function AdvisorPage() {
                   placeholder="100,000"
                   value={form.capitalInicial}
                   onChange={(e) => updateField('capitalInicial', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-secondary pl-8 pr-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-xl border border-border bg-secondary pl-8 pr-4 py-2.5 text-sm font-financial focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
             <div>
               <label htmlFor="advisor-aportacion" className="block text-sm font-medium mb-1.5">Aportación mensual</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-financial">
                   $
                 </span>
                 <input
@@ -1120,14 +1120,14 @@ export default function AdvisorPage() {
                   placeholder="5,000"
                   value={form.aportacionMensual}
                   onChange={(e) => updateField('aportacionMensual', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-secondary pl-8 pr-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-xl border border-border bg-secondary pl-8 pr-4 py-2.5 text-sm font-financial focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
             <div>
               <label htmlFor="advisor-meta" className="block text-sm font-medium mb-1.5">Meta financiera</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-financial">
                   $
                 </span>
                 <input
@@ -1136,7 +1136,7 @@ export default function AdvisorPage() {
                   placeholder="1,000,000"
                   value={form.meta}
                   onChange={(e) => updateField('meta', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-secondary pl-8 pr-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-xl border border-border bg-secondary pl-8 pr-4 py-2.5 text-sm font-financial focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>

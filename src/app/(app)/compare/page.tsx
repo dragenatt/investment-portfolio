@@ -277,7 +277,7 @@ export default function ComparePage() {
                   <div className="absolute top-0 left-0 w-full h-1" style={{ backgroundColor: CHART_COLORS[idx] }} />
                   <CardContent className="p-4 space-y-2">
                     <p className="text-sm font-semibold truncate">{m.portfolioName}</p>
-                    <p className="text-2xl font-bold">
+                    <p className="text-2xl font-bold font-financial">
                       ${m.currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                     <PercentageChange value={m.periodReturnPct} className="text-sm font-bold" />
@@ -419,7 +419,7 @@ export default function ComparePage() {
                         tooltip="Retorno ajustado por riesgo. Más alto = mejor"
                         metrics={comparison.metrics}
                         getValue={(m) => m.sharpeRatio}
-                        format={(v) => <span className={`font-medium ${v !== null && v > 1 ? 'text-gain' : v !== null && v < 0 ? 'text-loss' : ''}`}>{v !== null ? v.toFixed(2) : '—'}</span>}
+                        format={(v) => <span className={`font-financial font-medium ${v !== null && v > 1 ? 'text-gain' : v !== null && v < 0 ? 'text-loss' : ''}`}>{v !== null ? v.toFixed(2) : '—'}</span>}
                         {...getBestWorst('sharpeRatio', true)}
                       />
 
@@ -429,7 +429,7 @@ export default function ComparePage() {
                         tooltip="Similar al Sharpe pero solo penaliza caídas. Más alto = mejor"
                         metrics={comparison.metrics}
                         getValue={(m) => m.sortinoRatio}
-                        format={(v) => <span className="font-medium">{v !== null ? v.toFixed(2) : '—'}</span>}
+                        format={(v) => <span className="font-medium font-financial">{v !== null ? v.toFixed(2) : '—'}</span>}
                         {...getBestWorst('sortinoRatio', true)}
                       />
 
@@ -439,7 +439,7 @@ export default function ComparePage() {
                         tooltip="Desviación estándar de retornos diarios. Menor = más estable"
                         metrics={comparison.metrics}
                         getValue={(m) => m.volatility}
-                        format={(v) => <span className="font-medium">{v !== null ? `${(v * 100).toFixed(2)}%` : '—'}</span>}
+                        format={(v) => <span className="font-medium font-financial">{v !== null ? `${(v * 100).toFixed(2)}%` : '—'}</span>}
                         {...getBestWorst('volatility', false)}
                       />
 
@@ -449,7 +449,7 @@ export default function ComparePage() {
                         tooltip="Mayor caída desde un pico. Menor = mejor"
                         metrics={comparison.metrics}
                         getValue={(m) => m.maxDrawdown}
-                        format={(v) => <span className="font-medium text-loss">{v !== null ? `${(v * 100).toFixed(2)}%` : '—'}</span>}
+                        format={(v) => <span className="font-medium text-loss font-financial">{v !== null ? `${(v * 100).toFixed(2)}%` : '—'}</span>}
                         {...getBestWorst('maxDrawdown', false)}
                       />
 
@@ -461,7 +461,7 @@ export default function ComparePage() {
                         getValue={(m) => m.beta}
                         format={(v) =>
                           v !== null ? (
-                            <span className="font-medium">{v.toFixed(2)}</span>
+                            <span className="font-medium font-financial">{v.toFixed(2)}</span>
                           ) : (
                             <span className="text-xs text-muted-foreground">Beta no disponible</span>
                           )
@@ -475,7 +475,7 @@ export default function ComparePage() {
                         tooltip="Exceso de retorno vs mercado. Positivo = supera al mercado"
                         metrics={comparison.metrics}
                         getValue={(m) => m.alpha}
-                        format={(v) => <span className={`font-medium ${v !== null && v > 0 ? 'text-gain' : v !== null && v < 0 ? 'text-loss' : ''}`}>{v !== null ? `${(v * 100).toFixed(2)}%` : '—'}</span>}
+                        format={(v) => <span className={`font-financial font-medium ${v !== null && v > 0 ? 'text-gain' : v !== null && v < 0 ? 'text-loss' : ''}`}>{v !== null ? `${(v * 100).toFixed(2)}%` : '—'}</span>}
                         {...getBestWorst('alpha', true)}
                       />
 
@@ -485,7 +485,7 @@ export default function ComparePage() {
                         tooltip="% de días con retorno positivo"
                         metrics={comparison.metrics}
                         getValue={(m) => m.winRate}
-                        format={(v) => <span className="font-medium">{v !== null ? `${(v * 100).toFixed(1)}%` : '—'}</span>}
+                        format={(v) => <span className="font-medium font-financial">{v !== null ? `${(v * 100).toFixed(1)}%` : '—'}</span>}
                         {...getBestWorst('winRate', true)}
                       />
 
@@ -495,7 +495,7 @@ export default function ComparePage() {
                         tooltip="Score basado en HHI. 0 = concentrado, 1 = diversificado"
                         metrics={comparison.metrics}
                         getValue={(m) => m.diversificationScore}
-                        format={(v) => <span className="font-medium">{v !== null ? v.toFixed(2) : '—'}</span>}
+                        format={(v) => <span className="font-medium font-financial">{v !== null ? v.toFixed(2) : '—'}</span>}
                         {...getBestWorst('diversificationScore', true)}
                       />
 
@@ -542,7 +542,7 @@ export default function ComparePage() {
                         {m.topHoldings.slice(0, 5).map((h) => (
                           <div key={h.symbol} className="flex justify-between text-xs">
                             <span className="font-medium">{h.symbol}</span>
-                            <span className="text-muted-foreground">{h.weight.toFixed(1)}%</span>
+                            <span className="text-muted-foreground font-financial">{h.weight.toFixed(1)}%</span>
                           </div>
                         ))}
                         {m.topHoldings.length === 0 && (

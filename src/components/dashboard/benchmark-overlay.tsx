@@ -66,18 +66,18 @@ function CustomTooltip({
         })}
       </p>
       {portfolioVal != null && (
-        <p className="text-sm font-mono" style={{ color: portfolioEntry?.color }}>
+        <p className="text-sm font-financial" style={{ color: portfolioEntry?.color }}>
           Mi Portfolio: {portfolioVal.toFixed(2)}
         </p>
       )}
       {benchmarkVal != null && (
-        <p className="text-sm font-mono" style={{ color: benchmarkEntry?.color }}>
+        <p className="text-sm font-financial" style={{ color: benchmarkEntry?.color }}>
           {benchmarkSymbol ?? 'Benchmark'}: {benchmarkVal.toFixed(2)}
         </p>
       )}
       {diff != null && (
         <p
-          className="text-sm font-mono font-semibold mt-1 pt-1"
+          className="text-sm font-financial font-semibold mt-1 pt-1"
           style={{
             borderTop: '1px solid var(--border)',
             color: diff >= 0 ? 'var(--good)' : 'var(--bad)',

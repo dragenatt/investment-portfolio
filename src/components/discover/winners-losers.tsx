@@ -77,7 +77,7 @@ function PositionRow({
     >
       {/* Rank */}
       <span
-        className="text-xs font-mono flex-shrink-0 w-5 text-center"
+        className="text-xs font-financial flex-shrink-0 w-5 text-center"
         style={{ color: 'var(--muted-foreground)' }}
       >
         #{rank}
@@ -98,7 +98,7 @@ function PositionRow({
 
       {/* Change pill */}
       <span
-        className="inline-flex items-center gap-1 font-mono px-2 py-0.5 flex-shrink-0"
+        className="inline-flex items-center gap-1 font-financial px-2 py-0.5 flex-shrink-0"
         style={{
           borderRadius: '999px',
           fontSize: '12px',

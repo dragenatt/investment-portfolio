@@ -279,10 +279,10 @@ export default function ImportCSVPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">{row.quantity}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right font-financial">
                           ${row.price.toFixed(2)}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right font-financial">
                           ${row.fees.toFixed(2)}
                         </TableCell>
                         <TableCell>{row.currency}</TableCell>

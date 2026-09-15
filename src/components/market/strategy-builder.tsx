@@ -119,7 +119,7 @@ function OperandEditor({
           onChange={(e) =>
             onChange({ ...operand, period: Math.round(Number(e.target.value)) })
           }
-          className="h-8 w-16 text-xs font-mono"
+          className="h-8 w-16 text-xs font-financial"
           aria-label={`${ariaLabel}: periodo`}
         />
       )}
@@ -129,7 +129,7 @@ function OperandEditor({
           type="number"
           value={operand.value}
           onChange={(e) => onChange({ kind: 'constant', value: Number(e.target.value) })}
-          className="h-8 w-20 text-xs font-mono"
+          className="h-8 w-20 text-xs font-financial"
           aria-label={`${ariaLabel}: número`}
         />
       )}
@@ -438,30 +438,30 @@ export function StrategyBuilder({ symbol }: { symbol: string }) {
                 <tbody className="divide-y divide-border">
                   <tr className="text-muted-foreground">
                     <td className="py-1.5">Comprar y mantener</td>
-                    <td className="text-right font-mono">
+                    <td className="text-right font-financial">
                       {comparison.buyAndHoldReturnPct.toFixed(1)}%
                     </td>
-                    <td className="text-right font-mono">—</td>
-                    <td className="text-right font-mono">0</td>
-                    <td className="text-right font-mono">—</td>
+                    <td className="text-right font-financial">—</td>
+                    <td className="text-right font-financial">0</td>
+                    <td className="text-right font-financial">—</td>
                   </tr>
                   {comparison.results.map((row) => (
                     <tr key={row.name} className={cn(row.name === strategy.name && 'font-medium')}>
                       <td className="py-1.5">{row.name}</td>
-                      <td className="text-right font-mono">
+                      <td className="text-right font-financial">
                         {row.backtest.strategy.totalReturnPct.toFixed(1)}%
                       </td>
                       <td
                         className={cn(
-                          'text-right font-mono',
+                          'text-right font-financial',
                           row.beatBuyAndHold ? 'text-gain' : 'text-loss',
                         )}
                       >
                         {row.versusBuyAndHoldPp >= 0 ? '+' : ''}
                         {row.versusBuyAndHoldPp.toFixed(1)} pp
                       </td>
-                      <td className="text-right font-mono">{row.backtest.trades.length}</td>
-                      <td className="text-right font-mono">
+                      <td className="text-right font-financial">{row.backtest.trades.length}</td>
+                      <td className="text-right font-financial">
                         -{row.backtest.strategy.maxDrawdownPct.toFixed(1)}%
                       </td>
                     </tr>

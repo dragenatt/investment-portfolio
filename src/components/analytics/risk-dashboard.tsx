@@ -68,7 +68,7 @@ function RiskGauge({ score }: { score: number }) {
         x={cx}
         y={cy - 5}
         textAnchor="middle"
-        className="text-2xl font-bold"
+        className="text-2xl font-bold font-financial"
         fill="currentColor"
       >
         {score.toFixed(1)}
@@ -110,7 +110,7 @@ function MetricCard({
           {tooltipTerm && <FinanceTooltip term={tooltipTerm} />}
         </p>
       </div>
-      <p className="text-2xl font-bold font-mono">{value}</p>
+      <p className="text-2xl font-bold font-financial">{value}</p>
       <p className="text-[11px] text-muted-foreground mt-0.5">{sublabel}</p>
     </div>
   )
@@ -129,7 +129,7 @@ function SecondaryMetric({
 }) {
   return (
     <div className="text-center p-2 rounded-lg bg-muted/30">
-      <p className="text-lg font-bold font-mono">{value}</p>
+      <p className="text-lg font-bold font-financial">{value}</p>
       <p className="text-xs font-medium mt-0.5">{label}</p>
       <p className="text-[10px] text-muted-foreground">{sublabel}</p>
     </div>
@@ -249,7 +249,7 @@ export function RiskDashboard({
           <AlertTriangle className="h-4 w-4 text-warn mt-0.5 shrink-0" aria-hidden="true" />
           <div>
             <p className="text-xs font-medium">VaR 95%</p>
-            <p className="text-sm font-mono font-semibold">
+            <p className="text-sm font-financial font-semibold">
               {formatNumber(var95)}%
             </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">

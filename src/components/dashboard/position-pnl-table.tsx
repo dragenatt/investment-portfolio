@@ -235,7 +235,7 @@ export function PositionPnLTable({ positions }: Props) {
                     )}
                   </div>
                 </TableCell>
-                <TableCell className="text-right font-mono">{formatNumber(pos.quantity, 4)}</TableCell>
+                <TableCell className="text-right font-financial">{formatNumber(pos.quantity, 4)}</TableCell>
                 <TableCell className="text-right">
                   <FormattedAmount value={pos.avg_cost} from={pos.currency} />
                 </TableCell>
@@ -306,7 +306,7 @@ export function PositionPnLTable({ positions }: Props) {
                 {pos.name && (
                   <p className="text-xs text-muted-foreground truncate max-w-[140px]">{pos.name}</p>
                 )}
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-1 font-financial">
                   {formatNumber(pos.quantity, 4)} @ <FormattedAmount value={pos.current_price} from={pos.currency} />
                 </p>
               </div>

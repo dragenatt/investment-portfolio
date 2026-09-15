@@ -197,7 +197,7 @@ export function ScenarioComparisonCard({ pid }: { pid: string }) {
                         }
                         className="flex-1 accent-primary"
                       />
-                      <span className="font-mono tabular-nums w-10 text-right">
+                      <span className="font-financial w-10 text-right">
                         {customTotal > 0 ? pct(((custom[symbol] ?? 0) / customTotal) * 100, 0) : '0%'}
                       </span>
                     </label>
@@ -250,7 +250,7 @@ export function ScenarioComparisonCard({ pid }: { pid: string }) {
             <p className="text-[11px] text-muted-foreground leading-relaxed rounded-xl bg-muted/40 p-3">
               {comparison.caveat}
             </p>
-            <p className="text-[10px] text-muted-foreground font-mono">
+            <p className="text-[10px] text-muted-foreground font-financial">
               {data?.observations} dias de historial comun ({data?.from_date} a {data?.to_date}) ·
               tasa libre {data?.risk_free_rate?.annual_pct}% ({data?.risk_free_rate?.source}) ·
               semilla {comparison.seed}
@@ -287,7 +287,7 @@ function ComparisonTable({ scenarios, horizonYears }: { scenarios: ScenarioMetri
               Pesos principales
             </td>
             {scenarios.map((s) => (
-              <td key={s.id} className="py-1.5 px-2 text-right text-[11px] font-mono leading-snug">
+              <td key={s.id} className="py-1.5 px-2 text-right text-[11px] font-financial leading-snug">
                 {s.weights
                   .filter((w) => w.weight >= 0.005)
                   .sort((a, b) => b.weight - a.weight)
@@ -312,7 +312,7 @@ function ComparisonTable({ scenarios, horizonYears }: { scenarios: ScenarioMetri
                 )}
               </td>
               {scenarios.map((s) => (
-                <td key={s.id} className="py-1.5 px-2 text-right font-mono tabular-nums text-foreground">
+                <td key={s.id} className="py-1.5 px-2 text-right font-financial text-foreground">
                   {row.value(s)}
                 </td>
               ))}

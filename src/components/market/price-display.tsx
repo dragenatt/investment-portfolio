@@ -28,7 +28,7 @@ export function PriceDisplay({ price, change, changePct, currency = 'USD', size 
     <div className="flex items-baseline gap-2">
       <FormattedAmount value={price} from={currency} className={sizes[size].price} />
       {change != null && changePct != null && (
-        <span className={cn(sizes[size].change, colorClass, 'flex items-center gap-0.5')}>
+        <span className={cn('font-financial', sizes[size].change, colorClass, 'flex items-center gap-0.5')}>
           {tone === 'gain' ? <ArrowUp aria-hidden="true" className="h-3 w-3" /> : tone === 'loss' ? <ArrowDown aria-hidden="true" className="h-3 w-3" /> : <Minus aria-hidden="true" className="h-3 w-3" />}
           {formatPercent(changePct)}
         </span>

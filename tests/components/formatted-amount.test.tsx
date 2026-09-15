@@ -107,9 +107,18 @@ describe('FormattedAmount', () => {
     expect(span).toHaveClass('text-gain')
   })
 
-  it('always has font-mono class', () => {
+  it('always has the font-financial class', () => {
     render(<FormattedAmount value={100} />)
     const span = screen.getByText('$100.00 USD')
-    expect(span).toHaveClass('font-mono')
+    expect(span).toHaveClass('font-financial')
+  })
+})
+
+describe('FormattedAmount typography (D11)', () => {
+  it('sets its figure in font-financial, including the empty state', () => {
+    const { container, rerender } = render(<FormattedAmount value={1234.5} />)
+    expect(container.querySelector('span')).toHaveClass('font-financial')
+    rerender(<FormattedAmount value={null} />)
+    expect(container.querySelector('span')).toHaveClass('font-financial')
   })
 })

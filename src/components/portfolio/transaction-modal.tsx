@@ -255,7 +255,7 @@ export function TransactionModal({ portfolioId }: Props) {
               <Label htmlFor="tx-price">Precio por unidad</Label>
               {resolvedSymbol && quote?.price != null && (
                 <span className="text-xs text-muted-foreground">
-                  Mercado: <span className="font-mono font-medium text-foreground">${quote.price.toFixed(2)}</span> {quote.currency || currency}
+                  Mercado: <span className="font-financial font-medium text-foreground">${quote.price.toFixed(2)}</span> {quote.currency || currency}
                 </span>
               )}
             </div>
@@ -335,7 +335,7 @@ export function TransactionModal({ portfolioId }: Props) {
             {effectiveQuantity > 0 && effectivePrice > 0 && (
               <p className="text-sm">
                 {typeLabels[type] || 'Registrarás'}{' '}
-                <span className="font-mono font-semibold">{effectiveQuantity.toFixed(6)}</span>{' '}
+                <span className="font-financial font-semibold">{effectiveQuantity.toFixed(6)}</span>{' '}
                 {symbol ? <>de <span className="font-semibold">{symbol.toUpperCase()}</span></> : 'acciones'}{' '}
                 a <FormattedAmount value={effectivePrice} from={currency} className="text-sm font-semibold" />/unidad
               </p>

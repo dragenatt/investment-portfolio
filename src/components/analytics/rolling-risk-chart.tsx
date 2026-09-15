@@ -100,7 +100,7 @@ function RollingTooltip({
   return (
     <div className="rounded-lg border bg-card px-3 py-2 shadow-md">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-mono font-semibold text-foreground">
+      <p className="text-sm font-financial font-semibold text-foreground">
         {value === null ? 'n/d' : `${value.toFixed(digits)}${suffix}`}
       </p>
     </div>

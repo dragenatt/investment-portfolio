@@ -66,10 +66,10 @@ function InlineQuote({ symbol }: { symbol: string }) {
   const tone = changeTone(pct, 2)
   return (
     <div className="flex items-center gap-1.5 shrink-0">
-      <span className="font-mono text-xs">${quote.price.toFixed(2)}</span>
+      <span className="font-financial text-xs">${quote.price.toFixed(2)}</span>
       {pct != null && (
         <span
-          className={`text-[10px] flex items-center gap-0.5 font-medium ${
+          className={`font-financial text-[10px] flex items-center gap-0.5 font-medium ${
             toneTextClass(tone)
           }`}
         >

@@ -52,16 +52,16 @@ export function FundamentalsGrid({
           {metrics.map(m => (
             <div key={m.label}>
               <p className="text-xs text-muted-foreground">{m.label}</p>
-              <p className="font-semibold text-sm font-mono">{m.value}</p>
+              <p className="font-semibold text-sm font-financial">{m.value}</p>
             </div>
           ))}
         </div>
         {rangePercent != null && (
           <div>
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
-              <span>${week52Low?.toFixed(2)}</span>
+              <span className="font-financial">${week52Low?.toFixed(2)}</span>
               <span>Rango 52 semanas</span>
-              <span>${week52High?.toFixed(2)}</span>
+              <span className="font-financial">${week52High?.toFixed(2)}</span>
             </div>
             <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div

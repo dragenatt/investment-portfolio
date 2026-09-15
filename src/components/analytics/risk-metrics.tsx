@@ -29,7 +29,7 @@ export function RiskMetrics({ portfolioId }: { portfolioId: string }) {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {metrics.map(m => (
             <div key={m.label} className="text-center p-3 rounded-lg bg-muted/50">
-              <p className="text-2xl font-bold font-mono">{m.value}</p>
+              <p className="text-2xl font-bold font-financial">{m.value}</p>
               <p className="text-sm font-medium mt-1 inline-flex items-center gap-1">
                 {m.label}
                 <FinanceTooltip term={m.tooltipTerm} />

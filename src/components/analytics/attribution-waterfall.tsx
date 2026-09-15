@@ -105,7 +105,7 @@ function CustomTooltip({
   return (
     <div className="rounded-lg border bg-popover p-3 shadow-md text-popover-foreground">
       <p className="text-sm font-medium mb-2">{d.name}</p>
-      <div className="space-y-1 text-xs font-mono">
+      <div className="space-y-1 text-xs font-financial">
         {d.allocation_effect != null && (
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">Asignacion</span>
@@ -248,7 +248,7 @@ export function AttributionWaterfall({ sectors, total, isLoading }: Props) {
 
         {/* Detail Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-xs font-mono">
+          <table className="w-full text-xs font-financial">
             <caption className="sr-only">Atribución por sector, en puntos porcentuales</caption>
             <thead>
               <tr className="border-b text-muted-foreground">

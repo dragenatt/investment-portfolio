@@ -44,7 +44,7 @@ export function PorQueEstaRecomendacion({ explicacion }: { explicacion: Explicac
             <div key={factor.id} className="rounded-xl border border-border p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <dt className="text-xs font-medium text-foreground">{factor.etiqueta}</dt>
-                <dd className="text-sm font-mono font-semibold text-foreground">{factor.valor}</dd>
+                <dd className="text-sm font-financial font-semibold text-foreground">{factor.valor}</dd>
               </div>
               <dd className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
                 {factor.porque}
@@ -54,7 +54,7 @@ export function PorQueEstaRecomendacion({ explicacion }: { explicacion: Explicac
         </dl>
 
         <p className="text-[11px] text-muted-foreground leading-relaxed">{explicacion.nota}</p>
-        <p className="text-[10px] text-muted-foreground font-mono">
+        <p className="text-[10px] text-muted-foreground font-financial">
           Modelo v{explicacion.modelo.version} ·{' '}
           {explicacion.modelo.simulaciones.toLocaleString('es-MX')} trayectorias · semilla{' '}
           {explicacion.modelo.seed}
@@ -90,7 +90,7 @@ export function ViabilidadCard({ viabilidad }: { viabilidad: Viabilidad | null }
           <div className="rounded-xl border border-border p-3">
             {/* Never hidden, whatever the verdict below says. */}
             <p className="text-[11px] text-muted-foreground">Lo que pide el calculo</p>
-            <p className="text-sm font-mono font-semibold text-foreground">
+            <p className="text-sm font-financial font-semibold text-foreground">
               {fmt.format(viabilidad.aportacionMatematica)} al mes
             </p>
           </div>
@@ -98,7 +98,7 @@ export function ViabilidadCard({ viabilidad }: { viabilidad: Viabilidad | null }
             <p className="text-[11px] text-muted-foreground">De tu ingreso mensual</p>
             <p
               className={cn(
-                'text-sm font-mono font-semibold',
+                'text-sm font-financial font-semibold',
                 NIVEL_TONE[viabilidad.nivel] ?? 'text-foreground',
               )}
             >
@@ -191,11 +191,11 @@ export function InvertirVsAhorrarCard({
               {rows.map((row) => (
                 <tr key={row.label} className={row.tone}>
                   <td className="py-1.5">{row.label}</td>
-                  <td className="text-right font-mono">{fmt.format(row.camino.aportado)}</td>
-                  <td className="text-right font-mono">{fmt.format(row.camino.valorFinal)}</td>
+                  <td className="text-right font-financial">{fmt.format(row.camino.aportado)}</td>
+                  <td className="text-right font-financial">{fmt.format(row.camino.valorFinal)}</td>
                   <td
                     className={cn(
-                      'text-right font-mono',
+                      'text-right font-financial',
                       row.camino.crecimiento > 0
                         ? 'text-gain'
                         : row.camino.crecimiento < 0

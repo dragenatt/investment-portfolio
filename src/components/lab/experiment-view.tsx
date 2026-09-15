@@ -94,7 +94,7 @@ export function ExperimentView({
             {result.highlights.map((highlight) => (
               <div key={highlight.label} className="rounded-xl border border-border p-3">
                 <dt className="text-[11px] text-muted-foreground leading-snug">{highlight.label}</dt>
-                <dd className="mt-1 text-sm font-mono font-semibold text-foreground">{highlight.value}</dd>
+                <dd className="mt-1 text-sm font-financial font-semibold text-foreground">{highlight.value}</dd>
               </div>
             ))}
           </dl>
@@ -196,7 +196,7 @@ function ParamSlider({
         <label htmlFor={id} className="text-xs text-muted-foreground">
           {spec.label}
         </label>
-        <span className="text-xs font-mono font-semibold text-foreground tabular-nums">{shown}</span>
+        <span className="text-xs font-financial font-semibold text-foreground">{shown}</span>
       </div>
       <input
         id={id}
@@ -208,7 +208,7 @@ function ParamSlider({
         onChange={(event) => onChange(Number(event.target.value))}
         className="mt-1.5 w-full accent-primary"
       />
-      <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
+      <div className="flex justify-between text-[10px] text-muted-foreground font-financial">
         <span>{formatByUnit(spec.min, spec.unit, decimals)}</span>
         <span>{formatByUnit(spec.max, spec.unit, decimals)}</span>
       </div>

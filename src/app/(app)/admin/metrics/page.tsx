@@ -109,7 +109,7 @@ export default async function AdminMetricsPage() {
             <CardTitle className="text-sm font-medium">Errores · 24 h</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold font-mono">{errors24h.count ?? 0}</p>
+            <p className="text-3xl font-bold font-financial">{errors24h.count ?? 0}</p>
           </CardContent>
         </Card>
 
@@ -118,7 +118,7 @@ export default async function AdminMetricsPage() {
             <CardTitle className="text-sm font-medium">Errores · 7 días</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold font-mono">{errors7d.count ?? 0}</p>
+            <p className="text-3xl font-bold font-financial">{errors7d.count ?? 0}</p>
           </CardContent>
         </Card>
       </div>
@@ -135,7 +135,7 @@ export default async function AdminMetricsPage() {
             {funnelCounts.map(({ event, total, week }) => (
               <div key={event} className="flex items-center justify-between gap-4">
                 <span className="text-sm">{FUNNEL_LABELS[event]}</span>
-                <div className="flex items-center gap-6 font-mono text-sm">
+                <div className="flex items-center gap-6 font-financial text-sm">
                   <span className="text-muted-foreground text-xs">7 d: {week}</span>
                   <span className="w-12 text-right font-semibold">{total}</span>
                 </div>
@@ -162,7 +162,7 @@ export default async function AdminMetricsPage() {
               {topRoutes.map(([route, count]) => (
                 <div key={route} className="flex items-center justify-between gap-4">
                   <span className="font-mono text-xs truncate">{route}</span>
-                  <span className="font-mono text-sm font-semibold shrink-0">{count}</span>
+                  <span className="font-financial text-sm font-semibold shrink-0">{count}</span>
                 </div>
               ))}
             </div>

@@ -39,7 +39,7 @@ function CustomTooltip({
   return (
     <div className="rounded-lg border bg-card px-3 py-2 shadow-md">
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <p className="text-sm font-mono font-semibold text-loss">
+      <p className="text-sm font-financial font-semibold text-loss">
         {payload[0].value.toFixed(2)}%
       </p>
     </div>
@@ -95,7 +95,7 @@ export function DrawdownChart({
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium">Drawdown</CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">
+        <CardDescription className="text-xs text-muted-foreground font-financial">
           Max: {maxDrawdown.toFixed(2)}% ({maxDrawdownDate})
         </CardDescription>
       </CardHeader>
@@ -136,7 +136,7 @@ export function DrawdownChart({
                   label={{
                     value: `${maxDrawdown.toFixed(1)}%`,
                     position: 'top',
-                    className: 'text-[10px] font-mono fill-[var(--loss)]',
+                    className: 'text-[10px] font-financial fill-[var(--loss)]',
                     offset: 10,
                   }}
                 />

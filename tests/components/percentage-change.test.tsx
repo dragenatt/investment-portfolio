@@ -76,10 +76,10 @@ describe('PercentageChange', () => {
     expect(span).toHaveClass('custom-class')
   })
 
-  it('always has font-mono class', () => {
+  it('always has the font-financial class', () => {
     render(<PercentageChange value={5} />)
     const span = screen.getByText(/\+5.00%/)
-    expect(span).toHaveClass('font-mono')
+    expect(span).toHaveClass('font-financial')
   })
 
   it('handles very small positive values', () => {
@@ -102,5 +102,14 @@ describe('PercentageChange', () => {
     render(<PercentageChange value={-99.99} />)
     const span = screen.getByText(/-99.99%/)
     expect(span).toHaveClass('text-loss')
+  })
+})
+
+describe('PercentageChange typography (D11)', () => {
+  it('sets its figure in font-financial, including the empty state', () => {
+    const { container, rerender } = render(<PercentageChange value={1.5} />)
+    expect(container.querySelector('span')).toHaveClass('font-financial')
+    rerender(<PercentageChange value={null} />)
+    expect(container.querySelector('span')).toHaveClass('font-financial')
   })
 })

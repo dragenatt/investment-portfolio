@@ -237,6 +237,16 @@
 
 /* ─── Utility classes ─── */
 
+/* D11 — every rendered financial figure: money, percentages, quantities,
+   metrics, table cells. The monospace face (JetBrains Mono) with tabular
+   figures, so digits have one width and decimal points line up down a column
+   and do not jitter when a live price ticks. Rule in CONTRIBUTING.md.
+   Identifiers such as tickers keep plain font-mono. */
+@utility font-financial {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Premium card */
 /* D10: a sheet on the ledger, not a floating tile — the token radius, a
    hairline border that carries the edge, and a shadow only as deep as paper.

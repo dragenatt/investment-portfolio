@@ -17,7 +17,7 @@ export function FormattedAmount({ value, from, colorize, showSign, compact, clas
   const { format, convert, currency } = useCurrency()
 
   if (value == null) {
-    return <span className={cn('font-mono', className)}>--</span>
+    return <span className={cn('font-financial', className)}>--</span>
   }
 
   const converted = from ? convert(value, from) : value
@@ -44,5 +44,5 @@ export function FormattedAmount({ value, from, colorize, showSign, compact, clas
 
   const colorClass = colorize ? toneTextClass(tone) : undefined
 
-  return <span className={cn('font-mono', colorClass, className)}>{display}</span>
+  return <span className={cn('font-financial', colorClass, className)}>{display}</span>
 }

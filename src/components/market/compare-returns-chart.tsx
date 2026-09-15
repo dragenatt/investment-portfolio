@@ -28,7 +28,7 @@ function CompareTooltip({
             style={{ backgroundColor: entry.color }}
           />
           <span className="font-medium">{entry.dataKey}</span>
-          <span className="font-mono ml-auto">
+          <span className="font-financial ml-auto">
             {entry.value >= 0 ? '+' : ''}
             {entry.value.toFixed(2)}%
           </span>

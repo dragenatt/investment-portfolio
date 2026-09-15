@@ -120,7 +120,7 @@ export default function AlertsPage() {
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <span className="font-bold">{alert.symbol}</span>
-                    <span className="text-muted-foreground">
+                    <span className="text-muted-foreground font-financial">
                       {alert.condition === 'above' ? t.alerts.above : alert.condition === 'below' ? t.alerts.below : t.alerts.change} ${alert.target_value?.toFixed(2) ?? '--'}
                     </span>
                   </CardTitle>

@@ -61,10 +61,7 @@ function SummaryCard({
             {label}
           </span>
         </div>
-        <p
-          className="font-bold"
-          style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', letterSpacing: '-0.02em' }}
-        >
+        <p className="font-bold font-financial" style={{ fontSize: '22px' }}>
           {value}
         </p>
       </CardContent>
@@ -79,7 +76,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
       <p className="text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>
         {label}
       </p>
-      <p className="text-sm font-bold font-mono" style={{ color: 'var(--good)' }}>
+      <p className="text-sm font-bold font-financial" style={{ color: 'var(--good)' }}>
         ${formatNumber(payload[0].value)}
       </p>
     </div>

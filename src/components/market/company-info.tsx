@@ -57,7 +57,7 @@ export function CompanyInfo({ name, description, ceo, employees, hq, website, se
               <Users className="h-4 w-4 text-muted-foreground shrink-0" />
               <div>
                 <p className="text-xs text-muted-foreground">Empleados</p>
-                <p className="font-medium">{employees.toLocaleString()}</p>
+                <p className="font-medium font-financial">{employees.toLocaleString()}</p>
               </div>
             </div>
           )}

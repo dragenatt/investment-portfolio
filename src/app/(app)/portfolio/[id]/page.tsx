@@ -307,7 +307,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           {/* Total value */}
           <div>
             <p className="text-sm text-muted-foreground mb-1">{t.portfolio.total_value}</p>
-            <p className="text-3xl sm:text-4xl font-bold font-mono tracking-tight">
+            <p className="text-3xl sm:text-4xl font-bold font-financial tracking-tight">
               <FormattedAmount value={summary.totalValue} />
             </p>
           </div>
@@ -421,7 +421,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
               <div className="space-y-2">
                 <p className="text-sm font-medium">{t.sharing.public_link}</p>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 rounded-xl border border-border bg-secondary/50 px-3 py-2 text-sm text-muted-foreground truncate font-mono">
+                  <div className="flex-1 rounded-xl border border-border bg-secondary/50 px-3 py-2 text-sm text-muted-foreground truncate font-financial">
                     {typeof window !== 'undefined' ? `${window.location.origin}/portfolio/${id}/public` : `/portfolio/${id}/public`}
                   </div>
                   <Button size="sm" className="rounded-xl gap-1.5 shrink-0" onClick={handleCopyLink}>

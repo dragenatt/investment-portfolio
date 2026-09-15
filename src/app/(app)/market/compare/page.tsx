@@ -613,7 +613,7 @@ function ComparePageInner() {
                   {l.changePct != null && (
                     <span
                       className={cn(
-                        'font-mono text-xs',
+                        'font-financial text-xs',
                         l.changePct >= 0 ? 'text-gain' : 'text-loss'
                       )}
                     >
@@ -747,13 +747,13 @@ function ComparePageInner() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono">
+                    <TableCell className="font-financial">
                       {row.price != null ? `$${row.price.toFixed(2)}` : '--'}
                     </TableCell>
                     <TableCell>
                       <span
                         className={cn(
-                          'font-mono text-sm',
+                          'font-financial text-sm',
                           row.changePct != null && row.changePct >= 0
                             ? 'text-gain'
                             : 'text-loss'
@@ -767,7 +767,7 @@ function ComparePageInner() {
                     <TableCell>
                       <span
                         className={cn(
-                          'font-mono text-sm',
+                          'font-financial text-sm',
                           row.change1M != null && row.change1M >= 0
                             ? 'text-gain'
                             : 'text-loss'
@@ -778,7 +778,7 @@ function ComparePageInner() {
                           : '--'}
                       </span>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
+                    <TableCell className="font-financial text-sm">
                       {formatLargeNumber(row.marketCap)}
                     </TableCell>
                   </TableRow>

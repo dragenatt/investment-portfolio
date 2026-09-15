@@ -46,7 +46,7 @@ export function TechnicalSignalCard({ signal }: { signal: TechnicalSignal }) {
             {label}
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold font-mono">{signal.confidence}%</p>
+            <p className="text-2xl font-bold font-financial">{signal.confidence}%</p>
             <p className="text-xs text-muted-foreground">confianza</p>
           </div>
         </div>
@@ -97,7 +97,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-muted/40 py-2">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold font-mono">{value}</p>
+      <p className="text-sm font-semibold font-financial">{value}</p>
     </div>
   )
 }

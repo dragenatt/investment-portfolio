@@ -64,7 +64,7 @@ function HoverTooltip({
   return (
     <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold font-mono">${payload[0].value?.toFixed(2)}</p>
+      <p className="text-sm font-semibold font-financial">${payload[0].value?.toFixed(2)}</p>
     </div>
   )
 }
@@ -207,7 +207,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
     <div>
       {/* Range change indicator */}
       <div className="flex items-center gap-2 mb-2 px-1">
-        <span className={cn('text-xs font-medium font-mono', isPositive ? 'text-gain' : 'text-loss')}>
+        <span className={cn('text-xs font-medium font-financial', isPositive ? 'text-gain' : 'text-loss')}>
           {rangeChange >= 0 ? '+' : ''}{rangeChange.toFixed(2)} ({rangeChangePct >= 0 ? '+' : ''}{rangeChangePct.toFixed(2)}%) en {range}
         </span>
       </div>

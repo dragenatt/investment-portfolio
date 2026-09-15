@@ -56,11 +56,11 @@ export function AssetPerformance({ stats }: { stats: AssetStats }) {
           {performance.map((horizon) => (
             <div key={horizon.id} className="rounded-lg border border-border p-2">
               <p className="text-[11px] text-muted-foreground">{horizon.label}</p>
-              <p className={cn('text-sm font-semibold font-mono', signClass(horizon.returnPct))}>
+              <p className={cn('text-sm font-semibold font-financial', signClass(horizon.returnPct))}>
                 {pct(horizon.returnPct, 1)}
               </p>
               {horizon.annualisedPct !== null && horizon.annualisedPct !== undefined && (
-                <p className="text-[11px] text-muted-foreground font-mono">
+                <p className="text-[11px] text-muted-foreground font-financial">
                   {pct(horizon.annualisedPct, 1)} anual
                 </p>
               )}
@@ -115,7 +115,7 @@ export function AssetRisk({ stats }: { stats: AssetStats }) {
               </span>
               <span
                 className={cn(
-                  'text-sm font-semibold font-mono',
+                  'text-sm font-semibold font-financial',
                   row.tone !== undefined ? signClass(row.tone) : undefined,
                 )}
               >

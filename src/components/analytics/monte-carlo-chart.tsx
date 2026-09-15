@@ -79,18 +79,18 @@ function CustomTooltip({
       <p className="text-xs text-muted-foreground">
         {label === 0 ? 'Hoy' : `Semana ${label}`}
       </p>
-      <p className="text-[11px] font-mono text-muted-foreground">
+      <p className="text-[11px] font-financial text-muted-foreground">
         P90 (optimista) <span className="text-foreground">{formatCurrency(band.p90, currency)}</span>
       </p>
-      <p className="text-sm font-mono font-semibold text-foreground flex items-center gap-1.5">
+      <p className="text-sm font-financial font-semibold text-foreground flex items-center gap-1.5">
         <span className="inline-block h-2 w-2 rounded-full" style={{ background: MEDIAN_COLOR }} />
         P50 {formatCurrency(band.p50, currency)}
       </p>
-      <p className="text-[11px] font-mono text-muted-foreground">
+      <p className="text-[11px] font-financial text-muted-foreground">
         P10 (pesimista) <span className="text-foreground">{formatCurrency(band.p10, currency)}</span>
       </p>
       {typeof band.currentValue === 'number' && band.currentValue > 0 && (
-        <p className="text-[11px] font-mono text-muted-foreground border-t pt-1 mt-1">
+        <p className="text-[11px] font-financial text-muted-foreground border-t pt-1 mt-1">
           Hoy <span className="text-foreground">{formatCurrency(band.currentValue, currency)}</span>
           {' \u00b7 '}
           <span className={band.p50 >= band.currentValue ? 'text-gain' : 'text-loss'}>

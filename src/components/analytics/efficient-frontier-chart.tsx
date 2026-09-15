@@ -56,15 +56,15 @@ function FrontierTooltip({
   return (
     <div className="rounded-lg border bg-card px-3 py-2 shadow-md space-y-1 max-w-60">
       {point.label && <p className="text-xs font-medium text-foreground">{point.label}</p>}
-      <p className="text-sm font-mono text-foreground">
+      <p className="text-sm font-financial text-foreground">
         {point.expectedReturnPct.toFixed(1)}% esperado
       </p>
-      <p className="text-[11px] font-mono text-muted-foreground">
+      <p className="text-[11px] font-financial text-muted-foreground">
         {point.volatilityPct.toFixed(1)}% volatilidad
         {point.sharpe != null ? ` · Sharpe ${point.sharpe.toFixed(2)}` : ''}
       </p>
       {point.weights && (
-        <p className="text-[11px] text-muted-foreground leading-relaxed border-t pt-1 mt-1">
+        <p className="text-[11px] text-muted-foreground leading-relaxed border-t pt-1 mt-1 font-financial">
           {point.weights
             .filter((w) => w.weight > 0.005)
             .sort((a, b) => b.weight - a.weight)

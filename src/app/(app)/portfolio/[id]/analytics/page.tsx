@@ -247,7 +247,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
                           <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
                             <div className="h-full bg-primary rounded-full" style={{ width: `${s.pct}%` }} />
                           </div>
-                          <span className="text-xs text-muted-foreground w-12 text-right">{s.pct.toFixed(1)}%</span>
+                          <span className="text-xs text-muted-foreground w-12 text-right font-financial">{s.pct.toFixed(1)}%</span>
                         </div>
                       </div>
                     ))}
@@ -274,7 +274,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
                         <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
                           <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(s.pct, 100)}%` }} />
                         </div>
-                        <span className="text-xs text-muted-foreground w-12 text-right">{s.pct.toFixed(1)}%</span>
+                        <span className="text-xs text-muted-foreground w-12 text-right font-financial">{s.pct.toFixed(1)}%</span>
                         {s.stale && (
                           <span className="text-xs text-warn" title="Precio desactualizado">*<span className="sr-only"> (precio desactualizado)</span></span>
                         )}

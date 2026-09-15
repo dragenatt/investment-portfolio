@@ -75,7 +75,7 @@ export function ModoEducativo({ educacion }: { educacion: Educacion | null }) {
                   </Badge>
                   <span
                     className={cn(
-                      'text-[11px] font-mono',
+                      'text-[11px] font-financial',
                       concepto.enTuPlan.procedencia === 'no-aplica'
                         ? 'text-muted-foreground'
                         : 'text-foreground',

@@ -157,7 +157,7 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right font-mono">{formatNumber(pos.quantity, 4)}</TableCell>
+                  <TableCell className="text-right font-financial">{formatNumber(pos.quantity, 4)}</TableCell>
                   <TableCell className="text-right"><FormattedAmount value={pos.avg_cost} from={costCur} /></TableCell>
                   <TableCell className="text-right">
                     <FormattedAmount value={currentPrice} from={priceCur} />
@@ -193,7 +193,7 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
                   {pos.name && (
                     <p className="text-xs text-muted-foreground truncate max-w-[140px]">{pos.name}</p>
                   )}
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-1 font-financial">
                     {formatNumber(pos.quantity, 4)} @ <FormattedAmount value={currentPrice} from={priceCur} />
                   </p>
                 </div>

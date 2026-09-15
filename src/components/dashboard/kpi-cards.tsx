@@ -43,8 +43,8 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
       </div>
 
       <p
-        className="font-bold tracking-tight"
-        style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(28px, 3vw, 40px)', letterSpacing: '-0.03em' }}
+        className="font-bold font-financial"
+        style={{ fontSize: 'clamp(28px, 3vw, 40px)' }}
       >
         {balanceVisible ? <FormattedAmount value={totalValue} /> : hiddenText}
       </p>
@@ -61,7 +61,7 @@ export function KpiCards({ totalValue, totalReturn, totalReturnPct, positionCoun
         <span className="text-sm font-medium" style={{ color: toneColor(returnTone) }}>
           {balanceVisible ? <FormattedAmount value={totalReturn} showSign /> : hiddenText}
         </span>
-        <span className="text-sm font-mono" style={{ color: toneColor(returnTone) }}>
+        <span className="text-sm font-financial" style={{ color: toneColor(returnTone) }}>
           ({balanceVisible ? <PercentageChange value={totalReturnPct} className="text-sm" /> : hiddenText})
         </span>
       </div>

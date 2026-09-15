@@ -35,9 +35,9 @@ export function TopMovers({ movers }: { movers: Mover[] }) {
                 <span className="text-xs text-muted-foreground truncate">{m.symbol}</span>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
-                <FormattedAmount value={m.price} from={m.currency} className="text-sm font-mono" />
+                <FormattedAmount value={m.price} from={m.currency} className="text-sm font-financial" />
                 <span
-                  className="text-xs font-mono font-medium"
+                  className="text-xs font-financial font-medium"
                   style={{ color: toneColor(tone) }}
                 >
                   {formatPercent(m.changePct)}

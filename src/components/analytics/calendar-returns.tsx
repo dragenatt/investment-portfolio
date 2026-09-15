@@ -86,7 +86,7 @@ export function CalendarReturns({ data, isLoading }: Props) {
       <CardHeader><CardTitle className="text-sm font-medium">Rendimientos Mensuales</CardTitle></CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse font-mono text-xs">
+          <table className="w-full border-collapse font-financial text-xs">
             <caption className="sr-only">Rendimiento de cada mes en porcentaje, por año</caption>
             <thead>
               <tr>

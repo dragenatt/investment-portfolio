@@ -43,7 +43,7 @@ export function SectorPerformance({ sectors }: { sectors: SectorData[] }) {
                 />
               </div>
               <span
-                className={`text-xs font-mono font-semibold w-18 text-right ${
+                className={`text-xs font-financial font-semibold w-18 text-right ${
                   toneTextClass(tone)
                 }`}
               >

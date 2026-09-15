@@ -120,7 +120,7 @@ function MetricCard({ explanation }: { explanation: MetricExplanation }) {
               <User className="h-3 w-3" />
               Tu resultado
             </p>
-            <p className="text-lg font-mono font-semibold tabular-nums text-foreground">{explanation.display}</p>
+            <p className="text-lg font-financial font-semibold text-foreground">{explanation.display}</p>
           </div>
         </div>
 
@@ -141,7 +141,7 @@ function MetricCard({ explanation }: { explanation: MetricExplanation }) {
           </summary>
           <div className="mt-2 space-y-1.5 text-[11px] leading-relaxed">
             <p className="text-muted-foreground">{explanation.example.setup}</p>
-            <p className="font-mono text-foreground">{explanation.example.steps}</p>
+            <p className="font-financial text-foreground">{explanation.example.steps}</p>
             <p className="text-foreground">{explanation.example.result}</p>
           </div>
         </details>

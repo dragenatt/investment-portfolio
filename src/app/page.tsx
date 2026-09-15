@@ -72,17 +72,17 @@ export default function LandingPage() {
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="bg-secondary rounded-xl p-4">
               <p className="text-xs text-muted-foreground mb-1">Valor Total</p>
-              <p className="text-xl font-bold font-mono text-foreground">$847,231.50</p>
+              <p className="text-xl font-bold font-financial text-foreground">$847,231.50</p>
               <p className="text-xs text-gain">+2.4% hoy</p>
             </div>
             <div className="bg-secondary rounded-xl p-4">
               <p className="text-xs text-muted-foreground mb-1">Ganancia Total</p>
-              <p className="text-xl font-bold font-mono text-gain">+$123,456.00</p>
+              <p className="text-xl font-bold font-financial text-gain">+$123,456.00</p>
               <p className="text-xs text-muted-foreground">+17.1%</p>
             </div>
             <div className="bg-secondary rounded-xl p-4">
               <p className="text-xs text-muted-foreground mb-1">Posiciones</p>
-              <p className="text-xl font-bold font-mono text-foreground">12</p>
+              <p className="text-xl font-bold font-financial text-foreground">12</p>
               <p className="text-xs text-muted-foreground">activos</p>
             </div>
           </div>

@@ -202,7 +202,7 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-8">
             <div>
               <p className="text-sm text-muted-foreground mb-1">{t.portfolio.total_value}</p>
-              <p className="text-3xl sm:text-4xl font-bold font-mono tracking-tight">
+              <p className="text-3xl sm:text-4xl font-bold font-financial tracking-tight">
                 <FormattedAmount value={summary.totalValue} />
               </p>
             </div>
@@ -265,17 +265,17 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
                                 {pos.symbol}
                               </Link>
                             </TableCell>
-                            <TableCell className="text-right font-mono text-sm">
+                            <TableCell className="text-right font-financial text-sm">
                               ${pos.currentPrice.toFixed(2)}
                             </TableCell>
                             <TableCell className="text-right">
-                              <span className={`text-xs font-medium ${toneTextClass(tone)}`}>
+                              <span className={`font-financial text-xs font-medium ${toneTextClass(tone)}`}>
                                 {formatSignedPercent(pos.changePct, 2)}
                               </span>
                             </TableCell>
                             {showAmounts && (
                               <>
-                                <TableCell className="text-right font-mono text-sm">
+                                <TableCell className="text-right font-financial text-sm">
                                   <FormattedAmount value={pos.marketValue} />
                                 </TableCell>
                                 <TableCell className="text-right">

@@ -51,8 +51,8 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
         })}
       </p>
       <p
-        className="font-bold font-mono"
-        style={{ fontFamily: 'var(--font-serif)', fontSize: '14px', letterSpacing: '-0.02em' }}
+        className="font-bold font-financial"
+        style={{ fontSize: '14px' }}
       >
         ${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </p>
