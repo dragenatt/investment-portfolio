@@ -34,7 +34,7 @@ const MIN_OBSERVATIONS = 60
 export async function computeOptimization(supabase: SupabaseClient, pid: string, _params: Record<string, never>) {
   const { data: portfolio } = await supabase
     .from('portfolios')
-    .select('currency')
+    .select('currency:base_currency')
     .eq('id', pid)
     .single()
 

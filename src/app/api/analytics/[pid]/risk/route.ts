@@ -43,7 +43,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
       // The portfolio's own currency decides which risk-free rate it has to beat.
       const { data: portfolio } = await supabase
         .from('portfolios')
-        .select('currency')
+        .select('currency:base_currency')
         .eq('id', pid)
         .single()
 

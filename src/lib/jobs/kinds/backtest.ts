@@ -21,7 +21,7 @@ export async function computeBacktest(supabase: SupabaseClient, pid: string, par
   const { costPct } = params
   const { data: portfolio } = await supabase
     .from('portfolios')
-    .select('currency')
+    .select('currency:base_currency')
     .eq('id', pid)
     .single()
 

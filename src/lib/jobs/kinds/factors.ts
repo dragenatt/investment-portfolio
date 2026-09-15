@@ -33,7 +33,7 @@ const LOOKBACK_DAYS = 400
 export async function computeFactors(supabase: SupabaseClient, pid: string, _params: Record<string, never>) {
   const { data: portfolio } = await supabase
     .from('portfolios')
-    .select('currency')
+    .select('currency:base_currency')
     .eq('id', pid)
     .single()
 

@@ -52,7 +52,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   const inputs = await withCache<Inputs>(`analytics:scenario-inputs:${pid}`, 900, async () => {
     const { data: portfolio } = await supabase
       .from('portfolios')
-      .select('currency')
+      .select('currency:base_currency')
       .eq('id', pid)
       .single()
 

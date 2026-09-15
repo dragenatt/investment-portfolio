@@ -72,7 +72,7 @@ async function getHandler(req: Request) {
   // Fetch portfolio names
   const { data: portfolios, error: pErr } = await supabase
     .from('portfolios')
-    .select('id, name, currency, visibility')
+    .select('id, name, currency:base_currency, visibility')
     .in('id', portfolioIds)
 
   if (pErr) return error(pErr.message, 500)
