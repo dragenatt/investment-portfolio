@@ -30,6 +30,8 @@ export type ChartTooltipContentProps = {
   valueFormatter: (value: unknown, entry: Entry) => string
   /** Series name as the reader should see it. */
   nameFormatter?: (name: string, entry: Entry) => string
+  /** Leave out entries Recharts adds that are not series, e.g. a Scatter's x value. */
+  includeEntry?: (entry: Entry) => boolean
 }
 
 export function ChartTooltipContent({
@@ -39,16 +41,18 @@ export function ChartTooltipContent({
   labelFormatter,
   valueFormatter,
   nameFormatter,
+  includeEntry,
 }: ChartTooltipContentProps) {
-  if (!active || !payload || payload.length === 0) return null
-  const title = labelFormatter ? labelFormatter(label, payload) : label
+  const entries = includeEntry ? (payload ?? []).filter(includeEntry) : payload
+  if (!active || !entries || entries.length === 0) return null
+  const title = labelFormatter ? labelFormatter(label, entries) : label
 
   return (
     <div className="chart-tooltip space-y-1 max-w-72">
       {title !== null && title !== undefined && title !== '' && (
         <p className="text-muted-foreground">{title}</p>
       )}
-      {payload.map((entry, index) => {
+      {entries.map((entry, index) => {
         const name = String(entry.name ?? entry.dataKey ?? '')
         return (
           <div key={`${name}-${index}`} className="flex items-center justify-between gap-4">

@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation, useFactors, useOptimization } from '@/lib/hooks/use-analytics'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { AllocationDonut, DrawdownChart, AttributionWaterfall, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart } from '@/components/charts/lazy-charts'
+import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart } from '@/components/charts/lazy-charts'
 
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -185,6 +185,10 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
 
         {/* Attribution Tab */}
         <TabsContent value="attribution" className="space-y-6 mt-6">
+          {/* Holding contributions over time (P2-4). Its own loading and error states. */}
+          <ErrorBoundary>
+            <TemporalAttribution portfolioId={id} />
+          </ErrorBoundary>
           <DataGate error={attrError} hasData={!!attribution} what="la atribución">
           <ErrorBoundary>
             <AttributionWaterfall

@@ -122,6 +122,13 @@ export type BookHistory = {
   snapshots: Array<{ date: string; value: number }>
   /** Buys positive, sales negative, valued at the snapshot's close. */
   flows: Array<{ date: string; amount: number }>
+  /**
+   * The same snapshots split by holding: each symbol's value on each date,
+   * before that date's trades (P2-4). Values sum to `snapshots[i].value`.
+   */
+  symbolSnapshots: Array<{ date: string; values: Record<string, number> }>
+  /** The same flows split by holding. Amounts sum, per date, to `flows`. */
+  symbolFlows: Array<{ date: string; symbol: string; amount: number }>
 }
 
 /** Last close on or before `date`, by binary search over ascending dates. */
@@ -172,7 +179,7 @@ export function reconstructBookHistory(
   prices: PriceMap,
   options: { from?: string } = {},
 ): BookHistory {
-  if (transactions.length === 0) return { snapshots: [], flows: [] }
+  if (transactions.length === 0) return { snapshots: [], flows: [], symbolSnapshots: [], symbolFlows: [] }
 
   const txns = transactions
     .map((txn, index) => ({ ...txn, date: txn.executed_at.slice(0, 10), index }))
@@ -187,7 +194,7 @@ export function reconstructBookHistory(
   const valuationDates = [...new Set(symbols.flatMap((symbol) => priceDates[symbol]))]
     .filter((date) => date >= start)
     .sort()
-  if (valuationDates.length === 0) return { snapshots: [], flows: [] }
+  if (valuationDates.length === 0) return { snapshots: [], flows: [], symbolSnapshots: [], symbolFlows: [] }
 
   const holdings: Record<string, number> = {}
   const lastTradePrice: Record<string, number> = {}
@@ -198,16 +205,22 @@ export function reconstructBookHistory(
     return lastTradePrice[symbol] ?? 0
   }
 
-  const bookValue = (date: string): number => {
-    let value = 0
+  const valuesBySymbol = (date: string): Record<string, number> => {
+    const values: Record<string, number> = {}
     for (const [symbol, quantity] of Object.entries(holdings)) {
-      if (quantity > 0) value += quantity * priceOn(symbol, date)
+      if (quantity > 0) values[symbol] = quantity * priceOn(symbol, date)
     }
-    return value
+    return values
   }
 
   const snapshots: BookHistory['snapshots'] = []
   const flows: BookHistory['flows'] = []
+  const symbolSnapshots: BookHistory['symbolSnapshots'] = []
+  const symbolFlows: BookHistory['symbolFlows'] = []
+  const recordFlowFor = (date: string, symbol: string, amount: number) => {
+    flows.push({ date, amount })
+    symbolFlows.push({ date, symbol, amount })
+  }
 
   let next = 0
   // Trades dated before the first valuation build the opening holdings. Their
@@ -218,7 +231,7 @@ export function reconstructBookHistory(
     switch (txn.type) {
       case 'buy': {
         holdings[txn.symbol] = addQuantity(held, txn.quantity)
-        if (recordFlow) flows.push({ date: txn.date, amount: txn.quantity * priceOn(txn.symbol, txn.date) })
+        if (recordFlow) recordFlowFor(txn.date, txn.symbol, txn.quantity * priceOn(txn.symbol, txn.date))
         break
       }
       case 'sell': {
@@ -228,7 +241,7 @@ export function reconstructBookHistory(
         holdings[txn.symbol] = remaining
         const removed = held - remaining
         if (recordFlow && removed > 0) {
-          flows.push({ date: txn.date, amount: -removed * priceOn(txn.symbol, txn.date) })
+          recordFlowFor(txn.date, txn.symbol, -removed * priceOn(txn.symbol, txn.date))
         }
         break
       }
@@ -256,7 +269,9 @@ export function reconstructBookHistory(
       if (txns[k].type === 'split') apply(txns[k], false)
     }
 
-    snapshots.push({ date, value: bookValue(date) })
+    const values = valuesBySymbol(date)
+    snapshots.push({ date, value: Object.values(values).reduce((sum, v) => sum + v, 0) })
+    symbolSnapshots.push({ date, values })
 
     // Then today's trades, and those on any non-trading days before the next
     // valuation, all flowing into the period that opens here.
@@ -267,5 +282,5 @@ export function reconstructBookHistory(
     }
   }
 
-  return { snapshots, flows }
+  return { snapshots, flows, symbolSnapshots, symbolFlows }
 }

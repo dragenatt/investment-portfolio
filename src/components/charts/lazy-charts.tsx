@@ -35,6 +35,10 @@ export const AttributionWaterfall = dynamic(
   () => import('@/components/analytics/attribution-waterfall').then((m) => m.AttributionWaterfall),
   { ssr: false, loading },
 )
+export const TemporalAttribution = dynamic(
+  () => import('@/components/analytics/temporal-attribution').then((m) => m.TemporalAttribution),
+  { ssr: false, loading },
+)
 export const IncomeDashboard = dynamic(
   () => import('@/components/analytics/income-dashboard').then((m) => m.IncomeDashboard),
   { ssr: false, loading },

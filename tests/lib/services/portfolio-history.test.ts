@@ -169,7 +169,7 @@ describe('reconstructBookHistory', () => {
   })
 
   it('returns nothing to measure without transactions or prices', () => {
-    expect(reconstructBookHistory([], { AAPL: { '2026-01-12': 1 } })).toEqual({ snapshots: [], flows: [] })
+    expect(reconstructBookHistory([], { AAPL: { '2026-01-12': 1 } })).toEqual({ snapshots: [], flows: [], symbolSnapshots: [], symbolFlows: [] })
     expect(reconstructBookHistory([t('2026-01-12', 'buy', 'AAPL', 1, 1)], {}).snapshots).toEqual([])
   })
 })
@@ -225,5 +225,41 @@ describe('regression: the returns route TWR', () => {
     const last = dates[dates.length - 1]
     const currentValue = 1.5 * prices.VOO[last] + 0.6 * prices.MSFT[last]
     expect(Number.isFinite(calculateMWR(investorFlows, currentValue, new Date(`${last}T00:00:00Z`))!)).toBe(true)
+  })
+})
+
+describe('reconstructBookHistory by holding (P2-4)', () => {
+  const prices = {
+    AAPL: { '2026-03-02': 100, '2026-03-03': 110, '2026-03-04': 121 },
+    MSFT: { '2026-03-02': 50, '2026-03-03': 50, '2026-03-04': 45 },
+  }
+  const history = reconstructBookHistory(
+    [
+      t('2026-03-02', 'buy', 'AAPL', 1, 100),
+      t('2026-03-02', 'buy', 'MSFT', 2, 50),
+      t('2026-03-03', 'buy', 'AAPL', 1, 110),
+      t('2026-03-04', 'sell', 'MSFT', 2, 45),
+    ],
+    prices,
+  )
+
+  it('splits every snapshot by holding, and the parts add up to the whole', () => {
+    expect(history.symbolSnapshots.map((s) => s.date)).toEqual(history.snapshots.map((s) => s.date))
+    history.symbolSnapshots.forEach((split, i) => {
+      const sum = Object.values(split.values).reduce((a, b) => a + b, 0)
+      expect(sum).toBeCloseTo(history.snapshots[i].value, 10)
+    })
+    // Before 03-03's trade: one AAPL at 110 and two MSFT at 50.
+    expect(history.symbolSnapshots[1].values).toEqual({ AAPL: 110, MSFT: 100 })
+  })
+
+  it('splits every flow by holding, with the same sign and valuation', () => {
+    expect(history.symbolFlows).toEqual([
+      { date: '2026-03-02', symbol: 'AAPL', amount: 100 },
+      { date: '2026-03-02', symbol: 'MSFT', amount: 100 },
+      { date: '2026-03-03', symbol: 'AAPL', amount: 110 },
+      { date: '2026-03-04', symbol: 'MSFT', amount: -90 },
+    ])
+    expect(history.symbolFlows.map((f) => f.amount)).toEqual(history.flows.map((f) => f.amount))
   })
 })

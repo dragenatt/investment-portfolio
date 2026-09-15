@@ -180,6 +180,20 @@ export function useAttribution(pid: string | null) {
   )
 }
 
+// --- Contribution over time (P2-4) ---
+export type TemporalAttributionData = import('@/lib/services/temporal-attribution').TemporalAttribution & {
+  period: string
+  from: string
+}
+
+export function useTemporalAttribution(pid: string | null, granularity: string, period: string) {
+  return useSWR<TemporalAttributionData>(
+    pid ? `/api/analytics/${pid}/attribution/temporal?granularity=${granularity}&period=${period}` : null,
+    apiFetcher,
+    { keepPreviousData: true, revalidateOnFocus: false },
+  )
+}
+
 // --- Income ---
 export type IncomeData = {
   totals: {

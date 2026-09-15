@@ -10,12 +10,8 @@ import {
   capitalWeightedAgeDays,
   calendarReturns,
 } from '@/lib/services/returns'
-import {
-  reconstructBookHistory,
-  type BookTransaction,
-  type PriceMap,
-} from '@/lib/services/portfolio-history'
-import { getHistory } from '@/lib/services/market'
+import { reconstructBookHistory } from '@/lib/services/portfolio-history'
+import { loadBookTransactions, loadPriceMap, periodCutoff } from '@/lib/services/book-inputs'
 import { apiHandler } from '@/lib/api/handler'
 
 async function getHandler(req: Request, { params }: { params: Promise<{ pid: string }> }) {
@@ -31,7 +27,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
     `${CACHE_KEYS.ANALYTICS_RETURNS}${user.id}:${pid}:${period}`,
     600,
     async () => {
-      const cutoff = getPeriodCutoff(period)
+      const cutoff = periodCutoff(period)
 
       // Try snapshots first
       const { data: snapshots } = await supabase
@@ -43,21 +39,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
 
       // Every transaction, not just those in the window: the holdings on the
       // first day of the window depend on everything bought before it.
-      const { data: allTransactions } = await supabase
-        .from('transactions')
-        .select('executed_at, type, quantity, price, position:positions!inner(portfolio_id, symbol)')
-        .eq('position.portfolio_id', pid)
-        .order('executed_at', { ascending: true })
-        // Ties on executed_at (the modal records a date, not a time) replay in entry order.
-        .order('created_at', { ascending: true })
-
-      const bookTransactions: BookTransaction[] = (allTransactions ?? []).map((t) => ({
-        executed_at: t.executed_at as string,
-        type: t.type as BookTransaction['type'],
-        symbol: (t.position as unknown as { symbol: string }).symbol,
-        quantity: t.quantity as number,
-        price: t.price as number,
-      }))
+      const bookTransactions = await loadBookTransactions(supabase, pid)
       const inWindow = bookTransactions.filter((t) => t.executed_at.slice(0, 10) >= cutoff)
 
       // MWR keeps its investor convention, unchanged: a purchase is money
@@ -93,37 +75,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         const symbols = [
           ...new Set([...bookTransactions.map((t) => t.symbol), ...(positions ?? []).map((p) => p.symbol)]),
         ]
-        const priceMap: PriceMap = {}
-
-        await Promise.all(
-          symbols.map(async (symbol) => {
-            try {
-              // Try DB first
-              const { data: cached } = await supabase
-                .from('price_history')
-                .select('date, close')
-                .eq('symbol', symbol)
-                .gte('date', cutoff)
-                .order('date', { ascending: true })
-
-              if (cached && cached.length >= 5) {
-                priceMap[symbol] = {}
-                for (const row of cached) priceMap[symbol][row.date] = row.close
-                return
-              }
-
-              // Fallback to Yahoo
-              const range = periodToRange(period)
-              const history = await getHistory(symbol, range)
-              priceMap[symbol] = {}
-              for (const point of history) {
-                if (point.close == null) continue
-                const date = new Date(point.date).toISOString().slice(0, 10)
-                if (date >= cutoff) priceMap[symbol][date] = point.close
-              }
-            } catch { /* skip */ }
-          })
-        )
+        const priceMap = await loadPriceMap(supabase, symbols, cutoff, period)
 
         // The book as it stood on each date — not today's holdings carried
         // backwards — with flows valued at the same closes. See
@@ -190,32 +142,6 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   )
 
   return success(data)
-}
-
-function getPeriodCutoff(period: string): string {
-  const now = new Date()
-  switch (period) {
-    case '1M': now.setMonth(now.getMonth() - 1); break
-    case '3M': now.setMonth(now.getMonth() - 3); break
-    case '6M': now.setMonth(now.getMonth() - 6); break
-    case 'YTD': now.setMonth(0); now.setDate(1); break
-    case '1Y': now.setFullYear(now.getFullYear() - 1); break
-    case 'ALL': now.setFullYear(2020); break
-    default: now.setFullYear(now.getFullYear() - 1)
-  }
-  return now.toISOString().split('T')[0]
-}
-
-function periodToRange(period: string): string {
-  switch (period) {
-    case '1M': return '1mo'
-    case '3M': return '3mo'
-    case '6M': return '6mo'
-    case 'YTD': return '1y'
-    case '1Y': return '1y'
-    case 'ALL': return 'max'
-    default: return '1y'
-  }
 }
 
 export const GET = apiHandler(getHandler)
