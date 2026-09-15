@@ -17,8 +17,8 @@ import { adjustSeriesBySymbol } from './corporate-actions'
 
 export type PriceRow = { symbol: string; date: string; close: number }
 
-/** Which tier of the chain produced the rows. */
-export type HistorySource = 'stored' | 'provider' | 'none'
+/** Which tier of the chain produced the rows; 'mixed' when stored rows were completed from a provider. */
+export type HistorySource = 'stored' | 'provider' | 'mixed' | 'none'
 
 export type HistoryResult = {
   /** Split-adjusted, ascending by date. */
@@ -140,7 +140,7 @@ export async function fetchAdjustedPriceHistory(
     const thinStored = storedRows.filter((r) => thin.has(r.symbol))
 
     const rows = adjustSeriesBySymbol(mergeRows([...kept, ...thinStored], [...added, ...fromProviders]))
-    return { rows, source: 'stored', ...coverage(rows, symbols) }
+    return { rows, source: added.length + fromProviders.length > 0 ? 'mixed' : 'stored', ...coverage(rows, symbols) }
   }
 
   // ── Tier 2: the live provider chain ──────────────────────────────────────

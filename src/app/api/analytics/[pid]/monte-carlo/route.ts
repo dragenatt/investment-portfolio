@@ -1,6 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { withCache } from '@/lib/cache/with-cache'
+import { withAuditedCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { computeMonteCarlo } from '@/lib/jobs/kinds/monte-carlo'
 import { normaliseJobParams } from '@/lib/services/jobs'
@@ -20,7 +20,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ pid: str
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const data = await withCache(`${CACHE_KEYS.ANALYTICS_MONTE_CARLO}${user.id}:${pid}:${weeks}`, 300, () =>
+  const data = await withAuditedCache(`${CACHE_KEYS.ANALYTICS_MONTE_CARLO}${user.id}:${pid}:${weeks}`, 300, () =>
     computeMonteCarlo(supabase, pid, { weeks }),
   )
   return success(data)

@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getHistory, getBatchQuotes } from '@/lib/services/market'
 import { getPortfolioBenchmark } from '@/lib/services/benchmarks'
 import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
+import { buildResultMetadata } from '@/lib/services/result-metadata'
+import { BENCHMARKS } from '@/lib/services/benchmarks'
 import { calculateDailyReturns, calculateBetaAlpha } from '@/lib/services/analytics'
 import {
   HISTORICAL_EPISODES,
@@ -58,11 +60,13 @@ export async function computeStress(supabase: SupabaseClient, pid: string, _para
   // Betas from ordinary one-year daily data, for holdings too young to have
   // lived through an episode. Marked as estimates downstream.
   const betas: Record<string, number> = {}
+  let betaSource: 'stored' | 'provider' | 'mixed' | 'none' = 'none'
   try {
-    const { rows } = await fetchAdjustedPriceHistory(supabase, [
+    const { rows, source } = await fetchAdjustedPriceHistory(supabase, [
       ...symbols,
       benchmarkSymbol,
     ])
+    betaSource = source
     const closesFor = (symbol: string) =>
       rows
         .filter((r: PriceRow) => r.symbol === symbol)
@@ -133,5 +137,22 @@ export async function computeStress(supabase: SupabaseClient, pid: string, _para
       ...result,
       summary: describeStressResult(result),
     })),
+    _meta: buildResultMetadata({
+      model: 'stress',
+      data: {
+        description: 'Historial largo de cada posición y del benchmark consultado al proveedor (sin guardar), y betas de un año de datos diarios para las posiciones sin historia en un episodio',
+        symbols,
+        excluded: symbols.filter((s) => !prices.has(s) && betas[s] === undefined),
+        priceSource: betaSource === 'none' ? 'provider' : 'mixed',
+      },
+      period: { from: null, to: null, observations: results.length, cadence: 'mensual antes de 2020' },
+      assumptions: [
+        { name: 'Episodios', value: `${HISTORICAL_EPISODES.length} crisis históricas del catálogo`, source: 'stress-testing.ts (HISTORICAL_EPISODES)' },
+        { name: 'Posiciones sin historia en el episodio', value: 'Caída del benchmark por su beta de un año', source: 'stress-testing.ts' },
+        { name: 'Granularidad', value: 'Barras mensuales antes de 2020: la caída pico-valle real fue algo mayor', source: 'Límite del proveedor' },
+        { name: 'Precios', value: 'Cierre ajustado por splits y dividendos en el historial largo', source: 'stress job' },
+      ],
+      benchmark: { symbol: benchmarkSymbol, name: BENCHMARKS.find((b) => b.symbol === benchmarkSymbol)?.name ?? benchmarkSymbol },
+    }),
   }
 }

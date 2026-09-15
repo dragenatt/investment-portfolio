@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { withCache } from '@/lib/cache/with-cache'
+import { withCacheInfo } from '@/lib/cache/with-cache'
+import { buildResultMetadata, COMMON_ASSUMPTIONS, type PriceSource } from '@/lib/services/result-metadata'
 import { apiHandler } from '@/lib/api/handler'
 import { fetchAdjustedPriceHistory } from '@/lib/services/price-history'
 import { alignCommonHistory } from '@/lib/services/common-history'
@@ -31,6 +32,9 @@ type Inputs =
       toDate: string
       riskFree: Awaited<ReturnType<typeof getRiskFreeRate>>
       candidates: Candidate[]
+      priceSource: PriceSource
+      excluded: string[]
+      computedAt: string
     }
 
 /**
@@ -50,7 +54,8 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   if (!user) return error('Unauthorized', 401)
 
   // Scoped to the caller: RLS decided what went into these inputs.
-  const inputs = await withCache<Inputs>(`analytics:scenario-inputs:${user.id}:${pid}`, 900, async () => {
+  const INPUTS_TTL = 900
+  const { data: inputs, cached: inputsCached } = await withCacheInfo<Inputs>(`analytics:scenario-inputs:${user.id}:${pid}`, INPUTS_TTL, async () => {
     const { data: portfolio } = await supabase
       .from('portfolios')
       .select('currency:base_currency')
@@ -64,10 +69,10 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       .gt('quantity', 0)
 
     const symbols = (positions ?? []).map((p) => p.symbol)
-    const { rows: history } =
+    const { rows: history, source: priceSource } =
       symbols.length >= 2
         ? await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
-        : { rows: [] }
+        : { rows: [], source: 'none' as const }
 
     const aligned = alignCommonHistory(positions ?? [], history, { minObservations: MIN_OBSERVATIONS })
     if ('message' in aligned) return { message: aligned.message }
@@ -131,6 +136,9 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       toDate: lastDate,
       riskFree,
       candidates,
+      priceSource,
+      excluded: symbols.filter((s) => !active.includes(s)),
+      computedAt: new Date().toISOString(),
     }
   })
 
@@ -181,6 +189,24 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
     request: { horizon_years: request.horizonYears, include: request.include, errors: request.errors },
     comparison,
     message: comparison ? null : 'Elige al menos dos escenarios para compararlos.',
+    _meta: {
+      ...buildResultMetadata({
+        model: 'scenarioComparison',
+        data: { description: 'Rendimientos diarios de las posiciones en sus fechas comunes', symbols: inputs.symbols, excluded: inputs.excluded, priceSource: inputs.priceSource },
+        period: { from: inputs.fromDate, to: inputs.toDate, observations: inputs.observations, cadence: '1 dia' },
+        assumptions: [
+          COMMON_ASSUMPTIONS.tradingDays,
+          COMMON_ASSUMPTIONS.splitAdjusted,
+          { name: 'Simulación', value: 'Movimiento browniano geométrico correlacionado, semanal, mismas trayectorias para todas las asignaciones', source: 'monte-carlo.ts (simulateWeightings)' },
+          { name: 'Horizonte', value: `${request.horizonYears} años`, source: 'Elegido en la página' },
+        ],
+        riskFreeRate: inputs.riskFree,
+      }),
+      // The comparison runs on each request; its inputs may come from the
+      // cache, and then they are as old as when they were stored.
+      computedAt: inputs.computedAt,
+      cache: { served: inputsCached ? 'cache' : 'computed', ttlSeconds: INPUTS_TTL },
+    },
   })
 }
 

@@ -1,6 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { withCache } from '@/lib/cache/with-cache'
+import { withAuditedCache } from '@/lib/cache/with-cache'
 import { apiHandler } from '@/lib/api/handler'
 import { computeBacktest } from '@/lib/jobs/kinds/backtest'
 
@@ -17,7 +17,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   const url = new URL(req.url)
   const costPct = Number(url.searchParams.get('cost') ?? 0.1)
 
-  const data = await withCache(`analytics:backtest:${user.id}:${pid}:${costPct}`, 3600, () =>
+  const data = await withAuditedCache(`analytics:backtest:${user.id}:${pid}:${costPct}`, 3600, () =>
     computeBacktest(supabase, pid, { costPct }),
   )
 

@@ -23,6 +23,7 @@ import {
   type JobStatus,
   type JobErrorKind,
 } from '@/lib/services/jobs'
+import { markServed } from '@/lib/services/result-metadata'
 import { computeMonteCarlo } from './kinds/monte-carlo'
 import { computeBacktest } from './kinds/backtest'
 import { computeFactors } from './kinds/factors'
@@ -257,7 +258,12 @@ export async function sweepJobs(admin: SupabaseClient, now = Date.now()): Promis
 }
 
 /** What a client is allowed to see of a job. */
-export function publicJob(job: JobRow) {
+export function publicJob(job: JobRow, options: { reused?: boolean } = {}) {
+  // A completed job handed back without running again is a stored result (P2-10).
+  const result =
+    job.status === 'completed'
+      ? markServed(job.result, options.reused ? 'cache' : 'computed', JOB_POLICY[job.kind as JobKind].resultTtlSeconds)
+      : null
   return {
     job_id: job.id,
     kind: job.kind,
@@ -266,7 +272,7 @@ export function publicJob(job: JobRow) {
     max_attempts: job.max_attempts,
     error: job.status === 'failed' || job.status === 'retrying' ? job.error : null,
     error_kind: job.status === 'failed' || job.status === 'retrying' ? job.error_kind : null,
-    result: job.status === 'completed' ? job.result : null,
+    result,
     created_at: job.created_at,
     updated_at: job.updated_at,
   }

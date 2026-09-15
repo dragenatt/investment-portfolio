@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { AuditTrail } from '@/components/analytics/audit-trail'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { cn } from '@/lib/utils'
@@ -259,6 +260,7 @@ export function ScenarioComparisonCard({ pid }: { pid: string }) {
         ) : (
           data?.message && available.length > 0 && <p className="text-sm text-muted-foreground">{data.message}</p>
         )}
+        <AuditTrail meta={data?._meta} />
       </CardContent>
     </Card>
   )

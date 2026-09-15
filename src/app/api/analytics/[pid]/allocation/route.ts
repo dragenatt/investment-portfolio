@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { withCache } from '@/lib/cache/with-cache'
+import { withAuditedCache } from '@/lib/cache/with-cache'
+import { buildResultMetadata } from '@/lib/services/result-metadata'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { apiHandler } from '@/lib/api/handler'
 
@@ -10,7 +11,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const data = await withCache(
+  const data = await withAuditedCache(
     `${CACHE_KEYS.ANALYTICS_ALLOCATION}${user.id}:${pid}`,
     300,
     async () => {
@@ -79,6 +80,16 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         })),
         bySymbol: bySymbol.sort((a, b) => b.value - a.value),
         total,
+        _meta: buildResultMetadata({
+          model: 'allocation',
+          data: {
+            description: 'Posiciones actuales valuadas a su última cotización guardada',
+            symbols,
+            excluded: symbols.filter((s) => !priceMap[s]),
+            priceSource: 'stored',
+          },
+          assumptions: [{ name: 'Sin cotización', value: 'Se usa el costo promedio y la posición se marca como desactualizada', source: 'allocation route' }],
+        }),
       }
     }
   )

@@ -16,6 +16,7 @@ import {
 } from '@/lib/services/robust-optimizer'
 import { compareBlackLittermanVsMarkowitz } from '@/lib/services/black-litterman'
 import { compareModels } from '@/lib/services/model-comparison'
+import { buildResultMetadata, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
 
 const TRADING_DAYS = 252
 
@@ -46,10 +47,10 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
     .gt('quantity', 0)
 
   const symbols = (positions ?? []).map((p) => p.symbol)
-  const { rows: history } =
+  const { rows: history, source: priceSource } =
     symbols.length >= 2
       ? await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
-      : { rows: [] }
+      : { rows: [], source: 'none' as const }
 
   // Only holdings with a real price series, and only dates every one of
   // them has — see common-history.ts, shared with the scenario comparison.
@@ -194,5 +195,20 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
       : null,
     model_comparison: modelComparison,
     caveat: FRONTIER_CAVEAT,
+    _meta: buildResultMetadata({
+      model: 'optimization',
+      data: { description: 'Rendimientos diarios de las posiciones en sus fechas comunes, pesos al último cierre común', symbols: activeSymbols, excluded: symbols.filter((s) => !activeSymbols.includes(s)), priceSource },
+      period: { from: commonDates[0], to: lastDate, observations: commonDates.length - 1, cadence: '1 dia' },
+      assumptions: [
+        COMMON_ASSUMPTIONS.tradingDays,
+        COMMON_ASSUMPTIONS.splitAdjusted,
+        { name: 'Rendimientos esperados', value: 'Media histórica anualizada', source: 'optimizer.ts (historicalExpectedReturns)' },
+        { name: 'Rangos de rendimiento', value: '±1 error estándar de la media', source: 'optimization job' },
+        { name: 'Restricciones', value: 'Solo largos, 100% invertido', source: 'optimizer.ts' },
+        { name: 'Equilibrio de Black-Litterman', value: 'Implícito en tus pesos actuales, aversión al riesgo 2.5, tau 0.05', source: 'black-litterman.ts' },
+        { name: 'CVaR', value: '95%, un día, histórico', source: 'allocation-strategies.ts' },
+      ],
+      riskFreeRate: riskFree,
+    }),
   }
 }

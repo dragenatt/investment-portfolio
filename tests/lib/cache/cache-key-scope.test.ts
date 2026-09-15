@@ -41,7 +41,7 @@ function cacheKeys(source: string): string[] {
   const keys: string[] = []
   // Any cache wrapper, with or without a type argument: `withCache<Inputs>(` slipped past
   // a pattern that only knew `withCache(`, and a per-user key without the user with it.
-  const calls = /\b(?:withCache\w*|cacheGet|cacheSet)(?:<[^>]*>)?\(\s*([^,]+),/g
+  const calls = /\b(?:with\w*Cache\w*|cacheGet|cacheSet)(?:<[^>]*>)?\(\s*([^,]+),/g
   for (const match of source.matchAll(calls)) {
     // Drop comments written inside the call, before the key.
     let arg = match[1].replace(/\/\/[^\n]*\n/g, '').trim()

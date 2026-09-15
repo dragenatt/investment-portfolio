@@ -3,7 +3,8 @@ import { success, error } from '@/lib/api/response'
 import { calculateVolatility, calculateDailyReturns, calculateBetaAlpha, explainBenchmarkMetrics } from '@/lib/services/analytics'
 import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
 import { getPortfolioBenchmark, BENCHMARKS } from '@/lib/services/benchmarks'
-import { withCache } from '@/lib/cache/with-cache'
+import { withAuditedCache } from '@/lib/cache/with-cache'
+import { buildResultMetadata, combinePriceSources, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
 import { calculateCovarianceMatrix } from '@/lib/services/covariance'
@@ -36,7 +37,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const data = await withCache(
+  const data = await withAuditedCache(
     `${CACHE_KEYS.ANALYTICS_RISK}${user.id}:${pid}`,
     300,
     async () => {
@@ -64,17 +65,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
 
       // Get price history — tries DB first, falls back to Yahoo Finance
       const symbols = positions.map(p => p.symbol)
-      const { rows: history } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
+      const { rows: history, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
 
       if (history.length < 10) {
         return { message: 'No positions' }
       }
 
       let benchmarkReturns: number[] = []
+      let benchmarkSource: typeof priceSource | null = null
       try {
-        const { rows: benchmarkHistory } = await fetchAdjustedPriceHistory(supabase, [
+        const { rows: benchmarkHistory, source: benchmarkTier } = await fetchAdjustedPriceHistory(supabase, [
           benchmarkSymbol,
         ])
+        benchmarkSource = benchmarkTier
         if (benchmarkHistory.length >= 10) {
           const closes = benchmarkHistory
             .filter((h: PriceRow) => h.symbol === benchmarkSymbol)
@@ -374,6 +377,26 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
             : null,
         },
         dataPoints: values.length,
+        _meta: buildResultMetadata({
+          model: 'risk',
+          data: {
+            description: `Valor diario del portafolio con las cantidades actuales y precios de cierre${benchmarkReturns.length >= 10 ? ', e historial del benchmark' : ''}`,
+            symbols: positions.map((p) => p.symbol).filter((s) => !excludedSymbols.includes(s)),
+            excluded: excludedSymbols,
+            priceSource: combinePriceSources(priceSource, benchmarkReturns.length >= 10 ? benchmarkSource : null),
+          },
+          period: { from: dates[0], to: dates[dates.length - 1], observations: returns.length, cadence: cadence.label },
+          assumptions: [
+            COMMON_ASSUMPTIONS.tradingDays,
+            COMMON_ASSUMPTIONS.splitAdjusted,
+            COMMON_ASSUMPTIONS.priceReturn,
+            { name: 'VaR', value: '95%, un día; histórico, paramétrico, Cornish-Fisher y CVaR', source: 'var.ts' },
+            { name: 'Alfa de esta vista', value: 'Rendimiento activo simple (tasa libre en cero para beta y alfa)', source: 'Convención de la ruta de riesgo' },
+            { name: 'Puntaje de riesgo', value: 'Volatilidad, caída máxima y Sharpe negativo, escala 0-10', source: 'Convención (risk route)' },
+          ],
+          benchmark: { symbol: benchmarkSymbol, name: BENCHMARKS.find((b) => b.symbol === benchmarkSymbol)?.name ?? benchmarkSymbol },
+          riskFreeRate: riskFree,
+        }),
       }
     }
   )

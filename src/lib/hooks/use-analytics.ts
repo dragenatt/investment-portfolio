@@ -5,6 +5,7 @@ import type { ModelComparison } from '@/lib/services/model-comparison'
 import type { PortfolioHealth } from '@/lib/services/portfolio-health'
 import type { PortfolioDiagnostic as PortfolioDiagnosticResult } from '@/lib/services/portfolio-diagnostic'
 import type { EstimateReliability, PortfolioScenarioRequest, ScenarioResult } from '@/lib/services/scenario-engine'
+import type { ResultMetadata } from '@/lib/services/result-metadata'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useJob } from './use-job'
 import type { ScenarioComparison } from '@/lib/services/scenario-comparison'
@@ -26,6 +27,8 @@ export type CalendarYear = {
 }
 
 export type ReturnsData = {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   summary: ReturnsSummary
   calendar: CalendarYear[]
 }
@@ -40,6 +43,8 @@ export function useReturns(pid: string | null) {
 
 // --- Risk ---
 export type RiskData = {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   current: {
     risk_score: number
     sharpe_ratio: number
@@ -135,6 +140,8 @@ export type MonteCarloBandData = {
 }
 
 export type MonteCarloData = {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   current_value: number
   weeks: number
   simulations: number
@@ -169,6 +176,8 @@ export type AttributionSector = {
 }
 
 export type AttributionData = {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   sectors: AttributionSector[]
   total: {
     allocation_effect: number
@@ -188,6 +197,8 @@ export function useAttribution(pid: string | null) {
 
 // --- Contribution over time (P2-4) ---
 export type TemporalAttributionData = import('@/lib/services/temporal-attribution').TemporalAttribution & {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   period: string
   from: string
 }
@@ -202,6 +213,8 @@ export function useTemporalAttribution(pid: string | null, granularity: string, 
 
 // --- Risk sources (P2-5) ---
 export type RiskSourcesData = Partial<RiskSources> & {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   message?: string
   window?: { from: string; to: string; intervals_used: number; intervals_available: number; cadence: string }
   excluded_symbols?: string[]
@@ -217,6 +230,8 @@ export function useRiskSources(pid: string | null) {
 
 // --- Portfolio Health (P2-7) ---
 export type HealthData = Partial<PortfolioHealth> & {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   message?: string
   window?: { from: string; to: string; intervals_used: number; cadence: string }
   excluded_symbols?: string[]
@@ -229,6 +244,8 @@ export function useHealth(pid: string | null) {
 
 // --- Portfolio diagnostic (P2-8) ---
 export type DiagnosticData = Partial<PortfolioDiagnosticResult> & {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   risk_window?: { from: string; to: string } | null
   return_window?: { from: string; to: string } | null
   benchmark?: { symbol: string; name: string }
@@ -240,6 +257,8 @@ export function useDiagnostic(pid: string | null) {
 
 // --- Scenario engine (P2-9) ---
 export type ScenarioEngineData = {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   message?: string
   request?: PortfolioScenarioRequest
   allocation?: { preset: string; name: string; weights: Array<{ symbol: string; weight: number }> }
@@ -259,6 +278,8 @@ export function useScenarioEngine(pid: string | null, query: string) {
 
 // --- Income ---
 export type IncomeData = {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   totals: {
     mtd: number
     ytd: number
@@ -286,6 +307,8 @@ export function useIncome(pid: string | null) {
 
 // --- Allocation ---
 export type AllocationData = {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   byType: Array<{ name: string; value: number; pct: number }>
   bySector: Array<{ sector: string; value: number; pct: number }>
   bySymbol: Array<{ symbol: string; value: number; pct: number; stale: boolean }>
@@ -358,6 +381,8 @@ export type FactorLoading = {
 }
 
 export type FactorsData = {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   message?: string
   source?: 'stored' | 'built'
   from_date?: string
@@ -401,6 +426,8 @@ export type FrontierPoint = {
 }
 
 export type OptimizationData = {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   message?: string
   symbols?: string[]
   observations?: number
@@ -452,6 +479,8 @@ export function useOptimization(pid: string | null) {
 export type { ScenarioComparison, ScenarioMetrics, ScenarioExplanation } from '@/lib/services/scenario-comparison'
 
 export type ScenarioComparisonData = {
+  /** Where the result comes from (P2-10). */
+  _meta?: ResultMetadata
   message?: string | null
   symbols?: string[]
   observations?: number

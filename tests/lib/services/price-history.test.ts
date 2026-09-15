@@ -158,7 +158,8 @@ describe('fetchAdjustedPriceHistory stored tier', () => {
       const result = await fetchAdjustedPriceHistory(client, ['AAPL'])
 
       expect(calls.order).toEqual(['date', { ascending: false }])
-      expect(result.source).toBe('stored')
+      // Stored rows completed with the provider's newer close.
+      expect(result.source).toBe('mixed')
       expect(result.rows.at(-1)).toMatchObject({ symbol: 'AAPL', date: '2026-09-14', close: 333.08 })
       expect(result.rows.map((r) => r.date)).toEqual([...dates].reverse().concat('2026-09-14'))
     } finally {

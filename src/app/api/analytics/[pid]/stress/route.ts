@@ -1,6 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { withCache } from '@/lib/cache/with-cache'
+import { withAuditedCache } from '@/lib/cache/with-cache'
 import { apiHandler } from '@/lib/api/handler'
 import { computeStress } from '@/lib/jobs/kinds/stress'
 
@@ -14,7 +14,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const data = await withCache(`analytics:stress:${user.id}:${pid}`, 3600, () => computeStress(supabase, pid, {}))
+  const data = await withAuditedCache(`analytics:stress:${user.id}:${pid}`, 3600, () => computeStress(supabase, pid, {}))
 
   return success(data)
 }

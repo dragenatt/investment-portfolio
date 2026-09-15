@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
 import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
+import { buildResultMetadata, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
 import {
   backtestPortfolio,
   type Bar,
@@ -34,7 +35,7 @@ export async function computeBacktest(supabase: SupabaseClient, pid: string, par
   if (!positions || positions.length === 0) return { message: 'No positions' }
 
   const symbols = positions.map((p) => p.symbol)
-  const { rows, covered, missing } = await fetchAdjustedPriceHistory(supabase, symbols)
+  const { rows, covered, missing, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols)
   if (covered.length === 0) return { message: 'No price history for these holdings' }
 
   const seriesBySymbol: Record<string, Bar[]> = {}
@@ -86,5 +87,23 @@ export async function computeBacktest(supabase: SupabaseClient, pid: string, par
     note:
       'Which schedule comes out ahead depends on the period tested: rebalancing helps in a ' +
       'mean-reverting market and costs money in a trending one. This is one sample, not a rule.',
+    _meta: buildResultMetadata({
+      model: 'backtest',
+      data: { description: 'Precios de cierre diarios de las posiciones, pesos actuales al inicio de la prueba', symbols: covered, excluded: missing, priceSource },
+      period: {
+        from: results[0].equityCurve[0]?.date ?? null,
+        to: results[0].equityCurve[results[0].equityCurve.length - 1]?.date ?? null,
+        observations: results[0].equityCurve.length,
+        cadence: '1 dia',
+      },
+      assumptions: [
+        COMMON_ASSUMPTIONS.splitAdjusted,
+        COMMON_ASSUMPTIONS.priceReturn,
+        { name: 'Costo por operación', value: `${costPct}% del monto negociado`, source: 'Parámetro de la prueba' },
+        { name: 'Capital inicial', value: '10,000 (escala; los resultados son proporcionales)', source: 'backtest job' },
+        { name: 'Sin mirar al futuro', value: 'Cada decisión solo usa datos hasta ese día', source: 'backtest.ts' },
+      ],
+      riskFreeRate: riskFree,
+    }),
   }
 }

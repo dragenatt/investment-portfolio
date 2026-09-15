@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { withCache } from '@/lib/cache/with-cache'
+import { withAuditedCache } from '@/lib/cache/with-cache'
+import { buildResultMetadata } from '@/lib/services/result-metadata'
 import { apiHandler } from '@/lib/api/handler'
 import { getBatchQuotes } from '@/lib/services/market'
 import {
@@ -23,7 +24,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const data = await withCache(
+  const data = await withAuditedCache(
     `analytics:exposure:${user.id}:${pid}`,
     900,
     async () => {
@@ -87,6 +88,20 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         sector: sectorExposure(holdings),
         geographic: geographicExposure(holdings),
         currency: currencyExposure(holdings, baseCurrency),
+        _meta: buildResultMetadata({
+          model: 'exposure',
+          data: {
+            description: 'Posiciones actuales a su cotización más reciente; sector y país de los datos de empresas',
+            symbols,
+            excluded: symbols.filter((s) => priceMap[s] === undefined),
+            priceSource: 'provider',
+          },
+          assumptions: [
+            { name: 'Región', value: 'País de la empresa; si falta, bolsa donde cotiza o moneda', source: 'exposure.ts (inferRegion)' },
+            { name: 'Concentración sectorial', value: '35% del portafolio', source: 'exposure.ts' },
+            { name: 'Sin cotización', value: 'Se usa el costo promedio', source: 'exposure route' },
+          ],
+        }),
       }
     }
   )

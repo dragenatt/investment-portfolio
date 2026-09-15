@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { FACTOR_DEFINITIONS, type BuiltFactorReturns, type BuiltFactor } from './factors'
+import { CONSTRUCTION_VERSION, FACTOR_DEFINITIONS, type BuiltFactorReturns, type BuiltFactor } from './factors'
 import { isHistoryStale, TOP_UP_RETRY_MS } from './price-history'
 
 // Persistence for the factor series. The mathematics lives in factors.ts and
@@ -10,8 +10,8 @@ import { isHistoryStale, TOP_UP_RETRY_MS } from './price-history'
 // returns are DERIVED, so the table can be truncated and rebuilt at any time
 // without losing anything — the raw prices it comes from are the record.
 
-/** Which construction produced a row. Bump when a factor definition changes. */
-export const CONSTRUCTION_VERSION = 'etf-proxy-v1'
+// Which construction produced a row lives with the definitions it versions.
+export { CONSTRUCTION_VERSION } from './factors'
 
 /** Below this many stored days, rebuild rather than regress on a stub. */
 const MIN_STORED_DAYS = 60

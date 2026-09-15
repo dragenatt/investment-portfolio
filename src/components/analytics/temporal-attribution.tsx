@@ -9,6 +9,7 @@ import { ChartEmpty, ChartLoading } from '@/components/charts/chart-state'
 import { getChartTheme, assignSeriesColors, foldToSeriesCap, SERIES_PALETTE } from '@/lib/utils/chart-config'
 import { useTemporalAttribution } from '@/lib/hooks/use-analytics'
 import { changeTone, toneTextClass } from '@/lib/utils/change-tone'
+import { AuditTrail } from '@/components/analytics/audit-trail'
 import type { AttributionBucket, Granularity } from '@/lib/services/temporal-attribution'
 
 /**
@@ -208,6 +209,7 @@ export function TemporalAttribution({ portfolioId }: { portfolioId: string }) {
           exactamente el rendimiento compuesto del periodo. No incluye dividendos.
           {data && data.unmeasurable > 0 ? ` ${data.unmeasurable} tramos sin capital inicial no se pudieron medir.` : ''}
         </p>
+        <AuditTrail meta={data?._meta} />
       </CardContent>
     </Card>
   )

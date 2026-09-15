@@ -3,6 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartEmpty, ChartLoading } from '@/components/charts/chart-state'
 import { useDiagnostic } from '@/lib/hooks/use-analytics'
+import { AuditTrail } from '@/components/analytics/audit-trail'
 
 /**
  * The automatic diagnostic (P2-8): nine questions, each answered in a sentence
@@ -58,6 +59,7 @@ export function PortfolioDiagnostic({ portfolioId }: { portfolioId: string }) {
               {data.return_window ? ` Rendimientos de ${data.return_window.from} a ${data.return_window.to}.` : ''}
               {data.risk_window ? ` Riesgo de ${data.risk_window.from} a ${data.risk_window.to}.` : ''}
             </p>
+            <AuditTrail meta={data._meta} />
           </>
         )}
       </CardContent>

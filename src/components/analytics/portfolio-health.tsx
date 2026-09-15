@@ -3,6 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartEmpty, ChartLoading } from '@/components/charts/chart-state'
 import { useHealth } from '@/lib/hooks/use-analytics'
+import { AuditTrail } from '@/components/analytics/audit-trail'
 import type { HealthComponent } from '@/lib/services/portfolio-health'
 
 /**
@@ -102,6 +103,7 @@ export function PortfolioHealth({ portfolioId }: { portfolioId: string }) {
               {data.window ? ` Periodo ${data.window.from} a ${data.window.to}, con los pesos actuales y ${data.benchmark?.name ?? 'el benchmark'} como referencia.` : ''}
               {data.excluded_symbols && data.excluded_symbols.length > 0 ? ` Sin historial suficiente, fuera del cálculo: ${data.excluded_symbols.join(', ')}.` : ''}
             </p>
+            <AuditTrail meta={data._meta} />
           </>
         )}
       </CardContent>

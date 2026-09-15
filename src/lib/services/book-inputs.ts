@@ -7,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { BookTransaction, PriceMap } from '@/lib/services/portfolio-history'
 import { getHistory } from '@/lib/services/market'
 import { topUpStoredHistory } from '@/lib/services/price-history'
+import { combinePriceSources, type PriceSource } from '@/lib/services/result-metadata'
 
 export const RETURN_PERIODS = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as const
 export type ReturnPeriod = (typeof RETURN_PERIODS)[number]
@@ -73,7 +74,18 @@ export async function loadPriceMap(
   cutoff: string,
   period: string,
 ): Promise<PriceMap> {
+  return (await loadPriceMapWithSource(supabase, symbols, cutoff, period)).prices
+}
+
+/** loadPriceMap, reporting which tier the closes came from (P2-10). */
+export async function loadPriceMapWithSource(
+  supabase: SupabaseClient,
+  symbols: string[],
+  cutoff: string,
+  period: string,
+): Promise<{ prices: PriceMap; source: PriceSource }> {
   const priceMap: PriceMap = {}
+  const tiers: PriceSource[] = []
   await Promise.all(
     symbols.map(async (symbol) => {
       try {
@@ -89,10 +101,12 @@ export async function loadPriceMap(
           for (const row of cached) priceMap[symbol][row.date] = row.close
           const added = await topUpStoredHistory({ [symbol]: cached[cached.length - 1].date as string })
           for (const row of added) priceMap[symbol][row.date] = row.close
+          tiers.push(added.length > 0 ? 'mixed' : 'stored')
           return
         }
 
         const history = await getHistory(symbol, periodToRange(period))
+        tiers.push(history.length > 0 ? 'provider' : 'none')
         priceMap[symbol] = {}
         for (const point of history) {
           if (point.close == null) continue
@@ -104,5 +118,5 @@ export async function loadPriceMap(
       }
     }),
   )
-  return priceMap
+  return { prices: priceMap, source: combinePriceSources(...tiers) }
 }

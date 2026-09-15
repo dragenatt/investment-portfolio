@@ -65,7 +65,7 @@ async function postHandler(req: Request) {
     })
   }
 
-  return success(publicJob(dispatch.job), undefined, dispatch.job.status === 'completed' ? 200 : 202)
+  return success(publicJob(dispatch.job, { reused: !dispatch.run }), undefined, dispatch.job.status === 'completed' ? 200 : 202)
 }
 
 export const POST = apiHandler(postHandler)

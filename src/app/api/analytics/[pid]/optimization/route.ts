@@ -1,6 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { withCache } from '@/lib/cache/with-cache'
+import { withAuditedCache } from '@/lib/cache/with-cache'
 import { apiHandler } from '@/lib/api/handler'
 import { computeOptimization } from '@/lib/jobs/kinds/optimization'
 
@@ -14,7 +14,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const data = await withCache(`analytics:optimization:${user.id}:${pid}`, 900, () => computeOptimization(supabase, pid, {}))
+  const data = await withAuditedCache(`analytics:optimization:${user.id}:${pid}`, 900, () => computeOptimization(supabase, pid, {}))
 
   return success(data)
 }

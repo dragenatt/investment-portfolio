@@ -12,6 +12,7 @@ import {
 } from '@/lib/services/factors'
 import { factorRebuildDue, loadStoredFactorReturns, storeFactorReturns } from '@/lib/services/factor-store'
 import { portfolioValueSeries } from '@/lib/services/portfolio-series'
+import { buildResultMetadata, combinePriceSources, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
 
 /** Fewer aligned days than this and the loadings are noise with error bars. */
 const MIN_REGRESSION_DAYS = 60
@@ -94,7 +95,7 @@ export async function computeFactors(supabase: SupabaseClient, pid: string, _par
   if (!positions || positions.length === 0) return { message: 'No positions' }
 
   const symbols = positions.map((p) => p.symbol)
-  const { rows: history } = await fetchAdjustedPriceHistory(supabase, symbols, {
+  const { rows: history, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, {
     limit: undefined,
   })
   if (history.length < MIN_REGRESSION_DAYS) {
@@ -176,5 +177,22 @@ export async function computeFactors(supabase: SupabaseClient, pid: string, _par
       built!.factors.some((f) => f.id === definition.id),
     ),
     omitted: built.omitted,
+    _meta: buildResultMetadata({
+      model: 'factors',
+      data: {
+        description: `Valor diario del portafolio y series de factores construidas con ETF (${source === 'stored' ? 'guardadas' : 'reconstruidas en esta consulta'})`,
+        symbols,
+        excluded: series.excludedSymbols,
+        priceSource: combinePriceSources(priceSource, source === 'stored' ? 'stored' : 'provider'),
+      },
+      period: { from: aligned[0].date, to: aligned[aligned.length - 1].date, observations: aligned.length, cadence: '1 dia' },
+      assumptions: [
+        COMMON_ASSUMPTIONS.tradingDays,
+        { name: 'Factores', value: 'Aproximaciones con pares de ETF a los factores de Fama-French, no las series académicas', source: 'factors.ts (construcción etf-proxy-v1)' },
+        { name: 'Significancia', value: '|t| de 2 o más', source: 'factors.ts' },
+        { name: 'Días mínimos en común', value: String(MIN_REGRESSION_DAYS), source: 'factors job' },
+      ],
+      riskFreeRate: riskFree,
+    }),
   }
 }

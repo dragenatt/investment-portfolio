@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { withCache } from '@/lib/cache/with-cache'
+import { withAuditedCache } from '@/lib/cache/with-cache'
+import { buildResultMetadata, COMMON_ASSUMPTIONS, type PriceSource } from '@/lib/services/result-metadata'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import {
   calculateSimpleReturn,
@@ -11,7 +12,7 @@ import {
   calendarReturns,
 } from '@/lib/services/returns'
 import { reconstructBookHistory } from '@/lib/services/portfolio-history'
-import { loadBookTransactions, loadPriceMap, periodCutoff } from '@/lib/services/book-inputs'
+import { loadBookTransactions, loadPriceMapWithSource, periodCutoff } from '@/lib/services/book-inputs'
 import { apiHandler } from '@/lib/api/handler'
 
 async function getHandler(req: Request, { params }: { params: Promise<{ pid: string }> }) {
@@ -23,7 +24,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   const url = new URL(req.url)
   const period = url.searchParams.get('period') || '1Y'
 
-  const data = await withCache(
+  const data = await withAuditedCache(
     `${CACHE_KEYS.ANALYTICS_RETURNS}${user.id}:${pid}:${period}`,
     600,
     async () => {
@@ -68,6 +69,8 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
           amount: t.type === 'buy' ? t.quantity * t.price : -t.quantity * t.price,
         }))
       let currentValue = snaps.length > 0 ? snaps[snaps.length - 1].value : null
+      let priceSource: PriceSource = 'stored'
+      let basis = 'Fotos nocturnas del valor del portafolio y sus operaciones'
 
       // FALLBACK: no stored snapshots, so rebuild the book from the transactions
       // and price history.
@@ -75,7 +78,10 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         const symbols = [
           ...new Set([...bookTransactions.map((t) => t.symbol), ...(positions ?? []).map((p) => p.symbol)]),
         ]
-        const priceMap = await loadPriceMap(supabase, symbols, cutoff, period)
+        const loaded = await loadPriceMapWithSource(supabase, symbols, cutoff, period)
+        const priceMap = loaded.prices
+        priceSource = loaded.source
+        basis = 'Portafolio reconstruido de sus operaciones y precios de cierre diarios'
 
         // The book as it stood on each date — not today's holdings carried
         // backwards — with flows valued at the same closes. See
@@ -137,6 +143,17 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         },
         calendar,
         periods: [],
+        _meta: buildResultMetadata({
+          model: 'returns',
+          data: { description: basis, symbols: [...new Set(bookTransactions.map((t) => t.symbol))], priceSource },
+          period: { from: snaps[0]?.date ?? cutoff, to: snaps[snaps.length - 1]?.date ?? null, observations: snaps.length, cadence: '1 dia' },
+          assumptions: [
+            COMMON_ASSUMPTIONS.priceReturn,
+            { name: 'TWR', value: 'Libro antes de las operaciones del día; flujos valuados al cierre', source: 'returns.ts, portfolio-history.ts' },
+            { name: 'MWR', value: 'TIR anual de los flujos del inversionista hasta el valor actual', source: 'returns.ts (XIRR)' },
+            { name: 'Rendimiento simple', value: 'No realizado, sobre el costo de las posiciones abiertas', source: 'returns.ts' },
+          ],
+        }),
       }
     }
   )

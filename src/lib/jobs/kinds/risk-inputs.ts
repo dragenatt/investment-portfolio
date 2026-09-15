@@ -3,7 +3,16 @@ import { fetchAdjustedPriceHistory } from '@/lib/services/price-history'
 import { alignCommonHistory, type CommonHistory } from '@/lib/services/common-history'
 import { detectCadence, type Cadence } from '@/lib/services/asset-metrics'
 import { getPortfolioBenchmark, BENCHMARKS } from '@/lib/services/benchmarks'
-import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
+import { getRiskFreeRate, type RiskFreeRate } from '@/lib/services/risk-free-rate'
+import {
+  buildResultMetadata,
+  combinePriceSources,
+  COMMON_ASSUMPTIONS,
+  type ResultAssumption,
+  type ResultMetadata,
+  type ResultModel,
+} from '@/lib/services/result-metadata'
+import type { HistorySource } from '@/lib/services/price-history'
 import { loadFactorReturns } from '@/lib/jobs/kinds/factors'
 import { alignRiskInputs, MIN_RISK_OBSERVATIONS, realSector, sectorLabel, type AlignedRiskInputs } from '@/lib/services/risk-sources'
 
@@ -29,7 +38,10 @@ export type RiskInputs = {
   companyCountries: Record<string, string | null>
   benchmark: { symbol: string; name: string }
   riskFreeRate: number
+  riskFree: RiskFreeRate
   excludedSymbols: string[]
+  /** Tier each market read came from, for the result metadata (P2-10). */
+  sources: { prices: HistorySource; benchmark: HistorySource | null; factors: 'stored' | 'built' | null }
 }
 
 /**
@@ -54,7 +66,7 @@ export async function loadRiskInputs(supabase: SupabaseClient, pid: string): Pro
   if (positions.length === 0) return { message: 'No hay posiciones.' }
 
   const symbols = positions.map((p) => p.symbol)
-  const { rows: history } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
+  const { rows: history, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
 
   const common = alignCommonHistory(positions, history, { minObservations: MIN_RISK_OBSERVATIONS })
   if ('message' in common) return { message: common.message }
@@ -75,8 +87,10 @@ export async function loadRiskInputs(supabase: SupabaseClient, pid: string): Pro
   const benchmarkSymbol = await getPortfolioBenchmark(supabase, pid)
   const benchmarkName = BENCHMARKS.find((b) => b.symbol === benchmarkSymbol)?.name ?? benchmarkSymbol
   let benchmarkCloses: Map<string, number> | null = null
+  let benchmarkSource: HistorySource | null = null
   try {
-    const { rows } = await fetchAdjustedPriceHistory(supabase, [benchmarkSymbol], { limit: undefined })
+    const { rows, source } = await fetchAdjustedPriceHistory(supabase, [benchmarkSymbol], { limit: undefined })
+    benchmarkSource = source
     const closes = new Map(rows.filter((r) => r.symbol === benchmarkSymbol).map((r) => [r.date, r.close]))
     benchmarkCloses = closes.size > 0 ? closes : null
   } catch {
@@ -85,9 +99,13 @@ export async function loadRiskInputs(supabase: SupabaseClient, pid: string): Pro
 
   const riskFree = await getRiskFreeRate((portfolio as { currency?: string } | null)?.currency ?? 'USD')
   let factorGrid: { dates: string[]; factors: Array<{ id: string; name: string; returns: number[] }> } | null = null
+  let factorSource: 'stored' | 'built' | null = null
   try {
     const loaded = await loadFactorReturns(supabase, riskFree.rate)
-    if (loaded) factorGrid = { dates: loaded.built.dates, factors: loaded.built.factors }
+    if (loaded) {
+      factorGrid = { dates: loaded.built.dates, factors: loaded.built.factors }
+      factorSource = loaded.source
+    }
   } catch {
     // Same: no factors, no factor view.
   }
@@ -110,6 +128,34 @@ export async function loadRiskInputs(supabase: SupabaseClient, pid: string): Pro
     companyCountries,
     benchmark: { symbol: benchmarkSymbol, name: benchmarkName },
     riskFreeRate: riskFree.rate,
+    riskFree,
     excludedSymbols: symbols.filter((s) => !common.symbols.includes(s)),
+    sources: { prices: priceSource, benchmark: benchmarkSource, factors: factorSource },
   }
+}
+
+/**
+ * The metadata of a result computed from these inputs: the holdings' aligned
+ * window, where each series came from, the benchmark and the risk-free rate.
+ */
+export function riskInputsMetadata(
+  inputs: RiskInputs,
+  model: ResultModel,
+  options: { assumptions?: ResultAssumption[]; usesRiskFree?: boolean; usesBenchmark?: boolean } = {},
+): ResultMetadata {
+  const { common, aligned, cadence, sources } = inputs
+  const factorNote = sources.factors ? `; series de factores ${sources.factors === 'stored' ? 'guardadas' : 'reconstruidas en esta consulta'}` : ''
+  return buildResultMetadata({
+    model,
+    data: {
+      description: `Precios de cierre diarios de ${common.symbols.length} posiciones en sus fechas comunes, pesos a los precios del ${common.lastDate}${aligned.benchmarkReturns ? ' e historial del benchmark' : ''}${factorNote}`,
+      symbols: common.symbols,
+      excluded: inputs.excludedSymbols,
+      priceSource: combinePriceSources(sources.prices, aligned.benchmarkReturns ? sources.benchmark : null),
+    },
+    period: { from: common.commonDates[0], to: common.lastDate, observations: aligned.intervalsUsed, cadence: cadence.label },
+    assumptions: [COMMON_ASSUMPTIONS.tradingDays, COMMON_ASSUMPTIONS.splitAdjusted, COMMON_ASSUMPTIONS.priceReturn, COMMON_ASSUMPTIONS.currentWeights, ...(options.assumptions ?? [])],
+    benchmark: options.usesBenchmark === false || !aligned.benchmarkReturns ? null : inputs.benchmark,
+    riskFreeRate: options.usesRiskFree ? inputs.riskFree : null,
+  })
 }

@@ -11,6 +11,7 @@ import { CalendarReturns } from '@/components/analytics/calendar-returns'
 import { RiskDashboard } from '@/components/analytics/risk-dashboard'
 import { ScenarioComparisonCard } from '@/components/analytics/scenario-comparison'
 import { ScenarioEngineCard } from '@/components/analytics/scenario-engine'
+import { AuditTrail } from '@/components/analytics/audit-trail'
 import { MetricExplanationsCard } from '@/components/analytics/metric-explanations'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -93,6 +94,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               period={returns?.summary?.period ?? ''}
               isLoading={returnsLoading}
             />
+            <AuditTrail meta={returns?._meta} className="mt-2" />
           </ErrorBoundary>
 
           <ErrorBoundary>
@@ -160,6 +162,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
                 informationRatio={risk.current.information_ratio}
               />
             ) : null}
+            <AuditTrail meta={risk?._meta} className="mt-2" />
           </ErrorBoundary>
 
           <ErrorBoundary>
@@ -193,6 +196,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
                 isLoading={monteCarloLoading}
               />
             )}
+            <AuditTrail meta={monteCarlo?._meta} className="mt-2" />
           </ErrorBoundary>
           </DataGate>
         </TabsContent>
@@ -210,6 +214,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               total={attribution?.total ?? { allocation_effect: 0, selection_effect: 0, interaction_effect: 0, total_excess: 0 }}
               isLoading={attrLoading}
             />
+            <AuditTrail meta={attribution?._meta} className="mt-2" />
           </ErrorBoundary>
           </DataGate>
         </TabsContent>
@@ -219,6 +224,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           <DataGate error={factorsError} hasData={!!factors} what="la exposición a factores">
             <ErrorBoundary>
               <FactorExposure data={factors} isLoading={factorsLoading} />
+              <AuditTrail meta={factors?._meta} className="mt-2" />
             </ErrorBoundary>
           </DataGate>
           <DataGate error={optimizationError} hasData={!!optimization} what="la frontera eficiente">
@@ -229,6 +235,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           <DataGate error={optimizationError} hasData={!!optimization} what="la comparación de modelos">
             <ErrorBoundary>
               <ModelComparison data={optimization?.model_comparison} isLoading={optimizationLoading} />
+              <AuditTrail meta={optimization?._meta} className="mt-2" />
             </ErrorBoundary>
           </DataGate>
         </TabsContent>
@@ -242,6 +249,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               monthlyHistory={income?.monthly_history ?? []}
               isLoading={incomeLoading}
             />
+            <AuditTrail meta={income?._meta} className="mt-2" />
           </ErrorBoundary>
           </DataGate>
         </TabsContent>
@@ -310,6 +318,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
                 </div>
               </CardContent>
             </Card>
+            <AuditTrail meta={allocation?._meta} className="mt-2" />
           </ErrorBoundary>
           </DataGate>
         </TabsContent>

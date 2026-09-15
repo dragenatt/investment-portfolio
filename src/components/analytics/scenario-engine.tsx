@@ -13,6 +13,7 @@ import { getChartTheme, SERIES_PALETTE } from '@/lib/utils/chart-config'
 import { seriesTable } from '@/lib/utils/chart-accessibility'
 import { formatCurrency } from '@/lib/utils/currency'
 import { useScenarioEngine } from '@/lib/hooks/use-analytics'
+import { AuditTrail } from '@/components/analytics/audit-trail'
 import type { MonthlyBand } from '@/lib/services/scenario-engine'
 
 /**
@@ -276,6 +277,7 @@ export function ScenarioEngineCard({ pid, currency }: { pid: string; currency: s
               Reproducible: escenario <span className="font-mono">{result.model.key}</span>, semilla{' '}
               <span className="font-mono">{result.model.seed}</span>, motor {result.model.engineVersion}.
             </p>
+            <AuditTrail meta={data._meta} />
           </>
         )}
       </CardContent>

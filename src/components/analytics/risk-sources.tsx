@@ -8,6 +8,7 @@ import { ChartTooltipContent } from '@/components/charts/chart-tooltip'
 import { ChartEmpty, ChartLoading } from '@/components/charts/chart-state'
 import { getChartTheme, SERIES_PALETTE } from '@/lib/utils/chart-config'
 import { useRiskSources } from '@/lib/hooks/use-analytics'
+import { AuditTrail } from '@/components/analytics/audit-trail'
 
 /**
  * Where the portfolio's risk really comes from (P2-5).
@@ -257,6 +258,7 @@ export function RiskSources({ portfolioId }: { portfolioId: string }) {
               : ''}
           </p>
         )}
+        <AuditTrail meta={data?._meta} />
       </CardContent>
     </Card>
   )

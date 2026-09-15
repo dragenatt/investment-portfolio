@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { calculateDailyReturns } from '@/lib/services/analytics'
 import { simulatePortfolioGBM } from '@/lib/services/monte-carlo'
 import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
+import { buildResultMetadata, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
 
 /** One trading year of closes — the window the covariance matrix is estimated on. */
 const LOOKBACK_DAYS = 252
@@ -62,7 +63,7 @@ export async function computeMonteCarlo(supabase: SupabaseClient, pid: string, p
 
   // Get price history — tries DB first, falls back to Yahoo Finance
   const symbols = positions.map(p => p.symbol)
-  const { rows: history } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: Math.min(symbols.length * (LOOKBACK_DAYS + 60), 5000) })
+  const { rows: history, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: Math.min(symbols.length * (LOOKBACK_DAYS + 60), 5000) })
 
   if (history.length < MIN_OBSERVATIONS) {
     return { message: 'No positions' }
@@ -128,5 +129,17 @@ export async function computeMonteCarlo(supabase: SupabaseClient, pid: string, p
     })),
     lookback_days: dates.length,
     dataPoints: dates.length,
+    _meta: buildResultMetadata({
+      model: 'monteCarlo',
+      data: { description: 'Rendimientos diarios de las posiciones en sus fechas comunes, pesos al último cierre común', symbols: covered, excluded: symbols.filter((s) => !covered.includes(s)), priceSource },
+      period: { from: dates[0], to: lastDate, observations: dates.length - 1, cadence: '1 dia' },
+      assumptions: [
+        COMMON_ASSUMPTIONS.tradingDays,
+        COMMON_ASSUMPTIONS.splitAdjusted,
+        { name: 'Proceso', value: 'Movimiento browniano geométrico correlacionado, pasos semanales, comprar y mantener', source: 'monte-carlo.ts' },
+        { name: 'Ventana de estimación', value: `Hasta ${LOOKBACK_DAYS} días`, source: 'docs/FINANCIAL_ASSUMPTIONS.md (Covariance window)' },
+        { name: 'Trayectorias', value: `${SIMULATIONS}, semilla fija`, source: 'monte-carlo.ts' },
+      ],
+    }),
   }
 }

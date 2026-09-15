@@ -1,8 +1,8 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { withCache } from '@/lib/cache/with-cache'
+import { withAuditedCache } from '@/lib/cache/with-cache'
 import { apiHandler } from '@/lib/api/handler'
-import { loadRiskInputs } from '@/lib/jobs/kinds/risk-inputs'
+import { loadRiskInputs, riskInputsMetadata } from '@/lib/jobs/kinds/risk-inputs'
 import { calculateCovarianceMatrix } from '@/lib/services/covariance'
 import { historicalExpectedReturns, efficientFrontier } from '@/lib/services/optimizer'
 import { minimiseCVaRWeights, riskParityWeights } from '@/lib/services/allocation-strategies'
@@ -15,6 +15,7 @@ import {
   scenarioFromWeights,
   type AllocationPreset,
 } from '@/lib/services/scenario-engine'
+import { COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
 
 // The scenario engine (P2-9) run on this portfolio: its holdings and history,
 // with the allocation, contributions, horizon, rebalancing, costs, inflation
@@ -38,7 +39,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   const request = parsePortfolioScenarioRequest(new URL(req.url).searchParams)
   const cacheKey = `analytics:scenario-engine:${user.id}:${pid}:${JSON.stringify(request)}`
 
-  const data = await withCache(cacheKey, 1800, async () => {
+  const data = await withAuditedCache(cacheKey, 1800, async () => {
     const inputs = await loadRiskInputs(supabase, pid)
     if ('message' in inputs) return { message: inputs.message }
     const { common, aligned, benchmark, riskFreeRate } = inputs
@@ -97,6 +98,16 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         inputs.cadence.periodsPerYear,
       ),
       window: { from: common.commonDates[0], to: common.lastDate },
+      _meta: riskInputsMetadata(inputs, 'scenarioEngine', {
+        usesRiskFree: request.allocation === 'markowitz',
+        assumptions: [
+          { name: 'Proceso', value: 'Movimiento browniano geométrico correlacionado, pasos mensuales', source: 'docs/FINANCIAL_ASSUMPTIONS.md (Scenario engine)' },
+          { name: 'Rendimiento esperado', value: result.model.riskSource, source: 'scenario-engine.ts' },
+          { name: 'Trayectorias', value: String(result.model.simulations), source: 'scenario-engine.ts' },
+          { name: 'Reproducibilidad', value: `Escenario ${result.model.key}, semilla ${result.model.seed}`, source: 'scenario-engine.ts' },
+          result.model.gross ? COMMON_ASSUMPTIONS.gross : { name: 'Costos', value: `Custodia ${request.custodyAnnualPct}% anual, comisión ${request.commissionPct}%`, source: 'Indicados en el escenario' },
+        ],
+      }),
     }
   })
 

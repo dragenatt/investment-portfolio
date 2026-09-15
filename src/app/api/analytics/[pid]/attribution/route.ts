@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
-import { withCache } from '@/lib/cache/with-cache'
+import { withAuditedCache } from '@/lib/cache/with-cache'
+import { buildResultMetadata } from '@/lib/services/result-metadata'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import {
   computeAttribution,
@@ -19,7 +20,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   const url = new URL(req.url)
   const period = url.searchParams.get('period') || '1M'
 
-  const data = await withCache(
+  const data = await withAuditedCache(
     `${CACHE_KEYS.ANALYTICS_ATTRIBUTION}${user.id}:${pid}:${period}`,
     3600,
     async () => {
@@ -116,6 +117,21 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       return {
         ...computeAttribution(portfolioSectors, benchmarkReturn, SP500_SECTOR_WEIGHTS),
         contribution,
+        _meta: buildResultMetadata({
+          model: 'attribution',
+          data: {
+            description: 'Posiciones actuales valuadas a su última cotización guardada, completadas con cotizaciones en vivo; sectores de los datos de empresas',
+            symbols,
+            excluded: symbols.filter((s) => !priceMap[s]),
+            priceSource: missingPrices.length > 0 ? 'mixed' : 'stored',
+          },
+          assumptions: [
+            { name: 'Pesos sectoriales del índice', value: 'S&P 500 aproximados, fijos en el código', source: 'attribution.ts (SP500_SECTOR_WEIGHTS)' },
+            { name: 'Rendimiento', value: 'No realizado sobre costo promedio', source: 'attribution route' },
+            { name: 'Sin cotización', value: 'Se usa el costo promedio', source: 'attribution route' },
+          ],
+          benchmark: { symbol: '^GSPC', name: 'S&P 500 (pesos sectoriales)' },
+        }),
       }
     }
   )

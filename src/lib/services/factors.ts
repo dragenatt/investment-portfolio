@@ -21,6 +21,9 @@
 
 const TRADING_DAYS = 252
 
+/** Which construction produced the factor series. Bump when a factor definition changes. */
+export const CONSTRUCTION_VERSION = 'etf-proxy-v1'
+
 /** |t| at or above this is conventionally called significant. Roughly 95%. */
 const T_SIGNIFICANCE = 2
 
