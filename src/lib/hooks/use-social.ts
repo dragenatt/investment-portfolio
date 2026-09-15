@@ -1,4 +1,5 @@
 import useSWR from 'swr'
+import type { UserSearchResult } from '@/lib/services/discover'
 import { useState, useCallback } from 'react'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useDebounce } from './use-debounce'
@@ -18,14 +19,7 @@ export type Activity = {
   }
 }
 
-export type UserSearchResult = {
-  id: string
-  email: string
-  username?: string
-  avatar_url?: string
-  isFollowing?: boolean
-  followerCount: number
-}
+export type { UserSearchResult } from '@/lib/services/discover'
 
 export function useFollow(userId: string) {
   const [isFollowing, setIsFollowing] = useState(false)

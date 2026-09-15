@@ -1,62 +1,30 @@
 import useSWR from 'swr'
 import { apiFetcher } from '@/lib/api/fetcher'
+import type { DiscoverSort, PublicPortfolio, Ranking } from '@/lib/services/discover'
 
-export type PublicPortfolio = {
-  id: string
-  name: string
-  description?: string
-  userId: string
-  isPublic: boolean
-  returnPercent: number
-  allTimeReturn: number
-  ytdReturn: number
-  value: number
-  currency: string
-  likeCount: number
-  owner: {
-    id: string
-    email: string
-    username?: string
-    avatar_url?: string
-  }
-  createdAt: string
-  updatedAt: string
-}
-
-export type Ranking = {
-  rank: number
-  portfolioId: string
-  portfolioName: string
-  userId: string
-  username?: string
-  avatar_url?: string
-  returnPercent: number
-  value: number
-  currency: string
-  likeCount: number
-}
+export type { PublicPortfolio, Ranking } from '@/lib/services/discover'
 
 export type Leaderboard = {
   category: string
   period: string
   rankings: Ranking[]
-  computedAt: string
+  computedAt: string | null
 }
 
 export type PublicProfile = {
+  /** The user's id, as follows and portfolios reference it. */
   id: string
-  email: string
-  username?: string
-  avatar_url?: string
-  bio?: string
-  portfolioCount: number
+  username: string | null
+  displayName: string | null
+  avatarUrl: string | null
+  bio: string | null
+  publicPortfolioCount: number
   followerCount: number
   followingCount: number
-  isFollowing?: boolean
   createdAt: string
 }
 
-type SortOption = 'return' | 'value' | 'likes' | 'recent'
+type SortOption = DiscoverSort
 type OrderOption = 'asc' | 'desc'
 type FilterOption = 'all' | 'stocks' | 'crypto' | 'diversified'
 
@@ -81,9 +49,9 @@ export function usePublicPortfolios(
   return { portfolios: data ?? [], isLoading, error, mutate }
 }
 
-export function useLeaderboard(category: string = 'returns', period: string = '1Y') {
+export function useLeaderboard(category: string = 'returns') {
   const { data, error, isLoading, mutate } = useSWR<Leaderboard>(
-    `/api/discover/leaderboard?category=${encodeURIComponent(category)}&period=${encodeURIComponent(period)}`,
+    `/api/discover/leaderboard?category=${encodeURIComponent(category)}`,
     apiFetcher
   )
 

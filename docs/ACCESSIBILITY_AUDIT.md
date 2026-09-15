@@ -237,7 +237,9 @@ scroll respects the preference.
   every load: route, hook and database function disagree on parameter names,
   sort values and response shape. Not an accessibility fix; left for its own
   task. `/discover`, `/discover/leaderboard` and the compare page's portfolio
-  picker were therefore audited in their error/empty state.
+  picker were therefore audited in their error/empty state. (Fixed 2026-09-15:
+  contracts in `src/lib/services/discover.ts`; the populated states have not
+  been re-audited.)
 - Two unused components (`benchmark-chart.tsx`, `layout/header.tsx`, a stale
   copy of the top bar) were deleted rather than fixed.
 

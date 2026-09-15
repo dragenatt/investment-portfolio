@@ -40,26 +40,34 @@ async function getHandler(req: Request) {
     // 1. Snapshots
     const snapshotResult = await runNightlySnapshots()
 
-    // 2. Archive leaderboard to history BEFORE refreshing
-    const { data: currentLeaderboard } = await supabase
-      .from('leaderboard_cache')
-      .select('category, period, rankings')
+    // 2. Refresh the leaderboard from today's snapshots, then archive it under
+    // today's date (archiving first filed the previous night's ranking under
+    // today). Its own try, like the job sweep: a leaderboard problem must not
+    // cost the benchmarks below, and it is reported instead of logged away.
+    let leaderboard: { portfolios: number } | { error: string }
+    try {
+      leaderboard = await refreshLeaderboard()
 
-    if (currentLeaderboard && currentLeaderboard.length > 0) {
-      const today = new Date().toISOString().split('T')[0]
-      const historyRows = currentLeaderboard.map((row) => ({
-        snapshot_date: today,
-        category: row.category,
-        period: row.period,
-        rankings: row.rankings,
-      }))
-      await supabase
-        .from('leaderboard_history')
-        .upsert(historyRows, { onConflict: 'snapshot_date,category,period' })
+      const { data: currentLeaderboard } = await supabase
+        .from('leaderboard_cache')
+        .select('category, period, rankings')
+
+      if (currentLeaderboard && currentLeaderboard.length > 0) {
+        const today = new Date().toISOString().split('T')[0]
+        const historyRows = currentLeaderboard.map((row) => ({
+          snapshot_date: today,
+          category: row.category,
+          period: row.period,
+          rankings: row.rankings,
+        }))
+        await supabase
+          .from('leaderboard_history')
+          .upsert(historyRows, { onConflict: 'snapshot_date,category,period' })
+      }
+    } catch (leaderboardError) {
+      console.error('[cron] leaderboard refresh failed', leaderboardError)
+      leaderboard = { error: leaderboardError instanceof Error ? leaderboardError.message : 'Unknown error' }
     }
-
-    // 3. Refresh leaderboard
-    await refreshLeaderboard()
 
     // 4. Fetch benchmark prices
     const benchmarksStored = await fetchAndStoreBenchmarks(supabase)
@@ -89,7 +97,7 @@ async function getHandler(req: Request) {
     return NextResponse.json({
       success: true,
       snapshots: { processed: snapshotResult.processed, errors: snapshotResult.errors },
-      leaderboard: 'refreshed',
+      leaderboard,
       benchmarks: { stored: benchmarksStored },
       jobs,
       duration: `${duration}ms`,

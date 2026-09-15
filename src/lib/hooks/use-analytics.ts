@@ -1,4 +1,5 @@
 import useSWR from 'swr'
+import type { Ranking } from '@/lib/services/discover'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useJob } from './use-job'
 import type { ScenarioComparison } from '@/lib/services/scenario-comparison'
@@ -273,12 +274,12 @@ export function useWinnersLosers() {
 // --- Leaderboard History ---
 export type LeaderboardHistoryEntry = {
   snapshot_date: string
-  rankings: Array<{ rank: number; portfolio_name: string; username: string; value: number }>
+  rankings: Ranking[]
 }
 
-export function useLeaderboardHistory(category = 'return', period = '1M', days = 30) {
+export function useLeaderboardHistory(category = 'returns', days = 30) {
   return useSWR<LeaderboardHistoryEntry[]>(
-    `/api/discover/leaderboard/history?category=${category}&period=${period}&days=${days}`,
+    `/api/discover/leaderboard/history?category=${category}&days=${days}`,
     apiFetcher,
     { refreshInterval: 600_000 }
   )

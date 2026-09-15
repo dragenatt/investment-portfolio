@@ -18,6 +18,13 @@ import { getBenchmarkSeries, getPortfolioBenchmark } from './benchmarks'
 import { calculateBetaAlpha, calculateDailyReturns, type BetaAlpha } from './analytics'
 import { getRiskFreeRate } from './risk-free-rate'
 import { getBatchQuotes } from './market'
+import {
+  buildLeaderboards,
+  LEADERBOARD_CATEGORIES,
+  LEADERBOARD_PERIOD,
+  type LeaderboardProfile,
+  type LeaderboardSnapshot,
+} from './discover'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -591,11 +598,23 @@ export async function runNightlySnapshots(): Promise<{
 
 // ─── Leaderboard Refresh ────────────────────────────────────────────────────
 
-export async function refreshLeaderboard(): Promise<void> {
+/**
+ * Rebuild leaderboard_cache from today's snapshots of public portfolios.
+ *
+ * The table holds one row per (category, period) with the ranking as JSON. The
+ * previous version inserted one row per portfolio with portfolio_id, rank,
+ * score and metadata — columns the table does not have — after selecting
+ * profiles through portfolios, which PostgREST cannot embed: both tables point
+ * at auth.users, not at each other. It failed at the select, every night.
+ * Profiles are now read in a second query and joined here.
+ *
+ * Every category is written even when empty, so the page reads "no portfolios
+ * yet" instead of a missing row.
+ */
+export async function refreshLeaderboard(): Promise<{ portfolios: number }> {
   const supabase = createAdminSupabase()
   const today = new Date().toISOString().split('T')[0]
 
-  // Get today's snapshots for public portfolios with good data
   const { data: snapshots, error: snapErr } = await supabase
     .from('portfolio_snapshots')
     .select(`
@@ -604,77 +623,58 @@ export async function refreshLeaderboard(): Promise<void> {
       total_return_pct,
       sharpe_ratio,
       volatility,
-      max_drawdown,
       win_rate,
-      risk_score,
-      portfolios!inner(id, name, visibility, user_id, profiles(username, display_name, avatar_url))
+      portfolios!inner(name, user_id, like_count, visibility, deleted_at)
     `)
     .eq('snapshot_date', today)
     .eq('portfolios.visibility', 'public')
-    .gt('total_value', 0)
+    .is('portfolios.deleted_at', null)
 
   if (snapErr || !snapshots) {
-    console.error('[leaderboard] Failed to fetch snapshots:', snapErr)
-    return
+    throw new Error(`[leaderboard] could not read snapshots: ${snapErr?.message ?? 'no data'}`)
   }
 
-  // Clear old leaderboard
-  await supabase.from('leaderboard_cache').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-
-  // Categories to rank
-  const categories = ['return', 'sharpe', 'risk_adjusted', 'consistency'] as const
-
-  for (const category of categories) {
-    const ranked = [...snapshots]
-      .sort((a, b) => {
-        switch (category) {
-          case 'return': return (b.total_return_pct || 0) - (a.total_return_pct || 0)
-          case 'sharpe': return (b.sharpe_ratio || 0) - (a.sharpe_ratio || 0)
-          case 'risk_adjusted': return (b.sharpe_ratio || 0) - (a.sharpe_ratio || 0)
-          case 'consistency': return (b.win_rate || 0) - (a.win_rate || 0)
-          default: return 0
-        }
-      })
-      .slice(0, 50) // Top 50 per category
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const leaderboardEntries = ranked.map((s: any, idx: number) => ({
+  const rows: LeaderboardSnapshot[] = snapshots.map((s) => {
+    const portfolio = s.portfolios as unknown as { name: string; user_id: string; like_count: number | null }
+    return {
       portfolio_id: s.portfolio_id,
-      user_id: s.portfolios.user_id,
-      category,
-      period: 'all',
-      rank: idx + 1,
-      score: (() => {
-        switch (category) {
-          case 'return': return s.total_return_pct || 0
-          case 'sharpe': return s.sharpe_ratio || 0
-          case 'risk_adjusted': return s.sharpe_ratio || 0
-          case 'consistency': return s.win_rate || 0
-          default: return 0
-        }
-      })(),
-      metadata: {
-        portfolio_name: s.portfolios.name,
-        username: s.portfolios.profiles?.username,
-        display_name: s.portfolios.profiles?.display_name,
-        avatar_url: s.portfolios.profiles?.avatar_url,
-        total_value: s.total_value,
-        volatility: s.volatility,
-        max_drawdown: s.max_drawdown,
-        risk_score: s.risk_score
-      }
-    }))
-
-    if (leaderboardEntries.length > 0) {
-      const { error: insertErr } = await supabase
-        .from('leaderboard_cache')
-        .insert(leaderboardEntries)
-
-      if (insertErr) {
-        console.error(`[leaderboard] Insert failed for ${category}:`, insertErr)
-      }
+      portfolio_name: portfolio.name,
+      user_id: portfolio.user_id,
+      like_count: portfolio.like_count,
+      total_value: s.total_value,
+      total_return_pct: s.total_return_pct,
+      sharpe_ratio: s.sharpe_ratio,
+      volatility: s.volatility,
+      win_rate: s.win_rate,
     }
+  })
+
+  const userIds = [...new Set(rows.map((r) => r.user_id))]
+  let profiles: LeaderboardProfile[] = []
+  if (userIds.length > 0) {
+    const { data, error: profileErr } = await supabase
+      .from('profiles')
+      .select('user_id, username, display_name, avatar_url')
+      .in('user_id', userIds)
+    if (profileErr) throw new Error(`[leaderboard] could not read profiles: ${profileErr.message}`)
+    profiles = (data ?? []) as LeaderboardProfile[]
   }
 
-  console.log(`[leaderboard] Refreshed with ${snapshots.length} public portfolios`)
+  const boards = buildLeaderboards(rows, profiles)
+  const computedAt = new Date()
+  const { error: writeErr } = await supabase.from('leaderboard_cache').upsert(
+    LEADERBOARD_CATEGORIES.map((category) => ({
+      category,
+      period: LEADERBOARD_PERIOD,
+      rankings: boards[category],
+      computed_at: computedAt.toISOString(),
+      // Until the next nightly run, with an hour to spare.
+      expires_at: new Date(computedAt.getTime() + 25 * 60 * 60 * 1000).toISOString(),
+    })),
+    { onConflict: 'category,period' },
+  )
+  if (writeErr) throw new Error(`[leaderboard] could not write rankings: ${writeErr.message}`)
+
+  console.log(`[leaderboard] Refreshed with ${rows.length} public portfolios`)
+  return { portfolios: rows.length }
 }

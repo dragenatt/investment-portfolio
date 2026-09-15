@@ -3,40 +3,26 @@ import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { apiHandler } from '@/lib/api/handler'
+import { publicPortfolioArgs, toPublicPortfolio, type PublicPortfolioRow } from '@/lib/services/discover'
 
 async function getHandler(req: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const { searchParams } = new URL(req.url)
-  const sort = searchParams.get('sort') || 'return_pct'
-  const order = searchParams.get('order') || 'desc'
-  const filter = searchParams.get('filter')
-  const min_positions = searchParams.get('min_positions')
-  const page = parseInt(searchParams.get('page') || '1', 10)
-  const limit = parseInt(searchParams.get('limit') || '20', 10)
+  // Named as get_public_portfolios declares them (sort_by, page_num, ...): the
+  // route used to send sort/page/limit, which PostgREST cannot match to any
+  // function, so every request failed.
+  const args = publicPortfolioArgs(new URL(req.url).searchParams)
 
-  // Create cache key from parameters
-  const cacheKey = `${CACHE_KEYS.PORTFOLIO_COMPARISON}public:${sort}:${order}:${filter || 'none'}:${min_positions || 'none'}:${page}:${limit}`
+  // Public portfolios are the same for every signed-in reader.
+  const cacheKey = `${CACHE_KEYS.PORTFOLIO_COMPARISON}public:${args.sort_by}:${args.sort_order}:${args.asset_filter ?? 'none'}:${args.min_positions}:${args.page_num}:${args.page_size}`
 
-  const data = await withCache(
-    cacheKey,
-    600, // 10 minute TTL for public portfolios
-    async () => {
-      const { data: result, error: dbError } = await supabase.rpc('get_public_portfolios', {
-        sort,
-        order,
-        filter: filter || null,
-        min_positions: min_positions ? parseInt(min_positions, 10) : null,
-        page,
-        limit,
-      })
-
-      if (dbError) throw new Error(dbError.message)
-      return result
-    }
-  )
+  const data = await withCache(cacheKey, 600, async () => {
+    const { data: rows, error: dbError } = await supabase.rpc('get_public_portfolios', args)
+    if (dbError) throw new Error(dbError.message)
+    return ((rows ?? []) as PublicPortfolioRow[]).map(toPublicPortfolio)
+  })
 
   return success(data)
 }

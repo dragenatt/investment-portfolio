@@ -2,19 +2,14 @@
 
 import { useState } from 'react'
 import { useLeaderboard } from '@/lib/hooks/use-discover'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Avatar } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
-import { TrendingUp, TrendingDown, Award, Crown } from 'lucide-react'
+import { Award, Crown } from 'lucide-react'
 import { PercentageChange } from '@/components/shared/percentage-change'
-
-type Category = 'returns' | 'sharpe' | 'volatility' | 'consistency'
-type Period = '1M' | '3M' | '1Y'
+import type { LeaderboardCategory, Ranking } from '@/lib/services/discover'
 
 const getMedalColor = (rank: number) => {
   // Text colours: 4.5:1 in both themes. The medal hue stays recognisable.
@@ -31,56 +26,62 @@ const getMedalIcon = (rank: number) => {
   return null
 }
 
-export default function LeaderboardPage() {
-  const [category, setCategory] = useState<Category>('returns')
-  const [period, setPeriod] = useState<Period>('1Y')
+const CATEGORY_LABELS: Record<LeaderboardCategory, string> = {
+  returns: 'Mayor Retorno',
+  sharpe: 'Mejor Sharpe',
+  volatility: 'Menor Volatilidad',
+  consistency: 'Más Consistente',
+}
 
-  const categoryLabels: Record<Category, string> = {
-    returns: 'Mayor Retorno',
-    sharpe: 'Mejor Sharpe',
-    volatility: 'Menor Volatilidad',
-    consistency: 'Más Consistente',
+/** What each category ranks by, said once under the table. */
+const CATEGORY_NOTES: Record<LeaderboardCategory, string> = {
+  returns: 'Rendimiento total desde que empezó cada portafolio.',
+  sharpe: 'Rendimiento por unidad de riesgo. Requiere al menos cinco días de historial.',
+  volatility: 'Volatilidad anualizada de los rendimientos diarios. Requiere al menos cinco días de historial.',
+  consistency: 'Porcentaje de días con rendimiento positivo. Requiere al menos cinco días de historial.',
+}
+
+function MetricCell({ category, ranking }: { category: LeaderboardCategory; ranking: Ranking }) {
+  if (category === 'returns') {
+    return <PercentageChange value={ranking.returnPercent} className="text-sm font-bold justify-end" />
   }
+  const value = category === 'sharpe' ? ranking.sharpeRatio : category === 'volatility' ? ranking.volatilityPct : ranking.winRatePct
+  return (
+    <p className="font-bold text-sm font-financial">
+      {value === null ? '—' : category === 'sharpe' ? value.toFixed(2) : `${value.toFixed(1)}%`}
+    </p>
+  )
+}
 
-  const { rankings, isLoading, error } = useLeaderboard(category, period)
+export default function LeaderboardPage() {
+  const [category, setCategory] = useState<LeaderboardCategory>('returns')
+  const { rankings, computedAt, isLoading, error } = useLeaderboard(category)
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold font-serif">Leaderboard</h1>
-          <p className="text-muted-foreground">
-            Los mejores portafolios de InvestTracker
-          </p>
-        </div>
-
-        {/* Period Selector */}
-        <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-          <SelectTrigger className="w-[140px] rounded-xl" aria-label="Período del ranking">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1M">1 Mes</SelectItem>
-            <SelectItem value="3M">3 Meses</SelectItem>
-            <SelectItem value="1Y">1 Año</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold font-serif">Leaderboard</h1>
+        {/* One period only: the nightly snapshot measures each portfolio since it
+            began. The old 1M/3M/1Y selector changed nothing it could measure. */}
+        <p className="text-muted-foreground">
+          Los portafolios públicos de InvestTracker, desde que empezó cada uno.
+          {computedAt && ` Actualizado el ${new Date(computedAt).toLocaleDateString('es-MX', { dateStyle: 'long' })}.`}
+        </p>
       </div>
 
       {/* Category Tabs */}
-      <Tabs value={category} onValueChange={(v) => setCategory(v as Category)}>
+      <Tabs value={category} onValueChange={(v) => setCategory(v as LeaderboardCategory)}>
         <TabsList className="grid w-full max-w-2xl grid-cols-4">
-          <TabsTrigger value="returns">{categoryLabels.returns}</TabsTrigger>
-          <TabsTrigger value="sharpe">{categoryLabels.sharpe}</TabsTrigger>
-          <TabsTrigger value="volatility">{categoryLabels.volatility}</TabsTrigger>
-          <TabsTrigger value="consistency">{categoryLabels.consistency}</TabsTrigger>
+          {(Object.keys(CATEGORY_LABELS) as LeaderboardCategory[]).map((key) => (
+            <TabsTrigger key={key} value={key}>{CATEGORY_LABELS[key]}</TabsTrigger>
+          ))}
         </TabsList>
       </Tabs>
 
       {/* Leaderboard Table */}
       <Card className="rounded-xl border-border">
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -89,7 +90,6 @@ export default function LeaderboardPage() {
                   <Skeleton className="h-10 w-10 rounded-full" />
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-16" />
                 </div>
               ))}
             </div>
@@ -97,109 +97,86 @@ export default function LeaderboardPage() {
             <div className="text-center py-8 text-muted-foreground">
               Error al cargar el leaderboard
             </div>
+          ) : rankings.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Todavía no hay portafolios públicos con datos para esta categoría. El ranking se actualiza cada noche.
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left text-sm font-semibold py-3 px-4">#</th>
-                    <th className="text-left text-sm font-semibold py-3 px-4">Usuario</th>
-                    <th className="text-left text-sm font-semibold py-3 px-4">Portafolio</th>
-                    <th className="text-right text-sm font-semibold py-3 px-4">{categoryLabels[category]}</th>
-                    <th className="text-right text-sm font-semibold py-3 px-4">Tendencia</th>
+                    <th scope="col" className="text-left text-sm font-semibold py-3 px-4">#</th>
+                    <th scope="col" className="text-left text-sm font-semibold py-3 px-4">Usuario</th>
+                    <th scope="col" className="text-left text-sm font-semibold py-3 px-4">Portafolio</th>
+                    <th scope="col" className="text-right text-sm font-semibold py-3 px-4">{CATEGORY_LABELS[category]}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rankings.map((ranking, idx) => (
-                    <tr
-                      key={ranking.portfolioId}
-                      className={`border-b border-border last:border-0 transition-colors ${
-                        idx < 3 ? 'bg-secondary/30' : ''
-                      } hover:bg-secondary/20`}
-                    >
-                      {/* Rank with Medal */}
-                      <td className="text-left py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          {getMedalIcon(ranking.rank)}
-                          <span className={`font-bold text-lg ${getMedalColor(ranking.rank)}`}>
-                            #{ranking.rank}
-                          </span>
-                        </div>
-                      </td>
+                  {rankings.map((ranking, idx) => {
+                    const name = ranking.displayName || ranking.username || 'Inversor'
+                    const person = (
+                      <>
+                        <Avatar className="h-8 w-8 rounded-full flex-shrink-0">
+                          {ranking.avatarUrl && (
+                            <img src={ranking.avatarUrl} alt="" className="h-full w-full object-cover rounded-full" />
+                          )}
+                        </Avatar>
+                        <span className="font-medium group-hover:text-primary">{name}</span>
+                      </>
+                    )
+                    return (
+                      <tr
+                        key={ranking.portfolioId}
+                        className={`border-b border-border last:border-0 transition-colors ${
+                          idx < 3 ? 'bg-secondary/30' : ''
+                        } hover:bg-secondary/20`}
+                      >
+                        {/* Rank with Medal */}
+                        <td className="text-left py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            {getMedalIcon(ranking.rank)}
+                            <span className={`font-bold text-lg ${getMedalColor(ranking.rank)}`}>
+                              #{ranking.rank}
+                            </span>
+                          </div>
+                        </td>
 
-                      {/* User Info */}
-                      <td className="text-left py-4 px-4">
-                        <Link href={`/profile/${ranking.username}`} className="flex items-center gap-3 hover:underline group">
-                          <Avatar className="h-8 w-8 rounded-full flex-shrink-0">
-                            {ranking.avatar_url && (
-                              <img src={ranking.avatar_url} alt={ranking.username} className="h-full w-full object-cover rounded-full" />
-                            )}
-                          </Avatar>
-                          <span className="font-medium group-hover:text-primary">{ranking.username}</span>
-                        </Link>
-                      </td>
+                        {/* User Info: a profile link only when there is a username to link to */}
+                        <td className="text-left py-4 px-4">
+                          {ranking.username ? (
+                            <Link href={`/profile/${ranking.username}`} className="flex items-center gap-3 hover:underline group">
+                              {person}
+                            </Link>
+                          ) : (
+                            <div className="flex items-center gap-3">{person}</div>
+                          )}
+                        </td>
 
-                      {/* Portfolio Name */}
-                      <td className="text-left py-4 px-4">
-                        <Link
-                          href={`/portfolio/${ranking.portfolioId}/public`}
-                          className="text-sm text-muted-foreground hover:text-primary truncate"
-                        >
-                          {ranking.portfolioName}
-                        </Link>
-                      </td>
+                        {/* Portfolio Name */}
+                        <td className="text-left py-4 px-4">
+                          <Link
+                            href={`/portfolio/${ranking.portfolioId}/public`}
+                            className="text-sm text-muted-foreground hover:text-primary truncate"
+                          >
+                            {ranking.portfolioName}
+                          </Link>
+                        </td>
 
-                      {/* Metric Value */}
-                      <td className="text-right py-4 px-4">
-                        {category === 'returns' ? (
-                          <PercentageChange value={ranking.returnPercent} className="text-sm font-bold justify-end" />
-                        ) : (
-                          <p className="font-bold text-sm">-</p>
-                        )}
-                      </td>
-
-                      {/* Trend Indicator */}
-                      <td className="text-right py-4 px-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <TrendingUp className="h-4 w-4 text-gain" aria-hidden="true" />
-                          <span className="text-xs text-muted-foreground">Sube</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        {/* Metric Value */}
+                        <td className="text-right py-4 px-4">
+                          <MetricCell category={category} ranking={ranking} />
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           )}
+          <p className="text-xs text-muted-foreground">{CATEGORY_NOTES[category]}</p>
         </CardContent>
       </Card>
-
-      {/* Legend for Top 3 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1, 2, 3].map((position) => (
-          <Card key={position} className="rounded-xl border-border bg-secondary/30">
-            <CardContent className="pt-6 text-center">
-              <div className="flex justify-center mb-2">
-                {getMedalIcon(position) && <div className="text-3xl">{getMedalIcon(position)}</div>}
-              </div>
-              <p className="font-semibold">
-                {position === 1
-                  ? '1er Lugar'
-                  : position === 2
-                    ? '2do Lugar'
-                    : '3er Lugar'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {position === 1
-                  ? 'Mejor rendimiento'
-                  : position === 2
-                    ? 'Excelente desempeño'
-                    : 'Gran logro'}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
     </div>
   )
 }

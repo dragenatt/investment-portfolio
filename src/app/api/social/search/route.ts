@@ -2,6 +2,7 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { rateLimit } from '@/lib/api/rate-limit'
 import { apiHandler } from '@/lib/api/handler'
+import { isSearchableQuery, toUserSearchResults, USER_SEARCH_LIMIT, type UserSearchRow } from '@/lib/services/discover'
 
 async function getHandler(req: Request) {
   const supabase = await createServerSupabase()
@@ -15,13 +16,17 @@ async function getHandler(req: Request) {
   const q = searchParams.get('q')
 
   if (!q) return error('q query parameter is required', 400)
+  if (!isSearchableQuery(q)) return success([])
 
+  // Named as search_users declares them: `query` matched no function, so every
+  // search failed.
   const { data, error: dbError } = await supabase.rpc('search_users', {
-    query: q,
+    search_query: q.trim(),
+    result_limit: USER_SEARCH_LIMIT,
   })
 
   if (dbError) return error(dbError.message, 500)
-  return success(data)
+  return success(toUserSearchResults((data ?? []) as UserSearchRow[]))
 }
 
 export const GET = apiHandler(getHandler)

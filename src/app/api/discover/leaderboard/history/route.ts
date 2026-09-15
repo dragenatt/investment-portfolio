@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { apiHandler } from '@/lib/api/handler'
+import { LEADERBOARD_PERIOD } from '@/lib/services/discover'
 
 async function getHandler(req: Request) {
   const supabase = await createServerSupabase()
@@ -8,8 +9,8 @@ async function getHandler(req: Request) {
   if (!user) return error('Unauthorized', 401)
 
   const url = new URL(req.url)
-  const category = url.searchParams.get('category') || 'return'
-  const period = url.searchParams.get('period') || '1M'
+  const category = url.searchParams.get('category') || 'returns'
+  const period = LEADERBOARD_PERIOD
   const days = parseInt(url.searchParams.get('days') || '30')
 
   const cutoff = new Date()

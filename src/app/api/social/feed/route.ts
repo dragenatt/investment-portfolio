@@ -18,16 +18,23 @@ async function getHandler(req: Request) {
 
   const { data, error: dbError } = await supabase
     .from('activity_feed')
-    .select(`
-      *,
-      profiles(username, avatar_url)
-    `)
+    .select('*')
     .or(`user_id.eq.${user.id},is_public.eq.true`)
     .order('created_at', { ascending: false })
     .range(offset, offset + pageSize - 1)
 
   if (dbError) return error(dbError.message, 500)
-  return success(data)
+
+  // Profiles in a second query: activity_feed and profiles both reference
+  // auth.users, not each other, so PostgREST cannot embed one in the other and
+  // the single-query version failed on every request.
+  const userIds = [...new Set((data ?? []).map((row) => row.user_id as string))]
+  const { data: profiles } = userIds.length
+    ? await supabase.from('profiles').select('user_id, username, avatar_url').in('user_id', userIds)
+    : { data: [] }
+  const byUser = new Map((profiles ?? []).map((p) => [p.user_id, { username: p.username, avatar_url: p.avatar_url }]))
+
+  return success((data ?? []).map((row) => ({ ...row, profiles: byUser.get(row.user_id) ?? null })))
 }
 
 export const GET = apiHandler(getHandler)

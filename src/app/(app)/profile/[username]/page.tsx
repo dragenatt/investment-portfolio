@@ -58,10 +58,10 @@ export default function PublicProfilePage({
                 {/* Avatar */}
                 <div className="relative">
                   <Avatar className="h-24 w-24 rounded-full">
-                    {profile.avatar_url && (
+                    {profile.avatarUrl && (
                       <img
-                        src={profile.avatar_url}
-                        alt={profile.username}
+                        src={profile.avatarUrl}
+                        alt=""
                         className="h-full w-full object-cover rounded-full"
                       />
                     )}
@@ -70,8 +70,8 @@ export default function PublicProfilePage({
 
                 {/* Info */}
                 <div className="flex-1">
-                  <h1 className="text-3xl font-bold mb-1">{profile.username || profile.email}</h1>
-                  <p className="text-sm text-muted-foreground mb-3">@{profile.username || profile.email.split('@')[0]}</p>
+                  <h1 className="text-3xl font-bold mb-1">{profile.displayName || profile.username}</h1>
+                  <p className="text-sm text-muted-foreground mb-3">@{profile.username}</p>
 
                   {profile.bio && <p className="text-base text-foreground mb-4">{profile.bio}</p>}
 
@@ -113,7 +113,7 @@ export default function PublicProfilePage({
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xl font-bold">{profile.portfolioCount}</p>
+                  <p className="text-xl font-bold">{profile.publicPortfolioCount}</p>
                   <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                     <Briefcase className="h-3 w-3" />
                     Portafolios
@@ -153,8 +153,8 @@ export default function PublicProfilePage({
                     {/* Portfolio Name */}
                     <div>
                       <p className="font-bold text-base truncate">{portfolio.name}</p>
-                      {portfolio.description && (
-                        <p className="text-xs text-muted-foreground truncate mt-1">{portfolio.description}</p>
+                      {portfolio.tags.length > 0 && (
+                        <p className="text-xs text-muted-foreground truncate mt-1">{portfolio.tags.join(' · ')}</p>
                       )}
                     </div>
 
@@ -165,7 +165,9 @@ export default function PublicProfilePage({
                         <p className="text-xs text-muted-foreground">Retorno</p>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-gain">-</p>
+                        <p className="text-sm font-bold font-financial">
+                          {portfolio.sharpeRatio === null ? '—' : portfolio.sharpeRatio.toFixed(2)}
+                        </p>
                         <p className="text-xs text-muted-foreground">Sharpe</p>
                       </div>
                     </div>
