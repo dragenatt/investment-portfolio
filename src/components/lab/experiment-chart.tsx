@@ -18,6 +18,7 @@ import { formatByUnit } from '@/lib/utils/lab-format'
 import type { ChartSpec } from '@/lib/services/lab'
 import { ChartFigure } from '@/components/charts/chart-figure'
 import { seriesTable } from '@/lib/utils/chart-accessibility'
+import { ChartTooltipContent } from '@/components/charts/chart-tooltip'
 
 /**
  * Draws any lab experiment from the chart description its result carries.
@@ -82,19 +83,15 @@ export function ExperimentChart({
       />
       <Tooltip
         cursor={chart.kind === 'line' ? theme.crosshair : { fill: 'var(--muted)', opacity: 0.4 }}
-        contentStyle={{
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          fontSize: 11,
-        }}
-        labelFormatter={(value) =>
-          typeof value === 'number' ? `${chart.xLabel}: ${xTick(value)}` : String(value)
+        content={
+          <ChartTooltipContent
+            labelFormatter={(value) => (typeof value === 'number' ? `${chart.xLabel}: ${xTick(value)}` : String(value ?? ''))}
+            nameFormatter={(name) => labelOf(name)}
+            valueFormatter={(value, entry) =>
+              typeof value === 'number' ? formatByUnit(value, unitOf(String(entry.dataKey ?? entry.name)), 2) : String(value)
+            }
+          />
         }
-        formatter={(value, name) => [
-          typeof value === 'number' ? formatByUnit(value, unitOf(String(name)), 2) : String(value),
-          labelOf(String(name)),
-        ]}
       />
       <Legend
         verticalAlign="top"

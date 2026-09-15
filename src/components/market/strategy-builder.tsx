@@ -40,6 +40,7 @@ import {
 import { useStrategyBacktest } from '@/lib/hooks/use-strategy'
 import { ChartFigure } from '@/components/charts/chart-figure'
 import { formatChartDate, formatChartMoney, seriesTable } from '@/lib/utils/chart-accessibility'
+import { ChartTooltipContent } from '@/components/charts/chart-tooltip'
 
 /**
  * Build a trading rule by clicking, then watch it lose to buy-and-hold.
@@ -387,13 +388,12 @@ export function StrategyBuilder({ symbol }: { symbol: string }) {
                     />
                     <Tooltip
                       cursor={theme.crosshair}
-                      contentStyle={{
-                        background: 'var(--card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 8,
-                        fontSize: 11,
-                      }}
-                      formatter={(v) => (typeof v === 'number' ? `$${v.toFixed(2)}` : String(v))}
+                      content={
+                        <ChartTooltipContent
+                          labelFormatter={(d) => formatChartDate(String(d))}
+                          valueFormatter={(v) => (typeof v === 'number' ? formatChartMoney(v, '') : String(v))}
+                        />
+                      }
                     />
                     <Legend
                       verticalAlign="top"

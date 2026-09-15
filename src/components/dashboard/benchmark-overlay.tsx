@@ -53,10 +53,7 @@ function CustomTooltip({
       : null
 
   return (
-    <div
-      className="rounded-lg backdrop-blur-sm px-3 py-2 shadow-lg"
-      style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
-    >
+    <div className="chart-tooltip">
       <p className="text-xs mb-1" style={{ color: 'var(--muted-foreground)' }}>
         {new Date(String(label)).toLocaleDateString('es-MX', {
           weekday: 'short',

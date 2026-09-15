@@ -29,23 +29,13 @@ type SortDir = 'asc' | 'desc'
 type SortState = { key: SortKey; dir: SortDir }
 type PriceData = Record<string, { price: number | null; change: number | null; changePct: number | null; currency: string }>
 
-// --- Mini sparkline SVG (simple inline) ---
-function MiniSparkline({ positive }: { positive: boolean }) {
-  // Simple decorative sparkline shapes
-  const upPath = 'M0,14 L4,12 L8,13 L12,10 L16,11 L20,7 L24,8 L28,4 L32,3'
-  const downPath = 'M0,4 L4,5 L8,3 L12,7 L16,6 L20,10 L24,11 L28,13 L32,14'
-  return (
-    <svg width="32" height="16" viewBox="0 0 32 16" className="inline-block ml-1">
-      <path
-        d={positive ? upPath : downPath}
-        fill="none"
-        stroke={positive ? 'var(--color-gain, #22c55e)' : 'var(--color-loss, #ef4444)'}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
+// Direction of the day's change, next to the ticker. This used to be a drawn
+// "sparkline": a fixed zigzag chosen by the sign, not the price history, which
+// rose for a flat day too (D12). Icon plus the signed percentage beside it;
+// never colour alone.
+function DirectionIcon({ tone }: { tone: ReturnType<typeof changeTone> }) {
+  const Icon = tone === 'gain' ? TrendingUp : tone === 'loss' ? TrendingDown : Minus
+  return <Icon aria-hidden="true" className={`h-3.5 w-3.5 ml-1 inline-block ${toneTextClass(tone)}`} />
 }
 
 // --- Sort icon for table headers ---
@@ -127,7 +117,7 @@ function WatchlistTable({ watchlist, prices, t }: { watchlist: Watchlist; prices
               <TableCell>
                 <Link href={`/market/${encodeURIComponent(item.symbol)}`} className="flex items-center gap-2 hover:underline">
                   <span className="font-mono font-semibold text-sm">{item.symbol}</span>
-                  <MiniSparkline positive={tone !== 'loss'} />
+                  <DirectionIcon tone={tone} />
                 </Link>
               </TableCell>
               <TableCell className="text-right font-financial text-sm">

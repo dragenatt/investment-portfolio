@@ -37,7 +37,7 @@ function CustomTooltip({
   if (!active || !payload?.length) return null
 
   return (
-    <div className="rounded-lg border bg-card px-3 py-2 shadow-md">
+    <div className="chart-tooltip">
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
       <p className="text-sm font-financial font-semibold text-loss">
         {payload[0].value.toFixed(2)}%

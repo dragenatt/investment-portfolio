@@ -153,6 +153,8 @@
   --shimmer: #ECEAE3;
   --gradient-hero-start: #F4F3EE;
   --gradient-hero-end: #ECEAE3;
+  /* Dims the page behind a modal walkthrough; the same in both themes. */
+  --scrim: rgba(10, 15, 20, 0.7);
 }
 
 /* ─── Dark mode variables ─── */
@@ -211,6 +213,7 @@
   --shimmer: #16212B;
   --gradient-hero-start: #0A0F14;
   --gradient-hero-end: #111820;
+  --scrim: rgba(0, 0, 0, 0.72);
 }
 
 /* ─── Base layer ─── */
@@ -242,6 +245,18 @@
    figures, so digits have one width and decimal points line up down a column
    and do not jitter when a live price ticks. Rule in CONTRIBUTING.md.
    Identifiers such as tickers keep plain font-mono. */
+/* D12 — the one surface every chart tooltip sits on, in both themes. */
+@utility chart-tooltip {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
 @utility font-financial {
   font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;

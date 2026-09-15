@@ -519,15 +519,16 @@ function ComparePageInner() {
             {symbols.map((sym, i) => (
               <span
                 key={sym}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium text-white"
-                style={{ backgroundColor: COLORS[i] }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card text-sm font-medium text-foreground"
+                style={{ boxShadow: `inset 3px 0 0 ${COLORS[i]}` }}
               >
+                <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[i] }} />
                 {sym}
                 <button
                   type="button"
                   aria-label={`Quitar ${sym} de la comparación`}
                   onClick={() => removeSymbol(sym)}
-                  className="hover:bg-white/20 rounded-full p-0.5 transition-colors"
+                  className="hover:bg-secondary rounded-full p-0.5 transition-colors"
                 >
                   <X className="h-3 w-3" />
                 </button>

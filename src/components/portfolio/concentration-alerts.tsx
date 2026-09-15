@@ -23,8 +23,8 @@ type Props = {
 const severityConfig = {
   warning: {
     icon: AlertTriangle,
-    border: '1px solid color-mix(in srgb, #f59e0b 40%, transparent)',
-    bg: 'color-mix(in srgb, #f59e0b 5%, transparent)',
+    border: '1px solid color-mix(in srgb, var(--warn) 40%, transparent)',
+    bg: 'color-mix(in srgb, var(--warn) 5%, transparent)',
     iconClass: 'text-warn',
   },
   critical: {

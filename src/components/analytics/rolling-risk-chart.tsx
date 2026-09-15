@@ -98,7 +98,7 @@ function RollingTooltip({
   if (!active || !payload?.length) return null
   const value = payload[0].payload.value
   return (
-    <div className="rounded-lg border bg-card px-3 py-2 shadow-md">
+    <div className="chart-tooltip">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-sm font-financial font-semibold text-foreground">
         {value === null ? 'n/d' : `${value.toFixed(digits)}${suffix}`}

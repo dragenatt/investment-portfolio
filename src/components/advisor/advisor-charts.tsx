@@ -18,6 +18,8 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { ChartFigure } from '@/components/charts/chart-figure'
+import { ChartTooltipContent } from '@/components/charts/chart-tooltip'
+import { getChartTheme } from '@/lib/utils/chart-config'
 
 export type DonutDatum = { name: string; value: number }
 
@@ -34,7 +36,7 @@ export function AdvisorAllocationDonut({
   colors,
 }: {
   donutData: DonutDatum[]
-  colors: string[]
+  colors: readonly string[]
 }) {
   const DONUT_COLORS = colors
   const summary = `Portafolio sugerido en ${donutData.length} clases de activo: ${donutData
@@ -63,14 +65,7 @@ export function AdvisorAllocationDonut({
               <Cell key={idx} fill={DONUT_COLORS[idx % DONUT_COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip
-            formatter={(value) => `${value}%`}
-            contentStyle={{
-              borderRadius: '12px',
-              border: '1px solid var(--border)',
-              background: 'var(--card)',
-            }}
-          />
+          <Tooltip content={<ChartTooltipContent valueFormatter={(value) => `${Number(value).toFixed(0)}%`} />} />
           <Legend />
         </PieChart>
       </ResponsiveContainer>
@@ -85,6 +80,7 @@ export function AdvisorProjectionChart({
   chartData: ProjectionDatum[]
   fmt: Intl.NumberFormat
 }) {
+  const theme = getChartTheme()
   const last = chartData[chartData.length - 1]
   const summary = last
     ? `Proyección de crecimiento hasta ${last.name}: mediana ${fmt.format(last.mediana)}; 8 de cada 10 escenarios terminan entre ${fmt.format(
@@ -108,27 +104,19 @@ export function AdvisorProjectionChart({
     <ChartFigure summary={summary} table={table}>
       <ResponsiveContainer width="100%" height={320}>
         <ComposedChart accessibilityLayer={false} data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
-          <YAxis
-            tickFormatter={(v: number) => fmt.format(v)}
-            tick={{ fontSize: 11 }}
-            stroke="var(--muted-foreground)"
-            width={90}
-          />
+          <CartesianGrid {...theme.grid} />
+          <XAxis dataKey="name" {...theme.xAxis} />
+          <YAxis {...theme.yAxis} tickFormatter={(v: number) => fmt.format(v)} width={90} />
           <Tooltip
-            formatter={(value: unknown, name) => {
-              if (Array.isArray(value)) {
-                return [`${fmt.format(Number(value[0]))} – ${fmt.format(Number(value[1]))}`, name]
-              }
-              return [fmt.format(Number(value)), name]
-            }}
-            contentStyle={{
-              borderRadius: '12px',
-              border: '1px solid var(--border)',
-              background: 'var(--card)',
-            }}
-            labelStyle={{ fontWeight: 600 }}
+            content={
+              <ChartTooltipContent
+                valueFormatter={(value) =>
+                  Array.isArray(value)
+                    ? `${fmt.format(Number(value[0]))} – ${fmt.format(Number(value[1]))}`
+                    : fmt.format(Number(value))
+                }
+              />
+            }
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
 

@@ -20,6 +20,8 @@ import {
 } from 'recharts'
 import { ChartFigure } from '@/components/charts/chart-figure'
 import { formatChartDate, formatChartNumber, seriesTable } from '@/lib/utils/chart-accessibility'
+import { ChartTooltipContent } from '@/components/charts/chart-tooltip'
+import { getChartTheme } from '@/lib/utils/chart-config'
 
 type ComparedPortfolio = { portfolioId: string; portfolioName: string }
 
@@ -30,9 +32,10 @@ export function CompareHistoryChart({
 }: {
   chartData: Array<Record<string, unknown>>
   history: ComparedPortfolio[]
-  colors: string[]
+  colors: readonly string[]
 }) {
   const CHART_COLORS = colors
+  const theme = getChartTheme()
   const names = history.map((h) => h.portfolioName)
   const last = chartData[chartData.length - 1]
   const summary =
@@ -63,11 +66,10 @@ export function CompareHistoryChart({
               </linearGradient>
             ))}
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+          <CartesianGrid {...theme.grid} />
           <XAxis
             dataKey="date"
-            stroke="var(--muted-foreground)"
-            style={{ fontSize: '11px' }}
+            {...theme.xAxis}
             tickFormatter={(d) => new Date(d).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
           />
           <YAxis
@@ -76,14 +78,13 @@ export function CompareHistoryChart({
             domain={['dataMin - 5', 'dataMax + 5']}
           />
           <Tooltip
-            contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', fontSize: '12px' }}
-            labelFormatter={(d) => new Date(d as string).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            formatter={(value: any, name: any) => {
-              const idx = parseInt(String(name).replace('portfolio_', ''))
-              const label = history[idx]?.portfolioName || name
-              return [typeof value === 'number' ? `${value.toFixed(2)}` : value, label]
-            }}
+            content={
+              <ChartTooltipContent
+                labelFormatter={(d) => formatChartDate(String(d))}
+                nameFormatter={(name) => history[parseInt(name.replace('portfolio_', ''))]?.portfolioName ?? name}
+                valueFormatter={(value) => (typeof value === 'number' ? formatChartNumber(value) : '—')}
+              />
+            }
           />
           <Legend
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -117,9 +118,10 @@ export function CompareRadarChart({
 }: {
   radarData: Array<Record<string, unknown>>
   history: ComparedPortfolio[]
-  colors: string[]
+  colors: readonly string[]
 }) {
   const CHART_COLORS = colors
+  const theme = getChartTheme()
   const metrics = radarData.map((row) => String(row.metric))
   const radarSummary = `Comparación de ${history.map((h) => h.portfolioName).join(', ')} en ${metrics.length} métricas puntuadas de 0 a 100: ${metrics.join(', ')}.`
   const radarTable = {
@@ -137,17 +139,9 @@ export function CompareRadarChart({
     <ChartFigure summary={radarSummary} table={radarTable} fill>
       <ResponsiveContainer width="100%" height="100%">
         <RadarChart accessibilityLayer={false} data={radarData}>
-          <PolarGrid stroke="var(--border)" />
-          <PolarAngleAxis
-            dataKey="metric"
-            tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
-          />
-          <PolarRadiusAxis
-            angle={30}
-            domain={[0, 100]}
-            tick={{ fontSize: 10 }}
-            stroke="var(--border)"
-          />
+          <PolarGrid stroke={theme.grid.stroke} />
+          <PolarAngleAxis dataKey="metric" tick={theme.xAxis.tick} />
+          <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ ...theme.yAxis.tick, fontSize: 10 }} stroke={theme.grid.stroke} />
           {history.map((h, idx) => (
             <Radar
               key={h.portfolioId}
@@ -166,7 +160,7 @@ export function CompareRadarChart({
               return history[idx]?.portfolioName || value
             }}
           />
-          <Tooltip />
+          <Tooltip content={<ChartTooltipContent valueFormatter={(value) => (typeof value === 'number' ? formatChartNumber(value, 0) : '—')} />} />
         </RadarChart>
       </ResponsiveContainer>
     </ChartFigure>

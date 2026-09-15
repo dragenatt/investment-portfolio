@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react'
 import { getChartTheme } from '@/lib/utils/chart-config'
 import { ChartFigure } from '@/components/charts/chart-figure'
 import { describeChange, formatChartDate, formatChartMoney, seriesTable } from '@/lib/utils/chart-accessibility'
+import { ChartEmpty, ChartLoading } from '@/components/charts/chart-state'
 
 type DataPoint = { date: string; value: number }
 
@@ -38,10 +39,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   if (!active || !payload?.length) return null
   const value = payload[0].value
   return (
-    <div
-      className="rounded-lg backdrop-blur-sm px-3 py-2 shadow-lg"
-      style={{ border: '1px solid var(--border)', background: 'var(--card)' }}
-    >
+    <div className="chart-tooltip">
       <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
         {new Date(String(label)).toLocaleDateString('es-MX', {
           weekday: 'short',
@@ -99,13 +97,9 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
     <div className="space-y-3 premium-card p-4">
       {/* Chart area — clean sparkline look */}
       {isLoading ? (
-        <div className="h-[250px] flex items-center justify-center text-sm" style={{ color: 'var(--muted-foreground)' }}>
-          Cargando datos...
-        </div>
+        <ChartLoading height={250} label="Cargando la evolución del portafolio…" />
       ) : data.length === 0 ? (
-        <div className="h-[250px] flex items-center justify-center text-sm" style={{ color: 'var(--muted-foreground)' }}>
-          Agrega transacciones para ver el rendimiento
-        </div>
+        <ChartEmpty height={250} message="Agrega transacciones para ver el rendimiento" />
       ) : (
         <ChartFigure summary={summary} table={table}>
           <ResponsiveContainer width="100%" height={250}>

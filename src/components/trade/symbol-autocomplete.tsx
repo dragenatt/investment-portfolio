@@ -6,6 +6,7 @@ import { useDebounce } from '@/lib/hooks/use-debounce'
 import { Input } from '@/components/ui/input'
 import { Loader2, TrendingUp, TrendingDown, Clock, Minus } from 'lucide-react'
 import { changeTone, formatSignedPercent, toneTextClass } from '@/lib/utils/change-tone'
+import { SERIES_PALETTE } from '@/lib/utils/chart-config'
 
 const RECENT_KEY = 'trade_recent_symbols'
 
@@ -44,17 +45,13 @@ function saveRecentSearch(result: SearchResult) {
   }
 }
 
-/** Deterministic color from a string hash */
+/** Deterministic categorical token from a string hash (no green or red: they mean gain and loss). */
 function symbolColor(symbol: string): string {
-  const colors = [
-    '#6366F1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6',
-    '#8B5CF6', '#EF4444', '#14B8A6', '#F97316', '#06B6D4',
-  ]
   let hash = 0
   for (let i = 0; i < symbol.length; i++) {
     hash = symbol.charCodeAt(i) + ((hash << 5) - hash)
   }
-  return colors[Math.abs(hash) % colors.length]
+  return SERIES_PALETTE[Math.abs(hash) % SERIES_PALETTE.length]
 }
 
 /** Inline quote display for a symbol */
@@ -221,8 +218,12 @@ export function SymbolAutocomplete({ value, onSelect, placeholder, autoFocus, id
                 <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
               ) : (
                 <div
-                  className="h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  style={{ backgroundColor: symbolColor(item.symbol) }}
+                  aria-hidden="true"
+                  className="h-7 w-7 rounded-full flex items-center justify-center text-foreground text-xs font-bold shrink-0"
+                  style={{
+                    backgroundColor: `color-mix(in srgb, ${symbolColor(item.symbol)} 22%, var(--card))`,
+                    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${symbolColor(item.symbol)} 45%, transparent)`,
+                  }}
                 >
                   {item.symbol.charAt(0)}
                 </div>

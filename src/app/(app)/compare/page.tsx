@@ -16,10 +16,12 @@ import { CompareHistoryChart, CompareRadarChart } from '@/components/charts/lazy
 import { X, Save, Plus, Trophy, Shield, TrendingUp, Target } from 'lucide-react'
 import { toast } from 'sonner'
 import { PercentageChange } from '@/components/shared/percentage-change'
+import { SERIES_PALETTE } from '@/lib/utils/chart-config'
 
 type Period = '1M' | '3M' | '6M' | '1Y' | '5Y' | 'ALL'
 
-const CHART_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
+// Portfolios are identities: the categorical palette, never gain green or loss red (D12).
+const CHART_COLORS = SERIES_PALETTE
 
 export default function ComparePage() {
   const [selectedPortfolios, setSelectedPortfolios] = useState<string[]>([])

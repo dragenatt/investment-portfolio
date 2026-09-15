@@ -54,7 +54,7 @@ function FrontierTooltip({
   const point = payload[0].payload as FrontierPoint & { label?: string }
 
   return (
-    <div className="rounded-lg border bg-card px-3 py-2 shadow-md space-y-1 max-w-60">
+    <div className="chart-tooltip space-y-1 max-w-60">
       {point.label && <p className="text-xs font-medium text-foreground">{point.label}</p>}
       <p className="text-sm font-financial text-foreground">
         {point.expectedReturnPct.toFixed(1)}% esperado

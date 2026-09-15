@@ -23,6 +23,7 @@ import {
 } from '@/lib/utils/indicators'
 import { ChartFigure } from '@/components/charts/chart-figure'
 import { describeChange, formatChartDate, formatChartMoney, formatChartNumber, seriesTable } from '@/lib/utils/chart-accessibility'
+import { ChartEmpty } from '@/components/charts/chart-state'
 
 const rangeMap: Record<string, string> = {
   '1D': '1d', '1S': '5d', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1A': '1y', '5A': 'max',
@@ -62,7 +63,7 @@ function HoverTooltip({
 
   if (!active || !payload || !payload.length) return null
   return (
-    <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+    <div className="chart-tooltip">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-sm font-semibold font-financial">${payload[0].value?.toFixed(2)}</p>
     </div>
@@ -90,7 +91,7 @@ type PriceChartProps = {
 export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
   const [range, setRange] = useState('1M')
   const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorKey>>(new Set())
-  const { data, isLoading } = usePriceHistory(symbol, rangeMap[range])
+  const { data, isLoading, error, mutate } = usePriceHistory(symbol, rangeMap[range])
 
   // Store callback in a ref so the tooltip can call it without re-renders
   const onHoverRef = useRef<((price: number | null) => void) | null>(onPriceHover ?? null)
@@ -177,7 +178,8 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
   const rangeChange = lastPrice - firstPrice
   const rangeChangePct = firstPrice > 0 ? (rangeChange / firstPrice) * 100 : 0
 
-  const showRSI = activeIndicators.has('rsi') && rsiData
+  const hasHistory = chartData.length >= 2
+  const showRSI = hasHistory && activeIndicators.has('rsi') && rsiData
 
   const indicatorColumns = (Object.keys(INDICATOR_CONFIG) as IndicatorKey[])
     .filter((key) => activeIndicators.has(key) && key !== 'bollinger')
@@ -205,13 +207,22 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
 
   return (
     <div>
-      {/* Range change indicator */}
+      {/* Range change indicator — only when there is a range to measure. */}
+      {hasHistory && (
       <div className="flex items-center gap-2 mb-2 px-1">
         <span className={cn('text-xs font-medium font-financial', isPositive ? 'text-gain' : 'text-loss')}>
           {rangeChange >= 0 ? '+' : ''}{rangeChange.toFixed(2)} ({rangeChangePct >= 0 ? '+' : ''}{rangeChangePct.toFixed(2)}%) en {range}
         </span>
       </div>
+      )}
 
+      {/* Main chart, or why there is none: a failed request is not an empty history. */}
+      {error && !data ? (
+        <ChartEmpty height={300} kind="error" message={`No se pudo cargar el historial de ${symbol}.`} onRetry={() => mutate()} />
+      ) : !hasHistory ? (
+        <ChartEmpty height={300} message={`No hay historial de precios de ${symbol} para ${range}.`} />
+      ) : (
+      <>
       {/* Main chart */}
       <div
         className="w-full"
@@ -364,6 +375,9 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
           </ResponsiveContainer>
         </ChartFigure>
       </div>
+
+      </>
+      )}
 
       {/* RSI sub-chart */}
       {showRSI && (

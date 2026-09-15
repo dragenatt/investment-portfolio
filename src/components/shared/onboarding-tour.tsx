@@ -252,7 +252,7 @@ export function OnboardingTour({ forceOpen, onClose }: OnboardingTourProps) {
               width: spotlightRect.width + spotlightPadding * 2,
               height: spotlightRect.height + spotlightPadding * 2,
               borderRadius: '12px',
-              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
+              boxShadow: '0 0 0 9999px var(--scrim)',
               transition: 'all 0.3s ease',
               pointerEvents: 'none',
             }}
@@ -262,7 +262,7 @@ export function OnboardingTour({ forceOpen, onClose }: OnboardingTourProps) {
             style={{
               position: 'fixed',
               inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              backgroundColor: 'var(--scrim)',
               transition: 'opacity 0.3s ease',
             }}
           />

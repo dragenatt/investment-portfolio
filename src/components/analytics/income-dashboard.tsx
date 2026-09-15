@@ -72,7 +72,7 @@ function SummaryCard({
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border bg-background px-3 py-2 shadow-md">
+    <div className="chart-tooltip">
       <p className="text-xs font-medium" style={{ color: 'var(--muted-foreground)' }}>
         {label}
       </p>

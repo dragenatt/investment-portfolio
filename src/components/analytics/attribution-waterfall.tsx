@@ -103,7 +103,7 @@ function CustomTooltip({
   const d = payload[0].payload
 
   return (
-    <div className="rounded-lg border bg-popover p-3 shadow-md text-popover-foreground">
+    <div className="chart-tooltip">
       <p className="text-sm font-medium mb-2">{d.name}</p>
       <div className="space-y-1 text-xs font-financial">
         {d.allocation_effect != null && (

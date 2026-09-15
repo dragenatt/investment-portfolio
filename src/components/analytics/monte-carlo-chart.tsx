@@ -75,7 +75,7 @@ function CustomTooltip({
   const band = payload[0].payload
 
   return (
-    <div className="rounded-lg border bg-card px-3 py-2 shadow-md space-y-1">
+    <div className="chart-tooltip space-y-1">
       <p className="text-xs text-muted-foreground">
         {label === 0 ? 'Hoy' : `Semana ${label}`}
       </p>

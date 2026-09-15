@@ -5,6 +5,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { PieChartIcon } from 'lucide-react'
 import { getChartTheme } from '@/lib/utils/chart-config'
 import { ChartFigure } from '@/components/charts/chart-figure'
+import { ChartTooltipContent } from '@/components/charts/chart-tooltip'
 
 const COLORS = getChartTheme().colors.palette
 
@@ -53,7 +54,13 @@ export function AllocationDonut({ data }: { data: AllocationData[] }) {
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip
+                    content={
+                      <ChartTooltipContent
+                        valueFormatter={(value) => `${total > 0 ? ((Number(value) / total) * 100).toFixed(1) : '0.0'}%`}
+                      />
+                    }
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </ChartFigure>

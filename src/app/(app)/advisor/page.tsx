@@ -73,6 +73,7 @@ import {
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { Dictionary } from '@/lib/i18n/types'
+import { SERIES_PALETTE } from '@/lib/utils/chart-config'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -83,7 +84,9 @@ const fmt = new Intl.NumberFormat('es-MX', {
   maximumFractionDigits: 0,
 })
 
-const DONUT_COLORS = ['#6366F1', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4']
+// Asset classes are identities, not outcomes: the categorical palette, in its
+// fixed order. The previous list painted classes green and red (D12).
+const DONUT_COLORS = SERIES_PALETTE
 
 const PROFILE_COLORS: Record<PerfilNombre, { bg: string; text: string; border: string; badge: string }> = {
   Conservador: {
