@@ -306,11 +306,26 @@ export function useIncome(pid: string | null) {
 }
 
 // --- Allocation ---
+
+/**
+ * One slice of the book, however it was grouped.
+ *
+ * The group's label is `name` for both breakdowns, because that is what the
+ * route returns: it builds `byType` and `bySector` from the same
+ * `Object.entries(...).map(([name, value]) => ...)`. This type used to call the
+ * sector's label `sector`, and the analytics page — which re-declared the shape
+ * inline rather than importing it — read `s.sector`. The field does not exist,
+ * so every sector row rendered with an empty label and a `key` of `undefined`.
+ * Naming the slice once, here, is what stops the page and the route drifting
+ * apart again.
+ */
+export type AllocationSlice = { name: string; value: number; pct: number }
+
 export type AllocationData = {
   /** Where the result comes from (P2-10). */
   _meta?: ResultMetadata
-  byType: Array<{ name: string; value: number; pct: number }>
-  bySector: Array<{ sector: string; value: number; pct: number }>
+  byType: AllocationSlice[]
+  bySector: AllocationSlice[]
   bySymbol: Array<{ symbol: string; value: number; pct: number; stale: boolean }>
   total: number
 }

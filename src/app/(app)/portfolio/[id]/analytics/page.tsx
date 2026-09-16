@@ -271,9 +271,9 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {allocation?.bySector?.map((s: { sector: string; pct: number }) => (
-                      <div key={s.sector} className="flex items-center justify-between">
-                        <span className="text-sm">{s.sector}</span>
+                    {allocation?.bySector?.map((s) => (
+                      <div key={s.name} className="flex items-center justify-between">
+                        <span className="text-sm">{s.name}</span>
                         <div className="flex items-center gap-2">
                           <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
                             <div className="h-full bg-primary rounded-full" style={{ width: `${s.pct}%` }} />
@@ -298,7 +298,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {allocation?.bySymbol?.map((s: { symbol: string; pct: number; stale: boolean }) => (
+                  {allocation?.bySymbol?.map((s) => (
                     <div key={s.symbol} className="flex items-center justify-between">
                       <span className="font-mono text-sm">{s.symbol}</span>
                       <div className="flex items-center gap-2">

@@ -2,6 +2,7 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { withAuditedCache } from '@/lib/cache/with-cache'
 import { buildResultMetadata } from '@/lib/services/result-metadata'
+import { summariseAllocation } from '@/lib/services/allocation-breakdown'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { apiHandler } from '@/lib/api/handler'
 
@@ -22,7 +23,11 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         .eq('portfolio_id', pid)
         .gt('quantity', 0)
 
-      if (!positions || positions.length === 0) return { byType: [], bySymbol: [], total: 0 }
+      // Every breakdown, empty: omitting bySector here made "no sectors" and
+      // "sectors were not computed" look the same to the reader.
+      if (!positions || positions.length === 0) {
+        return { byType: [], bySector: [], bySymbol: [], total: 0 }
+      }
 
       // Get current prices for all position symbols
       const symbols = positions.map((p) => p.symbol)
@@ -49,37 +54,13 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         capMap[c.symbol] = c.market_cap ?? 0
       }
 
-      // Calculate using market value (current price), fallback to avg_cost
-      const byType: Record<string, number> = {}
-      const bySector: Record<string, number> = {}
-      const bySymbol: Array<{ symbol: string; value: number; pct: number; stale: boolean }> = []
-      let total = 0
-
-      for (const pos of positions) {
-        const currentPrice = priceMap[pos.symbol]
-        const value = pos.quantity * (currentPrice ?? pos.avg_cost)
-        const stale = !currentPrice
-        total += value
-        byType[pos.asset_type] = (byType[pos.asset_type] || 0) + value
-        bySector[sectorMap[pos.symbol] ?? 'Unknown'] = (bySector[sectorMap[pos.symbol] ?? 'Unknown'] || 0) + value
-        bySymbol.push({ symbol: pos.symbol, value, pct: 0, stale })
-      }
-
-      bySymbol.forEach((s) => { s.pct = total > 0 ? (s.value / total) * 100 : 0 })
+      // Valued at the last stored quote, falling back to the average cost.
+      // The shaping itself lives in summariseAllocation so a test can hold the
+      // field names the interface reads.
+      const breakdown = summariseAllocation(positions, priceMap, sectorMap)
 
       return {
-        byType: Object.entries(byType).map(([name, value]) => ({
-          name,
-          value,
-          pct: total > 0 ? (value / total) * 100 : 0,
-        })),
-        bySector: Object.entries(bySector).map(([name, value]) => ({
-          name,
-          value,
-          pct: total > 0 ? (value / total) * 100 : 0,
-        })),
-        bySymbol: bySymbol.sort((a, b) => b.value - a.value),
-        total,
+        ...breakdown,
         _meta: buildResultMetadata({
           model: 'allocation',
           data: {
