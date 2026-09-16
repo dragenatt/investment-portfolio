@@ -1,3 +1,4 @@
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 // Rolling risk metrics — pure functions, no I/O.
 //
 // A single volatility number for the whole history answers "how bumpy has this
@@ -11,7 +12,6 @@
 // unfounded value reach the interface.
 
 /** Trading days per year — the convention used everywhere else in the app. */
-const TRADING_DAYS = 252
 
 /**
  * Below this, a standard deviation is float dust, not variation.

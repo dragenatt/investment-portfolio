@@ -19,8 +19,8 @@
 // by normalising afterwards and hoping.
 
 import { jacobiEigen } from './pca'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
-const TRADING_DAYS = 252
 
 /** Below this, a variance is float dust rather than risk. */
 const MIN_VARIANCE = 1e-14

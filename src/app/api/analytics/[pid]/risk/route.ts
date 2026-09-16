@@ -15,6 +15,7 @@ import { principalComponents, describeIndependence } from '@/lib/services/pca'
 import { rollingRiskSeries, detectStressPeriods } from '@/lib/services/rolling-metrics'
 import { calculateSortinoRatio, detectCadence } from '@/lib/services/asset-metrics'
 import { portfolioValueSeries } from '@/lib/services/portfolio-series'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
 
 /**
@@ -108,7 +109,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
       // central bank or treasury, with the source reported alongside.
       const riskFree = await getRiskFreeRate(portfolio?.currency ?? 'USD')
       const riskFreeRate = riskFree.rate
-      const TRADING_DAYS = 252
+
 
       // How far apart the bars actually are. The provider does not always
       // return daily data, and annualising by 252 regardless is how this

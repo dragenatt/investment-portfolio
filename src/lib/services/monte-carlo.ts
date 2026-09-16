@@ -20,8 +20,8 @@
 import { calculateVolatility } from './analytics'
 import { calculateCovarianceMatrix, choleskyDecomposition } from './covariance'
 import { createNormalSampler } from '@/lib/utils/random'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
-const TRADING_DAYS = 252
 const WEEKS_PER_YEAR = 52
 const DEFAULT_WEEKS = 52
 const DEFAULT_SIMULATIONS = 1500

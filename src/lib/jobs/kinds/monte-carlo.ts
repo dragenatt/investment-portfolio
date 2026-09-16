@@ -3,9 +3,10 @@ import { calculateDailyReturns } from '@/lib/services/analytics'
 import { simulatePortfolioGBM } from '@/lib/services/monte-carlo'
 import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
 import { buildResultMetadata, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
+import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
 
 /** One trading year of closes — the window the covariance matrix is estimated on. */
-const LOOKBACK_DAYS = 252
+const LOOKBACK_DAYS = TRADING_DAYS_PER_YEAR
 
 /** Minimum aligned observations before a covariance matrix is worth estimating. */
 const MIN_OBSERVATIONS = 10

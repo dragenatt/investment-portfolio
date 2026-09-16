@@ -19,6 +19,7 @@
 import { ADVISOR_MODEL_VERSION } from './advisor'
 import { CONSTRUCTION_VERSION } from './factors'
 import { SCENARIO_ENGINE_VERSION } from './scenario-engine'
+import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
 
 /**
  * The version of each model behind a result. Bump a model's version when a
@@ -94,7 +95,7 @@ export type MetadataInput = Omit<ResultMetadata, 'model' | 'computedAt' | 'cache
 
 /** The assumptions most results share, stated once. */
 export const COMMON_ASSUMPTIONS = {
-  tradingDays: { name: 'Días de negociación por año', value: '252', source: 'Convención de mercado (docs/FINANCIAL_ASSUMPTIONS.md)' },
+  tradingDays: { name: 'Días de negociación por año', value: String(TRADING_DAYS_PER_YEAR), source: 'Convención de mercado (docs/FINANCIAL_ASSUMPTIONS.md)' },
   priceReturn: {
     name: 'Tipo de rendimiento',
     value: 'Rendimiento de precio, sin dividendos',

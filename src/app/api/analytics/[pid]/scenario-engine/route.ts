@@ -16,6 +16,7 @@ import {
   type AllocationPreset,
 } from '@/lib/services/scenario-engine'
 import { COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
+import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
 
 // The scenario engine (P2-9) run on this portfolio: its holdings and history,
 // with the allocation, contributions, horizon, rebalancing, costs, inflation
@@ -53,7 +54,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
     if (request.allocation === 'minCVaR') weights = minimiseCVaRWeights(aligned.returnsMatrix, 95)
     if (request.allocation === 'markowitz') {
       const expected = historicalExpectedReturns(aligned.returnsMatrix)
-      const cov = calculateCovarianceMatrix(aligned.returnsMatrix).map((row) => row.map((v) => v * 252))
+      const cov = calculateCovarianceMatrix(aligned.returnsMatrix).map((row) => row.map((v) => v * TRADING_DAYS_PER_YEAR))
       const frontier = expected ? efficientFrontier(symbols, cov, expected, { riskFreeRate }) : null
       weights = frontier ? symbols.map((s) => frontier.maxSharpe.weights.find((w) => w.symbol === s)?.weight ?? 0) : null
     }

@@ -17,8 +17,8 @@ import {
 import { compareBlackLittermanVsMarkowitz } from '@/lib/services/black-litterman'
 import { compareModels } from '@/lib/services/model-comparison'
 import { buildResultMetadata, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
-const TRADING_DAYS = 252
 
 /** Below this there is not enough history for a covariance worth optimising against. */
 const MIN_OBSERVATIONS = 60

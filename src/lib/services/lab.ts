@@ -33,8 +33,8 @@ import type { Strategy } from './strategy-rule'
 import type { Bar } from './backtest'
 import { mulberry32, standardNormal } from '@/lib/utils/random'
 import { isEnabled, type FeatureFlag } from './feature-flags'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
-const TRADING_DAYS = 252
 
 export type Unit = 'number' | 'percent' | 'money' | 'years' | 'pp'
 

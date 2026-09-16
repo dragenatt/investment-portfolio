@@ -21,8 +21,8 @@ import { gbmInputsFromHistory, simulateWeightings, percentile } from './monte-ca
 import { historicalExpectedReturns } from './optimizer'
 import { portfolioVolatility, riskContributions } from './risk-attribution'
 import { validateWeights, validateProbability } from './validation'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
-const TRADING_DAYS = 252
 const WEEKS_PER_YEAR = 52
 const DEFAULT_SIMULATIONS = 1000
 const DEFAULT_SEED = 20260913

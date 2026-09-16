@@ -22,7 +22,7 @@ modules consume it.
 | Assumption | Value | Unit | Kind | Where |
 |---|---|---|---|---|
 | Risk-free rate | per currency, live | annual fraction | observed → configured → assumed | `risk-free-rate.ts` |
-| Trading days per year | 252 | days | assumed (convention) | `analytics.ts`, `snapshots.ts`, risk route |
+| Trading days per year | 252 | days | assumed (convention) | `src/lib/constants/financial-constants.ts` — every consumer imports it from there |
 | Expected return, conservative | 4% | annual fraction | assumed | `RENDIMIENTOS` |
 | Expected return, moderate | 7% | annual fraction | assumed | `RENDIMIENTOS` |
 | Expected return, aggressive | 11% | annual fraction | assumed | `RENDIMIENTOS` |

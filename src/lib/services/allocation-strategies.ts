@@ -12,8 +12,8 @@
 
 import { conditionalVaR } from './var'
 import { projectOntoSimplex } from './optimizer'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
-const TRADING_DAYS = 252
 
 /** Below this a variance is float dust, and dividing by it produces nonsense. */
 const MIN_VARIANCE = 1e-14

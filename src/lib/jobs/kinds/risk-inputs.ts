@@ -15,8 +15,8 @@ import {
 import type { HistorySource } from '@/lib/services/price-history'
 import { loadFactorReturns } from '@/lib/jobs/kinds/factors'
 import { alignRiskInputs, MIN_RISK_OBSERVATIONS, realSector, sectorLabel, type AlignedRiskInputs } from '@/lib/services/risk-sources'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
-const TRADING_DAYS = 252
 
 export type RiskInputPosition = {
   symbol: string

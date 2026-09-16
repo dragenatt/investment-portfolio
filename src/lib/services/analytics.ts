@@ -1,3 +1,4 @@
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 /**
  * Annualised volatility below this is float dust from a flat series, not risk.
  * A 0.01% daily move already annualises to roughly 0.0016.
@@ -9,7 +10,7 @@ export function calculateVolatility(returns: number[]): number {
   const mean = returns.reduce((a, b) => a + b, 0) / returns.length
   const squaredDiffs = returns.map(r => Math.pow(r - mean, 2))
   const variance = squaredDiffs.reduce((a, b) => a + b, 0) / (returns.length - 1)
-  return Math.sqrt(variance) * Math.sqrt(252) // Annualized
+  return Math.sqrt(variance) * Math.sqrt(TRADING_DAYS) // Annualized
 }
 
 /**
@@ -25,7 +26,7 @@ export function calculateVolatility(returns: number[]): number {
 export function calculateSharpeRatio(returns: number[], riskFreeRate: number): number {
   if (returns.length < 2) return 0
   const meanReturn = returns.reduce((a, b) => a + b, 0) / returns.length
-  const annualizedReturn = meanReturn * 252
+  const annualizedReturn = meanReturn * TRADING_DAYS
   const volatility = calculateVolatility(returns)
   if (!(volatility > MIN_MEANINGFUL_VOLATILITY)) return 0
   return (annualizedReturn - riskFreeRate) / volatility
@@ -51,7 +52,6 @@ export function calculateDailyReturns(closes: number[]): number[] {
   return returns
 }
 
-const TRADING_DAYS = 252
 
 /**
  * Minimum benchmark observations before a regression against it means anything.

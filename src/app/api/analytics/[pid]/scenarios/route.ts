@@ -15,8 +15,8 @@ import {
   type Scenario,
   type ScenarioId,
 } from '@/lib/services/scenario-comparison'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
-const TRADING_DAYS = 252
 /** Same floor as the optimization route: below it a covariance is not worth simulating on. */
 const MIN_OBSERVATIONS = 60
 

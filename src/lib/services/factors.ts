@@ -1,3 +1,4 @@
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 // Factor model — pure functions, no I/O.
 //
 // A single beta against the market says how much of a portfolio's movement the
@@ -19,7 +20,6 @@
 // by the same market data the rest of the app already uses. They are not the
 // same thing, every definition below says so, and `isProxy` is on every one.
 
-const TRADING_DAYS = 252
 
 /** Which construction produced the factor series. Bump when a factor definition changes. */
 export const CONSTRUCTION_VERSION = 'etf-proxy-v1'

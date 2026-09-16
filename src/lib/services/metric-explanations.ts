@@ -29,6 +29,7 @@ import { historicalVaR, conditionalVaR } from './var'
 import { calculateXIRR } from './returns'
 import { effectiveIndependentBets } from './pca'
 import { formatCurrency } from '@/lib/utils/currency'
+import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
 
 export type MetricId =
   | 'return'
@@ -52,7 +53,7 @@ export type MetricContext = {
   portfolioValue?: number
   currency?: string
   riskFreeRatePct?: number
-  /** Bars per year of the series the metric was computed on (252 daily, 52 weekly, 12 monthly). */
+  /** Bars per year of the series the metric was computed on (TRADING_DAYS_PER_YEAR daily, 52 weekly, 12 monthly). */
   periodsPerYear?: number
   /** Number of return observations behind the metric. */
   observations?: number
@@ -109,7 +110,7 @@ function money(value: number, currency?: string): string {
 
 /** Plural noun and adjective for a bar cadence. */
 function cadence(periodsPerYear: number | undefined): { bars: string; adjective: string; q: number } {
-  const q = periodsPerYear && periodsPerYear > 0 ? periodsPerYear : 252
+  const q = periodsPerYear && periodsPerYear > 0 ? periodsPerYear : TRADING_DAYS_PER_YEAR
   if (q >= 200) return { bars: 'dias', adjective: 'diarios', q }
   if (q >= 40) return { bars: 'semanas', adjective: 'semanales', q }
   return { bars: 'meses', adjective: 'mensuales', q }
@@ -184,7 +185,7 @@ const EXAMPLES: Record<MetricId, WorkedExample> = {
   volatility: example(
     'Diez rendimientos diarios: +1.2%, -0.8%, +0.5%, -1.5%, +0.9%, +0.3%, -0.4%, +1.1%, -0.7%, +0.2%.',
     // Computed too: this line once said 0.87% by hand. The real figure is 0.90%.
-    `Desviacion estandar muestral de los diez = ${fmt((calculateVolatility(EXAMPLE_DAILY) / Math.sqrt(252)) * 100)}% diario; x raiz(252) para anualizar`,
+    `Desviacion estandar muestral de los diez = ${fmt((calculateVolatility(EXAMPLE_DAILY) / Math.sqrt(TRADING_DAYS_PER_YEAR)) * 100)}% diario; x raiz(${TRADING_DAYS_PER_YEAR}) para anualizar`,
     calculateVolatility(EXAMPLE_DAILY) * 100,
     'percent',
     (v) => `La volatilidad anualizada es ${v}.`,
@@ -240,15 +241,15 @@ const EXAMPLES: Record<MetricId, WorkedExample> = {
   ),
   trackingError: example(
     `La diferencia diaria entre el portafolio y el indice oscila con una desviacion estandar de ${EXAMPLE_TE_DAILY_PCT}%.`,
-    `${EXAMPLE_TE_DAILY_PCT} x raiz(252)`,
-    EXAMPLE_TE_DAILY_PCT * Math.sqrt(252),
+    `${EXAMPLE_TE_DAILY_PCT} x raiz(${TRADING_DAYS_PER_YEAR})`,
+    EXAMPLE_TE_DAILY_PCT * Math.sqrt(TRADING_DAYS_PER_YEAR),
     'percent',
     (v) => `El tracking error es ${v}: en un anio tipico el portafolio se separa del indice mas o menos esa cantidad.`,
   ),
   informationRatio: example(
-    `El portafolio tiene 2 puntos de alpha y un tracking error de ${fmt(EXAMPLE_TE_DAILY_PCT * Math.sqrt(252))}%.`,
-    `2 / ${fmt(EXAMPLE_TE_DAILY_PCT * Math.sqrt(252))}`,
-    2 / (EXAMPLE_TE_DAILY_PCT * Math.sqrt(252)),
+    `El portafolio tiene 2 puntos de alpha y un tracking error de ${fmt(EXAMPLE_TE_DAILY_PCT * Math.sqrt(TRADING_DAYS_PER_YEAR))}%.`,
+    `2 / ${fmt(EXAMPLE_TE_DAILY_PCT * Math.sqrt(TRADING_DAYS_PER_YEAR))}`,
+    2 / (EXAMPLE_TE_DAILY_PCT * Math.sqrt(TRADING_DAYS_PER_YEAR)),
     'ratio',
     (v) => `El information ratio es ${v}: cada punto de separacion del indice pago esa fraccion de punto de alpha.`,
   ),

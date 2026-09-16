@@ -24,6 +24,7 @@ import { analyseDrawdowns } from './drawdown'
 import { historicalVaR } from './var'
 import { roundMoney } from '@/lib/utils/money'
 import { calculateSortinoRatio } from './asset-metrics'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
 export type Bar = { date: string; close: number }
 
@@ -35,7 +36,6 @@ export type SignalAction = 'buy' | 'hold' | 'sell'
  */
 export type SignalFn = (closesToDate: number[]) => SignalAction
 
-const TRADING_DAYS = 252
 const DEFAULT_WARMUP = 50
 const DEFAULT_CAPITAL = 10000
 

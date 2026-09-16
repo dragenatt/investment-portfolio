@@ -22,6 +22,7 @@ import { compareBlackLittermanVsMarkowitz } from './black-litterman'
 import { compareRobustVsClassic, type ReturnRange } from './robust-optimizer'
 import { conditionalVaR, historicalVaR } from './var'
 import { calculateMaxDrawdown } from './analytics'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
 export const MODEL_IDS = ['markowitz', 'minCVaR', 'riskParity', 'blackLitterman', 'robust'] as const
 export type ModelId = (typeof MODEL_IDS)[number]
@@ -119,7 +120,6 @@ export type ModelComparison = {
 export const MODEL_COMPARISON_CAVEAT =
   'Ningún modelo es superior en general: cada uno optimiza un objetivo distinto y gana en el suyo por construcción. Todas las cifras se miden sobre el mismo historial con el que se calcularon los pesos, lo que favorece a los modelos que más dependen de ese historial. No es una recomendación de compra o venta.'
 
-const TRADING_DAYS = 252
 const CONFIDENCE = 95
 /** Below this, volatility is float dust and a Sharpe ratio is noise. */
 const MIN_VOLATILITY = 1e-8

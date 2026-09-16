@@ -25,6 +25,7 @@ import {
   type LeaderboardProfile,
   type LeaderboardSnapshot,
 } from './discover'
+import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,6 @@ type SnapshotResult = {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const TRADING_DAYS_PER_YEAR = 252
 
 // ─── Supabase Admin Client ──────────────────────────────────────────────────
 

@@ -20,6 +20,7 @@ import { choleskyDecomposition } from './covariance'
 import { forEachCorrelatedStep, gbmInputsFromHistory, percentile, type GbmInputs } from './monte-carlo'
 import { DEFAULT_COST_MODEL, tradeCost, type CostModel } from './costs'
 import type { PlanParams } from './advisor'
+import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
 
 export const SCENARIO_ENGINE_VERSION = '1.0.0'
 
@@ -620,7 +621,7 @@ export const MIN_RELIABLE_YEARS = 3
  * the mean at 35% a year with a standard error of 25 points — a projection
  * centred there, with no loss in any path, is arithmetic, not evidence.
  */
-export function estimateReliability(portfolioDailyReturns: number[], periodsPerYear = 252): EstimateReliability | null {
+export function estimateReliability(portfolioDailyReturns: number[], periodsPerYear = TRADING_DAYS_PER_YEAR): EstimateReliability | null {
   const T = portfolioDailyReturns.length
   if (T < 2 || !portfolioDailyReturns.every(Number.isFinite)) return null
   const mean = portfolioDailyReturns.reduce((a, b) => a + b, 0) / T

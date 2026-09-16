@@ -1,3 +1,4 @@
+import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
 // Discover and leaderboard — the contracts between the database and the pages,
 // as pure functions.
 //
@@ -232,7 +233,6 @@ export type Ranking = {
   winRatePct: number | null
 }
 
-const TRADING_DAYS_PER_YEAR = 252
 
 type CategoryRule = { metric: (r: Ranking) => number | null; order: 'asc' | 'desc' }
 

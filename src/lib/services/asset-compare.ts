@@ -14,10 +14,10 @@ import { calculateCovarianceMatrix } from './covariance'
 import { analyseDrawdowns } from './drawdown'
 import { historicalVaR, conditionalVaR } from './var'
 import { calculateSortinoRatio } from './asset-metrics'
+import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
 export type Bar = { date: string; close: number }
 
-const TRADING_DAYS = 252
 
 export type AssetComparison = {
   symbol: string
