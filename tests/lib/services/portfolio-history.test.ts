@@ -55,16 +55,36 @@ describe('buildDailyTimeline', () => {
     expect(result[2]).toEqual({ date: '2026-01-12', value: 1480 })
   })
 
-  it('carries forward last known price on weekends/holidays', () => {
-    const snapshots = [
-      { date: '2026-01-09', positions: { AAPL: 5 } },
-    ]
-    const historicalPrices = {
-      AAPL: { '2026-01-09': 200 },
-    }
-    const result = buildDailyTimeline(snapshots, historicalPrices, '2026-01-11')
-    expect(result[1].value).toBe(1000)
-    expect(result[2].value).toBe(1000)
+  it('plots the sessions and today, not the days the market was shut', () => {
+    // The 9th is a Friday and the 11th a Sunday. Carrying Friday's close across
+    // Saturday and Sunday drew two flat steps that said the value held still;
+    // it was simply not observed. Today stays, closed or not — it is the right
+    // edge of the chart.
+    const snapshots = [{ date: '2026-01-09', positions: { AAPL: 5 } }]
+    const result = buildDailyTimeline(snapshots, { AAPL: { '2026-01-09': 200 } }, '2026-01-11')
+    expect(result).toEqual([
+      { date: '2026-01-09', value: 1000 },
+      { date: '2026-01-11', value: 1000 },
+    ])
+  })
+
+  it('skips the weekend in a longer window instead of stepping across it', () => {
+    const snapshots = [{ date: '2026-01-05', positions: { AAPL: 1 } }]
+    // Monday the 5th to Friday the 9th, then Monday the 12th.
+    const closes = { '2026-01-05': 10, '2026-01-06': 11, '2026-01-07': 12, '2026-01-08': 13, '2026-01-09': 14, '2026-01-12': 15 }
+    const result = buildDailyTimeline(snapshots, { AAPL: closes }, '2026-01-12')
+    expect(result.map((r) => r.date)).toEqual(Object.keys(closes))
+    expect(result.map((r) => r.value)).toEqual(Object.values(closes))
+  })
+
+  it('still draws a book nothing quotes, day by day, at the price it traded at', () => {
+    const snapshots = [{ date: '2026-01-09', positions: { PRIVATE: 2 } }]
+    const result = buildDailyTimeline(snapshots, {}, '2026-01-11', { PRIVATE: 50 })
+    expect(result).toEqual([
+      { date: '2026-01-09', value: 100 },
+      { date: '2026-01-10', value: 100 },
+      { date: '2026-01-11', value: 100 },
+    ])
   })
 })
 

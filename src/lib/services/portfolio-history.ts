@@ -13,7 +13,7 @@ type HistoryTransaction = {
   price: number
 }
 
-type DailySnapshot = {
+export type DailySnapshot = {
   date: string // YYYY-MM-DD
   positions: Record<string, number> // symbol -> quantity
 }
@@ -56,6 +56,48 @@ export function computeDailyPositions(transactions: HistoryTransaction[]): Daily
   return snapshots
 }
 
+/**
+ * The dates the chart has something to say about: those any holding actually
+ * printed a close on, plus the last day of the window.
+ *
+ * The timeline used to walk every calendar day and carry the last close across
+ * the ones the market was shut. Roughly two points in seven were that carry,
+ * drawn as a flat step: a month showed nine of them and a week two, so the line
+ * read as a staircase of pauses the portfolio never took. Those days hold no
+ * information — the value did not stay the same, it was simply not observed.
+ *
+ * `endDate` is always kept, session or not: the right edge of the chart is
+ * today, whether or not today has closed.
+ */
+function sessionDates(
+  historicalPrices: Record<string, Record<string, number>>,
+  startDate: string,
+  endDate: string,
+): string[] {
+  const dates = new Set<string>()
+  for (const prices of Object.values(historicalPrices)) {
+    for (const date of Object.keys(prices)) {
+      if (date >= startDate && date <= endDate) dates.add(date)
+    }
+  }
+  if (dates.size === 0) return []
+  dates.add(endDate)
+  if (startDate <= endDate) dates.add(startDate)
+  return [...dates].sort()
+}
+
+/** Every calendar day in the window — the fallback when no close is known at all. */
+function calendarDates(startDate: string, endDate: string): string[] {
+  const dates: string[] = []
+  const current = new Date(`${startDate}T00:00:00Z`)
+  const end = new Date(`${endDate}T00:00:00Z`)
+  while (current <= end) {
+    dates.push(current.toISOString().slice(0, 10))
+    current.setUTCDate(current.getUTCDate() + 1)
+  }
+  return dates
+}
+
 export function buildDailyTimeline(
   snapshots: DailySnapshot[],
   historicalPrices: Record<string, Record<string, number>>,
@@ -69,15 +111,14 @@ export function buildDailyTimeline(
   let currentPositions: Record<string, number> = {}
   const lastGoodPrice: Record<string, number> = {}
 
-  const start = new Date(startDate)
-  const end = new Date(endDate)
+  // A book priced only from its execution prices — nothing stored, no provider
+  // that quotes it — has no sessions to plot, and still deserves a line.
+  const observed = sessionDates(historicalPrices, startDate, endDate)
+  const dates = observed.length > 0 ? observed : calendarDates(startDate, endDate)
 
   let snapshotIdx = 0
-  const current = new Date(start)
 
-  while (current <= end) {
-    const dateStr = current.toISOString().slice(0, 10)
-
+  for (const dateStr of dates) {
     while (snapshotIdx < snapshots.length && snapshots[snapshotIdx].date <= dateStr) {
       currentPositions = { ...snapshots[snapshotIdx].positions }
       snapshotIdx++
@@ -99,7 +140,6 @@ export function buildDailyTimeline(
     }
 
     timeline.push({ date: dateStr, value })
-    current.setDate(current.getDate() + 1)
   }
 
   return timeline
