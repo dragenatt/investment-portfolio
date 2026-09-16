@@ -81,6 +81,31 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
     return { isPositive: last >= first, startValue: first, lastPoint: data[data.length - 1] }
   }, [data])
 
+  /**
+   * The value axis spans what the window actually did, not [0, max].
+   *
+   * Recharts defaults a numeric axis to zero, and this was the one chart in the
+   * app that kept the default — every other one sets its own domain. Against a
+   * zero baseline a session's move is a fraction of a percent of the axis, so
+   * the line was pressed flat against the top of the card whatever the market
+   * had done: the reader pressed 1D and saw a straight line.
+   *
+   * A truncated axis magnifies, which is why the opening value stays on it as a
+   * reference line and the text alternative states the change in money. The
+   * shape shows the movement; the anchor and the figures give it scale.
+   */
+  const domain = useMemo<[number, number] | undefined>(() => {
+    if (data.length < 2) return undefined
+    const values = data.map((d) => d.value).filter((v) => Number.isFinite(v))
+    if (values.length < 2) return undefined
+    const low = Math.min(...values)
+    const high = Math.max(...values)
+    // A window that truly did not move still needs a band, or the line lands on
+    // the axis edge; a percent of the value is a sane one.
+    const pad = high > low ? (high - low) * 0.12 : Math.abs(high) * 0.01 || 1
+    return [low - pad, high + pad]
+  }, [data])
+
   // 1D and 1W come back as instants within the session; the rest as closes.
   const intraday = isIntradaySeries(data)
   const summary =
@@ -128,7 +153,7 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
                 {...theme.xAxis}
                 hide
               />
-              <YAxis {...theme.yAxis} hide />
+              <YAxis {...theme.yAxis} domain={domain ?? [0, 'auto']} hide />
               <Tooltip
                 content={<CustomTooltip />}
                 cursor={{
