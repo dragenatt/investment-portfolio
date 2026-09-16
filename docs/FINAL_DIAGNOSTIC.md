@@ -861,3 +861,17 @@ Devolver `null` habría roto ese caso, habría roto el test que ya existe
 matrix (correlation ±1)») y habría cambiado un comportamiento correcto por una falsa alarma.
 
 **No se modificó `covariance.ts`.** La tarea 1.2 del plan queda descartada.
+
+### Segunda corrección — P0-14, benchmark configurable
+
+**Añadido el 2026-09-16.** El diagnóstico afirmó (A8) que no había columna `benchmark` en
+`portfolios`, ni persistencia, y que todo usaba `'SPY'`. **Eso era incorrecto.** La
+migración 013 añadió `portfolios.benchmark_symbol` (`NOT NULL DEFAULT 'SPY'`),
+`getPortfolioBenchmark()` la lee en `src/lib/services/benchmarks.ts:138`, las rutas de
+riesgo, diagnóstico, salud y stress la usan, y `src/lib/schemas/portfolio.ts:17` ya acepta
+`benchmark_symbol` al actualizar un portafolio.
+
+El error vino de buscar `benchmark` en las migraciones con `head -5`, que solo mostró la
+014/007 y cortó antes de la 013. Lo único que realmente falta es el **selector en la
+interfaz**; la elección ya se guarda y se respeta. P0-14 pasa de PARCIAL 40% a PARCIAL
+~80%.
