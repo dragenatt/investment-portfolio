@@ -10,6 +10,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 import {
   fetchAdjustedPriceHistory,
+  isDailyRange,
   isHistoryStale,
   lastSettledSession,
   lastStoredDates,
@@ -17,6 +18,7 @@ import {
   resetTopUpAttempts,
   topUpRange,
   topUpStoredHistory,
+  writeThrough,
   TOP_UP_RETRY_MS,
 } from '@/lib/services/price-history'
 
@@ -204,6 +206,57 @@ describe('fetchAdjustedPriceHistory: a new holding next to stored ones', () => {
       await fetchAdjustedPriceHistory(storedOnly(dates.map((date, i) => ({ symbol: 'AAPL', date, close: 330 - i }))), ['AAPL', 'COCA34'])
       await fetchAdjustedPriceHistory(storedOnly(dates.map((date, i) => ({ symbol: 'AAPL', date, close: 330 - i }))), ['AAPL', 'COCA34'])
       expect(getHistory.mock.calls.filter(([s]) => s === 'COCA34')).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+// ─── Only one bar per session may be stored ─────────────────────────────────
+
+describe('what may be written to the daily table', () => {
+  it('knows which provider ranges return one bar per session', () => {
+    expect(['1mo', '3mo', '6mo'].map(isDailyRange)).toEqual([true, true, true])
+    // Intraday, weekly and monthly bars are all served and none are stored.
+    expect(['1d', '5d', '1y', '5y', 'max'].map(isDailyRange)).toEqual([false, false, false, false, false])
+  })
+
+  it('writes one row per key, instead of letting a repeat reject the whole batch', async () => {
+    // Postgres refuses an upsert that names the same key twice, and it takes
+    // every other row in the statement with it — which is how a table with a
+    // working write path stayed empty for the symbols the chart fetched most.
+    await writeThrough([
+      { symbol: 'AAA', exchange: 'yahoo', date: '2026-09-15', open: 1, high: 1, low: 1, close: 10, volume: 1 },
+      { symbol: 'AAA', exchange: 'yahoo', date: '2026-09-15', open: 1, high: 1, low: 1, close: 11, volume: 1 },
+      { symbol: 'BBB', exchange: 'yahoo', date: '2026-09-15', open: 1, high: 1, low: 1, close: 20, volume: 1 },
+    ])
+    expect(upsert).toHaveBeenCalledTimes(1)
+    expect(upsert.mock.calls[0][0]).toEqual([
+      { symbol: 'AAA', exchange: 'yahoo', date: '2026-09-15', open: 1, high: 1, low: 1, close: 11, volume: 1 },
+      { symbol: 'BBB', exchange: 'yahoo', date: '2026-09-15', open: 1, high: 1, low: 1, close: 20, volume: 1 },
+    ])
+  })
+
+  it('serves an intraday range without storing any of it', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-15T23:00:00Z'))
+    try {
+      const query = { select: () => query, in: () => query, order: () => query, limit: () => Promise.resolve({ data: [] }) }
+      const client = { from: () => query } as never
+      // Twenty-six 15-minute bars of the same settled session.
+      getHistory.mockResolvedValue(
+        Array.from({ length: 26 }, (_, i) => ({
+          date: new Date(Date.UTC(2026, 8, 15, 13, 30) + i * 15 * 60_000).toISOString(),
+          open: 100, high: 100, low: 100, close: 100 + i, volume: 1,
+        })),
+      )
+
+      const result = await fetchAdjustedPriceHistory(client, ['AAA'], { range: '5d' })
+
+      expect(result.covered).toEqual(['AAA'])
+      // Every bar reaches the caller; none of them is a session's close.
+      expect(result.rows.length).toBe(26)
+      expect(upsert).not.toHaveBeenCalled()
     } finally {
       vi.useRealTimers()
     }

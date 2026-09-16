@@ -163,6 +163,9 @@ async function fetchFromProviders(symbols: string[], range: string): Promise<Pri
   const fetched: PriceRow[] = []
   const rowsToCache: StoredBar[] = []
   const settled = lastSettledSession()
+  // A range the provider answers with anything but one bar per session is
+  // served to the caller and never stored — see DAILY_RANGES.
+  const storable = isDailyRange(range)
 
   await Promise.all(
     symbols.map(async (symbol) => {
@@ -172,7 +175,7 @@ async function fetchFromProviders(symbols: string[], range: string): Promise<Pri
           if (point.close == null) continue
           const date = new Date(point.date).toISOString().slice(0, 10)
           fetched.push({ symbol, date, close: point.close })
-          if (date <= settled) rowsToCache.push(storedBar(symbol, date, point))
+          if (storable && date <= settled) rowsToCache.push(storedBar(symbol, date, point))
         }
       } catch {
         // Absent from the result; see above.
@@ -321,9 +324,37 @@ function storedBar(symbol: string, date: string, point: ProviderBar): StoredBar 
   }
 }
 
+/**
+ * The provider ranges that come back as ONE BAR PER SESSION.
+ *
+ * price_history is keyed by (symbol, exchange, date) and every reader treats a
+ * row as that date's close. A range the provider answers with 5-minute,
+ * 15-minute, weekly or monthly bars therefore must never be written to it:
+ *
+ *  - Intraday ranges produce dozens of bars sharing one date. Postgres refuses
+ *    an upsert that touches the same key twice ("cannot affect row a second
+ *    time"), so the whole write failed and the warning was the only trace —
+ *    which is why holdings the chart had fetched many times still had no stored
+ *    history at all.
+ *  - '1y' comes back weekly and 'max' monthly, each bar dated to the START of
+ *    its period and closing at its END. Those DID write, overwriting the real
+ *    close of every Monday, and of every first of the month, with a price from
+ *    days or weeks later. Opening the 1Y chart quietly corrupted the table the
+ *    risk figures are computed from.
+ */
+const DAILY_RANGES = new Set(['1mo', '3mo', '6mo'])
+
+/** Whether a provider range returns one bar per session, and so may be stored. */
+export function isDailyRange(range: string): boolean {
+  return DAILY_RANGES.has(range)
+}
+
 /** Write provider bars back to price_history with the service role. */
-export async function writeThrough(rowsToCache: StoredBar[]): Promise<void> {
-  if (rowsToCache.length === 0) return
+export async function writeThrough(bars: StoredBar[]): Promise<void> {
+  if (bars.length === 0) return
+  // One row per key, last one wins: an upsert that names the same key twice is
+  // rejected outright by Postgres, taking every other row in the batch with it.
+  const rowsToCache = [...new Map(bars.map((row) => [`${row.symbol}|${row.exchange}|${row.date}`, row])).values()]
   // Service role, not the caller's session: see cacheWriter above.
   //
   // The previous version of this block claimed it was "no longer the SILENT
