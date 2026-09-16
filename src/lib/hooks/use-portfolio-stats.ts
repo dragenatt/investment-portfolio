@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { dailyChangeFromPct } from '@/lib/services/pnl'
 
 type Mover = {
   symbol: string
@@ -105,12 +106,13 @@ export function usePortfolioStats(
 
           if (liveData) {
             const changePct = liveData.changePct ?? 0
-            // Daily change is derived from the percentage move applied to today's
-            // value (already in the display currency). This is more reliable than
-            // the provider's absolute `change`, which is frequently null even when
-            // the percentage is present — and matches how the portfolio detail
-            // page computes its "today return".
-            const dayChangeDisplay = value * (changePct / 100)
+            // Daily change is derived from the percentage move and today's value
+            // (already in the display currency). This is more reliable than the
+            // provider's absolute `change`, which is frequently null even when
+            // the percentage is present. The percentage is against yesterday's
+            // close, so dailyChangeFromPct takes it off yesterday's value, not
+            // today's — the same helper the portfolio detail page uses.
+            const dayChangeDisplay = dailyChangeFromPct(value, changePct)
             todayReturn += dayChangeDisplay
             movers.push({
               symbol: pos.symbol,

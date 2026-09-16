@@ -38,6 +38,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n'
 import { freshnessOfQuote } from '@/lib/services/freshness'
+import { dailyChangeFromPct, positionValuation } from '@/lib/services/pnl'
 
 export default function PortfolioDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { t } = useTranslation()
@@ -80,12 +81,9 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
       .map((pos: { id: string; symbol: string; name?: string; asset_type: string; quantity: number; avg_cost: number; currency: string; currentPrice: number; priceCurrency: string; changePct: number }) => {
         const currentPrice = pos.currentPrice
         const avgCost = pos.avg_cost
-        const marketValue = pos.quantity * currentPrice
-        const costBasis = pos.quantity * avgCost
-        const pnlAbsolute = marketValue - costBasis
-        const pnlPercent = costBasis > 0 ? (pnlAbsolute / costBasis) * 100 : 0
+        const { marketValue, pnlAbsolute, pnlPercent } = positionValuation(pos.quantity, currentPrice, avgCost)
         const changePct = pos.changePct ?? 0
-        const dailyChange = marketValue * (changePct / 100)
+        const dailyChange = dailyChangeFromPct(marketValue, changePct)
         const priceCurrency = pos.priceCurrency || pos.currency || 'USD'
 
         return {
@@ -141,9 +139,8 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
       const posValue = pos.quantity * priceConverted
       totalValue += posValue
       totalCost += pos.quantity * costConverted
-      // Day change: use changePct from live prices
-      const changePct = pos.changePct ?? 0
-      dayChange += posValue * (changePct / 100)
+      // Day change from the quote's percentage, taken off yesterday's value.
+      dayChange += dailyChangeFromPct(posValue, pos.changePct)
     }
 
     const totalGain = totalValue - totalCost

@@ -27,6 +27,24 @@ export function positionDailyChange(
 }
 
 /**
+ * The day's move in money for a holding worth `value` today, from the quote's
+ * percentage move.
+ *
+ * The percentage is measured against the previous close, so the money it
+ * stands for is a share of YESTERDAY's value: value − value / (1 + pct/100).
+ * The screens that had only the percentage multiplied it by today's value
+ * instead, which scales the move by today's price over yesterday's — a 2.00
+ * gain on a +2% day shown as 2.04, and a loss understated the same way.
+ *
+ * Works in whatever currency `value` is in, so a caller can convert first.
+ * A move of −100% or worse has no previous value to recover and returns zero.
+ */
+export function dailyChangeFromPct(value: number, changePct: number | null | undefined): number {
+  if (changePct == null || !Number.isFinite(changePct) || !Number.isFinite(value) || changePct <= -100) return 0
+  return value - value / (1 + changePct / 100)
+}
+
+/**
  * Aggregate daily change across positions. The percentage is weighted by the
  * baseline market value (Σ qty·previousClose), i.e. how much the whole book moved
  * today. Positions without a baseline are excluded from both numerator and

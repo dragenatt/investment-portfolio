@@ -4,6 +4,7 @@ import {
   aggregateDailyChange,
   positionValuation,
   aggregatePositionValues,
+  dailyChangeFromPct,
 } from '@/lib/services/pnl'
 
 describe('positionDailyChange', () => {
@@ -32,6 +33,37 @@ describe('positionDailyChange', () => {
     const b = positionDailyChange(1, 210, 200)
     expect(a).toEqual(b)
     expect(a.changePct).toBeCloseTo(5)
+  })
+})
+
+describe('dailyChangeFromPct', () => {
+  it('recovers the move against the previous close from the percentage alone', () => {
+    // 1 share, 100 -> 102: the day made 2.00, not 2% of 102.
+    expect(dailyChangeFromPct(102, 2)).toBeCloseTo(2, 10)
+    expect(dailyChangeFromPct(102, 2)).toBeCloseTo(positionDailyChange(1, 102, 100).change, 10)
+  })
+
+  it('does not understate a down day', () => {
+    // 10 shares, 100 -> 90: the day lost 100.
+    expect(dailyChangeFromPct(900, -10)).toBeCloseTo(-100, 10)
+  })
+
+  it('returns zero with no percentage, or one with no yesterday to recover', () => {
+    expect(dailyChangeFromPct(500, null)).toBe(0)
+    expect(dailyChangeFromPct(500, undefined)).toBe(0)
+    expect(dailyChangeFromPct(500, Number.NaN)).toBe(0)
+    expect(dailyChangeFromPct(500, -100)).toBe(0)
+  })
+
+  it('makes the day\'s percentage on the book come back out exactly', () => {
+    // The screens divide the summed change by (today − change) to get the
+    // book's percentage; with the right change that is yesterday's value.
+    const holdings = [{ value: 102, pct: 2 }, { value: 45, pct: -10 }]
+    const change = holdings.reduce((sum, h) => sum + dailyChangeFromPct(h.value, h.pct), 0)
+    const today = holdings.reduce((sum, h) => sum + h.value, 0)
+    // yesterday: 100 + 50
+    expect(today - change).toBeCloseTo(150, 10)
+    expect((change / (today - change)) * 100).toBeCloseTo(((147 - 150) / 150) * 100, 10)
   })
 })
 
