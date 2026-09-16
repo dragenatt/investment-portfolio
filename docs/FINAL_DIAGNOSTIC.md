@@ -425,9 +425,9 @@ Verificado en el Advisor: P10 253.258 < P25 296.626 < mediana 352.046 < P75 413.
 (352.046) es menor que la proyección determinista (367.767) y **la app explica por qué**
 (volatility drag). 1.000 trayectorias declaradas en pantalla.
 
-**Detalle menor:** `choleskyDecomposition` devuelve una matriz en vez de `null` para una
-covarianza singular (tres series perfectamente correlacionadas). No produjo resultados
-inválidos en las pruebas, pero es una guarda que podría endurecerse.
+**Nota sobre `choleskyDecomposition` y matrices singulares:** en la primera pasada se anotó
+como «detalle menor» que devuelve una matriz en vez de `null`. **Esa observación era
+incorrecta y queda retirada** — ver §23.
 
 ---
 
@@ -657,7 +657,7 @@ circular, fuga de datos entre usuarios, probabilidad inválida ni peso inválido
 | C3 | Tras un análisis solo hay «Volver a empezar»: cambiar la aportación exige repetir 4 pasos | `advisor/page.tsx` |
 | C4 | 45 warnings de eslint (variables sin usar, un `eslint-disable` innecesario) | varios |
 | C5 | `TESTING.md` y `BACKTESTING_RESULTS.md` con nombres distintos a los pedidos | `docs/` |
-| C6 | `choleskyDecomposition` devuelve matriz en vez de `null` para covarianza singular | `covariance.ts:65` |
+| ~~C6~~ | ~~`choleskyDecomposition` devuelve matriz en vez de `null` para covarianza singular~~ **RETIRADO — ver §23** | `covariance.ts:65` |
 | C7 | Rutas con nombre distinto al de la especificación: `/optimization` en vez de `/efficient-frontier`, rolling risk dentro de `/risk` | `src/app/api/analytics/` |
 | C8 | `funnel_events` con solo 2 filas: los eventos del embudo casi no se emiten | `lib/analytics/events.ts` |
 
@@ -825,3 +825,39 @@ ningún dato de portafolio.
 Los datos del portafolio del propietario se usaron solo para verificar en pantalla. Como el
 repositorio es público, este documento evita reproducir cifras de sus posiciones salvo las
 estrictamente necesarias para documentar un defecto.
+
+---
+
+## 23. CORRECCIÓN A ESTE DIAGNÓSTICO — Cholesky con matrices singulares
+
+**Añadido el 2026-09-16, durante la ejecución del plan de corrección.**
+
+En la primera pasada anoté como defecto menor (C6) que `choleskyDecomposition` devuelve una
+matriz en vez de `null` ante una covarianza singular. **Esa observación era incorrecta.**
+La anoté desde la salida de una prueba sin leer la implementación con cuidado, y el plan de
+corrección la convirtió en la tarea 1.2 («devuelve `null` si el pivote es menor a 1e-10»).
+
+**Implementarla habría sido una regresión.** La función ya trata el caso, a propósito, en
+`src/lib/services/covariance.ts:78`: cuando el pivote cae por debajo de `PIVOT_EPSILON`
+pone la columna a cero en vez de sacar la raíz de un número negativo. Eso no es una
+descomposición inestable: es la descomposición correcta de una matriz positiva
+**semi**definida.
+
+Medido sobre tres series perfectamente correlacionadas (Σ de rango 1):
+
+```
+todas las entradas finitas = true
+max |L·Lᵀ − Σ| = 2.711e-20
+shocks generados: 0.004913, 0.009826, -0.004913
+```
+
+La reconstrucción es exacta hasta el ruido de coma flotante, y los shocks respetan las
+relaciones que la covarianza describe: el segundo activo es exactamente 2× el primero y el
+tercero exactamente −1×, que es justo lo que P0-1 pide simular («correlación positiva
+perfecta», «correlación negativa»).
+
+Devolver `null` habría roto ese caso, habría roto el test que ya existe
+(`tests/lib/services/covariance.test.ts:117`, «handles a singular positive semi-definite
+matrix (correlation ±1)») y habría cambiado un comportamiento correcto por una falsa alarma.
+
+**No se modificó `covariance.ts`.** La tarea 1.2 del plan queda descartada.
