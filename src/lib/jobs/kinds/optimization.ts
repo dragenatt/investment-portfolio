@@ -17,11 +17,36 @@ import {
 import { compareBlackLittermanVsMarkowitz } from '@/lib/services/black-litterman'
 import { compareModels } from '@/lib/services/model-comparison'
 import { buildResultMetadata, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
+import { resolveConstraints, type WeightConstraints } from '@/lib/services/weight-constraints'
+import { UNKNOWN_SECTOR } from '@/lib/services/allocation-breakdown'
 import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
 
 /** Below this there is not enough history for a covariance worth optimising against. */
 const MIN_OBSERVATIONS = 60
+
+/**
+ * Limits the caller may put on the frontier (P1-31).
+ *
+ * All optional. With none of them the curve is long-only and fully invested and
+ * nothing else, which is what it always was — so an existing caller sees exactly
+ * the same numbers as before.
+ */
+export type OptimizationParams = {
+  minWeight?: number
+  maxWeight?: number
+  /** Largest share a sector may take, keyed by the sector names in company_data. */
+  sectorCaps?: Record<string, number>
+}
+
+/** Why the request produced no curve, in words a reader can act on. */
+const INFEASIBLE_MESSAGES: Record<string, string> = {
+  'min-weight-exceeds-one': 'El peso minimo pedido no cabe: multiplicado por el numero de posiciones pasa del 100%.',
+  'max-weight-below-one': 'El peso maximo pedido no alcanza: aun con todas las posiciones en su tope no se llega al 100%.',
+  'bounds-crossed': 'El peso minimo pedido es mayor que el maximo.',
+  'sector-cap-below-its-minimums': 'Un tope sectorial es menor que lo que el peso minimo ya obliga a poner en ese sector.',
+  'sector-caps-cannot-reach-one': 'Los topes sectoriales sumados no permiten una cartera totalmente invertida.',
+}
 
 /**
  * What the same holdings would look like allocated differently.
@@ -33,7 +58,7 @@ const MIN_OBSERVATIONS = 60
  * one winner, because a single "optimal" allocation invites copying and four
  * that disagree invite the question of what each one optimises.
  */
-export async function computeOptimization(supabase: SupabaseClient, pid: string, _params: Record<string, never>) {
+export async function computeOptimization(supabase: SupabaseClient, pid: string, params: OptimizationParams = {}) {
   const { data: portfolio } = await supabase
     .from('portfolios')
     .select('currency:base_currency')
@@ -67,10 +92,38 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
 
   const riskFree = await getRiskFreeRate(portfolio?.currency ?? 'USD')
 
+  // Sector labels only matter when a sector cap was actually asked for; without
+  // one there is nothing to look up and no query to make.
+  const wantsSectorCaps = Object.keys(params.sectorCaps ?? {}).length > 0
+  let sectors: string[] | undefined
+  if (wantsSectorCaps) {
+    const { data: companies } = await supabase
+      .from('company_data')
+      .select('symbol, sector')
+      .in('symbol', activeSymbols)
+    const bySymbol = new Map((companies ?? []).map((c) => [c.symbol as string, (c.sector as string | null) ?? UNKNOWN_SECTOR]))
+    sectors = activeSymbols.map((symbol) => bySymbol.get(symbol) ?? UNKNOWN_SECTOR)
+  }
+
+  const requested: WeightConstraints = {
+    minWeight: params.minWeight,
+    maxWeight: params.maxWeight,
+    sectors,
+    sectorCaps: params.sectorCaps,
+  }
+
+  // Say so rather than quietly dropping them: weights that violate what the
+  // caller asked for are worse than no weights at all.
+  const resolution = resolveConstraints(activeSymbols.length, requested)
+  if (!resolution.ok) {
+    return { message: INFEASIBLE_MESSAGES[resolution.reason] ?? 'Las restricciones pedidas no describen ninguna cartera.' }
+  }
+
   const frontier = expected
     ? efficientFrontier(activeSymbols, cov, expected, {
         riskFreeRate: riskFree.rate,
         currentWeights,
+        constraints: requested,
       })
     : null
 
@@ -168,6 +221,20 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
         }))
       : null,
     efficient_frontier: frontier,
+    // What the curve was actually constrained to, so a reader is never left
+    // guessing whether a limit they asked for was applied. Null means the
+    // frontier is long-only and fully invested and nothing more.
+    constraints: resolution.constraints.trivial
+      ? null
+      : {
+          min_weight_pct: (params.minWeight ?? 0) * 100,
+          max_weight_pct: (params.maxWeight ?? 1) * 100,
+          sector_caps: Object.entries(params.sectorCaps ?? {}).map(([sector, cap]) => ({
+            sector,
+            cap_pct: cap * 100,
+            symbols: activeSymbols.filter((_, i) => sectors?.[i] === sector),
+          })),
+        },
     // Neither of these needs a forecast, which is the reason they are worth
     // showing next to a frontier that does.
     allocation_strategies: strategies,

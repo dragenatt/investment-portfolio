@@ -44,7 +44,10 @@ const COMPUTE: Record<JobKind, (supabase: SupabaseClient, pid: string, params: J
   monteCarlo: (s, pid, p) => computeMonteCarlo(s, pid, { weeks: p.weeks }),
   backtest: (s, pid, p) => computeBacktest(s, pid, { costPct: p.costPct }),
   factors: (s, pid) => computeFactors(s, pid, {}),
-  optimization: (s, pid) => computeOptimization(s, pid, {}),
+  // Job params are numbers, so the box limits travel and sector caps — a map —
+  // do not. The synchronous route takes all three; a background run that needs
+  // caps will need the params type widened first.
+  optimization: (s, pid, p) => computeOptimization(s, pid, { minWeight: p.minWeight, maxWeight: p.maxWeight }),
   stress: (s, pid) => computeStress(s, pid, {}),
 }
 

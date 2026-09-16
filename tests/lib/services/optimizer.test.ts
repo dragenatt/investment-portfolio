@@ -7,6 +7,14 @@ import {
   historicalExpectedReturns,
   FRONTIER_CAVEAT,
 } from '@/lib/services/optimizer'
+import { resolveConstraints, type WeightConstraints } from '@/lib/services/weight-constraints'
+
+/** Resolved constraints for a test that knows they are feasible. */
+function bounds(n: number, constraints: WeightConstraints) {
+  const resolved = resolveConstraints(n, constraints)
+  if (!resolved.ok) throw new Error(`test expected feasible constraints, got ${resolved.reason}`)
+  return resolved.constraints
+}
 
 /** Covariance for n assets with one shared correlation and one volatility. */
 function uniformCov(n: number, vol: number, correlation: number): number[][] {
@@ -353,5 +361,112 @@ describe('historicalExpectedReturns', () => {
 
   it('handles no assets at all', () => {
     expect(historicalExpectedReturns([])).toBeNull()
+  })
+})
+
+// ─── P1-31: the limits the task lists as required input ─────────────────────
+
+describe('optimisation under weight and sector limits', () => {
+  // Asset 0 is the obvious winner: best return, lowest variance. Unconstrained,
+  // the greedy end of the ladder puts everything in it.
+  const cov = [
+    [0.01, 0.001, 0.001, 0.001],
+    [0.001, 0.09, 0.002, 0.002],
+    [0.001, 0.002, 0.16, 0.003],
+    [0.001, 0.002, 0.003, 0.25],
+  ]
+  const mu = [0.20, 0.08, 0.06, 0.05]
+  const symbols = ['AAA', 'BBB', 'CCC', 'DDD']
+  const sectors = ['Tech', 'Tech', 'Energy', 'Health']
+
+  const weightsOf = (point: { weights: Array<{ symbol: string; weight: number }> }) =>
+    point.weights.map((w) => w.weight)
+  const total = (w: number[]) => w.reduce((a, b) => a + b, 0)
+
+  it('concentrates without limits — which is the behaviour the task rules out', () => {
+    const free = efficientFrontier(symbols, cov, mu, { riskFreeRate: 0.04 })!
+    const greediest = free.points[free.points.length - 1]
+    expect(Math.max(...weightsOf(greediest))).toBeGreaterThan(0.9)
+  })
+
+  it('respects a maximum weight at every point on the curve', () => {
+    const capped = efficientFrontier(symbols, cov, mu, {
+      riskFreeRate: 0.04,
+      constraints: { maxWeight: 0.3 },
+    })!
+    expect(capped.points.length).toBeGreaterThan(1)
+    for (const point of capped.points) {
+      const w = weightsOf(point)
+      expect(total(w)).toBeCloseTo(1, 6)
+      for (const weight of w) expect(weight).toBeLessThanOrEqual(0.3 + 1e-6)
+    }
+    // Including the two the interface singles out.
+    for (const weight of weightsOf(capped.maxSharpe)) expect(weight).toBeLessThanOrEqual(0.3 + 1e-6)
+    for (const weight of weightsOf(capped.minimumVariance)) expect(weight).toBeLessThanOrEqual(0.3 + 1e-6)
+  })
+
+  it('respects a minimum weight, so nothing is dropped to zero', () => {
+    const floored = efficientFrontier(symbols, cov, mu, {
+      riskFreeRate: 0.04,
+      constraints: { minWeight: 0.1 },
+    })!
+    for (const point of floored.points) {
+      for (const weight of weightsOf(point)) expect(weight).toBeGreaterThanOrEqual(0.1 - 1e-6)
+    }
+  })
+
+  it('spreads the book across sectors when a sector is capped', () => {
+    const capped = efficientFrontier(symbols, cov, mu, {
+      riskFreeRate: 0.04,
+      constraints: { sectors, sectorCaps: { Tech: 0.4 } },
+    })!
+    for (const point of capped.points) {
+      const w = weightsOf(point)
+      expect(w[0] + w[1]).toBeLessThanOrEqual(0.4 + 1e-6)
+      expect(total(w)).toBeCloseTo(1, 6)
+    }
+    // The winner is in Tech, so the cap has to have moved money out of it.
+    const free = efficientFrontier(symbols, cov, mu, { riskFreeRate: 0.04 })!
+    const freeTech = weightsOf(free.maxSharpe)[0] + weightsOf(free.maxSharpe)[1]
+    const cappedTech = weightsOf(capped.maxSharpe)[0] + weightsOf(capped.maxSharpe)[1]
+    expect(cappedTech).toBeLessThan(freeTech)
+  })
+
+  it('honours a box and a sector cap together', () => {
+    const both = efficientFrontier(symbols, cov, mu, {
+      riskFreeRate: 0.04,
+      constraints: { minWeight: 0.05, maxWeight: 0.35, sectors, sectorCaps: { Tech: 0.5, Energy: 0.3 } },
+    })!
+    for (const point of both.points) {
+      const w = weightsOf(point)
+      expect(total(w)).toBeCloseTo(1, 6)
+      for (const weight of w) {
+        expect(weight).toBeGreaterThanOrEqual(0.05 - 1e-6)
+        expect(weight).toBeLessThanOrEqual(0.35 + 1e-6)
+      }
+      expect(w[0] + w[1]).toBeLessThanOrEqual(0.5 + 1e-6)
+      expect(w[2]).toBeLessThanOrEqual(0.3 + 1e-6)
+    }
+  })
+
+  it('returns nothing at all when the limits describe no portfolio', () => {
+    // Four holdings that may each be at most 10% cannot add up to a book.
+    expect(efficientFrontier(symbols, cov, mu, { riskFreeRate: 0.04, constraints: { maxWeight: 0.1 } })).toBeNull()
+    expect(efficientFrontier(symbols, cov, mu, { riskFreeRate: 0.04, constraints: { minWeight: 0.4 } })).toBeNull()
+  })
+
+  it('still matches the analytic two-asset minimum variance when the limit does not bind', () => {
+    const s1 = 0.2, s2 = 0.3, rho = 0.2
+    const twoAsset = [[s1 * s1, rho * s1 * s2], [rho * s1 * s2, s2 * s2]]
+    const analytic = (s2 * s2 - rho * s1 * s2) / (s1 * s1 + s2 * s2 - 2 * rho * s1 * s2)
+    // The true answer is about 0.736, so a 90% ceiling leaves it untouched and
+    // a 60% ceiling has to bind.
+    const loose = optimiseWeights(twoAsset, [0.05, 0.05], 500, bounds(2, { maxWeight: 0.9 }))!
+    expect(loose[0]).toBeCloseTo(analytic, 2)
+    expect(loose[0] + loose[1]).toBeCloseTo(1, 9)
+
+    const tight = optimiseWeights(twoAsset, [0.05, 0.05], 500, bounds(2, { maxWeight: 0.6 }))!
+    expect(tight[0]).toBeCloseTo(0.6, 6)
+    expect(tight[0] + tight[1]).toBeCloseTo(1, 9)
   })
 })

@@ -20,6 +20,12 @@
 
 import { jacobiEigen } from './pca'
 import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
+import {
+  projectOntoConstraints,
+  resolveConstraints,
+  type ResolvedConstraints,
+  type WeightConstraints,
+} from './weight-constraints'
 
 
 /** Below this, a variance is float dust rather than risk. */
@@ -109,21 +115,29 @@ export function optimiseWeights(
   cov: number[][],
   expectedReturns: number[],
   aversion: number,
+  constraints?: ResolvedConstraints,
 ): number[] | null {
   const n = expectedReturns.length
   if (n === 0) return null
   if (!expectedReturns.every(Number.isFinite)) return null
   if (!isUsableMatrix(cov, n)) return null
   if (!Number.isFinite(aversion) || aversion < 0) return null
+  if (constraints && (constraints.lower.length !== n || constraints.upper.length !== n)) return null
+
+  const project = (w: number[]): number[] =>
+    constraints && !constraints.trivial ? projectOntoConstraints(w, constraints) : projectOntoSimplex(w)
 
   // With no penalty on risk the problem is linear, and the optimum is a corner:
   // everything in the best asset, split evenly across ties. Gradient descent
-  // would need an infinite step to get there, so it is solved directly.
+  // would need an infinite step to get there, so it is solved directly — and
+  // then projected, because with weight or sector limits in force that corner
+  // is usually outside what the caller allows.
   if (aversion === 0) {
     const best = Math.max(...expectedReturns)
     const winners = expectedReturns.map((r): number => (r === best ? 1 : 0))
     const count = winners.reduce((a, b) => a + b, 0)
-    return winners.map((w) => w / count)
+    const corner = winners.map((w) => w / count)
+    return constraints && !constraints.trivial ? project(corner) : corner
   }
 
   // Step size from the Lipschitz constant of the gradient, 2·aversion·λmax(Σ).
@@ -135,7 +149,9 @@ export function optimiseWeights(
   const step = 1 / (2 * aversion * lambdaMax)
   if (!Number.isFinite(step) || step <= 0) return null
 
-  let w = Array(n).fill(1 / n)
+  // Start inside the feasible set, not merely on the simplex: equal weight can
+  // sit outside a tight box or over a sector cap.
+  let w = project(Array(n).fill(1 / n))
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
     // ∇ of (aversion·w'Σw − μ'w)
@@ -145,7 +161,7 @@ export function optimiseWeights(
       return 2 * aversion * risk - expectedReturns[i]
     })
 
-    const next = projectOntoSimplex(w.map((value, i) => value - step * gradient[i]))
+    const next = project(w.map((value, i) => value - step * gradient[i]))
 
     let movement = 0
     for (let i = 0; i < n; i++) movement += Math.abs(next[i] - w[i])
@@ -219,6 +235,15 @@ export type FrontierOptions = {
   riskFreeRate: number
   currentWeights?: number[]
   points?: number
+  /**
+   * Weight and sector limits every portfolio on the curve must respect (P1-31).
+   *
+   * Without them the frontier is long-only and fully invested and nothing more,
+   * so its greedy end is the whole book in one holding — a portfolio nobody
+   * would hold and no mandate would allow. `sectors` is the label per symbol,
+   * in the same order as `symbols`.
+   */
+  constraints?: WeightConstraints
 }
 
 const DEFAULT_FRONTIER_POINTS = 40
@@ -335,6 +360,13 @@ export function efficientFrontier(
   const { riskFreeRate, currentWeights, points = DEFAULT_FRONTIER_POINTS } = options
   if (!Number.isFinite(riskFreeRate)) return null
 
+  // Constraints the caller cannot satisfy produce no curve at all. Returning a
+  // frontier that quietly ignores them would be worse than returning nothing:
+  // the reader would take weights that violate what they asked for.
+  const resolution = resolveConstraints(n, options.constraints ?? {})
+  if (!resolution.ok) return null
+  const constraints = resolution.constraints
+
   // A matrix with no variance anywhere describes no risk, and a risk/return
   // curve with no risk axis is not a thing worth drawing.
   const totalVariance = cov.reduce((sum, row, i) => sum + row[i], 0)
@@ -342,7 +374,7 @@ export function efficientFrontier(
 
   const candidates: FrontierPoint[] = []
   for (const aversion of aversionLadder(points)) {
-    const weights = optimiseWeights(cov, expectedReturns, aversion)
+    const weights = optimiseWeights(cov, expectedReturns, aversion, constraints)
     if (!weights) continue
     const point = toPoint(weights, cov, expectedReturns, symbols, riskFreeRate)
     if (point) candidates.push(point)
