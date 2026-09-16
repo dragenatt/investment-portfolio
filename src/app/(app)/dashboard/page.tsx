@@ -21,7 +21,7 @@ export default function DashboardPage() {
   const { t } = useTranslation()
   const { data: portfolios, isLoading, error, mutate } = usePortfolios()
   const [chartRange, setChartRange] = useState('30')
-  const { data: chartData, isLoading: chartLoading, error: chartError } = usePortfolioHistory(chartRange)
+  const { data: chartData, isLoading: chartLoading, error: chartError, currency: chartCurrency, unconverted } = usePortfolioHistory(chartRange)
 
   const allSymbols = useMemo(() => {
     if (!portfolios) return []
@@ -113,6 +113,8 @@ export default function DashboardPage() {
             data={chartData ?? []}
             isLoading={chartLoading}
             onPeriodChange={setChartRange}
+            currency={chartCurrency}
+            unconverted={unconverted}
           />
         </ErrorBoundary>
       </DataGate>

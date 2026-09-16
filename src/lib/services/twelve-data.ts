@@ -32,6 +32,8 @@ export type TwelveDataBar = {
   low: number | null
   close: number | null
   volume: number | null
+  /** ISO 4217 code the closes are quoted in, when the provider says. */
+  currency?: string | null
 }
 
 export async function isAvailable(): Promise<boolean> {
@@ -123,6 +125,8 @@ export async function getHistory(
   const data = await res.json()
   if (data.status === 'error' || !data.values) return []
 
+  const currency: string | null = data.meta?.currency ?? null
+
   return data.values
     .map((v: Record<string, string>) => ({
       date: new Date(v.datetime).toISOString(),
@@ -131,6 +135,7 @@ export async function getHistory(
       low: v.low ? parseFloat(v.low) : null,
       close: v.close ? parseFloat(v.close) : null,
       volume: v.volume ? parseInt(v.volume) : null,
+      currency,
     }))
     .filter((p: TwelveDataBar) => p.close !== null)
     .reverse() // Twelve Data returns newest first, we want chronological

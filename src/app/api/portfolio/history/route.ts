@@ -5,7 +5,8 @@ import { cacheGet, cacheSet } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
 import { computeDailyPositions, buildDailyTimeline, snapshotsCoverWindow, type DailySnapshot } from '@/lib/services/portfolio-history'
 import { buildIntradayTimeline, MIN_INTRADAY_POINTS, type IntradayBar } from '@/lib/services/portfolio-intraday'
-import { lastSettledSession, topUpStoredHistory, writeThrough, isDailyRange } from '@/lib/services/price-history'
+import { lastSettledSession, topUpStoredHistory, writeThrough, isDailyRange, symbolCurrencies, fetchAdjustedPriceHistory } from '@/lib/services/price-history'
+import { buildConversion, fxPairSymbol, type RateSeries } from '@/lib/services/fx'
 import { apiHandler } from '@/lib/api/handler'
 
 /**
@@ -85,6 +86,77 @@ async function fetchIntradayBars(symbols: string[], range: string): Promise<Reco
   return bars
 }
 
+/**
+ * A multiplier per symbol and date into the currency the reader is looking at.
+ *
+ * The chart used to sum provider closes directly, so a book holding AAPL in
+ * dollars and FEMSAUBD.MX in pesos had those added together as one number —
+ * which the page then printed beside a header already converted to the base
+ * currency. Two readings of the same quantity, seventeen times apart.
+ *
+ * The rate used is the one for EACH DATE, not today's applied backwards: the FX
+ * pairs have daily history and it costs one more fetch to be right.
+ */
+async function conversionFor(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  symbols: string[],
+  base: string,
+  from: string,
+) {
+  const currencyBySymbol = await symbolCurrencies(supabase, symbols)
+  const needed = [...new Set([...Object.values(currencyBySymbol), base.toUpperCase()])]
+    .map(fxPairSymbol)
+    .filter((pair): pair is string => pair !== null)
+
+  const usdRates: RateSeries = {}
+  if (needed.length > 0) {
+    // FX pairs are symbols like any other, so the stored-first chain and its
+    // write-through work on them unchanged.
+    const { rows } = await fetchAdjustedPriceHistory(supabase, needed, { range: '6mo' })
+    for (const row of rows) {
+      if (row.date < from) continue
+      const currency = row.symbol.replace(/^USD/, '').replace(/=X$/, '')
+      usdRates[currency] ??= {}
+      usdRates[currency][row.date] = row.close
+    }
+  }
+
+  return buildConversion({ currencyBySymbol, base: base.toUpperCase(), usdRates })
+}
+
+/** The currency the reader is looking at: their saved preference, else the book's. */
+async function displayCurrency(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  userId: string,
+  portfolioCurrency: string | null,
+): Promise<string> {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('base_currency')
+    .eq('id', userId)
+    .maybeSingle()
+  return String(profile?.base_currency || portfolioCurrency || 'USD').toUpperCase()
+}
+
+/** Today, UTC. */
+const today = () => new Date().toISOString().slice(0, 10)
+
+/**
+ * What the conversion could not do, in the payload rather than in a log.
+ *
+ * A holding whose currency or rate is unknown is left in the unit it arrived in
+ * rather than dropped, so the total stays the sum of everything the book holds —
+ * but the reader is told which ones, because a total with a stated gap is
+ * honest and a silently mixed one is not.
+ */
+function conversionNotes(convert: ReturnType<typeof buildConversion>) {
+  const unconverted = [...convert.unknownCurrency, ...convert.missingRate]
+  return {
+    currencies: convert.currencies,
+    unconverted: unconverted.length > 0 ? unconverted : null,
+  }
+}
+
 async function getHandler(req: Request) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -103,12 +175,13 @@ async function getHandler(req: Request) {
 
   const { data: portfolios } = await supabase
     .from('portfolios')
-    .select('id')
+    .select('id, base_currency')
     .is('deleted_at', null)
 
-  if (!portfolios || portfolios.length === 0) return success([])
+  if (!portfolios || portfolios.length === 0) return success({ timeline: [], currency: 'USD', currencies: ['USD'], unconverted: null })
 
   const portfolioIds = portfolios.map(p => p.id)
+  const base = await displayCurrency(supabase, user.id, portfolios[0]?.base_currency ?? null)
 
   // Compute cutoff date for range filtering
   const rangeDays = range === 'max' ? 3650 : (parseInt(range) || 30)
@@ -168,11 +241,31 @@ async function getHandler(req: Request) {
       const transactionPrices: Record<string, number> = {}
       for (const txn of transactions) if (txn.price > 0) transactionPrices[txn.symbol] = txn.price
 
-      const points = buildIntradayTimeline({ snapshots, bars, previousCloses, transactionPrices })
+      // Into the reader's currency before anything is summed. An intraday bar
+      // uses its own day's rate: FX moves during a session too, but the pairs
+      // are only stored daily, and pretending otherwise would be precision the
+      // data does not have.
+      const convert = await conversionFor(supabase, symbols, base, cutoffStr)
+      const convertedBars: typeof bars = {}
+      for (const [symbol, series] of Object.entries(bars)) {
+        convertedBars[symbol] = series.map((bar) => ({
+          time: bar.time,
+          close: bar.close * convert.factor(symbol, bar.time.slice(0, 10)),
+        }))
+      }
+      for (const symbol of Object.keys(previousCloses)) {
+        previousCloses[symbol] *= convert.factor(symbol, cutoffStr)
+      }
+      for (const symbol of Object.keys(transactionPrices)) {
+        transactionPrices[symbol] *= convert.factor(symbol, cutoffStr)
+      }
+
+      const points = buildIntradayTimeline({ snapshots, bars: convertedBars, previousCloses, transactionPrices })
       if (points.length >= MIN_INTRADAY_POINTS) {
+        const payload = { timeline: points, currency: base, ...conversionNotes(convert) }
         // Short: these are the ranges that move while the reader is watching.
-        await cacheSet(cacheKey, points, 60)
-        return success(points)
+        await cacheSet(cacheKey, payload, 60)
+        return success(payload)
       }
       // Too few bars to be a chart — the daily path below still covers the book.
     }
@@ -219,6 +312,13 @@ async function getHandler(req: Request) {
       benchmark: benchmarkData,
       benchmarkSymbol: 'SPY',
       source: 'snapshots',
+      // Nightly snapshots are stored as computePortfolioSnapshot summed them,
+      // which does not convert either. Labelled `null` rather than guessed at
+      // the reader's currency: saying "MXN" over a figure nobody converted
+      // would be the very mistake this change exists to stop.
+      currency: null,
+      currencies: null,
+      unconverted: null,
     }
 
     await cacheSet(cacheKey, result, range === 'max' || parseInt(range) > 30 ? 600 : 120)
@@ -228,10 +328,10 @@ async function getHandler(req: Request) {
   // FALLBACK: Reconstruct from transactions + price_history (existing code below)
 
   const flatTxns = transactions ?? (await loadTransactions())
-  if (flatTxns.length === 0) return success([])
+  if (flatTxns.length === 0) return success({ timeline: [], currency: base, currencies: [base], unconverted: null })
 
   const snapshots = computeDailyPositions(flatTxns)
-  if (snapshots.length === 0) return success([])
+  if (snapshots.length === 0) return success({ timeline: [], currency: base, currencies: [base], unconverted: null })
 
   const symbols = [...new Set(flatTxns.map(t => t.symbol))]
   const yahooRange = RANGE_MAP[range] || '1mo'
@@ -320,14 +420,24 @@ async function getHandler(req: Request) {
     if (txn.price > 0) transactionPrices[txn.symbol] = txn.price
   }
 
-  const today = new Date().toISOString().slice(0, 10)
-  const timeline = buildDailyTimeline(snapshots, historicalPrices, today, transactionPrices)
+  // Into the reader's currency, close by close, at each date's own rate.
+  const convert = await conversionFor(supabase, symbols, base, cutoffStr)
+  for (const [symbol, priceMap] of Object.entries(historicalPrices)) {
+    for (const date of Object.keys(priceMap)) priceMap[date] *= convert.factor(symbol, date)
+  }
+  for (const symbol of Object.keys(transactionPrices)) {
+    transactionPrices[symbol] *= convert.factor(symbol, today())
+  }
+
+  const timeline = buildDailyTimeline(snapshots, historicalPrices, today(), transactionPrices)
   const filtered = timeline.filter(t => t.date >= cutoffStr)
 
-  // Cache the computed result for 5 minutes
-  await cacheSet(cacheKey, filtered, 300)
+  const payload = { timeline: filtered, currency: base, ...conversionNotes(convert) }
 
-  return success(filtered)
+  // Cache the computed result for 5 minutes
+  await cacheSet(cacheKey, payload, 300)
+
+  return success(payload)
 }
 
 export const GET = apiHandler(getHandler)

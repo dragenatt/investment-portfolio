@@ -231,6 +231,11 @@ async function yahooHistory(symbol: string, range: string = '1mo') {
   // It is the correct basis for returns; the raw close stays for display.
   const adjusted = result.indicators?.adjclose?.[0]?.adjclose
 
+  // The unit the closes are in. Carried on every bar so whatever stores them
+  // records what they are — a series of numbers with no currency is what let
+  // the value chart add pesos to dollars.
+  const currency: string | null = result.meta?.currency ?? null
+
   return timestamps.map((t: number, i: number) => ({
     date: new Date(t * 1000).toISOString(),
     open: quotes.open?.[i],
@@ -239,6 +244,7 @@ async function yahooHistory(symbol: string, range: string = '1mo') {
     close: quotes.close?.[i],
     adjClose: adjusted?.[i] ?? null,
     volume: quotes.volume?.[i],
+    currency,
   })).filter((p: { close: number | null }) => p.close !== null)
 }
 

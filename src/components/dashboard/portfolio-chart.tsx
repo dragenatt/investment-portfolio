@@ -33,9 +33,18 @@ type Props = {
   data: DataPoint[]
   isLoading?: boolean
   onPeriodChange?: (range: string) => void
+  /**
+   * The currency the values are in. Null means they were not converted — say so
+   * rather than let the reader assume the header's currency, which is how the
+   * same quantity came to appear twice on one screen a factor of seventeen
+   * apart.
+   */
+  currency?: string | null
+  /** Holdings left in their own currency because nothing could convert them. */
+  unconverted?: string[] | null
 }
 
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
+function CustomTooltip({ active, payload, label, currency }: { active?: boolean; payload?: Array<{ value: number }>; label?: string; currency?: string | null }) {
   if (!active || !payload?.length) return null
   const value = payload[0].value
   const moment = String(label)
@@ -58,13 +67,13 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
         className="font-bold font-financial"
         style={{ fontSize: '14px' }}
       >
-        ${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        ${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{currency ? ` ${currency}` : ''}
       </p>
     </div>
   )
 }
 
-export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
+export function PortfolioChart({ data, isLoading, onPeriodChange, currency, unconverted }: Props) {
   const [period, setPeriod] = useState<string>('1M')
   const theme = getChartTheme()
 
@@ -113,7 +122,7 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
       ? `Valor del portafolio, ${PERIOD_NAMES[period] ?? period}${intraday ? ' (precios durante la sesión)' : ''}: ${describeChange(
           { label: formatChartMoment(data[0].date), value: data[0].value },
           { label: formatChartMoment(data[data.length - 1].date), value: data[data.length - 1].value },
-          (v) => formatChartMoney(v, ''),
+          (v) => formatChartMoney(v, currency ?? ''),
           { percent: false },
         )}. Incluye aportaciones y retiros, no solo rendimiento.`
       : 'Valor del portafolio.'
@@ -121,7 +130,7 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
     data,
     intraday ? 'Valor del portafolio por momento' : 'Valor del portafolio por fecha',
     [intraday ? 'Momento' : 'Fecha', 'Valor'],
-    (point) => [formatChartMoment(point.date), formatChartMoney(point.value, '')],
+    (point) => [formatChartMoment(point.date), formatChartMoney(point.value, currency ?? '')],
   )
 
   const lineColor = isPositive ? 'var(--good)' : 'var(--bad)'
@@ -155,7 +164,7 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
               />
               <YAxis {...theme.yAxis} domain={domain ?? [0, 'auto']} hide />
               <Tooltip
-                content={<CustomTooltip />}
+                content={<CustomTooltip currency={currency} />}
                 cursor={{
                   stroke: 'var(--muted-foreground)',
                   strokeWidth: 1,
@@ -178,6 +187,20 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
             </AreaChart>
           </ResponsiveContainer>
         </ChartFigure>
+      )}
+
+      {/* What unit the line is in, and what could not be put into it. Without
+          this the reader compared a figure here against the header above and had
+          no way to know they were not the same currency. */}
+      {data.length > 0 && (
+        <p className="text-xs text-center" style={{ color: 'var(--muted-foreground)' }}>
+          {currency
+            ? <>Valores en <span className="font-financial">{currency}</span>, convertidos al tipo de cambio de cada fecha.</>
+            : 'Valores sin convertir: cada posición está en la moneda en que cotiza.'}
+          {unconverted && unconverted.length > 0 && (
+            <> No se pudo convertir {unconverted.join(', ')}; esas posiciones siguen en su propia moneda.</>
+          )}
+        </p>
       )}
 
       {/* Timeframe toggle pills */}

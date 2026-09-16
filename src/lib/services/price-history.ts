@@ -307,9 +307,22 @@ type StoredBar = {
   low: number
   close: number
   volume: number
+  /**
+   * What the close is quoted in (migration 021). Null when the provider did not
+   * say — recorded as unknown rather than guessed at 'USD', because a wrong
+   * currency is a silently wrong conversion later.
+   */
+  currency?: string | null
 }
 
-type ProviderBar = { open?: number | null; high?: number | null; low?: number | null; close: number; volume?: number | null }
+type ProviderBar = {
+  open?: number | null
+  high?: number | null
+  low?: number | null
+  close: number
+  volume?: number | null
+  currency?: string | null
+}
 
 function storedBar(symbol: string, date: string, point: ProviderBar): StoredBar {
   return {
@@ -321,7 +334,50 @@ function storedBar(symbol: string, date: string, point: ProviderBar): StoredBar 
     low: point.low ?? 0,
     close: point.close,
     volume: point.volume ?? 0,
+    currency: point.currency ?? null,
   }
+}
+
+/**
+ * The currency each symbol's prices are quoted in.
+ *
+ * Stored history first — it is the same table the closes come from, so the unit
+ * travels with the number. current_prices is the fallback, since the quote path
+ * has always recorded a currency, and it covers every row written before
+ * migration 021. A symbol neither knows about is simply absent, and the caller
+ * decides what to do about it; inventing 'USD' here would turn a gap into a
+ * wrong answer.
+ */
+export async function symbolCurrencies(
+  supabase: SupabaseClient,
+  symbols: string[],
+): Promise<Record<string, string>> {
+  if (symbols.length === 0) return {}
+  const found: Record<string, string> = {}
+
+  const { data: stored } = await supabase
+    .from('price_history')
+    .select('symbol, currency, date')
+    .in('symbol', symbols)
+    .not('currency', 'is', null)
+    .order('date', { ascending: false })
+  for (const row of stored ?? []) {
+    const symbol = row.symbol as string
+    if (!found[symbol] && row.currency) found[symbol] = String(row.currency).toUpperCase()
+  }
+
+  const missing = symbols.filter((symbol) => !found[symbol])
+  if (missing.length > 0) {
+    const { data: quotes } = await supabase
+      .from('current_prices')
+      .select('symbol, currency')
+      .in('symbol', missing)
+    for (const row of quotes ?? []) {
+      if (row.currency) found[row.symbol as string] = String(row.currency).toUpperCase()
+    }
+  }
+
+  return found
 }
 
 /**
