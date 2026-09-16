@@ -177,7 +177,7 @@ describe('detectRiskDrift', () => {
     )
     expect(drift.triggered).toBe(true)
     expect(drift.offenders.map((o) => o.symbol)).toContain('AAPL')
-    expect(drift.reason).toMatch(/risk/i)
+    expect(drift.reason).toMatch(/riesgo/i)
   })
 
   it('stays quiet when risk shares track their weights', () => {
@@ -285,5 +285,56 @@ describe('simulateRebalance (P1-10)', () => {
   it('is deterministic', () => {
     const args = [drifted, targets, { cov, expectedReturns }] as const
     expect(simulateRebalance(...args)).toEqual(simulateRebalance(...args))
+  })
+})
+
+// ─── Undoing price drift, and beta before/after (P1-10) ─────────────────────
+
+import { driftTargets } from '@/lib/services/rebalance'
+
+describe('driftTargets', () => {
+  it('takes each holding price growth back out of the current weights', () => {
+    // AAA grew 1.5x and is now 60%; BBB did not move and is 40%.
+    const start = driftTargets([0.6, 0.4], [1.5, 1])!
+    expect(start[0]).toBeCloseTo(0.5, 12)
+    expect(start[1]).toBeCloseTo(0.5, 12)
+  })
+
+  it('refuses a growth factor that cannot be divided out', () => {
+    expect(driftTargets([0.6, 0.4], [0, 1])).toBeNull()
+    expect(driftTargets([0.6, 0.4], [Number.NaN, 1])).toBeNull()
+    expect(driftTargets([0.6, 0.4], [1])).toBeNull()
+  })
+})
+
+describe('simulateRebalance reports beta before and after', () => {
+  const holdings = [
+    { symbol: 'AAA', value: 7000 },
+    { symbol: 'BBB', value: 3000 },
+  ]
+  const targets = [
+    { symbol: 'AAA', targetWeight: 0.5 },
+    { symbol: 'BBB', targetWeight: 0.5 },
+  ]
+  const inputs = {
+    cov: [[0.09, 0.01], [0.01, 0.01]],
+    expectedReturns: [0.12, 0.04],
+    riskFreeRate: 0.02,
+    assetBetas: [1.4, 0.4],
+  }
+
+  it('computes the book beta as the weighted sum of its holdings betas', () => {
+    const sim = simulateRebalance(holdings, targets, inputs)!
+    expect(sim.before.beta).toBeCloseTo(0.7 * 1.4 + 0.3 * 0.4, 12)
+    expect(sim.after.beta).toBeCloseTo(0.5 * 1.4 + 0.5 * 0.4, 12)
+    expect(sim.delta.beta).toBeCloseTo(sim.after.beta! - sim.before.beta!, 12)
+    // Moving weight out of the high-beta holding lowers the book beta.
+    expect(sim.delta.beta!).toBeLessThan(0)
+  })
+
+  it('leaves beta null, not zero, when there was no benchmark to measure against', () => {
+    const sim = simulateRebalance(holdings, targets, { ...inputs, assetBetas: null })!
+    expect(sim.before.beta).toBeNull()
+    expect(sim.delta.beta).toBeNull()
   })
 })

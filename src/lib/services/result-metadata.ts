@@ -45,6 +45,7 @@ export const MODEL_VERSIONS = {
   monteCarlo: '1.0.0',
   backtest: '1.0.0',
   stress: '1.0.0',
+  rebalance: '1.0.0',
   advisor: ADVISOR_MODEL_VERSION,
 } as const
 

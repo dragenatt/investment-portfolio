@@ -14,6 +14,7 @@ import type { TemporalAttribution } from './temporal-attribution'
 import { analyseDrawdowns } from './drawdown'
 import { portfolioVolatility } from './risk-attribution'
 import { DRAWDOWN_METHODS, DRAWDOWN_METHODS_NOTE } from './drawdown-methods'
+import { driftTargets, planRebalance } from './rebalance'
 
 export const DIAGNOSTIC_QUESTION_IDS = [
   'risk_concentration',
@@ -297,6 +298,9 @@ function riskLevers(input: DiagnosticInput): DiagnosticAnswer {
   }
 }
 
+/** Scale for pricing weights as money: large enough that cent rounding is invisible. */
+const NOTIONAL_BOOK = 1_000_000
+
 /** Below this turnover, the weights have barely drifted. */
 const NEGLIGIBLE_TURNOVER_PP = 1
 
@@ -308,22 +312,26 @@ function rebalance(input: DiagnosticInput): DiagnosticAnswer {
   }
   if (!growth.every((g) => Number.isFinite(g) && g > 0)) return missing('rebalance', question, 'Falta el precio inicial de alguna posición.')
 
-  // The weights today's quantities had at the start of the window: undoing
-  // exactly the drift that prices caused since then. These are not the weights
-  // the owner held then — positions opened later did not exist — which is why
-  // the answer speaks of undoing price drift, not of returning to a past book.
+  // The weights today's quantities had at the start of the window, and what it
+  // takes to get back to them — both from rebalance.ts, the module the
+  // rebalance panel uses, so this answer and that panel cannot disagree. This
+  // function used to rebuild both calculations inline.
   const w = holdings.map((h) => h.weight)
-  const raw = w.map((x, i) => x / growth[i])
-  const total = raw.reduce((a, b) => a + b, 0)
-  if (!(total > 0)) return missing('rebalance', question, NO_RISK)
-  const start = raw.map((x) => x / total)
+  const start = driftTargets(w, growth)
+  if (!start) return missing('rebalance', question, NO_RISK)
 
-  const turnoverPp = (w.reduce((s, x, i) => s + Math.abs(x - start[i]), 0) / 2) * 100
+  // Weights priced as a notional book: planRebalance splits money to the cent,
+  // and a book worth 1 would round every target to a whole percentage point.
+  const plan = planRebalance(
+    holdings.map((h) => ({ symbol: h.symbol, value: h.weight * NOTIONAL_BOOK })),
+    holdings.map((h, i) => ({ symbol: h.symbol, targetWeight: start[i] })),
+    { mode: 'always' },
+  )
+  const turnoverPp = plan.turnoverPct
   const before = portfolioVolatility(w, cov)
   const after = portfolioVolatility(start, cov)
-  const drift = holdings
-    .map((h, i) => ({ symbol: h.symbol, deltaPp: (w[i] - start[i]) * 100 }))
-    .sort((a, b) => Math.abs(b.deltaPp) - Math.abs(a.deltaPp))
+  // The plan's own deviation is current minus target, largest first.
+  const drift = plan.actions.map((a) => ({ symbol: a.symbol, deltaPp: a.deviationPp }))
   const largest = drift[0]
   const since = input.windowStart ?? 'el inicio del periodo'
 

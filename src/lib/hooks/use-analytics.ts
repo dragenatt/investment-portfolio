@@ -515,3 +515,33 @@ export function useScenarioComparison(pid: string | null, query: string) {
     { keepPreviousData: true, revalidateOnFocus: false }
   )
 }
+
+// --- Rebalance (P0-12 / P1-10) ---
+
+export type RebalanceInputs = {
+  currency: string
+  book_value: number
+  holdings: Array<{ symbol: string; value: number; weight: number; sector: string | null }>
+  cov: number[][]
+  expected_returns: number[]
+  risk_free_rate: number
+  asset_betas: number[] | null
+  benchmark: { symbol: string; name: string }
+  window: { from: string; to: string }
+  targets: {
+    equal: Record<string, number> | null
+    drift: Record<string, number> | null
+    riskParity: Record<string, number> | null
+  }
+  unconverted: string[]
+  _meta?: ResultMetadata
+}
+
+/** The inputs the rebalance panel runs rebalance.ts on, in the browser. */
+export function useRebalanceInputs(pid: string | null) {
+  return useSWR<RebalanceInputs | { message: string }>(
+    pid ? `/api/analytics/${pid}/rebalance` : null,
+    apiFetcher,
+    { refreshInterval: 900_000 },
+  )
+}

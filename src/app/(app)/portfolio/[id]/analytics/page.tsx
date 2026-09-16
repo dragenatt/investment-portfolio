@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation, useFactors, useOptimization } from '@/lib/hooks/use-analytics'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, RiskSources, ModelComparison, PortfolioHealth, PortfolioDiagnostic, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart } from '@/components/charts/lazy-charts'
+import { RebalancePanel } from '@/components/analytics/rebalance-panel'
 
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -321,6 +322,11 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
             <AuditTrail meta={allocation?._meta} className="mt-2" />
           </ErrorBoundary>
           </DataGate>
+
+          {/* P0-12 / P1-10: the planner and simulator in rebalance.ts, finally on a screen. */}
+          <ErrorBoundary>
+            <RebalancePanel portfolioId={id} />
+          </ErrorBoundary>
         </TabsContent>
 
         {/* Scenarios Tab (E2) */}

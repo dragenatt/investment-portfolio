@@ -79,16 +79,22 @@ export function planRebalance(
 ): RebalancePlan {
   const totalValue = holdings.reduce((sum, h) => sum + (Number.isFinite(h.value) ? h.value : 0), 0)
 
+  // Reasons are what the rebalance panel shows, so they are written for the
+  // reader, in Spanish — the validation module's own messages are diagnostics.
   const weightCheck = validateWeights(targets.map((t) => t.targetWeight))
   if (!weightCheck.valid) {
+    const total = targets.reduce((sum, t) => sum + (Number.isFinite(t.targetWeight) ? t.targetWeight : 0), 0)
+    const negative = targets.some((t) => t.targetWeight < 0)
     return emptyPlan(
-      `Cannot plan a rebalance: the target weights do not describe a whole portfolio. ${weightCheck.reason}`,
+      negative
+        ? 'No se puede planear el rebalanceo: un peso objetivo es negativo, lo que exigiría vender en corto.'
+        : `No se puede planear el rebalanceo: los pesos objetivo suman ${(total * 100).toFixed(1)}% en lugar de 100%.`,
       totalValue,
     )
   }
 
   if (totalValue <= 0) {
-    return emptyPlan('There is nothing in this portfolio to rebalance yet.', totalValue)
+    return emptyPlan('Este portafolio todavía no tiene nada que rebalancear.', totalValue)
   }
 
   const valueBySymbol = new Map(holdings.map((h) => [h.symbol, h.value]))
@@ -139,8 +145,8 @@ export function planRebalance(
       const low = ((worst?.targetWeight ?? 0) * 100 - band).toFixed(0)
       const high = ((worst?.targetWeight ?? 0) * 100 + band).toFixed(0)
       reason = triggered
-        ? `${worst.symbol} is at ${(worst.currentWeight * 100).toFixed(1)}%, outside its ${low}%-${high}% band.`
-        : `Every holding is still inside its ±${band} point band; nothing needs to move.`
+        ? `${worst.symbol} está en ${(worst.currentWeight * 100).toFixed(1)}%, fuera de su banda de ${low}%-${high}%.`
+        : `Todas las posiciones siguen dentro de su banda de ±${band} puntos; no hace falta mover nada.`
       break
     }
     case 'calendar':
@@ -148,12 +154,12 @@ export function planRebalance(
       // a plan at all, the schedule has fired.
       triggered = true
       trigger = 'calendar'
-      reason = 'A scheduled rebalance is due. These trades restore the target weights.'
+      reason = 'Toca el rebalanceo programado. Estas operaciones devuelven los pesos objetivo.'
       break
     case 'always':
       triggered = true
       trigger = 'deviation'
-      reason = 'Rebalancing to the target weights as requested.'
+      reason = 'Rebalanceo a los pesos objetivo, tal como se pidió.'
       break
     case 'deviation':
     default: {
@@ -161,12 +167,32 @@ export function planRebalance(
       triggered = worstDrift > threshold
       trigger = triggered ? 'deviation' : 'none'
       reason = triggered
-        ? `${worst.symbol} has drifted ${worst.deviationPp > 0 ? '+' : ''}${worst.deviationPp.toFixed(1)} points from its ${(worst.targetWeight * 100).toFixed(0)}% target.`
-        : `The largest drift is ${worstDrift.toFixed(1)} points, inside the ${threshold} point threshold.`
+        ? `${worst.symbol} se desvió ${worst.deviationPp > 0 ? '+' : ''}${worst.deviationPp.toFixed(1)} puntos de su objetivo de ${(worst.targetWeight * 100).toFixed(0)}%.`
+        : `El mayor desvío es de ${worstDrift.toFixed(1)} puntos, dentro del umbral de ${threshold} puntos.`
     }
   }
 
   return { actions, totalValue, triggered, trigger, turnoverPct, reason }
+}
+
+/**
+ * The weights today's quantities had when a window began: current weights with
+ * each holding's price growth over the window taken back out.
+ *
+ * Rebalancing to these undoes exactly what prices did since then. They are NOT
+ * the weights the owner held at the time — positions opened later did not exist
+ * yet — so anything showing them should speak of undoing price drift, not of
+ * going back to a past portfolio. Null when a growth factor is missing or
+ * nonsensical, rather than a vector that silently mis-scales one holding.
+ */
+export function driftTargets(currentWeights: number[], growth: number[]): number[] | null {
+  if (currentWeights.length === 0 || growth.length !== currentWeights.length) return null
+  if (!growth.every((g) => Number.isFinite(g) && g > 0)) return null
+  if (!currentWeights.every((w) => Number.isFinite(w) && w >= 0)) return null
+  const raw = currentWeights.map((w, i) => w / growth[i])
+  const total = raw.reduce((a, b) => a + b, 0)
+  if (!(total > 0)) return null
+  return raw.map((w) => w / total)
 }
 
 const FREQUENCY_DAYS: Record<CalendarFrequency, number> = {
@@ -230,7 +256,7 @@ export function detectRiskDrift(
     return {
       triggered: false,
       offenders: [],
-      reason: 'Each holding is carrying about as much risk as its size suggests.',
+      reason: 'Cada posición aporta más o menos el riesgo que corresponde a su tamaño.',
     }
   }
 
@@ -239,8 +265,8 @@ export function detectRiskDrift(
     triggered: true,
     offenders,
     reason:
-      `${worst.symbol} is ${worst.weightPct.toFixed(0)}% of the money but ${worst.percentOfRisk.toFixed(0)}% of the risk. ` +
-      'Its weight is on target — what moved is its volatility or how it moves with the rest of the book.',
+      `${worst.symbol} es ${worst.weightPct.toFixed(0)}% del dinero pero ${worst.percentOfRisk.toFixed(0)}% del riesgo. ` +
+      'Su peso puede estar en objetivo: lo que cambió es su volatilidad o cómo se mueve con el resto del portafolio.',
   }
 }
 
@@ -262,6 +288,11 @@ export type PortfolioSnapshot = {
   /** Herfindahl index of the weights: 1 is everything in one holding. */
   hhi: number
   var95Pct: number
+  /**
+   * Beta against the portfolio's benchmark: the weighted sum of each holding's
+   * own beta. Null when the caller had no benchmark series to measure against.
+   */
+  beta: number | null
   riskShare: RiskContribution[]
 }
 
@@ -274,6 +305,7 @@ export type RebalanceSimulation = {
     sharpe: number | null
     hhi: number
     var95Pp: number
+    beta: number | null
   }
   plan: RebalancePlan
   summary: string
@@ -288,6 +320,12 @@ export type SimulationInputs = {
   /** Annual expected return per asset, as fractions, same ordering as `cov`. */
   expectedReturns: number[]
   riskFreeRate?: number
+  /**
+   * Each holding's beta against the benchmark, same ordering as `cov`. P1-10
+   * lists beta among the before/after figures; a portfolio's beta is linear in
+   * its weights, so it needs nothing more than these.
+   */
+  assetBetas?: number[] | null
 }
 
 function snapshot(
@@ -319,6 +357,10 @@ function snapshot(
     // A one-year horizon, so the figure is comparable with the annualised
     // volatility beside it rather than a daily number in disguise.
     var95Pct: (parametricVaR(expectedReturn, sigma, 95) ?? 0) * 100,
+    beta:
+      inputs.assetBetas && inputs.assetBetas.length === weights.length && inputs.assetBetas.every(Number.isFinite)
+        ? weights.reduce((sum, w, i) => sum + w * inputs.assetBetas![i], 0)
+        : null,
     riskShare: attribution?.contributions ?? [],
   }
 }
@@ -368,6 +410,7 @@ export function simulateRebalance(
       before.sharpe === null || after.sharpe === null ? null : after.sharpe - before.sharpe,
     hhi: after.hhi - before.hhi,
     var95Pp: after.var95Pct - before.var95Pct,
+    beta: before.beta === null || after.beta === null ? null : after.beta - before.beta,
   }
 
   return { before, after, delta, plan, summary: summariseSimulation(delta, plan) }
