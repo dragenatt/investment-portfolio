@@ -162,8 +162,8 @@ describe('Redis Cache Operations', () => {
       mockMget.mockResolvedValueOnce([JSON.stringify(written), { symbol: 'AAPL', price: 150, timestamp: 1 }, null])
       const entries = await getCachedPriceEntries(['MSFT', 'AAPL', 'VOO'])
       expect(entries).toEqual({
-        MSFT: { price: 505.41, previousClose: 495.63, currency: 'USD' },
-        AAPL: { price: 150, previousClose: null, currency: null },
+        MSFT: { price: 505.41, previousClose: 495.63, currency: 'USD', fetchedAt: written.timestamp },
+        AAPL: { price: 150, previousClose: null, currency: null, fetchedAt: 1 },
         VOO: null,
       })
     })

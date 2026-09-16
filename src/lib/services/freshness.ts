@@ -5,6 +5,13 @@
 // a price fetched a second ago. Roadmap rule: never present cached data as
 // current. This module turns a timestamp and the tier that answered into a
 // status the interface is obliged to show.
+//
+// It is the ONLY place the app decides whether a price is current. The
+// allocation tab used to decide it with `quote === undefined` and the portfolio
+// page with `!livePrices[symbol]` — two binary answers to a four-way question,
+// neither of which could tell a price fetched a minute ago from one saved on
+// Friday. tests/lint/freshness-single-source.test.ts keeps a third from
+// appearing.
 
 export type FreshnessStatus = 'live' | 'delayed' | 'cached' | 'unavailable'
 
@@ -41,11 +48,24 @@ export type ClassifyInput = {
 const LIVE_WITHIN_SECONDS = 15 * 60
 const DELAYED_WITHIN_SECONDS = 24 * 60 * 60
 
+/**
+ * The four states by name, for a screen with room for a word and not a
+ * sentence. "Al día" rather than "en vivo": the free quotes this app reads are
+ * already fifteen minutes behind the market, and saying "live" would promise
+ * what they are not.
+ */
+export const FRESHNESS_STATUS_LABELS: Record<FreshnessStatus, string> = {
+  live: 'Al día',
+  delayed: 'Con retraso',
+  cached: 'Guardado',
+  unavailable: 'Sin precio',
+}
+
 function humanAge(seconds: number): string {
-  if (seconds < 90) return `${seconds}s ago`
-  if (seconds < 5400) return `${Math.round(seconds / 60)} min ago`
-  if (seconds < 172800) return `${Math.round(seconds / 3600)} h ago`
-  return `${Math.round(seconds / 86400)} days ago`
+  if (seconds < 90) return `hace ${seconds} s`
+  if (seconds < 5400) return `hace ${Math.round(seconds / 60)} min`
+  if (seconds < 172800) return `hace ${Math.round(seconds / 3600)} h`
+  return `hace ${Math.round(seconds / 86400)} días`
 }
 
 /**
@@ -68,7 +88,7 @@ export function classifyFreshness(input: ClassifyInput): Freshness {
       fetchedAt: null,
       provider,
       tier,
-      label: 'No price available for this asset.',
+      label: 'No hay precio para este activo; se muestra el costo promedio en su lugar.',
       isCurrent: false,
     }
   }
@@ -84,13 +104,13 @@ export function classifyFreshness(input: ClassifyInput): Freshness {
   else if (ageSeconds <= delayedWithin) status = 'delayed'
   else status = 'cached'
 
-  const via = provider ? ` via ${provider}` : ''
+  const via = provider ? ` (${provider})` : ''
   const label =
     status === 'live'
-      ? `Updated ${humanAge(ageSeconds)}${via}.`
+      ? `Actualizado ${humanAge(ageSeconds)}${via}.`
       : status === 'delayed'
-        ? `Delayed — last updated ${humanAge(ageSeconds)}${via}.`
-        : `Saved price from ${humanAge(ageSeconds)}${via}. This is not the current price.`
+        ? `Con retraso: actualizado ${humanAge(ageSeconds)}${via}.`
+        : `Precio guardado ${humanAge(ageSeconds)}${via}. No es el precio actual.`
 
   return {
     status,
@@ -114,4 +134,34 @@ export function freshnessOf(
     tier: options.tier,
     asOf: options.asOf,
   })
+}
+
+/**
+ * The same verdict for a quote from /api/market/batch, which carries its own
+ * `fetchedAt`.
+ *
+ * A quote with no usable price is unavailable whatever its timestamp says — the
+ * screen is showing the average cost in its place. A price with no timestamp is
+ * a number whose age nobody knows, so it is reported as saved, not as current.
+ */
+export function freshnessOfQuote(
+  quote: { price?: number | null; fetchedAt?: string | null } | null | undefined,
+  options: { asOf?: Date; provider?: string | null } = {},
+): Freshness {
+  const price = quote?.price
+  if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
+    return classifyFreshness({ fetchedAt: null, provider: options.provider, asOf: options.asOf })
+  }
+  if (!quote?.fetchedAt || !Number.isFinite(Date.parse(quote.fetchedAt))) {
+    return {
+      status: 'cached',
+      ageSeconds: null,
+      fetchedAt: null,
+      provider: options.provider ?? null,
+      tier: null,
+      label: 'Precio guardado de antigüedad desconocida. No es el precio actual.',
+      isCurrent: false,
+    }
+  }
+  return classifyFreshness({ fetchedAt: quote.fetchedAt, provider: options.provider, asOf: options.asOf })
 }

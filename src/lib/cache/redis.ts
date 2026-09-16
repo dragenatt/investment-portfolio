@@ -153,6 +153,8 @@ export type CachedPriceEntry = {
   price: number
   previousClose: number | null
   currency: string | null
+  /** Epoch ms the price was written, so a cache hit does not pass for a fresh read. */
+  fetchedAt?: number | null
 }
 
 export type PriceDetail = { previousClose?: number | null; currency?: string | null }
@@ -168,6 +170,7 @@ function toPriceEntry(data: unknown): CachedPriceEntry | null {
     price: parsed.price,
     previousClose: typeof parsed.previousClose === 'number' ? parsed.previousClose : null,
     currency: typeof parsed.currency === 'string' ? parsed.currency : null,
+    fetchedAt: typeof parsed.timestamp === 'number' && Number.isFinite(parsed.timestamp) ? parsed.timestamp : null,
   }
 }
 

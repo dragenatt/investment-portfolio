@@ -7,19 +7,40 @@ const positions = [
   { symbol: 'BBB', asset_type: 'stock', quantity: 4, avg_cost: 100 },
   { symbol: 'CCC', asset_type: 'etf', quantity: 2, avg_cost: 200 },
 ]
-const prices = { AAA: 60, BBB: 100 } // CCC has no quote
+const NOW = new Date('2026-09-08T15:00:00Z')
+const ago = (seconds: number) => new Date(NOW.getTime() - seconds * 1000).toISOString()
+// AAA was read a minute ago, BBB on Friday; CCC has no quote at all.
+const prices = { AAA: { price: 60, fetched_at: ago(60) }, BBB: { price: 100, fetched_at: ago(3 * 86400) } }
 const sectors = { AAA: 'Technology', BBB: 'Technology' } // CCC has no sector
 
 describe('summariseAllocation', () => {
-  const result = summariseAllocation(positions, prices, sectors)
+  const result = summariseAllocation(positions, prices, sectors, NOW)
 
   it('values each holding at its quote, and at its cost when there is none', () => {
     expect(result.total).toBe(600 + 400 + 400)
-    expect(result.bySymbol).toEqual([
-      { symbol: 'AAA', value: 600, pct: (600 / 1400) * 100, stale: false },
-      { symbol: 'BBB', value: 400, pct: (400 / 1400) * 100, stale: false },
-      { symbol: 'CCC', value: 400, pct: (400 / 1400) * 100, stale: true },
+    expect(result.bySymbol.map(({ symbol, value, pct }) => ({ symbol, value, pct }))).toEqual([
+      { symbol: 'AAA', value: 600, pct: (600 / 1400) * 100 },
+      { symbol: 'BBB', value: 400, pct: (400 / 1400) * 100 },
+      { symbol: 'CCC', value: 400, pct: (400 / 1400) * 100 },
     ])
+  })
+
+  it('says how current each price is in freshness.ts terms, not as a yes or no', () => {
+    // The flag this replaced was `quote === undefined`: BBB's Friday price
+    // counted as current because a row existed.
+    const status = Object.fromEntries(result.bySymbol.map((h) => [h.symbol, h.freshness.status]))
+    expect(status).toEqual({ AAA: 'live', BBB: 'cached', CCC: 'unavailable' })
+  })
+
+  it('treats a stored row with no usable price as no quote', () => {
+    const broken = summariseAllocation(
+      [{ symbol: 'AAA', asset_type: 'stock', quantity: 10, avg_cost: 50 }],
+      { AAA: { price: Number.NaN, fetched_at: ago(10) } },
+      {},
+      NOW,
+    )
+    expect(broken.total).toBe(500)
+    expect(broken.bySymbol[0].freshness.status).toBe('unavailable')
   })
 
   it('groups by type and by sector, with the unknown sector named', () => {
@@ -72,12 +93,13 @@ describe('contract: the allocation route and the analytics page agree', () => {
 
   it('every field the page renders exists on the slice it renders it from', () => {
     // analytics/page.tsx reads s.name and s.pct off bySector and byType, and
-    // s.symbol, s.pct and s.stale off bySymbol.
+    // s.symbol, s.pct and s.freshness off bySymbol.
     for (const slice of [...result().byType, ...result().bySector]) {
       expect(Object.keys(slice).sort()).toEqual(['name', 'pct', 'value'])
     }
     for (const holding of result().bySymbol) {
-      expect(Object.keys(holding).sort()).toEqual(['pct', 'stale', 'symbol', 'value'])
+      expect(Object.keys(holding).sort()).toEqual(['freshness', 'pct', 'symbol', 'value'])
+      expect(Object.keys(holding.freshness)).toEqual(expect.arrayContaining(['status', 'label']))
     }
   })
 

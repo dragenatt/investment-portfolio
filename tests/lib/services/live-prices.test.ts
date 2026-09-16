@@ -36,6 +36,15 @@ describe('quotesToPriceRows', () => {
     ])
   })
 
+  it('stores a cached quote with the time it was read, not the time it was published', () => {
+    const readAt = new Date(NOW - 4 * 60 * 1000).toISOString()
+    const [row] = quotesToPriceRows(
+      { AAPL: { price: 232.1, change: null, changePct: null, currency: 'USD', fetchedAt: readAt } },
+      NOW,
+    )
+    expect(row.fetched_at).toBe(readAt)
+  })
+
   it('skips quotes without a usable price rather than storing a zero', () => {
     const rows = quotesToPriceRows(
       {
@@ -115,6 +124,14 @@ describe('mergePriceUpdate', () => {
     const next = mergePriceUpdate(current, { symbol: 'MSFT', price: 402, change_pct: 0.6 })!
     expect(next.MSFT.price).toBe(402)
     expect(next.MSFT.changePct).toBe(0.6)
+  })
+
+  it("carries the pushed row's read time, and drops the old one when the row has none", () => {
+    const quotes = { AAPL: { price: 230, previousClose: 228, change: 2, changePct: 0.88, currency: 'USD', fetchedAt: '2026-09-11T20:00:00.000Z' } }
+    const withTime = mergePriceUpdate(quotes, { symbol: 'AAPL', price: 231, change_pct: null, fetched_at: '2026-09-14T14:59:00.000Z' })
+    expect(withTime!.AAPL.fetchedAt).toBe('2026-09-14T14:59:00.000Z')
+    const withoutTime = mergePriceUpdate(quotes, { symbol: 'AAPL', price: 231, change_pct: null })
+    expect(withoutTime!.AAPL.fetchedAt).toBeUndefined()
   })
 
   it('ignores symbols this view is not showing', () => {

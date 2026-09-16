@@ -2,7 +2,7 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { withAuditedCache } from '@/lib/cache/with-cache'
 import { buildResultMetadata } from '@/lib/services/result-metadata'
-import { summariseAllocation } from '@/lib/services/allocation-breakdown'
+import { summariseAllocation, type StoredQuote } from '@/lib/services/allocation-breakdown'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { apiHandler } from '@/lib/api/handler'
 
@@ -33,12 +33,16 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
       const symbols = positions.map((p) => p.symbol)
       const { data: prices } = await supabase
         .from('current_prices')
-        .select('symbol, price')
+        .select('symbol, price, fetched_at')
         .in('symbol', symbols)
 
-      const priceMap: Record<string, number> = {}
+      // The fetch time comes along so each holding's freshness is classified by
+      // freshness.ts, not decided here. Ages are measured when this result is
+      // computed, and it is cached for five minutes, so a label can trail the
+      // clock by at most that much.
+      const quoteMap: Record<string, StoredQuote> = {}
       for (const p of prices ?? []) {
-        priceMap[p.symbol] = p.price
+        quoteMap[p.symbol] = { price: p.price, fetched_at: p.fetched_at }
       }
 
       // Get sector data from company_data
@@ -57,7 +61,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
       // Valued at the last stored quote, falling back to the average cost.
       // The shaping itself lives in summariseAllocation so a test can hold the
       // field names the interface reads.
-      const breakdown = summariseAllocation(positions, priceMap, sectorMap)
+      const breakdown = summariseAllocation(positions, quoteMap, sectorMap)
 
       return {
         ...breakdown,
@@ -66,10 +70,13 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
           data: {
             description: 'Posiciones actuales valuadas a su última cotización guardada',
             symbols,
-            excluded: symbols.filter((s) => !priceMap[s]),
+            excluded: symbols.filter((s) => !quoteMap[s]),
             priceSource: 'stored',
           },
-          assumptions: [{ name: 'Sin cotización', value: 'Se usa el costo promedio y la posición se marca como desactualizada', source: 'allocation route' }],
+          assumptions: [
+            { name: 'Sin cotización', value: 'Se usa el costo promedio y la posición se marca «Sin precio»', source: 'freshness.ts' },
+            { name: 'Frescura', value: 'Al día hasta 15 min; con retraso hasta 24 h; después, precio guardado', source: 'freshness.ts' },
+          ],
         }),
       }
     }

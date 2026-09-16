@@ -11,6 +11,8 @@
 //
 // One pure function, one type, one set of field names.
 
+import { freshnessOf, type Freshness } from './freshness'
+
 export type AllocationSlice = {
   /** The group's label: an asset type, or a sector. */
   name: string
@@ -22,9 +24,16 @@ export type HoldingSlice = {
   symbol: string
   value: number
   pct: number
-  /** No live quote was available, so this row is valued at its average cost. */
-  stale: boolean
+  /**
+   * How current the price behind `value` is, from freshness.ts. It replaced a
+   * `stale: quote === undefined` flag that called a quote saved last Friday
+   * current, and could only say "missing" or "fine".
+   */
+  freshness: Freshness
 }
+
+/** A current_prices row, as the route reads it. */
+export type StoredQuote = { price: number; fetched_at?: string | null }
 
 export type AllocationBreakdown = {
   byType: AllocationSlice[]
@@ -62,8 +71,9 @@ function toSlices(totals: Map<string, number>, total: number): AllocationSlice[]
  */
 export function summariseAllocation(
   positions: AllocationPosition[],
-  priceBySymbol: Record<string, number>,
+  quoteBySymbol: Record<string, StoredQuote>,
   sectorBySymbol: Record<string, string>,
+  asOf: Date = new Date(),
 ): AllocationBreakdown {
   const byType = new Map<string, number>()
   const bySector = new Map<string, number>()
@@ -71,8 +81,9 @@ export function summariseAllocation(
   let total = 0
 
   for (const position of positions) {
-    const quote = priceBySymbol[position.symbol]
-    const price = quote ?? position.avg_cost
+    const stored = quoteBySymbol[position.symbol]
+    const quote = stored && Number.isFinite(stored.price) ? stored : undefined
+    const price = quote?.price ?? position.avg_cost
     if (!Number.isFinite(position.quantity) || !Number.isFinite(price)) continue
 
     const value = position.quantity * price
@@ -81,7 +92,9 @@ export function summariseAllocation(
     byType.set(position.asset_type, (byType.get(position.asset_type) ?? 0) + value)
     const sector = sectorBySymbol[position.symbol] || UNKNOWN_SECTOR
     bySector.set(sector, (bySector.get(sector) ?? 0) + value)
-    bySymbol.push({ symbol: position.symbol, value, pct: 0, stale: quote === undefined })
+    // A quote with no row is classified unavailable, which is what the average
+    // cost standing in for it is.
+    bySymbol.push({ symbol: position.symbol, value, pct: 0, freshness: freshnessOf(quote, { asOf }) })
   }
 
   for (const holding of bySymbol) holding.pct = total > 0 ? (holding.value / total) * 100 : 0

@@ -875,3 +875,23 @@ El error vino de buscar `benchmark` en las migraciones con `head -5`, que solo m
 014/007 y cortó antes de la 013. Lo único que realmente falta es el **selector en la
 interfaz**; la elección ya se guarda y se respeta. P0-14 pasa de PARCIAL 40% a PARCIAL
 ~80%.
+
+### Tercera corrección — P0-9, frescura de datos
+
+**Añadido el 2026-09-16, durante la tarea 4.4.** El diagnóstico dijo que `freshness.ts`
+estaba **huérfano** y que la UI usaba dos banderas binarias ad-hoc: `allocation/route.ts:61`
+y `portfolio.ts:124`. **La evidencia estaba mal citada, aunque la conclusión se sostenía.**
+
+- `portfolio.ts:124` **no** era una bandera ad-hoc: ya derivaba `is_stale` de
+  `freshnessOf()`. La búsqueda de importadores se hizo con la ruta `@/lib/services/freshness`
+  y no vio el import relativo `./freshness`, así que el módulo no estaba sin importadores.
+- Pero esa función, `enrichPositionsWithPnL`, **no tenía ningún llamador** en todo el
+  repositorio. El veredicto de `freshness.ts` nunca llegaba a una pantalla, así que en la
+  práctica sí estaba huérfano.
+- La segunda bandera ad-hoc real no estaba en `portfolio.ts` sino en
+  `src/app/(app)/portfolio/[id]/page.tsx:104` (`is_stale: livePrices != null &&
+  !livePrices[pos.symbol]`), que es la que alimentaba la tabla de posiciones.
+
+La tarea 4.4 conectó `freshness.ts` en los dos sitios reales, eliminó la función sin
+llamadores y agregó un test de lint que impide otra definición local. P0-9 queda en
+IMPLEMENTADO en ambos consumidores.

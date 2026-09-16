@@ -77,6 +77,7 @@ export function useLivePrices(symbols: string[]) {
                   symbol: row.symbol!,
                   price: row.price,
                   change_pct: row.change_pct,
+                  fetched_at: row.fetched_at,
                 }) ?? current,
               { revalidate: false },
             )

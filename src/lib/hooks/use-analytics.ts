@@ -6,6 +6,7 @@ import type { PortfolioHealth } from '@/lib/services/portfolio-health'
 import type { PortfolioDiagnostic as PortfolioDiagnosticResult } from '@/lib/services/portfolio-diagnostic'
 import type { EstimateReliability, PortfolioScenarioRequest, ScenarioResult } from '@/lib/services/scenario-engine'
 import type { ResultMetadata } from '@/lib/services/result-metadata'
+import type { HoldingSlice } from '@/lib/services/allocation-breakdown'
 import { apiFetcher } from '@/lib/api/fetcher'
 import { useJob } from './use-job'
 import type { ScenarioComparison } from '@/lib/services/scenario-comparison'
@@ -326,7 +327,7 @@ export type AllocationData = {
   _meta?: ResultMetadata
   byType: AllocationSlice[]
   bySector: AllocationSlice[]
-  bySymbol: Array<{ symbol: string; value: number; pct: number; stale: boolean }>
+  bySymbol: HoldingSlice[]
   total: number
 }
 

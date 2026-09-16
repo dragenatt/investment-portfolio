@@ -62,7 +62,9 @@ export function quotesToPriceRows(quotes: Record<string, BatchQuote>, now: numbe
       volume: 0,
       currency: quote.currency || 'USD',
       source: 'provider',
-      fetched_at: new Date(now).toISOString(),
+      // The quote's own read time when it has one: a price served from the
+      // cache and published now is still as old as the read behind it.
+      fetched_at: quote.fetchedAt && Number.isFinite(Date.parse(quote.fetchedAt)) ? quote.fetchedAt : new Date(now).toISOString(),
       expires_at: new Date(now + QUOTE_TTL_MS).toISOString(),
     })
   }
@@ -92,7 +94,7 @@ export function changedRows(next: CurrentPriceRow[], stored: StoredPrice[], now:
   })
 }
 
-export type PriceUpdate = { symbol: string; price: unknown; change_pct: unknown }
+export type PriceUpdate = { symbol: string; price: unknown; change_pct: unknown; fetched_at?: unknown }
 
 /**
  * The prices on screen after a pushed row, or null when the row changes nothing
@@ -118,9 +120,15 @@ export function mergePriceUpdate(
   const change = anchored ? price - previousClose : quote.change
   const changePct = anchored ? ((price - previousClose) / previousClose) * 100 : toNumber(update.change_pct)
 
+  // The pushed row's read time travels with its price; without one the price
+  // is new and its age unknown, so the old timestamp must not vouch for it.
+  const fetchedAt = typeof update.fetched_at === 'string' && Number.isFinite(Date.parse(update.fetched_at))
+    ? update.fetched_at
+    : undefined
+
   return {
     ...current,
-    [update.symbol]: { ...quote, price, change, changePct },
+    [update.symbol]: { ...quote, price, change, changePct, fetchedAt },
   }
 }
 

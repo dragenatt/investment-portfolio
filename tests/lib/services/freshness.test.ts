@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { classifyFreshness, freshnessOf, type PriceTier } from '@/lib/services/freshness'
+import {
+  classifyFreshness,
+  freshnessOf,
+  freshnessOfQuote,
+  FRESHNESS_STATUS_LABELS,
+  type FreshnessStatus,
+  type PriceTier,
+} from '@/lib/services/freshness'
 
 const NOW = new Date('2026-09-08T15:00:00Z')
 const ago = (seconds: number) => new Date(NOW.getTime() - seconds * 1000).toISOString()
@@ -79,6 +86,45 @@ describe('classifyFreshness', () => {
   it('is deterministic', () => {
     const args = { fetchedAt: ago(500), provider: 'finnhub', asOf: NOW } as const
     expect(classifyFreshness(args)).toEqual(classifyFreshness(args))
+  })
+})
+
+describe('wording', () => {
+  it('speaks Spanish, because it is rendered as-is', () => {
+    expect(classifyFreshness({ fetchedAt: ago(20), asOf: NOW }).label).toBe('Actualizado hace 20 s.')
+    expect(classifyFreshness({ fetchedAt: ago(3 * 3600), asOf: NOW }).label).toBe('Con retraso: actualizado hace 3 h.')
+    expect(classifyFreshness({ fetchedAt: ago(3 * 86400), asOf: NOW }).label).toBe(
+      'Precio guardado hace 3 días. No es el precio actual.',
+    )
+    expect(classifyFreshness({ fetchedAt: null, asOf: NOW }).label).toMatch(/costo promedio/)
+  })
+
+  it('names every state, so a screen can show which of the four it is', () => {
+    const states: FreshnessStatus[] = ['live', 'delayed', 'cached', 'unavailable']
+    expect(Object.keys(FRESHNESS_STATUS_LABELS).sort()).toEqual([...states].sort())
+    expect(new Set(Object.values(FRESHNESS_STATUS_LABELS)).size).toBe(4)
+  })
+})
+
+describe('freshnessOfQuote', () => {
+  it('classifies a batch quote by its own read time', () => {
+    expect(freshnessOfQuote({ price: 10, fetchedAt: ago(30) }, { asOf: NOW }).status).toBe('live')
+    expect(freshnessOfQuote({ price: 10, fetchedAt: ago(7200) }, { asOf: NOW }).status).toBe('delayed')
+    expect(freshnessOfQuote({ price: 10, fetchedAt: ago(200000) }, { asOf: NOW }).status).toBe('cached')
+  })
+
+  it('calls a missing quote, or one with no usable price, unavailable', () => {
+    expect(freshnessOfQuote(undefined, { asOf: NOW }).status).toBe('unavailable')
+    expect(freshnessOfQuote({ price: null, fetchedAt: ago(5) }, { asOf: NOW }).status).toBe('unavailable')
+    expect(freshnessOfQuote({ price: 0, fetchedAt: ago(5) }, { asOf: NOW }).status).toBe('unavailable')
+  })
+
+  it('never calls a price of unknown age current', () => {
+    // The old page flag called any quote that existed current.
+    const f = freshnessOfQuote({ price: 10 }, { asOf: NOW })
+    expect(f.status).toBe('cached')
+    expect(f.isCurrent).toBe(false)
+    expect(f.ageSeconds).toBeNull()
   })
 })
 

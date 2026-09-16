@@ -64,6 +64,8 @@ const yahooBreaker = new CircuitBreaker({
 type CachedQuote = {
   data: QuoteResult
   expiresAt: number
+  /** When a provider produced the quote — not when it was cached. Null when unknown. */
+  fetchedAt: number | null
 }
 
 type QuoteResult = {
@@ -81,15 +83,20 @@ type QuoteResult = {
 const CACHE_TTL_MS = 60_000 // 60 seconds
 const quoteCache = new Map<string, CachedQuote>()
 
-function getCached(symbol: string): QuoteResult | null {
+function getCachedEntry(symbol: string): CachedQuote | null {
   const entry = quoteCache.get(symbol.toUpperCase())
-  if (entry && Date.now() < entry.expiresAt) return entry.data
+  if (entry && Date.now() < entry.expiresAt) return entry
   if (entry) quoteCache.delete(symbol.toUpperCase())
   return null
 }
 
-function setCache(symbol: string, data: QuoteResult) {
-  quoteCache.set(symbol.toUpperCase(), { data, expiresAt: Date.now() + CACHE_TTL_MS })
+function getCached(symbol: string): QuoteResult | null {
+  return getCachedEntry(symbol)?.data ?? null
+}
+
+/** `fetchedAt` defaults to now; a quote rebuilt from Redis passes its own. */
+function setCache(symbol: string, data: QuoteResult, fetchedAt: number | null = Date.now()) {
+  quoteCache.set(symbol.toUpperCase(), { data, expiresAt: Date.now() + CACHE_TTL_MS, fetchedAt })
 }
 
 /**
@@ -313,7 +320,7 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
   const redisCached = (await getCachedPriceEntries([symbol]))[symbol]
   if (redisCached) {
     const quoteResult = quoteFromCache(symbol, redisCached)
-    setCache(symbol, quoteResult)
+    setCache(symbol, quoteResult, redisCached.fetchedAt ?? null)
     return quoteResult
   }
 
@@ -385,6 +392,13 @@ export type BatchQuote = {
   changePct: number | null
   currency: string
   name?: string
+  /**
+   * When a provider produced this price (ISO). A cache hit keeps the time of
+   * the original read, so freshness.ts can tell a quote from a second ago from
+   * one that has sat in Redis for four minutes. Absent only when the age is
+   * genuinely unknown.
+   */
+  fetchedAt?: string
 }
 
 export async function getBatchQuotes(
@@ -400,8 +414,9 @@ export async function getBatchQuotes(
 
   // 1. Serve from in-memory cache first (skipped when fresh data is required)
   for (const s of symbols) {
-    const cached = fresh ? null : getCached(s)
-    if (cached) {
+    const hit = fresh ? null : getCachedEntry(s)
+    if (hit) {
+      const cached = hit.data
       results[cached.symbol || s] = {
         price: cached.price,
         previousClose: cached.previousClose,
@@ -409,6 +424,7 @@ export async function getBatchQuotes(
         changePct: cached.changePct,
         currency: cached.currency,
         name: cached.name,
+        ...(hit.fetchedAt !== null ? { fetchedAt: new Date(hit.fetchedAt).toISOString() } : {}),
       }
     } else {
       uncached.push(s)
@@ -424,13 +440,15 @@ export async function getBatchQuotes(
     const redisEntry = redisCachedPrices[s]
     if (redisEntry) {
       const entry = quoteFromCache(s, redisEntry)
-      setCache(s, entry)
+      const fetchedAt = redisEntry.fetchedAt ?? null
+      setCache(s, entry, fetchedAt)
       results[s.toUpperCase()] = {
         price: entry.price,
         previousClose: entry.previousClose,
         change: entry.change,
         changePct: entry.changePct,
         currency: entry.currency,
+        ...(fetchedAt !== null ? { fetchedAt: new Date(fetchedAt).toISOString() } : {}),
       }
     } else {
       stillMissing.push(s)
@@ -486,6 +504,7 @@ export async function getBatchQuotes(
             changePct: entry.changePct,
             currency: entry.currency,
             name: entry.name,
+            fetchedAt: new Date().toISOString(),
           }
         } else {
           unresolved.push(original)
@@ -548,6 +567,7 @@ async function fetchFinnhubBatch(
             changePct: entry.changePct,
             currency: entry.currency,
             name: entry.name,
+            fetchedAt: new Date().toISOString(),
           }
         }
       } catch { /* skip */ }
@@ -576,6 +596,7 @@ async function fetchYahooBatch(
             changePct: q.changePct,
             currency: q.currency,
             name: q.name,
+            fetchedAt: new Date().toISOString(),
           }
         }
       } catch { /* skip */ }

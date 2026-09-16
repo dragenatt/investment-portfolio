@@ -313,6 +313,31 @@ describe('Market Service', () => {
       expect(twelveData.getBatchQuotes).toHaveBeenCalledWith(['GOOGL'])
     })
 
+    it("stamps each quote with when its price was read, keeping a cache hit's original time", async () => {
+      // 4.4: freshness.ts can only tell a fresh read from one that sat in Redis
+      // for minutes if the quote says when it was read.
+      const fourMinutesAgo = Date.now() - 4 * 60 * 1000
+      vi.mocked(cache.getCachedPriceEntries).mockResolvedValueOnce({
+        AAPL: { price: 150, previousClose: 148, currency: 'USD', fetchedAt: fourMinutesAgo },
+        MSFT: { price: 380, previousClose: null, currency: null },
+      })
+      vi.mocked(twelveData.getBatchQuotes).mockResolvedValueOnce({
+        GOOGL: { symbol: 'GOOGL', price: 140, previousClose: 139, change: 1, changePct: 0.72, currency: 'USD', exchange: 'NASDAQ', name: 'Alphabet Inc' },
+      })
+
+      const before = Date.now()
+      const result = await getBatchQuotes(['AAPL', 'GOOGL', 'MSFT'])
+
+      expect(result.AAPL.fetchedAt).toBe(new Date(fourMinutesAgo).toISOString())
+      expect(Date.parse(result.GOOGL.fetchedAt!)).toBeGreaterThanOrEqual(before)
+      // An entry with no timestamp has an unknown age, and says nothing rather than "now".
+      expect(result.MSFT.fetchedAt).toBeUndefined()
+
+      // The in-memory cache that answers next keeps the Redis read time too.
+      const again = await getBatchQuotes(['AAPL'])
+      expect(again.AAPL.fetchedAt).toBe(new Date(fourMinutesAgo).toISOString())
+    })
+
     it('falls back to Finnhub when batch fails', async () => {
       const finnhubQuote = {
         symbol: 'AAPL',

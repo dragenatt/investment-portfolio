@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowUp, ArrowDown, ArrowUpDown, Clock, CircleSlash } from 'lucide-react'
+import { ArrowUp, ArrowDown, ArrowUpDown, Clock, CircleSlash, History } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FormattedAmount } from '@/components/shared/formatted-amount'
 import { PercentageChange } from '@/components/shared/percentage-change'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/utils/numbers'
+import { FRESHNESS_STATUS_LABELS, type Freshness, type FreshnessStatus } from '@/lib/services/freshness'
 
 type PositionWithPnL = {
   id: string
@@ -25,8 +26,8 @@ type PositionWithPnL = {
   daily_change: number
   daily_change_pct: number
   sparkline_7d: number[]
-  is_stale?: boolean
-  freshness?: { status: 'live' | 'delayed' | 'cached' | 'unavailable'; label: string }
+  /** From freshness.ts. Absent while quotes are still loading. */
+  freshness?: Pick<Freshness, 'status' | 'label'>
 }
 
 type Props = {
@@ -84,14 +85,25 @@ function Sparkline({ data, width = 48, height = 16 }: { data: number[]; width?: 
 /**
  * A stale price and a missing one used to be the same triangle in two colours
  * (C9). They are different situations — an old number is still a number, a
- * missing one is not — so they get different shapes; the text is on the
- * wrapper's label.
+ * missing one is not — so each of the three states that is not current gets
+ * its own shape, and the state's name and full explanation are on the
+ * wrapper's label. A current price gets nothing: a mark on every row is a mark
+ * on none.
  */
-function FreshnessIcon({ status }: { status?: string }) {
-  return status === 'unavailable' ? (
-    <CircleSlash aria-hidden="true" className="h-3 w-3 shrink-0 text-loss" />
-  ) : (
-    <Clock aria-hidden="true" className="h-3 w-3 shrink-0 text-warn" />
+const FRESHNESS_ICONS: Record<Exclude<FreshnessStatus, 'live'>, { Icon: typeof Clock; className: string }> = {
+  delayed: { Icon: Clock, className: 'text-muted-foreground' },
+  cached: { Icon: History, className: 'text-warn' },
+  unavailable: { Icon: CircleSlash, className: 'text-loss' },
+}
+
+function FreshnessMark({ freshness }: { freshness?: PositionWithPnL['freshness'] }) {
+  if (!freshness || freshness.status === 'live') return null
+  const { Icon, className } = FRESHNESS_ICONS[freshness.status]
+  const text = `${FRESHNESS_STATUS_LABELS[freshness.status]}. ${freshness.label}`
+  return (
+    <span title={text} aria-label={text} role="img" className="inline-flex">
+      <Icon aria-hidden="true" className={cn('h-3 w-3 shrink-0', className)} />
+    </span>
   )
 }
 
@@ -242,16 +254,7 @@ export function PositionPnLTable({ positions }: Props) {
                 <TableCell className="text-right">
                   <div className="inline-flex items-center gap-1 justify-end">
                     <FormattedAmount value={pos.current_price} from={pos.currency} />
-                    {pos.is_stale && (
-                      <span
-                        title={pos.freshness?.label ?? 'Precio posiblemente desactualizado'}
-                        aria-label={pos.freshness?.label ?? 'Precio posiblemente desactualizado'}
-                      role="img"
-                        className="inline-flex"
-                      >
-                        <FreshnessIcon status={pos.freshness?.status} />
-                      </span>
-                    )}
+                    <FreshnessMark freshness={pos.freshness} />
                   </div>
                 </TableCell>
                 <TableCell className="text-right font-semibold">
@@ -292,16 +295,7 @@ export function PositionPnLTable({ positions }: Props) {
               <div className="min-w-0 flex-shrink">
                 <div className="flex items-center gap-1">
                   <p className="font-semibold font-mono text-sm">{pos.symbol}</p>
-                  {pos.is_stale && (
-                    <span
-                      title={pos.freshness?.label ?? 'Precio posiblemente desactualizado'}
-                      aria-label={pos.freshness?.label ?? 'Precio posiblemente desactualizado'}
-                      role="img"
-                      className="inline-flex"
-                    >
-                      <FreshnessIcon status={pos.freshness?.status} />
-                    </span>
-                  )}
+                  <FreshnessMark freshness={pos.freshness} />
                 </div>
                 {pos.name && (
                   <p className="text-xs text-muted-foreground truncate max-w-[140px]">{pos.name}</p>

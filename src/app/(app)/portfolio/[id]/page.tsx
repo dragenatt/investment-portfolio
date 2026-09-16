@@ -37,6 +37,7 @@ import type { ExportTransaction, ExportPosition } from '@/lib/utils/export'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n'
+import { freshnessOfQuote } from '@/lib/services/freshness'
 
 export default function PortfolioDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { t } = useTranslation()
@@ -73,6 +74,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
   // Pass raw values in their original currency to avoid double-conversion.
   const enrichedPositions = useMemo(() => {
     if (!positionsWithPrices.length) return []
+    const asOf = new Date()
     return positionsWithPrices
       .filter((pos: { quantity: number }) => pos.quantity > 0)
       .map((pos: { id: string; symbol: string; name?: string; asset_type: string; quantity: number; avg_cost: number; currency: string; currentPrice: number; priceCurrency: string; changePct: number }) => {
@@ -101,7 +103,11 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           daily_change: dailyChange,
           daily_change_pct: changePct,
           sparkline_7d: [] as number[],
-          is_stale: livePrices != null && !livePrices[pos.symbol],
+          // freshness.ts decides, from the quote's own read time. The old
+          // `!livePrices[symbol]` could only say "missing", and called a price
+          // that had sat in the cache for minutes current. Nothing is claimed
+          // before the first quotes arrive.
+          freshness: livePrices == null ? undefined : freshnessOfQuote(livePrices[pos.symbol], { asOf }),
         }
       })
   }, [positionsWithPrices, livePrices])

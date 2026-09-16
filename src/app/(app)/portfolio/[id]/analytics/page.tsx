@@ -21,6 +21,8 @@ import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttributi
 import { RebalancePanel } from '@/components/analytics/rebalance-panel'
 import { ExposureCard } from '@/components/analytics/exposure-card'
 import { StressPanel } from '@/components/analytics/stress-panel'
+import { FRESHNESS_STATUS_LABELS } from '@/lib/services/freshness'
+import { cn } from '@/lib/utils'
 
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -317,8 +319,14 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
                           <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(s.pct, 100)}%` }} />
                         </div>
                         <span className="text-xs text-muted-foreground w-12 text-right font-financial">{s.pct.toFixed(1)}%</span>
-                        {s.stale && (
-                          <span className="text-xs text-warn" title="Precio desactualizado">*<span className="sr-only"> (precio desactualizado)</span></span>
+                        {s.freshness.status !== 'live' && (
+                          <span
+                            className={cn('text-[11px] whitespace-nowrap', s.freshness.status === 'unavailable' ? 'text-loss' : 'text-warn')}
+                            title={s.freshness.label}
+                          >
+                            {FRESHNESS_STATUS_LABELS[s.freshness.status]}
+                            <span className="sr-only">. {s.freshness.label}</span>
+                          </span>
                         )}
                       </div>
                     </div>
