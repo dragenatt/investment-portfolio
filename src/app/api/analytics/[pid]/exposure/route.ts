@@ -4,6 +4,7 @@ import { withAuditedCache } from '@/lib/cache/with-cache'
 import { buildResultMetadata } from '@/lib/services/result-metadata'
 import { apiHandler } from '@/lib/api/handler'
 import { getBatchQuotes } from '@/lib/services/market'
+import { valueBookInBase } from '@/lib/services/book-valuation'
 import {
   sectorExposure,
   geographicExposure,
@@ -40,7 +41,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         .eq('portfolio_id', pid)
         .gt('quantity', 0)
 
-      if (!positions || positions.length === 0) return { message: 'No positions' }
+      if (!positions || positions.length === 0) return { message: 'Este portafolio no tiene posiciones.' }
 
       const symbols = positions.map((p) => p.symbol)
 
@@ -67,9 +68,17 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         // weights are what this endpoint is about, not the absolute values.
       }
 
-      const holdings: ExposureHolding[] = positions.map((position) => ({
+      const baseCurrency = portfolio?.base_currency ?? 'MXN'
+
+      // Values in one currency, and each holding's currency the one it TRADES
+      // in. This used to add every position's quote in its own unit and label
+      // it with the currency its cost was recorded in, so both the sector
+      // weights and the currency exposure were wrong for any mixed book.
+      const valuation = await valueBookInBase(supabase, positions, priceMap, baseCurrency)
+
+      const holdings: ExposureHolding[] = positions.map((position, i) => ({
         symbol: position.symbol,
-        value: position.quantity * (priceMap[position.symbol] ?? position.avg_cost),
+        value: valuation.values[i],
         // Falls back to the asset type, so a bond ETF lands somewhere sensible
         // rather than in Unknown alongside genuinely unclassified holdings.
         sector:
@@ -77,17 +86,17 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
           (position.asset_type
             ? position.asset_type.charAt(0).toUpperCase() + position.asset_type.slice(1)
             : null),
-        currency: position.currency ?? 'USD',
+        currency: valuation.quoteCurrency[position.symbol] ?? position.currency ?? 'USD',
         country: hqMap[position.symbol] ?? null,
       }))
 
-      const baseCurrency = portfolio?.base_currency ?? 'MXN'
 
       return {
         base_currency: baseCurrency,
         sector: sectorExposure(holdings),
         geographic: geographicExposure(holdings),
         currency: currencyExposure(holdings, baseCurrency),
+        unconverted: valuation.unconverted,
         _meta: buildResultMetadata({
           model: 'exposure',
           data: {
@@ -100,6 +109,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
             { name: 'Región', value: 'País de la empresa; si falta, bolsa donde cotiza o moneda', source: 'exposure.ts (inferRegion)' },
             { name: 'Concentración sectorial', value: '35% del portafolio', source: 'exposure.ts' },
             { name: 'Sin cotización', value: 'Se usa el costo promedio', source: 'exposure route' },
+            { name: 'Moneda', value: `Valores convertidos a ${baseCurrency} al tipo de cambio de hoy`, source: 'book-valuation.ts' },
           ],
         }),
       }

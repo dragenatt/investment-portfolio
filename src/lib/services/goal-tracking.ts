@@ -13,8 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { goalProgress, classifyPace, type GoalProgress, type GoalSnapshot, type Pace } from './goals'
 import { getBatchQuotes } from './market'
-import { symbolCurrencies } from './price-history'
-import { buildConversion, fxPairSymbol } from './fx'
+import { valueBookInBase } from './book-valuation'
 
 export type GoalRow = {
   id: string
@@ -91,65 +90,25 @@ export async function trackGoals(
     }
   }
 
-  // Today's rates, for today's valuation.
-  const quoteCurrency = await symbolCurrencies(supabase, symbols)
-  const currencies = new Set<string>([
-    ...Object.values(quoteCurrency),
-    ...(positions ?? []).map((p) => String(p.currency ?? 'USD').toUpperCase()),
-    ...tied.map((goal) => goal.currency.toUpperCase()),
-  ])
-  const pairs = [...currencies].map(fxPairSymbol).filter((pair): pair is string => pair !== null)
-  const today = asOf.toISOString().slice(0, 10)
-  const usdRates: Record<string, Record<string, number>> = {}
-  if (pairs.length > 0) {
-    const { data: rates } = await supabase.from('current_prices').select('symbol, price').in('symbol', pairs)
-    for (const row of rates ?? []) {
-      const code = String(row.symbol).replace(/^USD/, '').replace(/=X$/, '')
-      const price = Number(row.price)
-      if (Number.isFinite(price) && price > 0) usdRates[code] = { [today]: price }
-    }
-  }
-
   for (const goal of tied) {
-    const base = goal.currency.toUpperCase()
     const book = (positions ?? []).filter((p) => p.portfolio_id === goal.portfolio_id)
     if (book.length === 0) {
       result.set(goal.id, null)
       continue
     }
 
-    // Market value in the quote currency; the cost basis in the currency the
-    // cost was recorded in. Two different units, converted separately.
-    const marketSymbols: Record<string, string> = {}
-    const costSymbols: Record<string, string> = {}
-    for (const p of book) {
-      marketSymbols[p.symbol] = quoteCurrency[p.symbol] ?? ''
-      costSymbols[p.symbol] = String(p.currency ?? '').toUpperCase()
-    }
-    const market = buildConversion({ currencyBySymbol: marketSymbols, base, usdRates })
-    const cost = buildConversion({ currencyBySymbol: costSymbols, base, usdRates })
+    // Both figures in the goal's own currency — see book-valuation.ts. Market
+    // value converts the quote from what it trades in; money paid in converts
+    // the cost from what it was recorded in. With no prices passed, the second
+    // call values every position at its cost.
+    const current = await valueBookInBase(supabase, book, prices, goal.currency, asOf)
+    const paidIn = await valueBookInBase(supabase, book, {}, goal.currency, asOf)
 
-    let currentValue = 0
-    let contributedToDate = 0
-    for (const p of book) {
-      const quantity = Number(p.quantity)
-      const avgCost = Number(p.avg_cost)
-      const quoted = prices[p.symbol]
-      currentValue += quoted !== undefined
-        ? quantity * quoted * market.factor(p.symbol, today)
-        : quantity * avgCost * cost.factor(p.symbol, today)
-      contributedToDate += quantity * avgCost * cost.factor(p.symbol, today)
-    }
-
-    const progress = goalProgress(toSnapshot(goal), { currentValue, contributedToDate }, asOf)
+    const progress = goalProgress(toSnapshot(goal), { currentValue: current.total, contributedToDate: paidIn.total }, asOf)
     result.set(
       goal.id,
       progress
-        ? {
-            ...progress,
-            ...classifyPace(progress.deviationPct),
-            unconverted: [...new Set([...market.unknownCurrency, ...market.missingRate, ...cost.missingRate])],
-          }
+        ? { ...progress, ...classifyPace(progress.deviationPct), unconverted: [...new Set([...current.unconverted, ...paidIn.unconverted])] }
         : null,
     )
   }

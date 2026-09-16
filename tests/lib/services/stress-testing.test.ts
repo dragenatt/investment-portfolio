@@ -299,3 +299,23 @@ describe('describeStressResult', () => {
     expect(text.length).toBeGreaterThan(60)
   })
 })
+
+// ─── Saying truthfully why an episode was not measured ──────────────────────
+
+import { unmeasuredReason, HISTORICAL_EPISODES as EPISODES } from '@/lib/services/stress-testing'
+
+describe('unmeasuredReason', () => {
+  const covid = EPISODES.find((e) => e.id.includes('covid')) ?? EPISODES[1]
+
+  it('blames the monthly bars, not missing history, when the series spans a short episode', () => {
+    // Month-end closes around a crash that lasted less than a month.
+    const monthly = ['2019-12-31', '2020-01-31', '2020-02-28', '2020-03-31', '2020-04-30'].map((date, i) => ({ date, close: 100 - i }))
+    const reason = unmeasuredReason({ ...covid, from: '2020-02-19', to: '2020-03-23' }, new Map([['AAA', monthly]]), ['AAA'])
+    expect(reason).toMatch(/un cierre por mes/)
+  })
+
+  it('says there is no history when nothing covers the period', () => {
+    const recent = [{ date: '2024-01-02', close: 10 }, { date: '2024-01-03', close: 11 }]
+    expect(unmeasuredReason(covid, new Map([['AAA', recent]]), ['AAA'])).toMatch(/tiene historial ni beta/)
+  })
+})

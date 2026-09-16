@@ -110,3 +110,7 @@ export const CompareReturnsChart = dynamic(
   () => import('@/components/market/compare-returns-chart').then((m) => m.CompareReturnsChart),
   { ssr: false, loading: () => <div className="h-full w-full rounded-lg bg-muted/40 animate-pulse" /> },
 )
+export const PortfolioBacktest = dynamic(
+  () => import('@/components/analytics/portfolio-backtest').then((m) => m.PortfolioBacktest),
+  { ssr: false, loading },
+)

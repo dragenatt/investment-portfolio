@@ -3,12 +3,14 @@ import { getHistory, getBatchQuotes } from '@/lib/services/market'
 import { getPortfolioBenchmark } from '@/lib/services/benchmarks'
 import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
 import { buildResultMetadata } from '@/lib/services/result-metadata'
+import { valueBookInBase } from '@/lib/services/book-valuation'
 import { BENCHMARKS } from '@/lib/services/benchmarks'
 import { calculateDailyReturns, calculateBetaAlpha } from '@/lib/services/analytics'
 import {
   HISTORICAL_EPISODES,
   stressTestPortfolio,
   describeStressResult,
+  unmeasuredReason,
   type PriceBar,
 } from '@/lib/services/stress-testing'
 
@@ -31,11 +33,11 @@ import {
 export async function computeStress(supabase: SupabaseClient, pid: string, _params: Record<string, never>) {
   const { data: positions } = await supabase
     .from('positions')
-    .select('symbol, quantity, avg_cost')
+    .select('symbol, quantity, avg_cost, currency')
     .eq('portfolio_id', pid)
     .gt('quantity', 0)
 
-  if (!positions || positions.length === 0) return { message: 'No positions' }
+  if (!positions || positions.length === 0) return { message: 'Este portafolio no tiene posiciones.' }
 
   const symbols = positions.map((p) => p.symbol)
   const benchmarkSymbol = await getPortfolioBenchmark(supabase, pid)
@@ -51,11 +53,13 @@ export async function computeStress(supabase: SupabaseClient, pid: string, _para
     // Average cost stands in; the relative weights are what matter here.
   }
 
-  const values = positions.map(
-    (p) => p.quantity * (priceMap[p.symbol] ?? p.avg_cost),
-  )
-  const bookValue = values.reduce((a, b) => a + b, 0)
-  if (!(bookValue > 0)) return { message: 'No positions' }
+  // In one currency, or a peso holding and a dollar holding are weighted as
+  // though their prices were the same unit. See book-valuation.ts.
+  const { data: portfolio } = await supabase.from('portfolios').select('base_currency').eq('id', pid).single()
+  const valuation = await valueBookInBase(supabase, positions, priceMap, portfolio?.base_currency ?? 'USD')
+  const values = valuation.values
+  const bookValue = valuation.total
+  if (!(bookValue > 0)) return { message: 'Este portafolio no tiene posiciones.' }
 
   // Betas from ordinary one-year daily data, for holdings too young to have
   // lived through an episode. Marked as estimates downstream.
@@ -125,8 +129,7 @@ export async function computeStress(supabase: SupabaseClient, pid: string, _para
     ).map((e) => ({
       id: e.id,
       name: e.name,
-      reason:
-        'Ninguna de tus posiciones tiene historial ni beta que cubra ese periodo, asi que no hay nada que medir y no se inventa nada.',
+      reason: unmeasuredReason(e, prices, [...symbols, benchmarkSymbol]),
     })),
     // Long ranges come back monthly from the provider, so peak-to-trough is
     // measured on month boundaries and understates the true extreme

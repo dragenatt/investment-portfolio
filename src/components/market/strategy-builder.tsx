@@ -484,6 +484,61 @@ export function StrategyBuilder({ symbol }: { symbol: string }) {
               {comparison.summary}
             </p>
 
+            {/* P1-18: the user's own rule, window by window, each only on bars
+                it had not been measured on. A single backtest cannot say whether
+                one lucky stretch carried the whole period; this can. */}
+            {data?.own && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-medium">Walk-forward de tu estrategia</h4>
+                {data.walk_forward ? (
+                  <>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">{data.walk_forward.explanation}</p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <caption className="sr-only">Resultado de la estrategia en cada ventana fuera de muestra</caption>
+                        <thead>
+                          <tr className="text-left text-muted-foreground">
+                            <th scope="col" className="py-1.5 pr-3 font-medium">Ventana</th>
+                            <th scope="col" className="py-1.5 pr-3 font-medium">Historial previo</th>
+                            <th scope="col" className="py-1.5 pr-3 font-medium">Prueba</th>
+                            <th scope="col" className="py-1.5 pr-3 font-medium text-right">Estrategia</th>
+                            <th scope="col" className="py-1.5 font-medium text-right">Mantener</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.walk_forward.windows.map((w) => (
+                            <tr key={w.index} className="border-t border-border">
+                              <td className="py-1.5 pr-3 font-financial">{w.index + 1}</td>
+                              <td className="py-1.5 pr-3 text-muted-foreground">{w.trainFrom} → {w.trainTo}</td>
+                              <td className="py-1.5 pr-3">{w.testFrom} → {w.testTo}</td>
+                              <td className="py-1.5 pr-3 text-right font-financial">
+                                {w.result.strategy.totalReturnPct > 0 ? '+' : ''}{w.result.strategy.totalReturnPct.toFixed(2)}%
+                              </td>
+                              <td className="py-1.5 text-right font-financial">
+                                {w.result.buyAndHold.totalReturnPct > 0 ? '+' : ''}{w.result.buyAndHold.totalReturnPct.toFixed(2)}%
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Compuesto en las <span className="font-financial">{data.walk_forward.aggregate.windows}</span> ventanas:{' '}
+                      estrategia <span className="font-financial">{data.walk_forward.aggregate.totalReturnPct.toFixed(2)}%</span>,
+                      mantener <span className="font-financial">{data.walk_forward.aggregate.buyAndHoldReturnPct.toFixed(2)}%</span>.
+                      Ganó en <span className="font-financial">{data.walk_forward.aggregate.winningWindows}</span> de{' '}
+                      <span className="font-financial">{data.walk_forward.aggregate.windows}</span> ventanas.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    El historial diario disponible no alcanza para dos ventanas con el calentamiento que pide esta
+                    estrategia. Usa indicadores de periodo más corto para verlo.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* The one thing a green equity curve will not tell anybody. */}
             {data?.caveat && (
               <p className="text-[11px] text-muted-foreground leading-relaxed">{data.caveat}</p>

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
 import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
+import { valueBookInBase } from '@/lib/services/book-valuation'
 import { buildResultMetadata, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
 import {
   backtestPortfolio,
@@ -28,15 +29,15 @@ export async function computeBacktest(supabase: SupabaseClient, pid: string, par
 
   const { data: positions } = await supabase
     .from('positions')
-    .select('symbol, quantity, avg_cost')
+    .select('symbol, quantity, avg_cost, currency')
     .eq('portfolio_id', pid)
     .gt('quantity', 0)
 
-  if (!positions || positions.length === 0) return { message: 'No positions' }
+  if (!positions || positions.length === 0) return { message: 'Este portafolio no tiene posiciones.' }
 
   const symbols = positions.map((p) => p.symbol)
   const { rows, covered, missing, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols)
-  if (covered.length === 0) return { message: 'No price history for these holdings' }
+  if (covered.length === 0) return { message: 'No hay historial de precios para estas posiciones.' }
 
   const seriesBySymbol: Record<string, Bar[]> = {}
   for (const row of rows as PriceRow[]) {
@@ -45,20 +46,20 @@ export async function computeBacktest(supabase: SupabaseClient, pid: string, par
   }
 
   // Weights come from the book as it stands, valued at the latest close each
-  // covered holding has.
-  const latestValue: Record<string, number> = {}
-  let bookValue = 0
-  for (const symbol of covered) {
-    const series = seriesBySymbol[symbol]
-    const position = positions.find((p) => p.symbol === symbol)
-    const value = (position?.quantity ?? 0) * (series[series.length - 1]?.close ?? 0)
-    latestValue[symbol] = value
-    bookValue += value
-  }
-  if (bookValue <= 0) return { message: 'No positions' }
+  // covered holding has — converted into one currency first, or a peso close
+  // and a dollar close are weighted as the same unit (book-valuation.ts).
+  const coveredPositions = covered
+    .map((symbol) => positions.find((p) => p.symbol === symbol))
+    .filter((p): p is NonNullable<typeof p> => p !== undefined)
+  const lastClose = Object.fromEntries(
+    covered.map((symbol) => [symbol, seriesBySymbol[symbol][seriesBySymbol[symbol].length - 1]?.close ?? 0]),
+  )
+  const valuation = await valueBookInBase(supabase, coveredPositions, lastClose, portfolio?.currency ?? 'USD')
+  const bookValue = valuation.total
+  if (bookValue <= 0) return { message: 'Este portafolio no tiene posiciones.' }
 
   const weights: Record<string, number> = {}
-  for (const symbol of covered) weights[symbol] = latestValue[symbol] / bookValue
+  coveredPositions.forEach((p, i) => { weights[p.symbol] = valuation.values[i] / bookValue })
 
   const riskFree = await getRiskFreeRate(portfolio?.currency ?? 'USD')
   const results = SCHEDULES.map((rebalance) =>
@@ -70,7 +71,7 @@ export async function computeBacktest(supabase: SupabaseClient, pid: string, par
     }),
   ).filter((r): r is NonNullable<typeof r> => r !== null)
 
-  if (results.length === 0) return { message: 'Not enough overlapping history' }
+  if (results.length === 0) return { message: 'Las posiciones no comparten suficiente historial para probar.' }
 
   return {
     weights,
@@ -85,8 +86,8 @@ export async function computeBacktest(supabase: SupabaseClient, pid: string, par
     to: results[0].equityCurve[results[0].equityCurve.length - 1]?.date ?? null,
     schedules: results,
     note:
-      'Which schedule comes out ahead depends on the period tested: rebalancing helps in a ' +
-      'mean-reverting market and costs money in a trending one. This is one sample, not a rule.',
+      'Qué calendario sale ganando depende del periodo probado: rebalancear ayuda en un mercado que ' +
+      'regresa a su media y cuesta dinero en uno con tendencia. Es una muestra, no una regla.',
     _meta: buildResultMetadata({
       model: 'backtest',
       data: { description: 'Precios de cierre diarios de las posiciones, pesos actuales al inicio de la prueba', symbols: covered, excluded: missing, priceSource },

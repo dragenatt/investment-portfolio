@@ -20,9 +20,11 @@
 
 import {
   backtestSignal,
+  walkForward,
   type Bar,
   type BacktestResult,
   type BacktestOptions,
+  type WalkForwardResult,
 } from './backtest'
 import { compileStrategy, validateStrategy, describeRule, type Strategy } from './strategy-rule'
 
@@ -216,5 +218,58 @@ export function compareStrategies(
     buyAndHoldReturnPct,
     beatCount,
     summary,
+  }
+}
+
+
+// ─── Walk-forward (P1-18) ───────────────────────────────────────────────────
+
+/** Test window length in bars: roughly a trading month. */
+const WALK_FORWARD_TEST_BARS = 21
+/** Fewest windows worth reporting; one window is just a shorter backtest. */
+const MIN_WALK_FORWARD_WINDOWS = 2
+
+export type StrategyWalkForward = WalkForwardResult & {
+  /** Why these window sizes, in words the result can travel with. */
+  explanation: string
+}
+
+/**
+ * The same strategy measured window by window, each one only on bars it has
+ * not been measured on before.
+ *
+ * A rule built by clicking has no parameters to fit, so the training slice
+ * does not change the rule — it supplies the history its indicators need
+ * before the first decision of each test window. What walk-forward adds is
+ * the question a single backtest cannot answer: did the rule work steadily,
+ * or did one lucky stretch carry the whole period?
+ *
+ * The training window is sized from the strategy itself, the way the plain
+ * backtest's warmup is, so a 50-day rule never decides on a 20-bar history.
+ */
+export function walkForwardStrategy(
+  strategy: Strategy,
+  bars: Bar[],
+  options: BacktestOptions = {},
+): StrategyWalkForward | null {
+  const validation = validateStrategy(strategy)
+  if (!validation.valid) return null
+  const signal = compileStrategy(strategy)
+  if (!signal) return null
+
+  const warmupBars = Math.max(MIN_WARMUP, validation.longestPeriod + WARMUP_MARGIN)
+  const trainBars = warmupBars
+  const testBars = WALK_FORWARD_TEST_BARS
+
+  const result = walkForward(bars, () => signal, { ...options, trainBars, testBars, warmupBars })
+  if (!result || result.windows.length < MIN_WALK_FORWARD_WINDOWS) return null
+
+  return {
+    ...result,
+    explanation:
+      `Cada ventana usa ${trainBars} barras previas solo como historial para los indicadores y mide la regla en las ` +
+      `${testBars} barras siguientes, que nunca se usaron antes; luego avanza ${testBars} barras y repite. ` +
+      'La regla no se reajusta entre ventanas porque no tiene parámetros que ajustar: lo que se mide es si funcionó de ' +
+      'forma pareja o si una racha afortunada cargó todo el periodo.',
   }
 }

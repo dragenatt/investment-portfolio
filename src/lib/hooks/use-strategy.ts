@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { Strategy } from '@/lib/services/strategy-rule'
-import type { StrategyRun, StrategyComparison } from '@/lib/services/strategy-engine'
+import type { StrategyRun, StrategyComparison, StrategyWalkForward } from '@/lib/services/strategy-engine'
 
 export type StrategyBacktest = {
   symbol: string
@@ -14,6 +14,7 @@ export type StrategyBacktest = {
   cost_pct?: number
   risk_free_rate?: { annual_pct: number; source: string }
   own?: StrategyRun | null
+  walk_forward?: StrategyWalkForward | null
   comparison?: StrategyComparison
   caveat?: string
 }

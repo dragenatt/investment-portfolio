@@ -106,15 +106,17 @@ export function sectorExposure(holdings: ExposureHolding[]): SectorExposure {
       name: bucket.name,
       weightPct: bucket.weightPct,
       symbols: bucket.symbols,
+      // Shown as-is on the exposure card, so written for the reader. The
+      // bucket name stays the stored sector label; the card translates it.
       message:
         bucket.symbols.join(' + ') +
-        ' are ' +
+        ' suman ' +
         bucket.weightPct.toFixed(0) +
-        '% of the portfolio in ' +
+        '% del portafolio en ' +
         bucket.name +
-        ', though no single one of them is larger than ' +
+        ', aunque ninguna pasa de ' +
         largest.toFixed(0) +
-        '%. They will tend to fall together.',
+        '% por separado. Tienden a caer juntas: es una concentración que la lista de posiciones no muestra.',
     }
     break
   }
@@ -213,11 +215,11 @@ export function geographicExposure(holdings: ExposureHolding[]): GeographicExpos
     confidence,
     caveat:
       confidence === 'stated'
-        ? 'Regions come from each holding stated country of domicile.'
-        : 'Regions here are inferred from where an instrument trades and what it is priced in, ' +
-          'not from where the underlying business earns its revenue. A US-listed fund can hold ' +
-          'companies anywhere, and a global company earns everywhere — treat this as a rough map, ' +
-          'not a measurement.',
+        ? 'Las regiones vienen del país de domicilio declarado de cada posición.'
+        : 'Las regiones se infieren de dónde cotiza cada instrumento y en qué moneda, no de dónde ' +
+          'gana su dinero el negocio. Un fondo listado en EE. UU. puede tener empresas de cualquier ' +
+          'país, y una empresa global vende en todas partes: tómalo como un mapa aproximado, no como ' +
+          'una medición.',
   }
 }
 

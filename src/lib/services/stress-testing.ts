@@ -331,6 +331,35 @@ export function stressTestPortfolio(
   return results
 }
 
+/**
+ * Why an episode produced no result, in words that are actually true.
+ *
+ * The stress route used to give one reason for every unmeasured episode — "none
+ * of your holdings has history or beta for that period" — and it was wrong for
+ * the most memorable one. The COVID crash ran from 19 February to 23 March 2020.
+ * The long histories the provider returns for dates that old are MONTHLY, so a
+ * one-month episode has at most one close inside it and cannot be measured at
+ * all, not even for the benchmark, while every holding had plenty of history.
+ * Telling the reader their book had no history for 2020 misstates the problem.
+ */
+export function unmeasuredReason(
+  episode: StressEpisode,
+  prices: Map<string, PriceBar[]>,
+  symbols: string[],
+): string {
+  const spans = (bars: PriceBar[]) =>
+    bars.length > 0 && bars[0].date <= episode.from && bars[bars.length - 1].date >= episode.to
+  const insideWindow = (bars: PriceBar[]) =>
+    bars.filter((bar) => bar.date >= episode.from && bar.date <= episode.to).length
+
+  const series = symbols.map((symbol) => prices.get(symbol) ?? []).filter((bars) => bars.length > 0)
+  const covering = series.filter(spans)
+  if (covering.length > 0 && covering.every((bars) => insideWindow(bars) < 2)) {
+    return 'Hay historial para ese periodo, pero para fechas tan antiguas el proveedor solo entrega un cierre por mes, y este episodio duró menos que eso: no quedan dos cierres dentro de sus fechas para medir la caída. No se inventa una cifra.'
+  }
+  return 'Ninguna de tus posiciones tiene historial ni beta que cubra ese periodo, así que no hay nada que medir y no se inventa nada.'
+}
+
 /** How much worse than the market counts as materially worse. */
 const MATERIAL_GAP_PP = 5
 

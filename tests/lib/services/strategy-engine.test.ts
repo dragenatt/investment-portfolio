@@ -187,3 +187,41 @@ describe('compareStrategies', () => {
     expect(compareStrategies([], series)).toBeNull()
   })
 })
+
+// ─── Walk-forward (P1-18) ───────────────────────────────────────────────────
+
+import { walkForwardStrategy } from '@/lib/services/strategy-engine'
+
+describe('walkForwardStrategy', () => {
+  function trending(length: number) {
+    let price = 100
+    return Array.from({ length }, (_, i) => {
+      price *= 1 + Math.sin(i / 9) * 0.012 + 0.0008
+      return { date: new Date(Date.UTC(2025, 0, 1 + i)).toISOString().slice(0, 10), close: price }
+    })
+  }
+  const cross = {
+    name: 'cruce',
+    buy: { combinator: 'and' as const, conditions: [{ left: { kind: 'indicator' as const, indicator: 'sma' as const, period: 10 }, operator: 'crossesAbove' as const, right: { kind: 'indicator' as const, indicator: 'sma' as const, period: 30 } }] },
+    sell: { combinator: 'and' as const, conditions: [{ left: { kind: 'indicator' as const, indicator: 'sma' as const, period: 10 }, operator: 'crossesBelow' as const, right: { kind: 'indicator' as const, indicator: 'sma' as const, period: 30 } }] },
+  }
+
+  it('never tests a bar it already tested, and trains on history sized to the rule', () => {
+    const wf = walkForwardStrategy(cross, trending(200))!
+    expect(wf.windows.length).toBeGreaterThanOrEqual(2)
+    // Longest indicator 30 plus the warmup margin.
+    expect(wf.config.trainBars).toBe(40)
+    for (let i = 1; i < wf.windows.length; i++) {
+      expect(wf.windows[i].testFrom > wf.windows[i - 1].testTo).toBe(true)
+    }
+    expect(wf.explanation).toContain('nunca se usaron antes')
+  })
+
+  it('reports nothing when the history cannot hold two windows', () => {
+    expect(walkForwardStrategy(cross, trending(70))).toBeNull()
+  })
+
+  it('reports nothing for a strategy that does not validate', () => {
+    expect(walkForwardStrategy({ ...cross, buy: { combinator: 'and', conditions: [] } }, trending(200))).toBeNull()
+  })
+})

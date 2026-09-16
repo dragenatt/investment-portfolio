@@ -17,8 +17,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation, useFactors, useOptimization } from '@/lib/hooks/use-analytics'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, RiskSources, ModelComparison, PortfolioHealth, PortfolioDiagnostic, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart } from '@/components/charts/lazy-charts'
+import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, RiskSources, ModelComparison, PortfolioHealth, PortfolioDiagnostic, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart, PortfolioBacktest } from '@/components/charts/lazy-charts'
 import { RebalancePanel } from '@/components/analytics/rebalance-panel'
+import { ExposureCard } from '@/components/analytics/exposure-card'
+import { StressPanel } from '@/components/analytics/stress-panel'
 
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -65,7 +67,9 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid w-full max-w-2xl grid-cols-5">
+        {/* flex-wrap, not a 5-column grid: there are more tabs than columns, and the
+            grid wrapped them into two misaligned rows. */}
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="overview">General</TabsTrigger>
           <TabsTrigger value="risk">Riesgo</TabsTrigger>
           <TabsTrigger value="attribution">Atribucion</TabsTrigger>
@@ -73,6 +77,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           <TabsTrigger value="income">Ingresos</TabsTrigger>
           <TabsTrigger value="allocation">Asignacion</TabsTrigger>
           <TabsTrigger value="scenarios">Escenarios</TabsTrigger>
+          <TabsTrigger value="backtesting">Backtesting</TabsTrigger>
           <TabsTrigger value="metrics">Metricas explicadas</TabsTrigger>
         </TabsList>
 
@@ -124,6 +129,11 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           {/* The question first (P2-5): where the risk comes from, before how much of it there is. */}
           <ErrorBoundary>
             <RiskSources portfolioId={id} />
+          </ErrorBoundary>
+
+          {/* P1-30: dated crises applied to the book as it stands. */}
+          <ErrorBoundary>
+            <StressPanel portfolioId={id} />
           </ErrorBoundary>
 
           {/* Risk over time comes first: one number for the whole history
@@ -323,6 +333,11 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           </ErrorBoundary>
           </DataGate>
 
+          {/* P1-19 / P1-20: sector, region and currency exposure. */}
+          <ErrorBoundary>
+            <ExposureCard portfolioId={id} />
+          </ErrorBoundary>
+
           {/* P0-12 / P1-10: the planner and simulator in rebalance.ts, finally on a screen. */}
           <ErrorBoundary>
             <RebalancePanel portfolioId={id} />
@@ -340,6 +355,13 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
         </TabsContent>
 
         {/* Metrics explained (E3) */}
+        {/* P1-17: the current book run back through history under five schedules. */}
+        <TabsContent value="backtesting" className="space-y-6 mt-6">
+          <ErrorBoundary>
+            <PortfolioBacktest portfolioId={id} />
+          </ErrorBoundary>
+        </TabsContent>
+
         <TabsContent value="metrics" className="space-y-6 mt-6">
           <ErrorBoundary>
             <MetricExplanationsCard pid={id} />

@@ -545,3 +545,66 @@ export function useRebalanceInputs(pid: string | null) {
     { refreshInterval: 900_000 },
   )
 }
+
+// --- Portfolio backtest (P1-17) ---
+
+export type PortfolioBacktestData = {
+  weights: Record<string, number>
+  covered: string[]
+  excluded: string[]
+  cost_pct: number
+  risk_free_rate: { annual_pct: number; source: string }
+  observations: number
+  from: string | null
+  to: string | null
+  schedules: import('@/lib/services/backtest').PortfolioBacktestResult[]
+  note: string
+  _meta?: ResultMetadata
+}
+
+export function usePortfolioBacktest(pid: string | null, costPct = 0.1) {
+  return useSWR<PortfolioBacktestData | { message: string }>(
+    pid ? `/api/analytics/${pid}/backtest?cost=${costPct}` : null,
+    apiFetcher,
+    { revalidateOnFocus: false },
+  )
+}
+
+// --- Exposure (P1-19 / P1-20) ---
+
+export type ExposureData = {
+  base_currency: string
+  sector: import('@/lib/services/exposure').SectorExposure
+  geographic: import('@/lib/services/exposure').GeographicExposure
+  currency: import('@/lib/services/exposure').CurrencyExposure
+  unconverted?: string[]
+  _meta?: ResultMetadata
+}
+
+export function useExposure(pid: string | null) {
+  return useSWR<ExposureData | { message: string }>(
+    pid ? `/api/analytics/${pid}/exposure` : null,
+    apiFetcher,
+    { refreshInterval: 900_000 },
+  )
+}
+
+// --- Historical stress test (P1-30) ---
+
+export type StressData = {
+  benchmark_symbol: string
+  episodes_catalogued: number
+  episodes_measured: number
+  unmeasured: Array<{ id: string; name: string; reason: string }>
+  granularity_note: string
+  results: Array<import('@/lib/services/stress-testing').StressResult & { summary: string }>
+  _meta?: ResultMetadata
+}
+
+export function useStress(pid: string | null) {
+  return useSWR<StressData | { message: string }>(
+    pid ? `/api/analytics/${pid}/stress` : null,
+    apiFetcher,
+    { revalidateOnFocus: false },
+  )
+}

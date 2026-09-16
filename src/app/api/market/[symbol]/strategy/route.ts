@@ -3,7 +3,7 @@ import { success, error } from '@/lib/api/response'
 import { apiHandler } from '@/lib/api/handler'
 import { getHistory } from '@/lib/services/market'
 import { getRiskFreeRate } from '@/lib/services/risk-free-rate'
-import { compareStrategies } from '@/lib/services/strategy-engine'
+import { compareStrategies, walkForwardStrategy } from '@/lib/services/strategy-engine'
 import {
   validateStrategy,
   EXAMPLE_STRATEGIES,
@@ -125,6 +125,9 @@ async function postHandler(req: Request, { params }: { params: Promise<{ symbol:
       source: riskFree.source,
     },
     own,
+    // P1-18: the user's rule measured out-of-sample, window by window. Null
+    // when six months of daily bars cannot hold two windows for its warmup.
+    walk_forward: body.strategy ? walkForwardStrategy(body.strategy, bars, options) : null,
     comparison,
     // Said once, here, rather than left for the reader to work out from a
     // green equity curve.
