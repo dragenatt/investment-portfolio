@@ -16,6 +16,7 @@
 import type { RiskSources } from './risk-sources'
 import { calculateMaxDrawdown } from './analytics'
 import { geographicExposure } from './exposure'
+import { DRAWDOWN_METHODS, DRAWDOWN_METHODS_NOTE } from './drawdown-methods'
 
 export const HEALTH_COMPONENT_IDS = [
   'diversification',
@@ -86,7 +87,8 @@ export type HealthInput = {
 export const MIN_COMPONENTS_FOR_SCORE = 4
 
 export const HEALTH_CAVEAT =
-  'Puntaje educativo: describe cómo está construido el portafolio con los datos del periodo, no predice su rendimiento ni es una recomendación de compra o venta. Los umbrales indican su origen; varios son convenciones de InvestTracker.'
+  'Puntaje educativo: describe cómo está construido el portafolio con los datos del periodo, no predice su rendimiento ni es una recomendación de compra o venta. Los umbrales indican su origen; varios son convenciones de InvestTracker.' +
+  ' ' + DRAWDOWN_METHODS_NOTE
 
 const CONVENTION_INLINE = 'convención educativa de InvestTracker (docs/FINANCIAL_ASSUMPTIONS.md).'
 const CONVENTION = CONVENTION_INLINE.charAt(0).toUpperCase() + CONVENTION_INLINE.slice(1)
@@ -203,7 +205,10 @@ function risk(input: HealthInput, own: number[]): HealthComponent {
 const MIN_BENCHMARK_DRAWDOWN_PCT = 2
 
 function drawdown(input: HealthInput, own: number[]): HealthComponent {
-  const name = 'Caídas'
+  // Named by method: the diagnostic and the risk tab each report their own
+  // "worst fall" from a different basis, and three unlabelled numbers on one
+  // screen read as a contradiction rather than as three answers.
+  const name = `Caídas (${DRAWDOWN_METHODS.currentWeights.short})`
   const bench = input.benchmarkReturns
   const mine = calculateMaxDrawdown(valuePath(own))
   if (bench && bench.length === own.length) {

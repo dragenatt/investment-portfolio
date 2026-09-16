@@ -207,3 +207,29 @@ describe('averageDailyVolumes', () => {
     expect(averageDailyVolumes(rows, 2)).toEqual({ A: 150 })
   })
 })
+
+// ─── The three "worst fall" figures are named by method ─────────────────────
+
+import { DRAWDOWN_METHODS, DRAWDOWN_METHODS_NOTE, drawdownLabel } from '@/lib/services/drawdown-methods'
+import { HEALTH_CAVEAT } from '@/lib/services/portfolio-health'
+
+describe('drawdown methods are distinguishable', () => {
+  it('gives each method its own short name and its own sentence', () => {
+    const shorts = Object.values(DRAWDOWN_METHODS).map((m) => m.short)
+    expect(new Set(shorts).size).toBe(3)
+    const explanations = Object.values(DRAWDOWN_METHODS).map((m) => m.explanation)
+    expect(new Set(explanations).size).toBe(3)
+    for (const explanation of explanations) expect(explanation).toContain('Puede diferir')
+  })
+
+  it('labels a figure with the method that produced it', () => {
+    expect(drawdownLabel('value')).toBe('Caída máxima (valor del portafolio)')
+    expect(drawdownLabel('timeWeighted')).toBe('Caída máxima (rendimiento ponderado en el tiempo)')
+    expect(drawdownLabel('currentWeights')).toBe('Caída máxima (pesos actuales)')
+  })
+
+  it('says once, in the caveat, that the three can disagree', () => {
+    expect(DRAWDOWN_METHODS_NOTE).toContain('no es una sola cifra')
+    expect(HEALTH_CAVEAT).toContain(DRAWDOWN_METHODS_NOTE)
+  })
+})

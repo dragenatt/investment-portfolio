@@ -2,6 +2,7 @@
 
 import { HelpCircle } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { DRAWDOWN_METHODS, drawdownLabel } from '@/lib/services/drawdown-methods'
 
 const TERMS: Record<string, string> = {
   'P/E': 'Price to Earnings — indica cuánto pagan los inversores por cada peso de ganancia. Un P/E alto puede significar que se espera crecimiento futuro.',
@@ -19,6 +20,11 @@ const TERMS: Record<string, string> = {
   'Volatilidad': 'Medida de cuánto fluctúa el precio. Alta volatilidad = más riesgo pero también más oportunidad.',
   'Sharpe Ratio': 'Mide el rendimiento ajustado al riesgo. Mayor Sharpe = mejor rendimiento por unidad de riesgo.',
   'Max Drawdown': 'La mayor caída desde un máximo hasta un mínimo. Indica el peor escenario histórico.',
+  // One entry per way of measuring it, worded in drawdown-methods.ts so the
+  // card, the health score and the diagnostic all say the same thing.
+  [drawdownLabel('value')]: DRAWDOWN_METHODS.value.explanation,
+  [drawdownLabel('timeWeighted')]: DRAWDOWN_METHODS.timeWeighted.explanation,
+  [drawdownLabel('currentWeights')]: DRAWDOWN_METHODS.currentWeights.explanation,
   'Comisión': 'Tarifa cobrada por el broker por ejecutar tu operación.',
   'Portafolio': 'Conjunto de inversiones agrupadas. Puedes tener varios portafolios con diferentes estrategias.',
   'Valor Invertido': 'Monto total que has invertido en este portafolio, sin contar ganancias ni pérdidas.',

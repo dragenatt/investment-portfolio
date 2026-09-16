@@ -13,6 +13,7 @@ import {
   BarChart2,
 } from 'lucide-react'
 import { type LucideIcon } from 'lucide-react'
+import { drawdownLabel } from '@/lib/services/drawdown-methods'
 
 type Props = {
   riskScore: number
@@ -230,10 +231,10 @@ export function RiskDashboard({
           />
           <MetricCard
             icon={TrendingDown}
-            label="Max Drawdown"
+            label={drawdownLabel('value')}
             value={`${formatNumber(maxDrawdown)}%`}
             sublabel={maxDrawdownDate}
-            tooltipTerm="Max Drawdown"
+            tooltipTerm={drawdownLabel('value')}
           />
           <MetricCard
             icon={BarChart2}

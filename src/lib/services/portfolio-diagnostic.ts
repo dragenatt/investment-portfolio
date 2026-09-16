@@ -13,6 +13,7 @@ import type { RiskSources } from './risk-sources'
 import type { TemporalAttribution } from './temporal-attribution'
 import { analyseDrawdowns } from './drawdown'
 import { portfolioVolatility } from './risk-attribution'
+import { DRAWDOWN_METHODS, DRAWDOWN_METHODS_NOTE } from './drawdown-methods'
 
 export const DIAGNOSTIC_QUESTION_IDS = [
   'risk_concentration',
@@ -45,7 +46,8 @@ export type PortfolioDiagnostic = {
 }
 
 export const DIAGNOSTIC_CAVEAT =
-  'Diagnóstico automático con los datos del periodo. Describe y mide; no ejecuta cambios ni recomienda comprar o vender. Las respuestas sobre qué cambiaría el riesgo o qué pasaría al rebalancear son sensibilidades sobre el pasado, no pronósticos.'
+  'Diagnóstico automático con los datos del periodo. Describe y mide; no ejecuta cambios ni recomienda comprar o vender. Las respuestas sobre qué cambiaría el riesgo o qué pasaría al rebalancear son sensibilidades sobre el pasado, no pronósticos. ' +
+  DRAWDOWN_METHODS_NOTE
 
 export type DiagnosticInput = {
   riskSources: RiskSources | null
@@ -215,7 +217,7 @@ function drawdownAnswers(input: DiagnosticInput): [DiagnosticAnswer, DiagnosticA
     question: q1,
     answer: `${pct(worst.depthPct)} desde el máximo del ${worst.peakDate} hasta el mínimo del ${worst.troughDate} (${days(worst.declineDays)} de caída), medido con el rendimiento ponderado por tiempo, sin que aportaciones ni retiros cuenten como pérdidas.`,
     figures: [
-      { label: 'Profundidad', value: pct(worst.depthPct) },
+      { label: `Profundidad (${DRAWDOWN_METHODS.timeWeighted.short})`, value: pct(worst.depthPct) },
       { label: 'Duración de la caída', value: days(worst.declineDays) },
       { label: 'Caídas registradas', value: String(analysis.episodes.length) },
     ],
