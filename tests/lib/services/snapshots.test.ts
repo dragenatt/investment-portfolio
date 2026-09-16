@@ -59,3 +59,55 @@ describe('computePortfolioSnapshot', () => {
     expect(select.args[0]).toBe('id, name, currency:base_currency, user_id')
   })
 })
+
+// ─── The Sharpe and Sortino the snapshot stores are the app's own ───────────
+
+import { calculateSharpeRatio } from '@/lib/services/analytics'
+import { calculateSortinoRatio } from '@/lib/services/asset-metrics'
+import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
+
+/** What snapshots.ts used to compute inline, kept here as the thing to match. */
+function legacySharpe(returns: number[], riskFree: number): number {
+  const mean = returns.reduce((a, b) => a + b, 0) / returns.length
+  const avg = mean
+  const variance = returns.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / (returns.length - 1)
+  const annualVol = Math.sqrt(variance) * Math.sqrt(TRADING_DAYS_PER_YEAR)
+  const annualReturn = mean * TRADING_DAYS_PER_YEAR
+  return annualVol > 0 ? Math.round(((annualReturn - riskFree) / annualVol) * 100) / 100 : 0
+}
+
+function legacySortino(returns: number[], riskFree: number): number {
+  const mean = returns.reduce((a, b) => a + b, 0) / returns.length
+  const annualReturn = mean * TRADING_DAYS_PER_YEAR
+  const squares = returns.filter((r) => r < 0).map((r) => r * r)
+  const downside = squares.length === 0 ? 0 : Math.sqrt(squares.reduce((s, v) => s + v, 0) / returns.length)
+  const annualDownside = downside * Math.sqrt(TRADING_DAYS_PER_YEAR)
+  return annualDownside > 0 ? Math.round(((annualReturn - riskFree) / annualDownside) * 100) / 100 : 0
+}
+
+describe('snapshot risk metrics use the app-wide formulas', () => {
+  // A series with a real spread of up and down days, and one that only rises.
+  const mixed = [0.012, -0.008, 0.004, -0.015, 0.02, 0.001, -0.003, 0.009, -0.011, 0.006, 0.014, -0.002]
+  const onlyUp = [0.004, 0.006, 0.002, 0.009, 0.001, 0.007, 0.003, 0.005, 0.008, 0.002, 0.004, 0.006]
+  const riskFree = 0.0679 // CETES-shaped, as a peso book would use
+
+  const round2 = (v: number) => Math.round(v * 100) / 100
+
+  it('produces the same Sharpe the inline version did', () => {
+    expect(round2(calculateSharpeRatio(mixed, riskFree))).toBe(legacySharpe(mixed, riskFree))
+    expect(round2(calculateSharpeRatio(onlyUp, riskFree))).toBe(legacySharpe(onlyUp, riskFree))
+  })
+
+  it('produces the same Sortino the inline version did, when it is measurable', () => {
+    const shared = calculateSortinoRatio(mixed, riskFree, TRADING_DAYS_PER_YEAR)
+    expect(shared).not.toBeNull()
+    expect(round2(shared!)).toBe(legacySortino(mixed, riskFree))
+  })
+
+  it('reports Sortino as null, not zero, for a book that never fell', () => {
+    // The inline version stored 0 here, which reads as "earned nothing per unit
+    // of downside risk". There was no downside risk to divide by.
+    expect(calculateSortinoRatio(onlyUp, riskFree, TRADING_DAYS_PER_YEAR)).toBeNull()
+    expect(legacySortino(onlyUp, riskFree)).toBe(0)
+  })
+})

@@ -15,7 +15,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { serviceRoleClient } from '@/lib/supabase/admin'
 import { getBenchmarkSeries, getPortfolioBenchmark } from './benchmarks'
-import { calculateBetaAlpha, calculateDailyReturns, type BetaAlpha } from './analytics'
+import { calculateBetaAlpha, calculateDailyReturns, calculateSharpeRatio, type BetaAlpha } from './analytics'
+import { calculateSortinoRatio } from './asset-metrics'
 import { getRiskFreeRate } from './risk-free-rate'
 import { getBatchQuotes } from './market'
 import {
@@ -159,10 +160,9 @@ function stdDev(arr: number[]): number {
   return Math.sqrt(variance)
 }
 
-function downsideDev(returns: number[], threshold: number = 0): number {
-  const downside = returns.filter(r => r < threshold).map(r => Math.pow(r - threshold, 2))
-  if (downside.length === 0) return 0
-  return Math.sqrt(downside.reduce((s, v) => s + v, 0) / returns.length)
+/** Two decimals, the precision these ratios have always been stored at. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100
 }
 
 function dailyReturns(snapshots: HistoricalSnapshot[]): number[] {
@@ -445,23 +445,19 @@ export async function computePortfolioSnapshot(
     // Daily volatility
     volatilityVal = stdDev(returns)
 
-    // Annualized volatility for Sharpe
-    const annualVol = volatilityVal * Math.sqrt(TRADING_DAYS_PER_YEAR)
-
-    // Annualized return
-    const avgDailyReturn = mean(returns)
-    const annualReturn = avgDailyReturn * TRADING_DAYS_PER_YEAR
-
-    // Sharpe Ratio = (annualized return - risk-free rate) / annualized volatility
-    sharpeVal = annualVol > 0
-      ? Math.round(((annualReturn - riskFree.rate) / annualVol) * 100) / 100
-      : 0
-
-    // Sortino Ratio = (annualized return - risk-free rate) / downside deviation
-    const annualDownside = downsideDev(returns) * Math.sqrt(TRADING_DAYS_PER_YEAR)
-    sortinoVal = annualDownside > 0
-      ? Math.round(((annualReturn - riskFree.rate) / annualDownside) * 100) / 100
-      : 0
+    // Sharpe and Sortino come from the functions the rest of the app uses, not
+    // from a second copy of the same arithmetic written out here. The two
+    // agreed to the last digit — a test now pins that they keep agreeing — but
+    // two copies of a formula is two places for it to drift, which is what rule
+    // 2 of the roadmap forbids.
+    //
+    // Rounded to two decimals on the way into the column, as before. Sortino is
+    // null rather than 0 when it cannot be measured: a portfolio that never had
+    // a down day has no downside deviation to divide by, and 0 would claim it
+    // earned nothing per unit of a risk it did not take.
+    sharpeVal = round2(calculateSharpeRatio(returns, riskFree.rate))
+    const sortino = calculateSortinoRatio(returns, riskFree.rate, TRADING_DAYS_PER_YEAR)
+    sortinoVal = sortino === null ? null : round2(sortino)
 
     // Max Drawdown
     maxDrawdownVal = computeMaxDrawdown(fullHistory)
