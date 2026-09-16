@@ -36,13 +36,21 @@ function sectorCaps(raw: string | null): Record<string, number> | undefined {
   return Object.keys(caps).length > 0 ? caps : undefined
 }
 
+/** An annual return percentage as a fraction. Negative is allowed: a floor can be a loss. */
+function annualReturn(raw: string | null): number | undefined {
+  if (raw === null) return undefined
+  const percent = Number(raw)
+  if (!Number.isFinite(percent) || percent < -100 || percent > 1000) return undefined
+  return percent / 100
+}
+
 /** The part of the cache key that describes the constraints, so two different asks do not share a result. */
 function constraintKey(params: OptimizationParams): string {
   const caps = Object.entries(params.sectorCaps ?? {})
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([sector, cap]) => `${sector}=${cap}`)
     .join('|')
-  return `${params.minWeight ?? ''}:${params.maxWeight ?? ''}:${caps}`
+  return `${params.minWeight ?? ''}:${params.maxWeight ?? ''}:${params.minReturn ?? ''}:${caps}`
 }
 
 async function getHandler(req: Request, { params }: { params: Promise<{ pid: string }> }) {
@@ -58,6 +66,8 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
     minWeight: fraction(url.searchParams.get('minWeight')),
     maxWeight: fraction(url.searchParams.get('maxWeight')),
     sectorCaps: sectorCaps(url.searchParams.get('sectorCaps')),
+    // P1-32's "minimise CVaR subject to a minimum return", as an annual percentage.
+    minReturn: annualReturn(url.searchParams.get('minReturn')),
   }
 
   const data = await withAuditedCache(

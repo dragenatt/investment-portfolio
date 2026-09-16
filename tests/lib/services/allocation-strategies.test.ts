@@ -287,3 +287,77 @@ describe('compareAllocationStrategies', () => {
     )
   })
 })
+
+// ─── P1-32: minimise CVaR SUBJECT TO something ──────────────────────────────
+
+import { resolveConstraints, satisfiesConstraints, type WeightConstraints } from '@/lib/services/weight-constraints'
+import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
+
+function bounds(n: number, constraints: WeightConstraints) {
+  const resolved = resolveConstraints(n, constraints)
+  if (!resolved.ok) throw new Error(`test expected feasible constraints, got ${resolved.reason}`)
+  return resolved.constraints
+}
+
+describe('minimiseCVaRWeights under constraints', () => {
+  // Three assets: the first is calm and goes nowhere, the third is wild and
+  // pays. Unconstrained, minimum CVaR is almost entirely the calm one.
+  function series(seed: number, vol: number, drift: number, length = 400): number[] {
+    let s = seed >>> 0
+    const next = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 }
+    return Array.from({ length }, () => {
+      const u = next() || 1e-12
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * next()) * vol + drift
+    })
+  }
+  const matrix = [series(1, 0.004, 0.00005), series(2, 0.011, 0.0004), series(3, 0.02, 0.0009)]
+  const annual = matrix.map((s) => (s.reduce((a, b) => a + b, 0) / s.length) * TRADING_DAYS_PER_YEAR)
+
+  it('puts the book in the calm asset when nothing is asked of the return', () => {
+    const free = minimiseCVaRWeights(matrix, 95)!
+    expect(free.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6)
+    expect(free[0]).toBeGreaterThan(0.6)
+  })
+
+  it('moves the book to meet a minimum return, and says so in the weights', () => {
+    const free = minimiseCVaRWeights(matrix, 95)!
+    const freeReturn = free.reduce((s, w, i) => s + w * annual[i], 0)
+    const target = freeReturn + (Math.max(...annual) - freeReturn) * 0.5
+
+    const constraints = bounds(3, { minReturn: target, expectedReturns: annual })
+    const constrained = minimiseCVaRWeights(matrix, 95, constraints)!
+
+    expect(constrained.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 5)
+    const achieved = constrained.reduce((s, w, i) => s + w * annual[i], 0)
+    expect(achieved).toBeGreaterThanOrEqual(target - 1e-6)
+    // Meeting a higher return costs tail risk — that is the trade-off the
+    // constrained problem exists to show.
+    expect(portfolioCVaR(constrained, matrix, 95)!).toBeGreaterThan(portfolioCVaR(free, matrix, 95)!)
+    expect(satisfiesConstraints(constrained, constraints)).toBe(true)
+  })
+
+  it('respects a maximum weight', () => {
+    const constraints = bounds(3, { maxWeight: 0.4 })
+    const w = minimiseCVaRWeights(matrix, 95, constraints)!
+    expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 5)
+    for (const weight of w) expect(weight).toBeLessThanOrEqual(0.4 + 1e-6)
+  })
+
+  it('respects a sector cap', () => {
+    const constraints = bounds(3, { sectors: ['Tech', 'Tech', 'Energy'], sectorCaps: { Tech: 0.5 } })
+    const w = minimiseCVaRWeights(matrix, 95, constraints)!
+    expect(w[0] + w[1]).toBeLessThanOrEqual(0.5 + 1e-6)
+    expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 5)
+  })
+
+  it('refuses a return no feasible book can reach', () => {
+    const impossible = resolveConstraints(3, { minReturn: Math.max(...annual) * 2, expectedReturns: annual })
+    expect(impossible).toEqual({ ok: false, reason: 'min-return-unreachable' })
+  })
+
+  it('is unchanged when no constraint binds', () => {
+    const free = minimiseCVaRWeights(matrix, 95)!
+    const trivial = minimiseCVaRWeights(matrix, 95, bounds(3, {}))!
+    expect(trivial).toEqual(free)
+  })
+})

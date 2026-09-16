@@ -32,15 +32,31 @@ export type WeightConstraints = {
   sectors?: Array<string | null | undefined>
   /** Largest share a sector may take, keyed by the labels in `sectors`. */
   sectorCaps?: Record<string, number>
+  /**
+   * Smallest expected return the book may have, in the same units as
+   * `expectedReturns`. Requires `expectedReturns`; ignored without it.
+   *
+   * This is what turns "minimise CVaR" into the problem P1-32 actually asks
+   * for — "minimise expected shortfall subject to a minimum return". Without
+   * it the answer is always the calmest corner of the book, which is a true
+   * answer to a question nobody asked.
+   */
+  minReturn?: number
+  /** Expected return per asset, aligned with the weight vector. */
+  expectedReturns?: number[]
 }
 
 export type GroupCap = { indices: number[]; cap: number }
 
-/** The constraints resolved to per-asset bounds and group caps. */
+/** A floor on a weighted sum: a'w >= minimum. */
+export type ReturnFloor = { coefficients: number[]; minimum: number }
+
+/** The constraints resolved to per-asset bounds, group caps and a return floor. */
 export type ResolvedConstraints = {
   lower: number[]
   upper: number[]
   groups: GroupCap[]
+  returnFloor: ReturnFloor | null
   /** True when no constraint actually binds, so the plain simplex projection will do. */
   trivial: boolean
 }
@@ -52,6 +68,7 @@ export type InfeasibleReason =
   | 'bounds-crossed'
   | 'sector-cap-below-its-minimums'
   | 'sector-caps-cannot-reach-one'
+  | 'min-return-unreachable'
 
 export type Resolution =
   | { ok: true; constraints: ResolvedConstraints }
@@ -71,7 +88,7 @@ export function resolveConstraints(n: number, constraints: WeightConstraints = {
   const min = Number.isFinite(constraints.minWeight) ? Math.max(0, constraints.minWeight!) : 0
   const max = Number.isFinite(constraints.maxWeight) ? Math.min(1, constraints.maxWeight!) : 1
 
-  if (n === 0) return { ok: true, constraints: { lower: [], upper: [], groups: [], trivial: true } }
+  if (n === 0) return { ok: true, constraints: { lower: [], upper: [], groups: [], returnFloor: null, trivial: true } }
   if (min > max + TOLERANCE) return { ok: false, reason: 'bounds-crossed' }
   if (min * n > 1 + TOLERANCE) return { ok: false, reason: 'min-weight-exceeds-one' }
   if (max * n < 1 - TOLERANCE) return { ok: false, reason: 'max-weight-below-one' }
@@ -124,8 +141,57 @@ export function resolveConstraints(n: number, constraints: WeightConstraints = {
     return { ok: false, reason: capped.length > 0 ? 'sector-caps-cannot-reach-one' : 'max-weight-below-one' }
   }
 
-  const trivial = min === 0 && max === 1 && groups.length === 0 && upper.every((u) => u === 1)
-  return { ok: true, constraints: { lower, upper, groups, trivial } }
+  // ── The return floor ──────────────────────────────────────────────────────
+  const mu = constraints.expectedReturns
+  let returnFloor: ReturnFloor | null = null
+  if (Number.isFinite(constraints.minReturn) && mu && mu.length === n && mu.every(Number.isFinite)) {
+    const minimum = constraints.minReturn!
+    if (maxAchievableReturn(lower, upper, allCapped, mu) < minimum - TOLERANCE) {
+      return { ok: false, reason: 'min-return-unreachable' }
+    }
+    returnFloor = { coefficients: mu.slice(), minimum }
+  }
+
+  const trivial =
+    min === 0 && max === 1 && groups.length === 0 && returnFloor === null && upper.every((u) => u === 1)
+  return { ok: true, constraints: { lower, upper, groups, returnFloor, trivial } }
+}
+
+/**
+ * The highest expected return any feasible book can reach.
+ *
+ * Solved greedily, which is exact here: start at the lower bounds, then pour the
+ * remaining weight into the best asset still below its ceiling. Each asset
+ * belongs to at most one capped sector, so the constraints are laminar and the
+ * greedy choice is never one a later step has to undo.
+ *
+ * Used only to answer "is this floor reachable at all?" before iterating.
+ */
+function maxAchievableReturn(lower: number[], upper: number[], capped: GroupCap[], mu: number[]): number {
+  const n = mu.length
+  const w = lower.slice()
+  let remaining = 1 - w.reduce((a, b) => a + b, 0)
+  if (remaining <= 0) return w.reduce((sum, weight, i) => sum + weight * mu[i], 0)
+
+  const sectorOf = new Map<number, GroupCap>()
+  for (const group of capped) for (const i of group.indices) sectorOf.set(i, group)
+  const headroom = new Map<GroupCap, number>()
+  for (const group of capped) {
+    headroom.set(group, group.cap - group.indices.reduce((sum, i) => sum + w[i], 0))
+  }
+
+  const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => mu[b] - mu[a])
+  for (const i of order) {
+    if (remaining <= TOLERANCE) break
+    const group = sectorOf.get(i)
+    const room = Math.min(upper[i] - w[i], remaining, group ? Math.max(0, headroom.get(group)!) : Infinity)
+    if (room <= 0) continue
+    w[i] += room
+    remaining -= room
+    if (group) headroom.set(group, headroom.get(group)! - room)
+  }
+
+  return w.reduce((sum, weight, i) => sum + weight * mu[i], 0)
 }
 
 /**
@@ -176,6 +242,19 @@ function projectOntoGroupCap(v: number[], group: GroupCap): number[] {
   return out
 }
 
+/** Exact projection onto the halfspace { w : a'w >= minimum }. */
+function projectOntoReturnFloor(v: number[], floor: ReturnFloor): number[] {
+  let value = 0
+  let normSquared = 0
+  for (let i = 0; i < v.length; i++) {
+    value += floor.coefficients[i] * v[i]
+    normSquared += floor.coefficients[i] * floor.coefficients[i]
+  }
+  if (value >= floor.minimum - TOLERANCE || !(normSquared > 0)) return v
+  const scale = (floor.minimum - value) / normSquared
+  return v.map((weight, i) => weight + scale * floor.coefficients[i])
+}
+
 /** Dykstra cycles; more than enough for a handful of sets at this size. */
 const DYKSTRA_ITERATIONS = 400
 const DYKSTRA_TOLERANCE = 1e-12
@@ -188,8 +267,8 @@ const DYKSTRA_TOLERANCE = 1e-12
  * needs the nearest one for its convergence argument to hold.
  */
 export function projectOntoConstraints(v: number[], constraints: ResolvedConstraints): number[] {
-  const { lower, upper, groups } = constraints
-  if (groups.length === 0) return projectOntoCappedSimplex(v, lower, upper)
+  const { lower, upper, groups, returnFloor } = constraints
+  if (groups.length === 0 && returnFloor === null) return projectOntoCappedSimplex(v, lower, upper)
 
   // The capped simplex goes LAST in the cycle, so the vector that comes out of
   // every cycle sums to exactly 1. Ending on a group cap instead left the sum a
@@ -199,6 +278,7 @@ export function projectOntoConstraints(v: number[], constraints: ResolvedConstra
   // exactly; the caps are inequalities that Dykstra tightens to convergence.
   const projections: Array<(w: number[]) => number[]> = [
     ...groups.map((group) => (w: number[]) => projectOntoGroupCap(w, group)),
+    ...(returnFloor ? [(w: number[]) => projectOntoReturnFloor(w, returnFloor)] : []),
     (w: number[]) => projectOntoCappedSimplex(w, lower, upper),
   ]
   const corrections: number[][] = projections.map(() => new Array<number>(v.length).fill(0))
@@ -240,6 +320,11 @@ export function satisfiesConstraints(
     let groupSum = 0
     for (const i of group.indices) groupSum += weights[i]
     if (groupSum > group.cap + tolerance) return false
+  }
+  if (constraints.returnFloor) {
+    let value = 0
+    for (let i = 0; i < weights.length; i++) value += constraints.returnFloor.coefficients[i] * weights[i]
+    if (value < constraints.returnFloor.minimum - tolerance) return false
   }
   return true
 }

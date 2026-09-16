@@ -37,6 +37,14 @@ export type OptimizationParams = {
   maxWeight?: number
   /** Largest share a sector may take, keyed by the sector names in company_data. */
   sectorCaps?: Record<string, number>
+  /**
+   * Smallest annual expected return the minimum-CVaR book may have (P1-32).
+   *
+   * A fraction, on the same annualised basis as `estimated_returns`. Without it
+   * "minimise expected shortfall" has one answer — the calmest holdings — and
+   * the trade-off the task is about never appears.
+   */
+  minReturn?: number
 }
 
 /** Why the request produced no curve, in words a reader can act on. */
@@ -46,6 +54,7 @@ const INFEASIBLE_MESSAGES: Record<string, string> = {
   'bounds-crossed': 'El peso minimo pedido es mayor que el maximo.',
   'sector-cap-below-its-minimums': 'Un tope sectorial es menor que lo que el peso minimo ya obliga a poner en ese sector.',
   'sector-caps-cannot-reach-one': 'Los topes sectoriales sumados no permiten una cartera totalmente invertida.',
+  'min-return-unreachable': 'El rendimiento minimo pedido esta por encima de lo que cualquier cartera con estas posiciones y estos limites puede estimar.',
 }
 
 /**
@@ -110,6 +119,10 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
     maxWeight: params.maxWeight,
     sectors,
     sectorCaps: params.sectorCaps,
+    minReturn: params.minReturn,
+    // The floor is compared against the same annualised estimates the frontier
+    // optimises on, so the units a reader sees and the units it binds on match.
+    expectedReturns: expected ?? undefined,
   }
 
   // Say so rather than quietly dropping them: weights that violate what the
@@ -127,7 +140,10 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
       })
     : null
 
-  const strategies = compareAllocationStrategies(activeSymbols, returnsMatrix, 95)
+  // The minimum-CVaR row honours the same limits the frontier does. The other
+  // three are fixed recipes with no freedom to constrain: equal weight, inverse
+  // volatility and risk parity are what they are.
+  const strategies = compareAllocationStrategies(activeSymbols, returnsMatrix, 95, resolution.constraints)
 
   // ── How wide is each estimate, really ──────────────────────────────
   //
@@ -234,6 +250,9 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
             cap_pct: cap * 100,
             symbols: activeSymbols.filter((_, i) => sectors?.[i] === sector),
           })),
+          // Applies to the minimum-CVaR allocation; the frontier already spans
+          // every return level by construction.
+          min_return_pct: params.minReturn === undefined ? null : params.minReturn * 100,
         },
     // Neither of these needs a forecast, which is the reason they are worth
     // showing next to a frontier that does.

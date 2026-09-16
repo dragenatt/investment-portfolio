@@ -12,6 +12,7 @@
 
 import { conditionalVaR } from './var'
 import { projectOntoSimplex } from './optimizer'
+import { projectOntoConstraints, satisfiesConstraints, type ResolvedConstraints } from './weight-constraints'
 import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
 
@@ -175,6 +176,7 @@ const CVAR_STEP = 0.08
 export function minimiseCVaRWeights(
   returnsMatrix: number[][],
   confidence = 95,
+  constraints?: ResolvedConstraints,
 ): number[] | null {
   const n = returnsMatrix.length
   if (n === 0) return null
@@ -185,7 +187,14 @@ export function minimiseCVaRWeights(
   if (returnsMatrix.some((series) => !series.every(Number.isFinite))) return null
   if (n === 1) return [1]
 
+  // A candidate that breaks the caller's limits is not a candidate, however low
+  // its shortfall. Subgradient descent is not monotone, so the BEST iterate is
+  // tracked — and "best" has to mean "best among the feasible ones".
+  const usable = constraints && !constraints.trivial ? constraints : null
+  const project = (w: number[]): number[] => (usable ? projectOntoConstraints(w, usable) : projectOntoSimplex(w))
+
   const evaluate = (weights: number[]): number | null => {
+    if (usable && !satisfiesConstraints(weights, usable)) return null
     const blended = blend(weights, returnsMatrix)
     if (!blended) return null
     return conditionalVaR(blended, confidence)
@@ -196,7 +205,11 @@ export function minimiseCVaRWeights(
     Array(n).fill(1 / n) as number[],
     inverseVolatilityWeights(cov),
     riskParityWeights(cov),
-  ].filter((w): w is number[] => w !== null && w.length === n)
+  ]
+    .filter((w): w is number[] => w !== null && w.length === n)
+    // Every start has to begin inside the feasible set, or the first evaluation
+    // rejects it and that whole run is wasted.
+    .map(project)
 
   const tailSize = Math.max(1, Math.floor(((100 - confidence) / 100) * length))
 
@@ -234,7 +247,7 @@ export function minimiseCVaRWeights(
       if (!(norm > 0)) break
 
       const step = CVAR_STEP / Math.sqrt(iteration)
-      w = projectOntoSimplex(w.map((value, i) => value - (step * gradient[i]) / norm))
+      w = project(w.map((value, i) => value - (step * gradient[i]) / norm))
 
       const value = evaluate(w)
       if (value !== null && value < bestValue) {
@@ -333,6 +346,7 @@ export function compareAllocationStrategies(
   symbols: string[],
   returnsMatrix: number[][],
   confidence = 95,
+  constraints?: ResolvedConstraints,
 ): StrategyComparison | null {
   const n = symbols.length
   if (n === 0 || returnsMatrix.length !== n) return null
@@ -348,7 +362,7 @@ export function compareAllocationStrategies(
     ['equalWeight', Array(n).fill(1 / n)],
     ['inverseVolatility', inverseVolatilityWeights(cov)],
     ['riskParity', riskParityWeights(cov)],
-    ['minCVaR', minimiseCVaRWeights(returnsMatrix, confidence)],
+    ['minCVaR', minimiseCVaRWeights(returnsMatrix, confidence, constraints)],
   ]
 
   const strategies: AllocationStrategy[] = []
