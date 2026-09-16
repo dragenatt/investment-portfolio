@@ -4,7 +4,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceL
 import { useState, useMemo } from 'react'
 import { getChartTheme } from '@/lib/utils/chart-config'
 import { ChartFigure } from '@/components/charts/chart-figure'
-import { describeChange, formatChartDate, formatChartMoney, seriesTable } from '@/lib/utils/chart-accessibility'
+import { describeChange, formatChartMoment, formatChartMoney, isIntradaySeries, seriesTable } from '@/lib/utils/chart-accessibility'
 import { ChartEmpty, ChartLoading } from '@/components/charts/chart-state'
 
 type DataPoint = { date: string; value: number }
@@ -38,15 +38,21 @@ type Props = {
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
   if (!active || !payload?.length) return null
   const value = payload[0].value
+  const moment = String(label)
   return (
     <div className="chart-tooltip">
       <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-        {new Date(String(label)).toLocaleDateString('es-MX', {
-          weekday: 'short',
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        })}
+        {/* An intraday point is an instant; a daily one is a date. Reading every
+            point of a single session as "mar, 15 sep 2026" hid which one it was. */}
+        {moment.includes('T')
+          ? formatChartMoment(moment)
+          : new Date(moment).toLocaleDateString('es-MX', {
+              weekday: 'short',
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              timeZone: 'UTC',
+            })}
       </p>
       <p
         className="font-bold font-financial"
@@ -75,19 +81,23 @@ export function PortfolioChart({ data, isLoading, onPeriodChange }: Props) {
     return { isPositive: last >= first, startValue: first, lastPoint: data[data.length - 1] }
   }, [data])
 
+  // 1D and 1W come back as instants within the session; the rest as closes.
+  const intraday = isIntradaySeries(data)
   const summary =
     data.length >= 2
-      ? `Valor del portafolio, ${PERIOD_NAMES[period] ?? period}: ${describeChange(
-          { label: formatChartDate(data[0].date), value: data[0].value },
-          { label: formatChartDate(data[data.length - 1].date), value: data[data.length - 1].value },
+      ? `Valor del portafolio, ${PERIOD_NAMES[period] ?? period}${intraday ? ' (precios durante la sesión)' : ''}: ${describeChange(
+          { label: formatChartMoment(data[0].date), value: data[0].value },
+          { label: formatChartMoment(data[data.length - 1].date), value: data[data.length - 1].value },
           (v) => formatChartMoney(v, ''),
           { percent: false },
         )}. Incluye aportaciones y retiros, no solo rendimiento.`
       : 'Valor del portafolio.'
-  const table = seriesTable(data, 'Valor del portafolio por fecha', ['Fecha', 'Valor'], (point) => [
-    formatChartDate(point.date),
-    formatChartMoney(point.value, ''),
-  ])
+  const table = seriesTable(
+    data,
+    intraday ? 'Valor del portafolio por momento' : 'Valor del portafolio por fecha',
+    [intraday ? 'Momento' : 'Fecha', 'Valor'],
+    (point) => [formatChartMoment(point.date), formatChartMoney(point.value, '')],
+  )
 
   const lineColor = isPositive ? 'var(--good)' : 'var(--bad)'
   const gradientId = 'heroChartGradient'

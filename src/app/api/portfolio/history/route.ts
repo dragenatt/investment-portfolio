@@ -3,17 +3,86 @@ import { success, error } from '@/lib/api/response'
 import { rateLimit } from '@/lib/api/rate-limit'
 import { cacheGet, cacheSet } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
-import { computeDailyPositions, buildDailyTimeline, snapshotsCoverWindow } from '@/lib/services/portfolio-history'
-import { lastSettledSession, topUpStoredHistory, writeThrough } from '@/lib/services/price-history'
+import { computeDailyPositions, buildDailyTimeline, snapshotsCoverWindow, type DailySnapshot } from '@/lib/services/portfolio-history'
+import { buildIntradayTimeline, MIN_INTRADAY_POINTS, type IntradayBar } from '@/lib/services/portfolio-intraday'
+import { lastSettledSession, topUpStoredHistory, writeThrough, isDailyRange } from '@/lib/services/price-history'
 import { apiHandler } from '@/lib/api/handler'
 
+/**
+ * The provider range each button asks for.
+ *
+ * Every entry returns ONE BAR PER SESSION. '1y' and 'max' used to be mapped to
+ * the provider ranges of the same names, which come back weekly and monthly —
+ * and those bars were then written into price_history as if they were daily
+ * closes. Six months is the deepest daily range the providers serve; past that
+ * the stored tier, which deepens a session at a time, is what covers the window.
+ */
 const RANGE_MAP: Record<string, string> = {
-  '1': '1d',
-  '7': '5d',
   '30': '1mo',
   '90': '3mo',
-  '365': '1y',
-  'max': 'max',
+  '365': '6mo',
+  'max': '6mo',
+}
+
+/**
+ * The two ranges a daily close cannot draw.
+ *
+ * A day holds one close, so "1D" was a line between yesterday's and today's —
+ * two dots and a straight segment. These ranges are drawn from intraday bars
+ * instead; see portfolio-intraday.ts.
+ */
+const INTRADAY_RANGE: Record<string, string> = {
+  '1': '1d',
+  '7': '5d',
+}
+
+/** Days of stored closes to read for the price each intraday window opens at. */
+const PREVIOUS_CLOSE_LOOKBACK_DAYS = 12
+
+type FlatTransaction = {
+  executed_at: string
+  type: 'buy' | 'sell' | 'dividend' | 'split'
+  symbol: string
+  quantity: number
+  price: number
+}
+
+/** Symbols the book held at any point from `since` onwards. */
+function symbolsHeldSince(snapshots: DailySnapshot[], since: string): string[] {
+  const held = new Set<string>()
+  // The snapshot in force when the window opens counts too, even if it predates it.
+  const opening = [...snapshots].reverse().find((s) => s.date <= since) ?? snapshots[0]
+  for (const snapshot of [opening, ...snapshots.filter((s) => s.date >= since)]) {
+    for (const [symbol, quantity] of Object.entries(snapshot?.positions ?? {})) {
+      if (quantity > 0) held.add(symbol)
+    }
+  }
+  return [...held]
+}
+
+/** Provider bars for each symbol, five symbols at a time, failures left out. */
+async function fetchIntradayBars(symbols: string[], range: string): Promise<Record<string, IntradayBar[]>> {
+  const bars: Record<string, IntradayBar[]> = {}
+  for (let i = 0; i < symbols.length; i += 5) {
+    const chunk = symbols.slice(i, i + 5)
+    const results = await Promise.all(
+      chunk.map(async (symbol) => {
+        try {
+          const history = await getHistory(symbol, range)
+          return {
+            symbol,
+            bars: history
+              .filter((point: { close: number | null }) => point.close != null)
+              .map((point: { date: string; close: number }) => ({ time: new Date(point.date).toISOString(), close: point.close })),
+          }
+        } catch {
+          return { symbol, bars: [] as IntradayBar[] }
+        }
+      }),
+    )
+    for (const result of results) if (result.bars.length > 0) bars[result.symbol] = result.bars
+  }
+  return bars
 }
 
 async function getHandler(req: Request) {
@@ -46,6 +115,68 @@ async function getHandler(req: Request) {
   const cutoffDate = new Date()
   cutoffDate.setDate(cutoffDate.getDate() - rangeDays)
   const cutoffStr = cutoffDate.toISOString().slice(0, 10)
+
+  const loadTransactions = async (): Promise<FlatTransaction[]> => {
+    const { data } = await supabase
+      .from('transactions')
+      .select('executed_at, type, quantity, price, position:positions!inner(portfolio_id, symbol)')
+      .in('position.portfolio_id', portfolioIds)
+      .order('executed_at', { ascending: true })
+      // Ties on executed_at (the modal records a date, not a time) replay in entry order.
+      .order('created_at', { ascending: true })
+    return (data ?? []).map((t: Record<string, unknown>) => ({
+      executed_at: t.executed_at as string,
+      type: t.type as FlatTransaction['type'],
+      symbol: (t.position as { symbol: string }).symbol,
+      quantity: t.quantity as number,
+      price: t.price as number,
+    }))
+  }
+
+  let transactions: FlatTransaction[] | null = null
+
+  // ── 1D and 1W: the session itself ────────────────────────────────────────
+  // Before the nightly-snapshot branch, which has one point per night and so
+  // has nothing to say about a window measured in hours.
+  if (INTRADAY_RANGE[range]) {
+    transactions = await loadTransactions()
+    const snapshots = computeDailyPositions(transactions)
+    const symbols = symbolsHeldSince(snapshots, cutoffStr)
+
+    if (symbols.length > 0) {
+      const bars = await fetchIntradayBars(symbols, INTRADAY_RANGE[range])
+      const opensAt = Object.values(bars).flat().reduce<string | null>(
+        (earliest, bar) => (earliest === null || bar.time < earliest ? bar.time : earliest),
+        null,
+      )
+
+      // The close of the session before the window, so a holding that has not
+      // printed yet is worth what it was last worth rather than nothing.
+      const lookback = new Date(`${(opensAt ?? new Date().toISOString()).slice(0, 10)}T00:00:00Z`)
+      lookback.setUTCDate(lookback.getUTCDate() - PREVIOUS_CLOSE_LOOKBACK_DAYS)
+      const { data: storedCloses } = await supabase
+        .from('price_history')
+        .select('symbol, date, close')
+        .in('symbol', symbols)
+        .gte('date', lookback.toISOString().slice(0, 10))
+        .lt('date', (opensAt ?? new Date().toISOString()).slice(0, 10))
+        .order('date', { ascending: true })
+
+      const previousCloses: Record<string, number> = {}
+      for (const row of storedCloses ?? []) previousCloses[row.symbol] = Number(row.close)
+
+      const transactionPrices: Record<string, number> = {}
+      for (const txn of transactions) if (txn.price > 0) transactionPrices[txn.symbol] = txn.price
+
+      const points = buildIntradayTimeline({ snapshots, bars, previousCloses, transactionPrices })
+      if (points.length >= MIN_INTRADAY_POINTS) {
+        // Short: these are the ranges that move while the reader is watching.
+        await cacheSet(cacheKey, points, 60)
+        return success(points)
+      }
+      // Too few bars to be a chart — the daily path below still covers the book.
+    }
+  }
 
   // PRIMARY SOURCE: Use portfolio_snapshots if available
   const { data: snapshotData } = await supabase
@@ -96,26 +227,8 @@ async function getHandler(req: Request) {
 
   // FALLBACK: Reconstruct from transactions + price_history (existing code below)
 
-  const { data: transactions } = await supabase
-    .from('transactions')
-    .select('executed_at, type, quantity, price, position:positions!inner(portfolio_id, symbol)')
-    .in('position.portfolio_id', portfolioIds)
-    .order('executed_at', { ascending: true })
-    // Ties on executed_at (the modal records a date, not a time) replay in entry order.
-    .order('created_at', { ascending: true })
-
-  if (!transactions || transactions.length === 0) return success([])
-
-  const flatTxns = transactions.map((t: Record<string, unknown>) => {
-    const position = t.position as { symbol: string }
-    return {
-      executed_at: t.executed_at as string,
-      type: t.type as 'buy' | 'sell' | 'dividend' | 'split',
-      symbol: position.symbol,
-      quantity: t.quantity as number,
-      price: t.price as number,
-    }
-  })
+  const flatTxns = transactions ?? (await loadTransactions())
+  if (flatTxns.length === 0) return success([])
 
   const snapshots = computeDailyPositions(flatTxns)
   if (snapshots.length === 0) return success([])
@@ -175,7 +288,8 @@ async function getHandler(req: Request) {
             priceMap[date] = point.close
             // Only finished sessions are stored, and through the service role:
             // the user's client is denied by RLS, so this write never landed.
-            if (date <= settled) {
+            // A range that is not one bar per session is never stored at all.
+            if (isDailyRange(yahooRange) && date <= settled) {
               rowsToCache.push({
                 symbol,
                 exchange: 'yahoo',

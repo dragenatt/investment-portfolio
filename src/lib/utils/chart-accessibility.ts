@@ -47,6 +47,28 @@ export function formatChartDate(value: string | number | Date): string {
   return Number.isNaN(date.getTime()) ? String(value) : DATE_FORMAT.format(date)
 }
 
+/**
+ * "14 sep 2026" for a date, "14 sep, 9:35 a.m." for an instant.
+ *
+ * Intraday points carry a time, and a chart of one session whose every label
+ * reads the same date tells the reader nothing about where on the line they
+ * are. The time is shown on the reader's own clock — an instant is when THEY
+ * were watching the market — while plain dates stay in UTC, where a date with
+ * no time is a label rather than a moment.
+ */
+const MOMENT_FORMAT = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+
+export function formatChartMoment(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(value)) return formatChartDate(value)
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : MOMENT_FORMAT.format(date)
+}
+
+/** Whether a series is made of instants rather than dates. */
+export function isIntradaySeries(points: Array<{ date: string }>): boolean {
+  return points.length > 0 && points.every((p) => /^\d{4}-\d{2}-\d{2}T/.test(p.date))
+}
+
 /** Pass an empty currency when the chart's own labels show none. */
 export function formatChartMoney(value: number, currency = 'USD'): string {
   if (!Number.isFinite(value)) return '—'
