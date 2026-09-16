@@ -4,8 +4,7 @@ import { apiHandler } from '@/lib/api/handler'
 import { validate } from '@/lib/api/validate'
 import { UpdateGoalSchema } from '@/lib/schemas/goal'
 import { recordAudit, recordAuditChanges, diffForAudit } from '@/lib/services/audit'
-import { goalProgress, classifyPace, type GoalSnapshot } from '@/lib/services/goals'
-import { getBatchQuotes } from '@/lib/services/market'
+import { trackGoals, type GoalRow } from '@/lib/services/goal-tracking'
 
 const AUDITED_FIELDS = [
   'name',
@@ -16,32 +15,6 @@ const AUDITED_FIELDS = [
   'risk_profile',
   'status',
 ]
-
-type GoalRow = {
-  id: string
-  name: string
-  portfolio_id: string | null
-  target_amount: number
-  start_date: string
-  target_date: string
-  starting_capital: number
-  monthly_contribution: number
-  expected_annual_return: number | null
-  status: string
-}
-
-function toSnapshot(goal: GoalRow): GoalSnapshot {
-  return {
-    targetAmount: goal.target_amount,
-    startDate: goal.start_date,
-    targetDate: goal.target_date,
-    startingCapital: goal.starting_capital,
-    plannedMonthlyContribution: goal.monthly_contribution,
-    // Falls back to a moderate assumption so a goal saved without a profile
-    // still tracks; it is recorded on the goal when the advisor creates one.
-    expectedAnnualReturn: goal.expected_annual_return ?? 0.07,
-  }
-}
 
 /**
  * One goal, with its progress against plan when it is tied to a portfolio.
@@ -71,39 +44,9 @@ export const GET = apiHandler(async (_req: Request, ctx: { params: Promise<{ id:
     .order('created_at', { ascending: false })
     .limit(20)
 
-  let tracking = null
-  if (goal.portfolio_id) {
-    const { data: positions } = await supabase
-      .from('positions')
-      .select('symbol, quantity, avg_cost')
-      .eq('portfolio_id', goal.portfolio_id)
-      .gt('quantity', 0)
-
-    if (positions && positions.length > 0) {
-      const priceMap: Record<string, number> = {}
-      try {
-        const quotes = await getBatchQuotes(positions.map((p) => p.symbol))
-        for (const [symbol, quote] of Object.entries(quotes)) {
-          if (quote.price != null) priceMap[symbol] = quote.price
-        }
-      } catch {
-        // Average cost stands in; the progress figure degrades rather than fails.
-      }
-
-      const currentValue = positions.reduce(
-        (sum, p) => sum + p.quantity * (priceMap[p.symbol] ?? p.avg_cost),
-        0,
-      )
-      const contributedToDate = positions.reduce((sum, p) => sum + p.quantity * p.avg_cost, 0)
-
-      const progress = goalProgress(toSnapshot(goal as GoalRow), {
-        currentValue,
-        contributedToDate,
-      })
-
-      if (progress) tracking = { ...progress, ...classifyPace(progress.deviationPct) }
-    }
-  }
+  // Converted into the goal's own currency — see goal-tracking.ts, shared with
+  // the goals list so the two can never disagree about the same goal.
+  const tracking = (await trackGoals(supabase, [goal as GoalRow])).get(goal.id) ?? null
 
   return success({ goal, projections: projections ?? [], tracking })
 })

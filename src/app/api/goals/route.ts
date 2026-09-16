@@ -2,7 +2,8 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { apiHandler } from '@/lib/api/handler'
 import { validate } from '@/lib/api/validate'
-import { CreateGoalSchema } from '@/lib/schemas/goal'
+import { CreateGoalWithProjectionSchema } from '@/lib/schemas/goal'
+import { trackGoals, type GoalRow } from '@/lib/services/goal-tracking'
 import { recordAudit } from '@/lib/services/audit'
 
 export const GET = apiHandler(async (req: Request) => {
@@ -23,7 +24,12 @@ export const GET = apiHandler(async (req: Request) => {
   const { data, error: dbError } = await query
   if (dbError) return error(dbError.message, 500)
 
-  return success(data)
+  // Each goal with its pace against plan, so the list can say "behind" without
+  // the page asking for every goal one at a time. The same computation the
+  // detail route uses — see goal-tracking.ts.
+  const goals = (data ?? []) as GoalRow[]
+  const tracking = await trackGoals(supabase, goals)
+  return success(goals.map((goal) => ({ ...goal, tracking: tracking.get(goal.id) ?? null })))
 })
 
 export const POST = apiHandler(async (req: Request) => {
@@ -38,7 +44,7 @@ export const POST = apiHandler(async (req: Request) => {
     return error('Invalid JSON', 400)
   }
 
-  const result = await validate(CreateGoalSchema, body)
+  const result = await validate(CreateGoalWithProjectionSchema, body)
   if ('error' in result) return result.error
 
   // Checked here as well as by the database, so the user sees which field is
@@ -48,13 +54,26 @@ export const POST = apiHandler(async (req: Request) => {
     return error('The target date must be after the start date', 400)
   }
 
+  const { projection, ...goalFields } = result.data
+
   const { data, error: dbError } = await supabase
     .from('goals')
-    .insert({ ...result.data, start_date: start, user_id: user.id })
+    .insert({ ...goalFields, start_date: start, user_id: user.id })
     .select()
     .single()
 
   if (dbError) return error(dbError.message, 500)
+
+  // The advisor saves a goal together with what the model said about it. A
+  // projection that fails to write leaves a valid goal behind rather than
+  // undoing it — the plan is what the user asked to keep — and says so.
+  let projectionSaved: boolean | null = null
+  if (projection) {
+    const { error: projectionError } = await supabase
+      .from('goal_projections')
+      .insert({ ...projection, goal_id: data.id, user_id: user.id })
+    projectionSaved = !projectionError
+  }
 
   recordAudit(supabase, {
     userId: user.id,
@@ -64,5 +83,5 @@ export const POST = apiHandler(async (req: Request) => {
     newValue: data.name,
   })
 
-  return success(data, undefined, 201)
+  return success({ ...data, projection_saved: projectionSaved }, undefined, 201)
 })

@@ -22,6 +22,7 @@ import {
   type BandaAnual,
   validarEntradasAdvisor,
   type PlanOutcome,
+  type PlanParams,
   type CampoProblema,
 } from '@/lib/services/advisor'
 import {
@@ -42,6 +43,7 @@ import {
   type PlanExport,
 } from '@/lib/services/advisor-export'
 import { ExportarPlan } from '@/components/advisor/advisor-export'
+import { GuardarComoMeta } from '@/components/advisor/advisor-save-goal'
 import {
   construirDiagnostico,
   registrarDiagnostico,
@@ -187,6 +189,9 @@ interface ResultsState {
   exportable: PlanExport | null
   /** The simulated fan, year by year, for the projection chart. */
   bandas: BandaAnual[]
+  /** The inputs the plan was evaluated on, so it can be saved as a goal as-is. */
+  planParams: PlanParams
+  meta: number
 }
 
 type Distribucion = PlanOutcome['distribucion']
@@ -472,6 +477,8 @@ export default function AdvisorPage() {
           // scenario set as everything above, so an exported file cannot
           // disagree with the screen it came from.
           bandas,
+          planParams,
+          meta,
           exportable: construirPlanExportable({
             perfil: {
               nivel: perfil.nivel,
@@ -889,6 +896,13 @@ export default function AdvisorPage() {
           <InvertirVsAhorrarCard comparacion={results.ahorroVsInversion} />
           <ModoEducativo educacion={results.educacion} />
           <ExportarPlan plan={results.exportable} />
+          <GuardarComoMeta
+            params={results.planParams}
+            target={results.meta}
+            outcome={results.plan}
+            requiredContribution={results.aporteNec}
+            riskProfile={results.nombre}
+          />
         </div>
 
         {/* H. Reset Button */}

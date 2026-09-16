@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Briefcase, TrendingUp, Eye, Lightbulb, Bell, Compass, GitCompareArrows, FlaskConical, Settings, X } from 'lucide-react'
+import { LayoutDashboard, Briefcase, TrendingUp, Eye, Lightbulb, Target, Bell, Compass, GitCompareArrows, FlaskConical, Settings, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEffect, useCallback, useSyncExternalStore } from 'react'
 import { useTranslation } from '@/lib/i18n'
@@ -19,6 +19,8 @@ function getPrimaryItems(t: Dictionary): NavItem[] {
     { href: '/market', icon: TrendingUp, label: t.nav.markets, shortcut: 'M' },
     { href: '/watchlist', icon: Eye, label: t.nav.watchlist, shortcut: 'W' },
     { href: '/advisor', icon: Lightbulb, label: t.nav.advisor, shortcut: 'A' },
+    // P1-8/P1-9: saved plans and their progress. Next to the advisor, which is where they come from.
+    { href: '/goals', icon: Target, label: 'Metas', shortcut: 'G' },
   ]
 }
 
