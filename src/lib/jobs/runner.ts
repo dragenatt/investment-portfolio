@@ -62,6 +62,23 @@ const NOTIFIED_AS: Record<JobKind, NotifiedJob> = {
 }
 
 /**
+ * How long a job must have run before its SUCCESS is worth a notification.
+ *
+ * Opening the analysis page starts several jobs that finish in seconds while
+ * the reader watches the results appear; announcing each one put three
+ * "terminó" items in the inbox for calculations already on screen. A job that
+ * ran longer than this may have outlived the tab that asked for it. Failures
+ * are always announced — a result that never arrives is news either way.
+ */
+export const ANNOUNCE_SUCCESS_AFTER_MS = 30_000
+
+/** Whether a job's success is news, or just the thing on screen. */
+export function successIsNews(createdAt: string, finishedAt: number): boolean {
+  const started = Date.parse(createdAt)
+  return Number.isFinite(started) && finishedAt - started >= ANNOUNCE_SUCCESS_AFTER_MS
+}
+
+/**
  * Tell the user a job ended, once. Called only when this process's conditional
  * write is the one that finished the job, so a late attempt that changed
  * nothing does not announce anything either. Never throws.
@@ -245,7 +262,7 @@ export async function executeJob(admin: SupabaseClient, userClient: SupabaseClie
       .eq('attempts', job.attempts)
       .eq('status', 'processing')
       .select('id')
-    if (finished && finished.length > 0) await announce(admin, job, true)
+    if (finished && finished.length > 0 && successIsNews(job.created_at, now)) await announce(admin, job, true)
     return
   }
 
