@@ -38,6 +38,19 @@ const WEIGHT_TOLERANCE = 1e-6
 
 export type ScenarioHolding = { symbol: string; weight: number }
 
+/** How often a book is brought back to its target weights. */
+export type RebalancePolicy = 'none' | 'monthly' | 'quarterly' | 'semiannual' | 'annual'
+
+const REBALANCE_POLICIES: RebalancePolicy[] = ['none', 'monthly', 'quarterly', 'semiannual', 'annual']
+
+/** Months between rebalances in a simulation, by policy. */
+const REBALANCE_EVERY_MONTHS: Record<Exclude<RebalancePolicy, 'none'>, number> = {
+  monthly: 1,
+  quarterly: 3,
+  semiannual: 6,
+  annual: 12,
+}
+
 export type ScenarioRiskModel = {
   /** Annual arithmetic expected return per holding, as a fraction. */
   expectedReturns: number[]
@@ -82,7 +95,7 @@ export type ScenarioSpec = {
   costs?: CostModel
   /** Annual inflation, as a fraction, to express values in today's money. */
   inflation?: number
-  rebalance?: 'none' | 'monthly' | 'annual'
+  rebalance?: RebalancePolicy
   shocks?: ScenarioShock[]
   simulations?: number
   seed?: number
@@ -191,7 +204,7 @@ export function normaliseScenario(spec: ScenarioSpec): ScenarioValidation {
   const simulations = Math.floor(spec.simulations ?? DEFAULT_SIMULATIONS)
   if (!(simulations >= 1 && simulations <= MAX_SIMULATIONS)) errors.push(`Las simulaciones deben estar entre 1 y ${MAX_SIMULATIONS}.`)
   const rebalance = spec.rebalance ?? 'none'
-  if (!['none', 'monthly', 'annual'].includes(rebalance)) errors.push('El rebalanceo debe ser none, monthly o annual.')
+  if (!REBALANCE_POLICIES.includes(rebalance)) errors.push('El rebalanceo debe ser none, monthly, quarterly, semiannual o annual.')
 
   if (errors.length > 0) return { ok: false, errors: [...new Set(errors)] }
 
@@ -374,7 +387,7 @@ export function runScenario(spec: ScenarioSpec): ScenarioResult | { errors: stri
 
       invest(contributionFor(month), sim)
 
-      if (s.rebalance === 'monthly' || (s.rebalance === 'annual' && month % MONTHS_PER_YEAR === 0)) {
+      if (s.rebalance !== 'none' && month % REBALANCE_EVERY_MONTHS[s.rebalance] === 0) {
         const total = holdings.reduce((a, b) => a + b, 0)
         let turnover = 0
         for (let i = 0; i < n; i++) turnover += Math.abs(holdings[i] - total * target[i])
@@ -444,6 +457,107 @@ export function runScenario(spec: ScenarioSpec): ScenarioResult | { errors: stri
       gross: [s.costs.commissionPct, s.costs.spreadPct, s.costs.custodyAnnualPct].every((v) => v === 0),
     },
   }
+}
+
+// ─── Replaying a policy over history (backtesting) ──────────────────────────
+//
+// A backtest is a scenario with the future replaced by the past: the same book,
+// rebalancing policy and costs, stepped over what the prices actually did
+// instead of over simulated paths. The policy part of the scenario is shared;
+// only the source of returns differs.
+
+/** The part of a scenario that is a policy: what is held, how it is kept, what it costs. */
+export type ScenarioPolicy = Pick<ScenarioSpec, 'capital' | 'holdings' | 'rebalance' | 'costs'>
+
+/** Calendar days between rebalances when a policy is replayed over daily history. */
+export const REPLAY_REBALANCE_DAYS: Record<Exclude<RebalancePolicy, 'none'>, number> = {
+  monthly: 30,
+  quarterly: 91,
+  semiannual: 182,
+  annual: 365,
+}
+
+export type ScenarioReplay = {
+  curve: Array<{ date: string; value: number }>
+  rebalanceCount: number
+  totalCosts: number
+  finalWeights: Record<string, number>
+  dates: { from: string; to: string }
+}
+
+/** Weights a replay accepts: the backtest's own tolerance. */
+const REPLAY_WEIGHT_TOLERANCE = 1e-3
+
+/**
+ * Hold a policy through history.
+ *
+ * The book is taken as already held at the target weights on the first date
+ * every holding has a close — a backtest of what you own, not of buying it —
+ * so no entry cost is charged. Only dates every holding has a close for are
+ * used: carrying a stale price forward for one asset while the others move
+ * would invent a return the book never earned.
+ *
+ * A rebalance trades each holding back to its target, and every trade pays
+ * the cost model (tradeCost): a rebalance that sells X and buys X pays on both.
+ */
+export function replayScenario(
+  policy: ScenarioPolicy,
+  closesBySymbol: Record<string, Array<{ date: string; close: number }>>,
+): ScenarioReplay | null {
+  const symbols = policy.holdings.map((h) => h.symbol)
+  if (symbols.length === 0 || new Set(symbols).size !== symbols.length) return null
+  const target = policy.holdings.map((h) => h.weight)
+  const weightSum = target.reduce((a, b) => a + b, 0)
+  if (!finite(weightSum) || Math.abs(weightSum - 1) > REPLAY_WEIGHT_TOLERANCE || target.some((w) => !(w >= 0))) return null
+  if (!(finite(policy.capital) && policy.capital > 0)) return null
+  const rebalance = policy.rebalance ?? 'none'
+  if (!REBALANCE_POLICIES.includes(rebalance)) return null
+  const costs = policy.costs ?? DEFAULT_COST_MODEL
+
+  const priceMaps = symbols.map((symbol) => {
+    const bars = (closesBySymbol[symbol] ?? []).filter((b) => finite(b.close) && b.close > 0)
+    return new Map(bars.map((b) => [b.date, b.close]))
+  })
+  if (priceMaps.some((m) => m.size === 0)) return null
+  const dates = [...priceMaps[0].keys()].filter((date) => priceMaps.every((m) => m.has(date))).sort()
+  if (dates.length < 2) return null
+
+  const priceAt = (i: number, date: string) => priceMaps[i].get(date)!
+  const units = symbols.map((_, i) => (policy.capital * target[i]) / priceAt(i, dates[0]))
+
+  let rebalanceCount = 0
+  let totalCosts = 0
+  let lastRebalance = dates[0]
+  const curve: ScenarioReplay['curve'] = []
+
+  for (const date of dates) {
+    let value = 0
+    for (let i = 0; i < symbols.length; i++) value += units[i] * priceAt(i, date)
+
+    if (rebalance !== 'none' && date !== dates[0]) {
+      const elapsed = (Date.parse(`${date}T00:00:00Z`) - Date.parse(`${lastRebalance}T00:00:00Z`)) / 86_400_000
+      if (elapsed >= REPLAY_REBALANCE_DAYS[rebalance]) {
+        let cost = 0
+        for (let i = 0; i < symbols.length; i++) cost += tradeCost(units[i] * priceAt(i, date) - value * target[i], costs)
+        totalCosts += cost
+        value -= cost
+        for (let i = 0; i < symbols.length; i++) units[i] = (value * target[i]) / priceAt(i, date)
+        rebalanceCount++
+        lastRebalance = date
+      }
+    }
+
+    curve.push({ date, value })
+  }
+
+  const last = dates[dates.length - 1]
+  const finalValue = curve[curve.length - 1].value
+  const finalWeights: Record<string, number> = {}
+  symbols.forEach((symbol, i) => {
+    finalWeights[symbol] = finalValue > 0 ? (units[i] * priceAt(i, last)) / finalValue : 0
+  })
+
+  return { curve, rebalanceCount, totalCosts, finalWeights, dates: { from: dates[0], to: last } }
 }
 
 // ─── Plans: the advisor's single-holding scenarios, on this engine ──────────

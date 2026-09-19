@@ -25,6 +25,8 @@ import { historicalVaR } from './var'
 import { roundMoney } from '@/lib/utils/money'
 import { calculateSortinoRatio } from './asset-metrics'
 import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
+import { replayScenario, type ScenarioPolicy } from './scenario-engine'
+import { DEFAULT_COST_MODEL } from './costs'
 
 export type Bar = { date: string; close: number }
 
@@ -320,20 +322,15 @@ export type PortfolioBacktestResult = {
   rebalance: RebalanceFrequency
 }
 
-const REBALANCE_DAYS: Record<Exclude<RebalanceFrequency, 'none'>, number> = {
-  monthly: 30,
-  quarterly: 91,
-  semiannual: 182,
-  annual: 365,
-}
-
 /**
  * Hold a set of weights through history under a rebalancing schedule.
  *
- * Only dates every holding has a price for are used. Carrying a stale price
- * forward for one asset while the others move would invent a return the book
- * never earned, and it is the reason a naive multi-asset backtest quietly drifts
- * away from reality.
+ * Since 4.9 the schedule, the weights and the costs are a scenario-engine
+ * policy, replayed over history by replayScenario — the same definition of a
+ * book the engine simulates forward. The trade cost is the cost model's
+ * (tradeCost), paid on every trade: a rebalance that sells X and buys X pays on
+ * both. Model 1.x charged it once, on half the turnover, which was half of what
+ * "cost per trade" says and half of what costs.ts and the engine charge.
  */
 export function backtestPortfolio(
   seriesBySymbol: Record<string, Bar[]>,
@@ -343,79 +340,26 @@ export function backtestPortfolio(
   const symbols = Object.keys(targetWeights)
   if (symbols.length === 0) return null
 
-  const weightSum = symbols.reduce((s, k) => s + (targetWeights[k] ?? 0), 0)
-  if (!Number.isFinite(weightSum) || Math.abs(weightSum - 1) > 1e-3) return null
-  if (symbols.some((s) => (targetWeights[s] ?? 0) < 0)) return null
-
-  const priceMaps = new Map<string, Map<string, number>>()
-  for (const symbol of symbols) {
-    const bars = usableBars(seriesBySymbol[symbol] ?? [])
-    if (bars.length === 0) return null
-    priceMaps.set(symbol, new Map(bars.map((b) => [b.date, b.close])))
-  }
-
-  const firstSymbol = symbols[0]
-  const commonDates = [...priceMaps.get(firstSymbol)!.keys()]
-    .filter((date) => symbols.every((s) => priceMaps.get(s)!.has(date)))
-    .sort()
-
-  if (commonDates.length < 2) return null
-
   const initialCapital = options.initialCapital ?? DEFAULT_CAPITAL
-  const costRate = Math.max(0, options.costPct ?? 0) / 100
   const riskFreeRate = options.riskFreeRate ?? 0
-
-  const priceAt = (symbol: string, date: string) => priceMaps.get(symbol)!.get(date)!
-
-  // Open the book at target weights on day one.
-  const units: Record<string, number> = {}
-  for (const symbol of symbols) {
-    units[symbol] = (initialCapital * targetWeights[symbol]) / priceAt(symbol, commonDates[0])
+  const policy: ScenarioPolicy = {
+    capital: initialCapital,
+    holdings: symbols.map((symbol) => ({ symbol, weight: targetWeights[symbol] ?? 0 })),
+    rebalance: options.rebalance,
+    costs: {
+      ...DEFAULT_COST_MODEL,
+      commissionPct: Math.max(0, options.costPct ?? 0),
+      source: 'Costo por operación supuesto en la prueba',
+    },
   }
 
-  let rebalanceCount = 0
-  let totalCosts = 0
-  let lastRebalance = commonDates[0]
-  const curve: Array<{ date: string; value: number }> = []
+  const replay = replayScenario(
+    policy,
+    Object.fromEntries(symbols.map((symbol) => [symbol, usableBars(seriesBySymbol[symbol] ?? [])])),
+  )
+  if (!replay) return null
 
-  for (const date of commonDates) {
-    let value = 0
-    for (const symbol of symbols) value += units[symbol] * priceAt(symbol, date)
-
-    if (options.rebalance !== 'none' && date !== commonDates[0]) {
-      const elapsed =
-        (Date.parse(`${date}T00:00:00Z`) - Date.parse(`${lastRebalance}T00:00:00Z`)) / 86_400_000
-      if (elapsed >= REBALANCE_DAYS[options.rebalance]) {
-        // Cost is charged on the value that actually moves, which is half the
-        // sum of the absolute deviations: every peso sold is a peso bought.
-        let traded = 0
-        for (const symbol of symbols) {
-          const current = units[symbol] * priceAt(symbol, date)
-          traded += Math.abs(current - value * targetWeights[symbol])
-        }
-        const cost = (traded / 2) * costRate
-        totalCosts += cost
-        value -= cost
-
-        for (const symbol of symbols) {
-          units[symbol] = (value * targetWeights[symbol]) / priceAt(symbol, date)
-        }
-        rebalanceCount++
-        lastRebalance = date
-      }
-    }
-
-    curve.push({ date, value })
-  }
-
-  const lastDate = commonDates[commonDates.length - 1]
-  const finalValue = curve[curve.length - 1].value
-  const finalWeights: Record<string, number> = {}
-  for (const symbol of symbols) {
-    finalWeights[symbol] = finalValue > 0 ? (units[symbol] * priceAt(symbol, lastDate)) / finalValue : 0
-  }
-
-  const summary = summarise(curve, [], 100, initialCapital, riskFreeRate)
+  const summary = summarise(replay.curve, [], 100, initialCapital, riskFreeRate)
 
   return {
     finalValue: summary.finalValue,
@@ -426,10 +370,10 @@ export function backtestPortfolio(
     sortino: summary.sortino,
     maxDrawdownPct: summary.maxDrawdownPct,
     var95Pct: summary.var95Pct,
-    rebalanceCount,
-    totalCosts: roundMoney(totalCosts),
-    finalWeights,
-    equityCurve: curve.map((p) => ({ date: p.date, value: roundMoney(p.value) })),
+    rebalanceCount: replay.rebalanceCount,
+    totalCosts: roundMoney(replay.totalCosts),
+    finalWeights: replay.finalWeights,
+    equityCurve: replay.curve.map((p) => ({ date: p.date, value: roundMoney(p.value) })),
     rebalance: options.rebalance,
   }
 }

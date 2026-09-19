@@ -43,7 +43,9 @@ export const MODEL_VERSIONS = {
   optimization: '1.0.0',
   factors: CONSTRUCTION_VERSION,
   monteCarlo: '1.0.0',
-  backtest: '1.0.0',
+  // 2.0.0 (4.9): replayed through the scenario engine; a rebalance pays the
+  // trade cost on every trade, both the sale and the purchase.
+  backtest: '2.0.0',
   stress: '1.0.0',
   rebalance: '1.0.0',
   advisor: ADVISOR_MODEL_VERSION,

@@ -73,7 +73,8 @@ export function PortfolioBacktest({ portfolioId }: { portfolioId: string }) {
             {COST_OPTIONS.map((c) => <option key={c} value={c}>{c}% del monto</option>)}
           </select>
           <span className="text-xs text-muted-foreground">
-            No es la comisión de tu broker: es un supuesto para ver cuánto le cuesta a cada calendario operar más.
+            No es la comisión de tu broker: es un supuesto para ver cuánto le cuesta a cada calendario operar más. Se cobra
+            en cada compra y en cada venta de un rebalanceo.
           </span>
         </div>
 

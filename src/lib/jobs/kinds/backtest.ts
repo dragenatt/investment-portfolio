@@ -100,7 +100,7 @@ export async function computeBacktest(supabase: SupabaseClient, pid: string, par
       assumptions: [
         COMMON_ASSUMPTIONS.splitAdjusted,
         COMMON_ASSUMPTIONS.priceReturn,
-        { name: 'Costo por operación', value: `${costPct}% del monto negociado`, source: 'Parámetro de la prueba' },
+        { name: 'Costo por operación', value: `${costPct}% de cada compra y de cada venta de un rebalanceo`, source: 'Parámetro de la prueba; se cobra con costs.ts (tradeCost)' },
         { name: 'Capital inicial', value: '10,000 (escala; los resultados son proporcionales)', source: 'backtest job' },
         { name: 'Sin mirar al futuro', value: 'Cada decisión solo usa datos hasta ese día', source: 'backtest.ts' },
       ],
