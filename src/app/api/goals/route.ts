@@ -75,10 +75,12 @@ export const POST = apiHandler(async (req: Request) => {
     projectionSaved = !projectionError
   }
 
-  recordAudit(supabase, {
+  recordAudit({
     userId: user.id,
     entityType: 'goal',
     entityId: data.id,
+    portfolioId: data.portfolio_id,
+    label: data.name,
     action: 'created',
     newValue: data.name,
   })

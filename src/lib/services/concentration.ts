@@ -6,7 +6,17 @@
 
 import { type SupabaseClient } from '@supabase/supabase-js'
 
-type ConcentrationAlert = {
+const ASSET_TYPE_NAMES: Record<string, string> = {
+  stock: 'acciones',
+  etf: 'ETFs',
+  crypto: 'cripto',
+  bond: 'bonos',
+  forex: 'divisas',
+  commodity: 'materias primas',
+  index: 'índices',
+}
+
+export type ConcentrationAlert = {
   portfolio_id: string
   alert_type: string
   severity: 'warning' | 'critical'
@@ -31,7 +41,7 @@ export function evaluateConcentration(
         portfolio_id: portfolioId,
         alert_type: 'position_concentration',
         severity: 'critical',
-        message: `${pos.symbol} represents ${(weight * 100).toFixed(1)}% of your portfolio`,
+        message: `${pos.symbol} representa ${(weight * 100).toFixed(1)}% de tu portafolio`,
         details: { symbol: pos.symbol, weight, threshold: 0.40 },
       })
     } else if (weight > 0.25) {
@@ -39,7 +49,7 @@ export function evaluateConcentration(
         portfolio_id: portfolioId,
         alert_type: 'position_concentration',
         severity: 'warning',
-        message: `${pos.symbol} represents ${(weight * 100).toFixed(1)}% of your portfolio`,
+        message: `${pos.symbol} representa ${(weight * 100).toFixed(1)}% de tu portafolio`,
         details: { symbol: pos.symbol, weight, threshold: 0.25 },
       })
     }
@@ -59,7 +69,7 @@ export function evaluateConcentration(
           portfolio_id: portfolioId,
           alert_type: 'sector_concentration',
           severity: 'warning',
-          message: `${sector} sector is ${(weight * 100).toFixed(1)}% of your portfolio`,
+          message: `El sector ${sector} es ${(weight * 100).toFixed(1)}% de tu portafolio`,
           details: { sector, weight, threshold: 0.50 },
         })
       }
@@ -78,7 +88,7 @@ export function evaluateConcentration(
         portfolio_id: portfolioId,
         alert_type: 'asset_type_concentration',
         severity: 'warning',
-        message: `${(weight * 100).toFixed(1)}% of your portfolio is in ${type}`,
+        message: `${(weight * 100).toFixed(1)}% de tu portafolio está en ${ASSET_TYPE_NAMES[type] ?? type}`,
         details: { asset_type: type, weight, threshold: 0.80 },
       })
     }
@@ -87,27 +97,34 @@ export function evaluateConcentration(
   return alerts
 }
 
+/**
+ * Replace a portfolio's standing concentration alerts with today's findings.
+ *
+ * Takes the portfolio explicitly and clears it even when there is nothing new
+ * to insert. It used to derive the portfolios from the alerts and return early
+ * on an empty list, so a concentration that had been fixed kept its warning on
+ * screen: the one case with nothing to insert was the one that needed clearing.
+ * Nothing called it until 4.5 wired it into the nightly job.
+ */
 export async function saveAlerts(
   supabase: SupabaseClient,
-  alerts: ConcentrationAlert[]
+  portfolioId: string,
+  alerts: ConcentrationAlert[],
 ): Promise<void> {
+  await supabase
+    .from('portfolio_alerts')
+    .delete()
+    .eq('portfolio_id', portfolioId)
+    .eq('is_dismissed', false)
+
   if (alerts.length === 0) return
 
-  // Clear existing non-dismissed alerts for these portfolios
-  const portfolioIds = [...new Set(alerts.map((a) => a.portfolio_id))]
-  for (const pid of portfolioIds) {
-    await supabase
-      .from('portfolio_alerts')
-      .delete()
-      .eq('portfolio_id', pid)
-      .eq('is_dismissed', false)
-  }
-
-  // Insert new alerts
+  // Two days, not one: the nightly job replaces them every day, and a run that
+  // fails should not leave a real warning to vanish before the next one.
   await supabase.from('portfolio_alerts').insert(
     alerts.map((a) => ({
       ...a,
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
     }))
   )
 }

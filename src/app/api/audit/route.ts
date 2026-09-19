@@ -27,11 +27,13 @@ async function getHandler(req: Request) {
   const requested = url.searchParams.get('entity_type')
   const entityType = ENTITY_TYPES.find((t) => t === requested)
   const entityId = url.searchParams.get('entity_id') ?? undefined
+  const portfolioId = url.searchParams.get('portfolio_id') ?? undefined
   const limit = Number(url.searchParams.get('limit') ?? 100)
 
   const rows = await getAuditTrail(supabase, {
     entityType,
     entityId,
+    portfolioId,
     limit: Number.isFinite(limit) ? limit : 100,
   })
 

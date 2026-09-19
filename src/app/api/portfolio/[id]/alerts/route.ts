@@ -13,6 +13,8 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ id: str
     .select('*')
     .eq('portfolio_id', id)
     .eq('is_dismissed', false)
+    // An expired warning describes a book that may no longer exist.
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .order('severity', { ascending: true })
     .order('created_at', { ascending: false })
 

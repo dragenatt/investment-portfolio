@@ -6,6 +6,7 @@ import { CreatePortfolioSchema } from '@/lib/schemas/portfolio'
 import { getUserPortfolios } from '@/lib/services/portfolio'
 import { recordFunnelEvent } from '@/lib/analytics/funnel'
 import { FUNNEL_EVENTS } from '@/lib/analytics/events'
+import { recordAudit } from '@/lib/services/audit'
 
 export const GET = apiHandler(async () => {
   const supabase = await createServerSupabase()
@@ -37,6 +38,15 @@ export const POST = apiHandler(async (req: Request) => {
   if (dbError) return error(dbError.message, 500)
 
   await recordFunnelEvent(FUNNEL_EVENTS.PORTFOLIO_CREATED, user.id)
+  recordAudit({
+    userId: user.id,
+    entityType: 'portfolio',
+    entityId: data.id,
+    portfolioId: data.id,
+    label: data.name,
+    action: 'created',
+    newValue: `${data.name} (${data.base_currency})`,
+  })
 
   return success(data, undefined, 201)
 })

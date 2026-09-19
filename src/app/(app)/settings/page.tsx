@@ -14,6 +14,9 @@ import { useTranslation } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n'
 import { setLocaleCookie } from '@/lib/i18n/locale-client'
 import { setKeyboardShortcutsEnabled, useKeyboardShortcutsEnabled } from '@/lib/hooks/use-keyboard-shortcuts-preference'
+import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button-variants'
+import { cn } from '@/lib/utils'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => {
   if (r.error) throw new Error(r.error)
@@ -109,6 +112,18 @@ export default function SettingsPage() {
             </Select>
           </div>
           <Button className="rounded-xl" onClick={savePreferences}>{t.settings.save_preferences}</Button>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border-border shadow-sm">
+        <CardHeader><CardTitle className="text-xl">Historial de cambios</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Qué cambió en tus portafolios, posiciones, transacciones y metas, cuándo, y de qué valor a cuál.
+          </p>
+          <Link href="/settings/history" className={cn(buttonVariants({ variant: 'outline' }), 'rounded-xl')}>
+            Ver historial
+          </Link>
         </CardContent>
       </Card>
 

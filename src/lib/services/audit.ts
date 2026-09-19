@@ -6,19 +6,35 @@
 // seeing your own edits listed is a genuinely good way to learn what each field
 // actually does.
 //
-// Writes are fire-and-forget and never throw. An audit entry failing must not
-// fail the action it was recording — a trail is worth less than the thing it
-// describes.
+// Writes never throw and never hold up the response. An audit entry failing
+// must not fail the action it was recording — a trail is worth less than the
+// thing it describes.
+//
+// Until 4.5 the table had zero rows, and not only because few routes wrote to
+// it. The ones that did passed the USER's client, and audit_log grants the
+// authenticated role SELECT and nothing else (migration 013: "rows are written
+// by the service role"). Every insert was refused by RLS and the refusal went to
+// a console nobody reads. Entries now go through the service role, after the
+// response, where the platform keeps the function alive for them.
 
+import { after } from 'next/server'
 import { type SupabaseClient } from '@supabase/supabase-js'
+import { serviceRoleClient } from '@/lib/supabase/admin'
+import type { AuditAction, AuditEntityType, AuditRow } from './audit-labels'
 
-export type AuditEntityType = 'portfolio' | 'position' | 'transaction' | 'goal' | 'rebalance'
-export type AuditAction = 'created' | 'updated' | 'deleted' | 'rebalanced'
+// The wording and the types live in audit-labels.ts, which has no server
+// imports, so a client screen can use them; re-exported so callers keep one
+// import path.
+export * from './audit-labels'
 
 export type AuditEntry = {
   userId: string
   entityType: AuditEntityType
   entityId?: string | null
+  /** The portfolio the change happened in, so a portfolio's history can be read on its own. */
+  portfolioId?: string | null
+  /** What the reader calls the entity: a symbol, a goal's name, a trade summary. */
+  label?: string | null
   action: AuditAction
   field?: string | null
   oldValue?: unknown
@@ -70,71 +86,103 @@ export function diffForAudit(
   return changes
 }
 
-/**
- * Record one entry. Never awaited by the request path, never throws.
- *
- * Rows are written with whatever client the caller has; RLS grants SELECT to the
- * owner only and grants no UPDATE or DELETE at all, so a user can read their
- * trail but not edit it. A trail a user can edit is not a trail.
- */
-export function recordAudit(supabase: SupabaseClient, entry: AuditEntry): void {
-  void supabase
-    .from('audit_log')
-    .insert({
-      user_id: entry.userId,
-      entity_type: entry.entityType,
-      entity_id: entry.entityId ?? null,
-      action: entry.action,
-      field: entry.field ?? null,
-      old_value: asText(entry.oldValue),
-      new_value: asText(entry.newValue),
-    })
-    .then(({ error }) => {
-      if (error) console.error('[audit] insert failed:', error.message)
-    })
+/** The rows an entry list becomes. Pure, so the mapping is testable. */
+export function auditRows(entries: AuditEntry[]) {
+  return entries.map((entry) => ({
+    user_id: entry.userId,
+    entity_type: entry.entityType,
+    entity_id: entry.entityId ?? null,
+    portfolio_id: entry.portfolioId ?? null,
+    entity_label: asText(entry.label),
+    action: entry.action,
+    field: entry.field ?? null,
+    old_value: asText(entry.oldValue),
+    new_value: asText(entry.newValue),
+  }))
 }
 
-/** Record one entry per changed field, so the trail reads field by field. */
-export function recordAuditChanges(
-  supabase: SupabaseClient,
-  base: Omit<AuditEntry, 'field' | 'oldValue' | 'newValue' | 'action'>,
-  changes: FieldChange[],
-): void {
-  for (const change of changes) {
-    recordAudit(supabase, {
-      ...base,
-      action: 'updated',
-      field: change.field,
-      oldValue: change.oldValue,
-      newValue: change.newValue,
-    })
+/**
+ * Write entries now, in one insert. Never throws; resolves to the rows written.
+ *
+ * The writer is the service role: RLS gives users SELECT on their own trail and
+ * no INSERT, UPDATE or DELETE at all, so a user can read their history but not
+ * write or rewrite it.
+ */
+export async function writeAudit(
+  entries: AuditEntry[],
+  writer: SupabaseClient | null = serviceRoleClient(),
+): Promise<number> {
+  if (entries.length === 0) return 0
+  if (!writer) {
+    console.error('[audit] no service-role client; entries not recorded')
+    return 0
+  }
+  try {
+    const { error } = await writer.from('audit_log').insert(auditRows(entries))
+    if (error) {
+      console.error('[audit] insert failed:', error.message)
+      return 0
+    }
+    return entries.length
+  } catch (err) {
+    console.error('[audit] insert failed:', err instanceof Error ? err.message : err)
+    return 0
   }
 }
 
-export type AuditRow = {
-  id: string
-  entity_type: string
-  entity_id: string | null
-  action: string
-  field: string | null
-  old_value: string | null
-  new_value: string | null
-  created_at: string
+/**
+ * Record entries after the response is sent.
+ *
+ * `after()` keeps the function alive until the write finishes; a bare promise
+ * left behind by a returned response can be frozen with the instance and never
+ * reach the database. Outside a request (a script, a test) it writes directly.
+ */
+export function recordAudit(...entries: AuditEntry[]): void {
+  if (entries.length === 0) return
+  const write = () => writeAudit(entries).then(() => undefined)
+  try {
+    after(write)
+  } catch {
+    void write()
+  }
+}
+
+/** One entry per changed field, so the trail reads field by field. */
+export function changeEntries(
+  base: Omit<AuditEntry, 'field' | 'oldValue' | 'newValue' | 'action'>,
+  changes: FieldChange[],
+): AuditEntry[] {
+  return changes.map((change) => ({
+    ...base,
+    action: 'updated' as const,
+    field: change.field,
+    oldValue: change.oldValue,
+    newValue: change.newValue,
+  }))
+}
+
+/** Record one entry per changed field. */
+export function recordAuditChanges(
+  base: Omit<AuditEntry, 'field' | 'oldValue' | 'newValue' | 'action'>,
+  changes: FieldChange[],
+): void {
+  recordAudit(...changeEntries(base, changes))
 }
 
 /** A user's own trail, newest first. RLS restricts this to their rows. */
 export async function getAuditTrail(
   supabase: SupabaseClient,
-  options: { entityType?: AuditEntityType; entityId?: string; limit?: number } = {},
+  options: { entityType?: AuditEntityType; entityId?: string; portfolioId?: string; limit?: number } = {},
 ): Promise<AuditRow[]> {
   let query = supabase
     .from('audit_log')
-    .select('id, entity_type, entity_id, action, field, old_value, new_value, created_at')
+    .select('id, entity_type, entity_id, portfolio_id, entity_label, action, field, old_value, new_value, created_at')
     .order('created_at', { ascending: false })
     .limit(Math.min(options.limit ?? 100, 500))
 
   if (options.entityType) query = query.eq('entity_type', options.entityType)
   if (options.entityId) query = query.eq('entity_id', options.entityId)
+  if (options.portfolioId) query = query.eq('portfolio_id', options.portfolioId)
 
   const { data, error } = await query
   if (error) {
@@ -144,26 +192,42 @@ export async function getAuditTrail(
   return (data ?? []) as AuditRow[]
 }
 
-/**
- * One line describing an entry, in the user's terms.
- *
- * Pure, so the wording is testable. Kept here rather than in a component
- * because the same sentence belongs in an export and a notification too.
- */
-export function describeAuditEntry(row: AuditRow): string {
-  const subject = row.entity_id ? `${row.entity_type} ${row.entity_id}` : row.entity_type
+const TRADE_TYPE_NAMES: Record<string, string> = {
+  buy: 'compra',
+  sell: 'venta',
+  dividend: 'dividendo',
+  split: 'split',
+}
 
-  switch (row.action) {
-    case 'created':
-      return `Created ${subject}.`
-    case 'deleted':
-      return `Deleted ${subject}.`
-    case 'rebalanced':
-      return `Rebalanced ${subject}.`
-    case 'updated':
-      if (!row.field) return `Updated ${subject}.`
-      return `Changed ${row.field} on ${subject} from ${row.old_value ?? 'empty'} to ${row.new_value ?? 'empty'}.`
-    default:
-      return `${row.action} on ${subject}.`
-  }
+/** "compra 10 AAPL a 150 USD" — how a transaction is named in its history. */
+export function describeTrade(trade: {
+  type: string
+  quantity: number | string
+  symbol: string
+  price: number | string
+  currency?: string | null
+}): string {
+  const type = TRADE_TYPE_NAMES[trade.type] ?? trade.type
+  const currency = trade.currency ? ` ${trade.currency}` : ''
+  return `${type} ${Number(trade.quantity)} ${trade.symbol} a ${Number(trade.price)}${currency}`
+}
+
+const round6 = (value: number | string) => Math.round(Number(value) * 1e6) / 1e6
+
+/** The position fields a trade moves, before and after, as change entries. */
+export function positionChangeEntries(
+  base: { userId: string; positionId: string; portfolioId: string; symbol: string },
+  before: { quantity: number | string; avg_cost: number | string },
+  after: { quantity: number; avg_cost: number },
+): AuditEntry[] {
+  return changeEntries(
+    { userId: base.userId, entityType: 'position', entityId: base.positionId, portfolioId: base.portfolioId, label: base.symbol },
+    // Rounded to six decimals on both sides: a replayed average cost carries
+    // float noise (150.33333333333334) that is neither a change nor readable.
+    diffForAudit(
+      { quantity: round6(before.quantity), avg_cost: round6(before.avg_cost) },
+      { quantity: round6(after.quantity), avg_cost: round6(after.avg_cost) },
+      ['quantity', 'avg_cost'],
+    ),
+  )
 }

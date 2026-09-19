@@ -22,6 +22,7 @@ import {
 import { fetchAndStoreBenchmarks } from '@/lib/services/benchmarks'
 import { apiHandler } from '@/lib/api/handler'
 import { sweepJobs } from '@/lib/jobs/runner'
+import { runNightlyNotifications } from '@/lib/services/portfolio-notifications'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -82,6 +83,17 @@ async function getHandler(req: Request) {
       jobs = { error: sweepError instanceof Error ? sweepError.message : 'Unknown error' }
     }
 
+    // 6. Notifications (4.5): drawdown and concentration per portfolio,
+    // extraordinary moves and stopped histories per holding, and price alerts.
+    // Last, and in its own try, so the inbox can never cost the data above.
+    let notifications: Awaited<ReturnType<typeof runNightlyNotifications>> | { error: string }
+    try {
+      notifications = await runNightlyNotifications(supabase)
+    } catch (notifyError) {
+      console.error('[cron] notifications failed', notifyError)
+      notifications = { error: notifyError instanceof Error ? notifyError.message : 'Unknown error' }
+    }
+
     const duration = Date.now() - startTime
     await finishCronRun(supabase, runId, {
       processed: snapshotResult.processed,
@@ -100,6 +112,7 @@ async function getHandler(req: Request) {
       leaderboard,
       benchmarks: { stored: benchmarksStored },
       jobs,
+      notifications,
       duration: `${duration}ms`,
       timestamp: new Date().toISOString(),
     })

@@ -24,6 +24,7 @@ import {
   type JobErrorKind,
 } from '@/lib/services/jobs'
 import { markServed } from '@/lib/services/result-metadata'
+import { deliverNotifications, jobFinishedNotification, type NotifiedJob } from '@/lib/services/notifications'
 import { computeMonteCarlo } from './kinds/monte-carlo'
 import { computeBacktest } from './kinds/backtest'
 import { computeFactors } from './kinds/factors'
@@ -49,6 +50,31 @@ const COMPUTE: Record<JobKind, (supabase: SupabaseClient, pid: string, params: J
   // caps will need the params type widened first.
   optimization: (s, pid, p) => computeOptimization(s, pid, { minWeight: p.minWeight, maxWeight: p.maxWeight }),
   stress: (s, pid) => computeStress(s, pid, {}),
+}
+
+/** How each job kind is named in the inbox. */
+const NOTIFIED_AS: Record<JobKind, NotifiedJob> = {
+  monteCarlo: 'montecarlo',
+  backtest: 'backtest',
+  factors: 'factors',
+  optimization: 'optimisation',
+  stress: 'stress_test',
+}
+
+/**
+ * Tell the user a job ended, once. Called only when this process's conditional
+ * write is the one that finished the job, so a late attempt that changed
+ * nothing does not announce anything either. Never throws.
+ */
+async function announce(admin: SupabaseClient, job: JobRow, succeeded: boolean): Promise<void> {
+  try {
+    await deliverNotifications(
+      [jobFinishedNotification(job.user_id, job.portfolio_id, NOTIFIED_AS[job.kind], succeeded)],
+      { writer: admin },
+    )
+  } catch (err) {
+    console.error('[jobs] notification failed:', err instanceof Error ? err.message : err)
+  }
 }
 
 /**
@@ -111,6 +137,7 @@ async function markTimedOut(admin: SupabaseClient, job: JobRow, now: number): Pr
     .in('status', ['processing', 'retrying'])
     .select('*')
     .maybeSingle()
+  if (data) await announce(admin, data as JobRow, false)
   return (data as JobRow | null) ?? job
 }
 
@@ -204,7 +231,7 @@ export async function executeJob(admin: SupabaseClient, userClient: SupabaseClie
   const now = Date.now()
 
   if (outcome.ok) {
-    await admin
+    const { data: finished } = await admin
       .from(TABLE)
       .update({
         status: 'completed' satisfies JobStatus,
@@ -217,16 +244,21 @@ export async function executeJob(admin: SupabaseClient, userClient: SupabaseClie
       .eq('id', job.id)
       .eq('attempts', job.attempts)
       .eq('status', 'processing')
+      .select('id')
+    if (finished && finished.length > 0) await announce(admin, job, true)
     return
   }
 
   const next = outcomeOfFailure(job, outcome.errorKind, outcome.error, now)
-  await admin
+  const { data: recorded } = await admin
     .from(TABLE)
     .update({ ...next, updated_at: iso(now) })
     .eq('id', job.id)
     .eq('attempts', job.attempts)
     .eq('status', 'processing')
+    .select('id')
+  // A failure with attempts left is not news yet; the retry may still succeed.
+  if (next.status === 'failed' && recorded && recorded.length > 0) await announce(admin, job, false)
 }
 
 /**
@@ -248,7 +280,11 @@ export async function sweepJobs(admin: SupabaseClient, now = Date.now()): Promis
     })
     .in('status', ['processing', 'retrying'])
     .lt('deadline_at', iso(now - SWEEP_AFTER_MS))
-    .select('id')
+    .select('id, kind, user_id, portfolio_id')
+
+  // The tab that started these is gone, so the inbox is the only place left to
+  // say they did not finish.
+  for (const job of (failed ?? []) as JobRow[]) await announce(admin, job, false)
 
   const { data: deleted } = await admin
     .from(TABLE)

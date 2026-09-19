@@ -82,8 +82,7 @@ export const PATCH = apiHandler(async (req: Request, ctx: { params: Promise<{ id
   // Field by field, so the trail reads as "changed the target from X to Y"
   // rather than "updated the goal".
   recordAuditChanges(
-    supabase,
-    { userId: user.id, entityType: 'goal', entityId: id },
+    { userId: user.id, entityType: 'goal', entityId: id, portfolioId: data.portfolio_id, label: data.name },
     diffForAudit(before, data, AUDITED_FIELDS),
   )
 
@@ -132,12 +131,14 @@ export const POST = apiHandler(async (_req: Request, ctx: { params: Promise<{ id
 
   if (dbError) return error(dbError.message, 500)
 
-  recordAudit(supabase, {
+  recordAudit({
     userId: user.id,
     entityType: 'goal',
     entityId: data.id,
+    portfolioId: data.portfolio_id,
+    label: data.name,
     action: 'created',
-    newValue: `duplicated from ${id}`,
+    newValue: `copia de ${original.name}`,
   })
 
   return success(data, undefined, 201)
@@ -149,15 +150,17 @@ export const DELETE = apiHandler(async (_req: Request, ctx: { params: Promise<{ 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const { data: before } = await supabase.from('goals').select('name').eq('id', id).single()
+  const { data: before } = await supabase.from('goals').select('name, portfolio_id').eq('id', id).single()
 
   const { error: dbError } = await supabase.from('goals').delete().eq('id', id)
   if (dbError) return error(dbError.message, 500)
 
-  recordAudit(supabase, {
+  recordAudit({
     userId: user.id,
     entityType: 'goal',
     entityId: id,
+    portfolioId: before?.portfolio_id ?? null,
+    label: before?.name ?? null,
     action: 'deleted',
     oldValue: before?.name ?? null,
   })

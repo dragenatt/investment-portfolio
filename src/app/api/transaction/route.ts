@@ -5,6 +5,7 @@ import { validate } from '@/lib/api/validate'
 import { CreateTransactionSchema } from '@/lib/schemas/transaction'
 import { recalculatePosition } from '@/lib/services/transaction'
 import { apiHandler } from '@/lib/api/handler'
+import { recordAudit, describeTrade, positionChangeEntries, type AuditEntry } from '@/lib/services/audit'
 
 async function getHandler(req: Request) {
   const supabase = await createServerSupabase()
@@ -71,10 +72,11 @@ async function postHandler(req: Request) {
   // Find or create position
   let { data: position } = await supabase
     .from('positions')
-    .select('id, quantity, currency')
+    .select('id, quantity, avg_cost, currency')
     .eq('portfolio_id', txn.portfolio_id)
     .eq('symbol', txn.symbol)
     .single()
+  const createdPosition = !position
 
   if (!position) {
     if (txn.type !== 'buy') return error('Cannot sell/split/dividend without existing position', 400)
@@ -127,6 +129,13 @@ async function postHandler(req: Request) {
     // Ties on executed_at (the modal records a date, not a time) replay in entry order.
     .order('created_at', { ascending: true })
 
+  const trade = describeTrade({ ...txn })
+  const audit: AuditEntry[] = []
+  if (createdPosition) {
+    audit.push({ userId: user.id, entityType: 'position', entityId: position.id, portfolioId: txn.portfolio_id, label: txn.symbol, action: 'created' })
+  }
+  audit.push({ userId: user.id, entityType: 'transaction', entityId: savedTxn.id, portfolioId: txn.portfolio_id, label: trade, action: 'created', newValue: trade })
+
   if (allTxns) {
     const recalc = recalculatePosition(allTxns as Array<{ type: 'buy' | 'sell' | 'dividend' | 'split'; quantity: number; price: number; fees: number }>)
     // Use the currency from the most recent transaction (last in the ordered list)
@@ -135,7 +144,15 @@ async function postHandler(req: Request) {
       .from('positions')
       .update({ quantity: recalc.quantity, avg_cost: recalc.avg_cost, currency: latestCurrency })
       .eq('id', position.id)
+    // What the trade did to the position: the part of "why did my cost basis
+    // move?" the transaction row alone does not answer.
+    audit.push(...positionChangeEntries(
+      { userId: user.id, positionId: position.id, portfolioId: txn.portfolio_id, symbol: txn.symbol },
+      { quantity: position.quantity ?? 0, avg_cost: position.avg_cost ?? 0 },
+      recalc,
+    ))
   }
+  recordAudit(...audit)
 
   return success(savedTxn, undefined, 201)
 }

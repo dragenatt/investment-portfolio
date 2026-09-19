@@ -3,6 +3,7 @@ import { success, error } from '@/lib/api/response'
 import { validate } from '@/lib/api/validate'
 import { UpdateVisibilitySchema } from '@/lib/schemas/social'
 import { apiHandler } from '@/lib/api/handler'
+import { recordAuditChanges, diffForAudit } from '@/lib/services/audit'
 
 async function patchHandler(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -18,7 +19,7 @@ async function patchHandler(req: Request, { params }: { params: Promise<{ id: st
   // Verify ownership
   const { data: portfolio, error: fetchError } = await supabase
     .from('portfolios')
-    .select('user_id')
+    .select('*')
     .eq('id', id)
     .single()
 
@@ -42,6 +43,11 @@ async function patchHandler(req: Request, { params }: { params: Promise<{ id: st
     }
     return error(dbError.message, 500)
   }
+
+  recordAuditChanges(
+    { userId: user.id, entityType: 'portfolio', entityId: id, portfolioId: id, label: data.name },
+    diffForAudit(portfolio, data, Object.keys(result.data)),
+  )
   return success(data)
 }
 

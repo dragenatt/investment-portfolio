@@ -31,7 +31,7 @@ import { use, useMemo, useCallback, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { cn } from '@/lib/utils'
-import { BarChart3, List, Download, TrendingUp, TrendingDown, Plus, Share2, Globe, Lock, Check, Copy } from 'lucide-react'
+import { BarChart3, List, Download, TrendingUp, TrendingDown, Plus, Share2, Globe, Lock, Check, Copy, History } from 'lucide-react'
 import { transactionsToCSV, positionsToCSV, downloadFile } from '@/lib/utils/export'
 import type { ExportTransaction, ExportPosition } from '@/lib/utils/export'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -266,6 +266,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           </button>
           <Link href={`/portfolio/${id}/transactions`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-xl')}><List className="h-4 w-4 mr-1" /> {t.portfolio.transactions}</Link>
           <Link href={`/portfolio/${id}/analytics`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-xl')}><BarChart3 className="h-4 w-4 mr-1" /> {t.portfolio.analytics}</Link>
+          <Link href={`/settings/history?portfolio=${id}`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-xl')}><History aria-hidden="true" className="h-4 w-4 mr-1" /> Historial</Link>
           <Button className="rounded-xl" variant="outline" size="sm" onClick={() => setShareOpen(true)}>
             <Share2 className="h-4 w-4 mr-1" /> {t.sharing.share}
           </Button>

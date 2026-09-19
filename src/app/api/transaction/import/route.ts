@@ -4,6 +4,7 @@ import { rateLimit } from '@/lib/api/rate-limit'
 import { recalculatePosition } from '@/lib/services/transaction'
 import { z } from 'zod'
 import { apiHandler } from '@/lib/api/handler'
+import { recordAudit, positionChangeEntries, type AuditEntry } from '@/lib/services/audit'
 
 const ASSET_TYPES = ['stock', 'etf', 'crypto', 'bond', 'forex', 'commodity', 'index'] as const
 
@@ -67,6 +68,10 @@ async function postHandler(req: Request) {
 
   const errors: string[] = []
   let imported = 0
+  // One summary entry for the import rather than one per row: a 500-row file
+  // would otherwise bury everything else in the history.
+  const audit: AuditEntry[] = []
+  const importedSymbols: string[] = []
 
   // Group rows by symbol to batch position lookups
   const bySymbol = new Map<string, typeof rows>()
@@ -80,10 +85,11 @@ async function postHandler(req: Request) {
     // Find or create position for this symbol
     let { data: position } = await supabase
       .from('positions')
-      .select('id, quantity')
+      .select('id, quantity, avg_cost')
       .eq('portfolio_id', portfolio_id)
       .eq('symbol', symbol)
       .single()
+    const before = { quantity: position?.quantity ?? 0, avg_cost: position?.avg_cost ?? 0 }
 
     // Check if first transaction for this symbol is a buy (if no position exists)
     const sortedRows = [...symbolRows].sort(
@@ -117,6 +123,7 @@ async function postHandler(req: Request) {
         continue
       }
       position = newPos
+      audit.push({ userId: user.id, entityType: 'position', entityId: newPos.id, portfolioId: portfolio_id, label: symbol, action: 'created' })
     }
 
     if (!position) {
@@ -168,8 +175,16 @@ async function postHandler(req: Request) {
         .from('positions')
         .update({ quantity: recalc.quantity, avg_cost: recalc.avg_cost })
         .eq('id', position.id)
+      audit.push(...positionChangeEntries({ userId: user.id, positionId: position.id, portfolioId: portfolio_id, symbol }, before, recalc))
     }
+    importedSymbols.push(symbol)
   }
+
+  if (imported > 0) {
+    const summary = `importación de ${imported} transacciones (${importedSymbols.join(', ')})`
+    audit.unshift({ userId: user.id, entityType: 'transaction', portfolioId: portfolio_id, label: summary, action: 'created', newValue: summary })
+  }
+  recordAudit(...audit)
 
   return success({ imported, errors })
 }

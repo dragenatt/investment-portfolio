@@ -5,8 +5,9 @@ import { cacheGet, cacheSet } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
 import { computeDailyPositions, buildDailyTimeline, snapshotsCoverWindow, type DailySnapshot } from '@/lib/services/portfolio-history'
 import { buildIntradayTimeline, MIN_INTRADAY_POINTS, type IntradayBar } from '@/lib/services/portfolio-intraday'
-import { lastSettledSession, topUpStoredHistory, writeThrough, isDailyRange, symbolCurrencies, fetchAdjustedPriceHistory } from '@/lib/services/price-history'
-import { buildConversion, fxPairSymbol, type RateSeries } from '@/lib/services/fx'
+import { lastSettledSession, topUpStoredHistory, writeThrough, isDailyRange } from '@/lib/services/price-history'
+import type { Conversion } from '@/lib/services/fx'
+import { historicalConversion } from '@/lib/services/fx-history'
 import { apiHandler } from '@/lib/api/handler'
 
 /**
@@ -86,44 +87,6 @@ async function fetchIntradayBars(symbols: string[], range: string): Promise<Reco
   return bars
 }
 
-/**
- * A multiplier per symbol and date into the currency the reader is looking at.
- *
- * The chart used to sum provider closes directly, so a book holding AAPL in
- * dollars and FEMSAUBD.MX in pesos had those added together as one number —
- * which the page then printed beside a header already converted to the base
- * currency. Two readings of the same quantity, seventeen times apart.
- *
- * The rate used is the one for EACH DATE, not today's applied backwards: the FX
- * pairs have daily history and it costs one more fetch to be right.
- */
-async function conversionFor(
-  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
-  symbols: string[],
-  base: string,
-  from: string,
-) {
-  const currencyBySymbol = await symbolCurrencies(supabase, symbols)
-  const needed = [...new Set([...Object.values(currencyBySymbol), base.toUpperCase()])]
-    .map(fxPairSymbol)
-    .filter((pair): pair is string => pair !== null)
-
-  const usdRates: RateSeries = {}
-  if (needed.length > 0) {
-    // FX pairs are symbols like any other, so the stored-first chain and its
-    // write-through work on them unchanged.
-    const { rows } = await fetchAdjustedPriceHistory(supabase, needed, { range: '6mo' })
-    for (const row of rows) {
-      if (row.date < from) continue
-      const currency = row.symbol.replace(/^USD/, '').replace(/=X$/, '')
-      usdRates[currency] ??= {}
-      usdRates[currency][row.date] = row.close
-    }
-  }
-
-  return buildConversion({ currencyBySymbol, base: base.toUpperCase(), usdRates })
-}
-
 /** The currency the reader is looking at: their saved preference, else the book's. */
 async function displayCurrency(
   supabase: Awaited<ReturnType<typeof createServerSupabase>>,
@@ -149,7 +112,7 @@ const today = () => new Date().toISOString().slice(0, 10)
  * but the reader is told which ones, because a total with a stated gap is
  * honest and a silently mixed one is not.
  */
-function conversionNotes(convert: ReturnType<typeof buildConversion>) {
+function conversionNotes(convert: Conversion) {
   const unconverted = [...convert.unknownCurrency, ...convert.missingRate]
   return {
     currencies: convert.currencies,
@@ -245,7 +208,7 @@ async function getHandler(req: Request) {
       // uses its own day's rate: FX moves during a session too, but the pairs
       // are only stored daily, and pretending otherwise would be precision the
       // data does not have.
-      const convert = await conversionFor(supabase, symbols, base, cutoffStr)
+      const convert = await historicalConversion(supabase, symbols, base, cutoffStr)
       const convertedBars: typeof bars = {}
       for (const [symbol, series] of Object.entries(bars)) {
         convertedBars[symbol] = series.map((bar) => ({
@@ -421,7 +384,7 @@ async function getHandler(req: Request) {
   }
 
   // Into the reader's currency, close by close, at each date's own rate.
-  const convert = await conversionFor(supabase, symbols, base, cutoffStr)
+  const convert = await historicalConversion(supabase, symbols, base, cutoffStr)
   for (const [symbol, priceMap] of Object.entries(historicalPrices)) {
     for (const date of Object.keys(priceMap)) priceMap[date] *= convert.factor(symbol, date)
   }

@@ -1,6 +1,7 @@
 'use client'
 
 import { ThemeToggle } from './theme-toggle'
+import { NotificationBell } from './notification-bell'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { LogOut, Search, Menu } from 'lucide-react'
@@ -81,6 +82,8 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             <SelectItem value="EUR">EUR</SelectItem>
           </SelectContent>
         </Select>
+
+        <NotificationBell />
 
         <ThemeToggle />
 

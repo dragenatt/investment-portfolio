@@ -15,6 +15,8 @@ const LABELS: Record<string, string> = {
   analytics: 'Análisis',
   import: 'Importar',
   new: 'Nuevo',
+  history: 'Historial',
+  goals: 'Metas',
 }
 
 const SYMBOL_NAMES: Record<string, string> = {
