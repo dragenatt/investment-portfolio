@@ -7,8 +7,6 @@ import { calculateCovarianceMatrix } from '@/lib/services/covariance'
 import { calculateBetaAlpha } from '@/lib/services/analytics'
 import { riskParityWeights } from '@/lib/services/allocation-strategies'
 import { driftTargets } from '@/lib/services/rebalance'
-import { symbolCurrencies } from '@/lib/services/price-history'
-import { buildConversion, fxPairSymbol } from '@/lib/services/fx'
 
 // The rebalance panel (P0-12, P1-10).
 //
@@ -35,29 +33,14 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
     const symbols = common.symbols
     const periods = cadence.periodsPerYear
 
-    const { data: portfolio } = await supabase.from('portfolios').select('base_currency').eq('id', pid).single()
-    const base = String(portfolio?.base_currency ?? 'USD').toUpperCase()
-
-    // Each holding's value in the book's currency. common.bookValue and its
-    // weights are raw quantity × close, which adds pesos to dollars for a mixed
-    // book; trade amounts shown in money have to be in one unit.
-    const localValues = symbols.map((_, i) => (common.currentWeights[i] ?? 0) * common.bookValue)
-    const quoteCurrency = await symbolCurrencies(supabase, symbols)
-    const pairs = [...new Set([...Object.values(quoteCurrency), base])].map(fxPairSymbol).filter((p): p is string => p !== null)
-    const today = new Date().toISOString().slice(0, 10)
-    const usdRates: Record<string, Record<string, number>> = {}
-    if (pairs.length > 0) {
-      const { data: rates } = await supabase.from('current_prices').select('symbol, price').in('symbol', pairs)
-      for (const row of rates ?? []) {
-        const price = Number(row.price)
-        if (Number.isFinite(price) && price > 0) usdRates[String(row.symbol).replace(/^USD/, '').replace(/=X$/, '')] = { [today]: price }
-      }
-    }
-    const conversion = buildConversion({ currencyBySymbol: quoteCurrency, base, usdRates })
-    const values = localValues.map((v, i) => v * conversion.factor(symbols[i], today))
-    const bookValue = values.reduce((a, b) => a + b, 0)
+    // The risk inputs are already in the book's currency (todaysSymbolFactors),
+    // so their book value and weights are one unit. This route used to convert
+    // them here, the one engine that did.
+    const base = inputs.currency
+    const bookValue = common.bookValue
     if (!(bookValue > 0)) return { message: 'El portafolio no tiene valor que rebalancear.' }
-    const weights = values.map((v) => v / bookValue)
+    const weights = common.currentWeights
+    const values = weights.map((w) => w * bookValue)
 
     const cov = calculateCovarianceMatrix(aligned.returnsMatrix).map((row) => row.map((v) => v * periods))
     const expectedReturns = aligned.returnsMatrix.map((series) => (series.reduce((a, b) => a + b, 0) / series.length) * periods)
@@ -89,13 +72,12 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         drift: toMap(driftTargets(weights, growth)),
         riskParity: toMap(riskParityWeights(cov)),
       },
-      unconverted: [...conversion.unknownCurrency, ...conversion.missingRate],
+      unconverted: inputs.unconverted,
       _meta: riskInputsMetadata(inputs, 'rebalance', {
         usesRiskFree: true,
         usesBenchmark: betas !== null,
         assumptions: [
           { name: 'Rendimiento esperado', value: 'Media histórica anualizada del periodo', source: 'Estimación (rebalance route)' },
-          { name: 'Montos', value: `Convertidos a ${base} al tipo de cambio de hoy`, source: 'fx.ts' },
           { name: 'Costos', value: 'No incluidos: la simulación no descuenta comisiones ni impuestos', source: 'Convención (rebalance.ts)' },
         ],
       }),

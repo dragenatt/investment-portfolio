@@ -99,6 +99,8 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       request,
       allocation: { preset: request.allocation, name: PRESET_NAMES[request.allocation], weights: spec.holdings },
       capital: spec.capital,
+      /** The currency the capital, the contributions and every band are in: the portfolio's. */
+      currency: inputs.currency,
       benchmark: spec.benchmark ? { symbol: benchmark.symbol, name: benchmark.name } : null,
       result,
       // How far the historical mean can be trusted, for the allocation simulated.

@@ -111,7 +111,9 @@ export function ScenarioEngineCard({ pid, currency }: { pid: string; currency: s
 
   const result = data?.result
   const bands: MonthlyBand[] = result ? (real ? result.real : result.nominal) : []
-  const money = (v: number) => formatCurrency(v, currency)
+  // Amounts are in the portfolio's currency, which the route states; the
+  // display currency is only a fallback for an answer cached before it did.
+  const money = (v: number) => formatCurrency(v, data?.currency ?? currency)
   const rows = bands.map((b) => ({ ...b, outer: [b.p10, b.p90] as [number, number], inner: [b.p25, b.p75] as [number, number] }))
   const last = bands[bands.length - 1]
 

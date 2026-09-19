@@ -9,6 +9,7 @@ import { getChartTheme, formatAxisTick } from '@/lib/utils/chart-config'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts'
 import { DollarSign, Calendar, TrendingUp, Banknote } from 'lucide-react'
 import { ChartFigure } from '@/components/charts/chart-figure'
+import { useCurrency } from '@/lib/hooks/use-currency'
 
 type Props = {
   totals: {
@@ -27,6 +28,13 @@ type Props = {
     amount: number
   }>
   isLoading?: boolean
+  /**
+   * The currency the amounts arrive in (the portfolio's, stated by the route).
+   * They are shown converted into the reader's display currency; without it
+   * they are taken to be in it already, as results computed before it was
+   * stated were.
+   */
+  currency?: string
 }
 
 function SummaryCard({
@@ -83,7 +91,10 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   )
 }
 
-export function IncomeDashboard({ totals, byPosition, monthlyHistory, isLoading }: Props) {
+export function IncomeDashboard({ totals, byPosition, monthlyHistory: monthlyInBase, isLoading, currency }: Props) {
+  const { convert } = useCurrency()
+  const monthlyHistory = currency ? monthlyInBase.map((m) => ({ ...m, amount: convert(m.amount, currency) })) : monthlyInBase
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -143,19 +154,19 @@ export function IncomeDashboard({ totals, byPosition, monthlyHistory, isLoading 
         <SummaryCard
           icon={Calendar}
           label="Ingreso MTD"
-          value={<FormattedAmount value={totals.mtd} />}
+          value={<FormattedAmount value={totals.mtd} from={currency} />}
           accentVar="good"
         />
         <SummaryCard
           icon={Calendar}
           label="Ingreso YTD"
-          value={<FormattedAmount value={totals.ytd} />}
+          value={<FormattedAmount value={totals.ytd} from={currency} />}
           accentVar="good"
         />
         <SummaryCard
           icon={DollarSign}
           label="Ingreso Total"
-          value={<FormattedAmount value={totals.all_time} />}
+          value={<FormattedAmount value={totals.all_time} from={currency} />}
           accentVar="good"
         />
         <SummaryCard
@@ -207,7 +218,7 @@ export function IncomeDashboard({ totals, byPosition, monthlyHistory, isLoading 
                         >
                           {pos.symbol}
                         </span>
-                        <FormattedAmount value={pos.total} className="text-sm" />
+                        <FormattedAmount value={pos.total} from={currency} className="text-sm" />
                       </div>
                       <span
                         className="text-xs font-medium"

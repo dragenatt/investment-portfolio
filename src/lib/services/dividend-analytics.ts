@@ -1,4 +1,6 @@
 import { type SupabaseClient } from '@supabase/supabase-js'
+import { historicalFx } from './fx-history'
+import { valueBookInBase } from './book-valuation'
 
 export type DividendRecord = { symbol: string; amount: number; date: string }
 
@@ -64,11 +66,29 @@ export function summariseIncome(dividends: DividendRecord[], portfolioValue: num
   }
 }
 
-export async function getIncomeAnalytics(supabase: SupabaseClient, portfolioId: string): Promise<IncomeSummary> {
+export type IncomeAnalytics = IncomeSummary & {
+  /** The currency every amount is in: the portfolio's. */
+  currency: string
+  /** Holdings with a dividend or a value whose rate was unknown, left in their own unit. */
+  unconverted: string[]
+}
+
+/**
+ * The income tab's figures, every amount in the portfolio's currency.
+ *
+ * A dividend is converted at the rate of the day it was paid — what it was
+ * worth when it arrived — and the holdings' value at today's. Summed as
+ * recorded, a dollar dividend and a peso one were added as one unit, and the
+ * tab printed the total as though it were already in the reader's currency.
+ */
+export async function getIncomeAnalytics(supabase: SupabaseClient, portfolioId: string): Promise<IncomeAnalytics> {
+  const { data: portfolio } = await supabase.from('portfolios').select('base_currency').eq('id', portfolioId).maybeSingle()
+  const base = String(portfolio?.base_currency ?? 'USD').toUpperCase()
+
   // Get dividend transactions
   const { data: dividends } = await supabase
     .from('transactions')
-    .select('quantity, price, executed_at, position:positions!inner(portfolio_id, symbol)')
+    .select('quantity, price, currency, executed_at, position:positions!inner(portfolio_id, symbol, currency)')
     .eq('type', 'dividend')
     .eq('position.portfolio_id', portfolioId)
     .order('executed_at', { ascending: true })
@@ -78,25 +98,38 @@ export async function getIncomeAnalytics(supabase: SupabaseClient, portfolioId: 
   // What the holdings are worth now, for the yield: the stored quote, else cost.
   const { data: positions } = await supabase
     .from('positions')
-    .select('symbol, quantity, avg_cost')
+    .select('symbol, quantity, avg_cost, currency')
     .eq('portfolio_id', portfolioId)
     .gt('quantity', 0)
   const symbols = (positions ?? []).map((p) => p.symbol as string)
   const { data: prices } = symbols.length
     ? await supabase.from('current_prices').select('symbol, price').in('symbol', symbols)
     : { data: [] }
-  const priceBySymbol = new Map((prices ?? []).map((p) => [p.symbol as string, Number(p.price)]))
-  const portfolioValue = (positions ?? []).reduce(
-    (sum, p) => sum + Number(p.quantity) * (priceBySymbol.get(p.symbol as string) ?? Number(p.avg_cost)),
-    0,
+  const quotes = Object.fromEntries((prices ?? []).map((p) => [p.symbol as string, Number(p.price)]))
+  const valuation = await valueBookInBase(
+    supabase,
+    (positions ?? []).map((p) => ({ symbol: p.symbol as string, quantity: Number(p.quantity), avg_cost: Number(p.avg_cost), currency: p.currency as string | null })),
+    quotes,
+    base,
   )
 
-  return summariseIncome(
-    (dividends ?? []).map((d) => ({
-      symbol: (d.position as unknown as { symbol: string }).symbol,
+  const rows = (dividends ?? []).map((d) => {
+    const position = d.position as unknown as { symbol: string; currency: string | null }
+    return {
+      symbol: position.symbol,
       amount: (d.quantity as number) * (d.price as number),
+      currency: String((d.currency as string | null) ?? position.currency ?? base).toUpperCase(),
       date: d.executed_at as string,
-    })),
-    portfolioValue,
-  )
+    }
+  })
+  const unconverted = new Set(valuation.unconverted)
+  const earliest = rows.reduce((min, r) => (r.date < min ? r.date : min), new Date().toISOString()).slice(0, 10)
+  const fx = rows.some((r) => r.currency !== base) ? await historicalFx(supabase, [], rows.map((r) => r.currency), base, earliest) : null
+  const inBase = rows.map((r) => {
+    const factor = r.currency === base ? 1 : fx?.cashFactor(r.currency, r.date.slice(0, 10)) ?? null
+    if (factor === null) unconverted.add(r.symbol)
+    return { symbol: r.symbol, amount: r.amount * (factor ?? 1), date: r.date }
+  })
+
+  return { ...summariseIncome(inBase, valuation.total), currency: base, unconverted: [...unconverted] }
 }

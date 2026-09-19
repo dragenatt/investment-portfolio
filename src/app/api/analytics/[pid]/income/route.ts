@@ -28,6 +28,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         assumptions: [
           { name: 'Dividendos', value: 'Solo los que se registraron como operación; nada se estima', source: 'dividend-analytics.ts' },
           { name: 'Rendimiento por dividendos', value: 'Dividendos de los últimos 12 meses sobre el valor actual de las posiciones (cotización guardada o costo)', source: 'dividend-analytics.ts' },
+          { name: 'Moneda', value: `Montos en ${income.currency}: cada dividendo al tipo de cambio del día en que se pagó, el valor de las posiciones al de hoy`, source: 'dividend-analytics.ts' },
         ],
       }),
     }

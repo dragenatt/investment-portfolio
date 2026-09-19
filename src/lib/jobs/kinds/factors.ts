@@ -13,6 +13,7 @@ import {
 import { factorRebuildDue, loadStoredFactorReturns, storeFactorReturns } from '@/lib/services/factor-store'
 import { portfolioValueSeries } from '@/lib/services/portfolio-series'
 import { buildResultMetadata, combinePriceSources, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
+import { closesInBase, todaysSymbolFactors } from '@/lib/services/book-valuation'
 
 /** Fewer aligned days than this and the loadings are noise with error bars. */
 const MIN_REGRESSION_DAYS = 60
@@ -95,9 +96,13 @@ export async function computeFactors(supabase: SupabaseClient, pid: string, _par
   if (!positions || positions.length === 0) return { message: 'No positions' }
 
   const symbols = positions.map((p) => p.symbol)
-  const { rows: history, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, {
+  const { rows: quoted, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, {
     limit: undefined,
   })
+  // Into the portfolio's currency before the value series weights them, as the
+  // risk endpoint does: a mixed book's series added pesos to dollars.
+  const fx = await todaysSymbolFactors(supabase, symbols, portfolio?.currency ?? 'USD')
+  const history = closesInBase(quoted, fx.factors)
   if (history.length < MIN_REGRESSION_DAYS) {
     return { message: 'No hay suficiente historial para una regresion de factores.' }
   }
@@ -188,6 +193,7 @@ export async function computeFactors(supabase: SupabaseClient, pid: string, _par
       period: { from: aligned[0].date, to: aligned[aligned.length - 1].date, observations: aligned.length, cadence: '1 dia' },
       assumptions: [
         COMMON_ASSUMPTIONS.tradingDays,
+        COMMON_ASSUMPTIONS.baseCurrencyToday(fx.base),
         { name: 'Factores', value: 'Aproximaciones con pares de ETF a los factores de Fama-French, no las series académicas', source: 'factors.ts (construcción etf-proxy-v1)' },
         { name: 'Significancia', value: '|t| de 2 o más', source: 'factors.ts' },
         { name: 'Días mínimos en común', value: String(MIN_REGRESSION_DAYS), source: 'factors job' },

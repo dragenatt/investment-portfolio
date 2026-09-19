@@ -126,6 +126,31 @@ They are not forced to: choosing SPY for a peso book still puts an exchange rate
 inside its alpha. Every available benchmark records its own currency in
 `BENCHMARKS`, and the risk endpoint reports which one the comparison used.
 
+### Currency of weights, amounts and returns
+
+Every analytics result is in the **portfolio's base currency**, and says so
+(`currency` on the payload, a "Moneda" assumption in `_meta`):
+
+- **Weights and amounts** — a holding's value is its quantity × close converted
+  at **today's** rate (`todaysSymbolFactors`, `valueBookInBase`). Until this was
+  fixed the engines added quantity × close in each holding's own currency, so a
+  book holding a dollar listing and a peso listing was weighted as though
+  pesos were dollars, and every amount — the Monte Carlo cone, the scenario
+  engine's capital, the allocation total, dividend income — was in no single
+  currency while the screen labelled it with the portfolio's.
+- **Risk figures** (volatility, beta, drawdown, the covariance behind the
+  optimiser and the Monte Carlo) use each holding's return **in the currency it
+  trades in**. Scaling a series by today's rate leaves its returns unchanged, so
+  exchange-rate moves are not inside these figures — the convention the
+  portfolio backtest and the stress test already used.
+- **Returns over time** (the returns tab's TWR and MWR, the value chart) convert
+  each date at **its own** rate, so they do include exchange-rate moves: they
+  answer "what did my money do in my currency".
+- **Dividends** are converted at the rate of the day each was paid.
+
+A holding whose quote currency or rate is unknown keeps its own unit and is
+named in `unconverted` rather than dropped.
+
 ### What this replaced
 
 Two contradictory hardcoded rates: `0.0425` in `snapshots.ts` (labelled "US

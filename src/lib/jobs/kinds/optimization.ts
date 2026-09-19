@@ -20,6 +20,7 @@ import { buildResultMetadata, COMMON_ASSUMPTIONS } from '@/lib/services/result-m
 import { resolveConstraints, type WeightConstraints } from '@/lib/services/weight-constraints'
 import { UNKNOWN_SECTOR } from '@/lib/services/allocation-breakdown'
 import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
+import { closesInBase, todaysSymbolFactors } from '@/lib/services/book-valuation'
 
 
 /** Below this there is not enough history for a covariance worth optimising against. */
@@ -86,10 +87,15 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
     .gt('quantity', 0)
 
   const symbols = (positions ?? []).map((p) => p.symbol)
-  const { rows: history, source: priceSource } =
+  const { rows: quoted, source: priceSource } =
     symbols.length >= 2
       ? await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
       : { rows: [], source: 'none' as const }
+  // The current weights are quantity × close: into the portfolio's currency
+  // first (today's rate), or a mixed book's current point sits in the wrong
+  // place on its own frontier.
+  const fx = await todaysSymbolFactors(supabase, symbols, portfolio?.currency ?? 'USD')
+  const history = closesInBase(quoted, fx.factors)
 
   // Only holdings with a real price series, and only dates every one of
   // them has — see common-history.ts, shared with the scenario comparison.
@@ -299,6 +305,7 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
       assumptions: [
         COMMON_ASSUMPTIONS.tradingDays,
         COMMON_ASSUMPTIONS.splitAdjusted,
+        COMMON_ASSUMPTIONS.baseCurrencyToday(fx.base),
         { name: 'Rendimientos esperados', value: 'Media histórica anualizada', source: 'optimizer.ts (historicalExpectedReturns)' },
         { name: 'Rangos de rendimiento', value: '±1 error estándar de la media', source: 'optimization job' },
         { name: 'Restricciones', value: 'Solo largos, 100% invertido', source: 'optimizer.ts' },

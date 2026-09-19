@@ -5,6 +5,7 @@ import { buildResultMetadata } from '@/lib/services/result-metadata'
 import { summariseAllocation, type StoredQuote } from '@/lib/services/allocation-breakdown'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { apiHandler } from '@/lib/api/handler'
+import { valueBookInBase } from '@/lib/services/book-valuation'
 
 async function getHandler(_req: Request, { params }: { params: Promise<{ pid: string }> }) {
   const { pid } = await params
@@ -26,7 +27,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
       // Every breakdown, empty: omitting bySector here made "no sectors" and
       // "sectors were not computed" look the same to the reader.
       if (!positions || positions.length === 0) {
-        return { byType: [], bySector: [], bySymbol: [], total: 0 }
+        return { byType: [], bySector: [], bySymbol: [], total: 0, currency: null, unconverted: [] }
       }
 
       // Get current prices for all position symbols
@@ -58,13 +59,22 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         capMap[c.symbol] = c.market_cap ?? 0
       }
 
-      // Valued at the last stored quote, falling back to the average cost.
+      // Valued at the last stored quote, falling back to the average cost, each
+      // in the portfolio's currency at today's rate: quantity × quote added a
+      // peso holding to a dollar one as one unit, so a mixed book's shares were
+      // wrong and every total was in no currency at all.
       // The shaping itself lives in summariseAllocation so a test can hold the
       // field names the interface reads.
-      const breakdown = summariseAllocation(positions, quoteMap, sectorMap)
+      const { data: portfolio } = await supabase.from('portfolios').select('base_currency').eq('id', pid).maybeSingle()
+      const quotes = Object.fromEntries(Object.entries(quoteMap).map(([symbol, quote]) => [symbol, Number(quote.price)]))
+      const valuation = await valueBookInBase(supabase, positions, quotes, String(portfolio?.base_currency ?? 'USD'))
+      const breakdown = summariseAllocation(positions, quoteMap, sectorMap, new Date(), valuation.values)
 
       return {
         ...breakdown,
+        /** The currency every value is in: the portfolio's. */
+        currency: valuation.base,
+        unconverted: valuation.unconverted,
         _meta: buildResultMetadata({
           model: 'allocation',
           data: {
@@ -76,6 +86,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
           assumptions: [
             { name: 'Sin cotización', value: 'Se usa el costo promedio y la posición se marca «Sin precio»', source: 'freshness.ts' },
             { name: 'Frescura', value: 'Al día hasta 15 min; con retraso hasta 24 h; después, precio guardado', source: 'freshness.ts' },
+            { name: 'Moneda', value: `Valores en ${valuation.base} al tipo de cambio de hoy`, source: 'book-valuation.ts' },
           ],
         }),
       }

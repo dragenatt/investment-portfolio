@@ -16,6 +16,7 @@ import {
   type ScenarioId,
 } from '@/lib/services/scenario-comparison'
 import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
+import { closesInBase, todaysSymbolFactors } from '@/lib/services/book-valuation'
 
 /** Same floor as the optimization route: below it a covariance is not worth simulating on. */
 const MIN_OBSERVATIONS = 60
@@ -31,6 +32,8 @@ type Inputs =
       fromDate: string
       toDate: string
       riskFree: Awaited<ReturnType<typeof getRiskFreeRate>>
+      /** The currency the current weights were valued in: the portfolio's. */
+      currency: string
       candidates: Candidate[]
       priceSource: PriceSource
       excluded: string[]
@@ -55,7 +58,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
 
   // Scoped to the caller: RLS decided what went into these inputs.
   const INPUTS_TTL = 900
-  const { data: inputs, cached: inputsCached } = await withCacheInfo<Inputs>(`analytics:scenario-inputs:${user.id}:${pid}`, INPUTS_TTL, async () => {
+  const { data: inputs, cached: inputsCached } = await withCacheInfo<Inputs>(`analytics:scenario-inputs:v2:${user.id}:${pid}`, INPUTS_TTL, async () => {
     const { data: portfolio } = await supabase
       .from('portfolios')
       .select('currency:base_currency')
@@ -69,10 +72,14 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       .gt('quantity', 0)
 
     const symbols = (positions ?? []).map((p) => p.symbol)
-    const { rows: history, source: priceSource } =
+    const { rows: quoted, source: priceSource } =
       symbols.length >= 2
         ? await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
         : { rows: [], source: 'none' as const }
+    // "Tu cartera actual" is weighted by quantity × close: into the portfolio's
+    // currency first (today's rate), or a mixed book's weights add pesos to dollars.
+    const fx = await todaysSymbolFactors(supabase, symbols, portfolio?.currency ?? 'USD')
+    const history = closesInBase(quoted, fx.factors)
 
     const aligned = alignCommonHistory(positions ?? [], history, { minObservations: MIN_OBSERVATIONS })
     if ('message' in aligned) return { message: aligned.message }
@@ -135,6 +142,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       fromDate: commonDates[0],
       toDate: lastDate,
       riskFree,
+      currency: fx.base,
       candidates,
       priceSource,
       excluded: symbols.filter((s) => !active.includes(s)),
@@ -197,6 +205,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         assumptions: [
           COMMON_ASSUMPTIONS.tradingDays,
           COMMON_ASSUMPTIONS.splitAdjusted,
+          COMMON_ASSUMPTIONS.baseCurrencyToday(inputs.currency),
           { name: 'Simulación', value: 'Movimiento browniano geométrico correlacionado, semanal, mismas trayectorias para todas las asignaciones', source: 'monte-carlo.ts (simulateWeightings)' },
           { name: 'Horizonte', value: `${request.horizonYears} años`, source: 'Elegido en la página' },
         ],

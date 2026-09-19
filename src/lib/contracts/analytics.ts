@@ -217,6 +217,9 @@ export const MonteCarloBandSchema = z.object({ week: z.number(), p10: z.number()
 
 export const MonteCarloDataSchema = z.object({
   _meta: meta,
+  /** The currency every amount is in: the portfolio's. Absent from results computed before it was stated. */
+  currency: z.string().optional(),
+  unconverted: z.array(z.string()).optional(),
   current_value: z.number(),
   weeks: z.number(),
   simulations: z.number(),
@@ -346,6 +349,8 @@ export const ScenarioEngineDataSchema = z.object({
   }).optional(),
   allocation: z.object({ preset: z.string(), name: z.string(), weights: z.array(weightRow) }).optional(),
   capital: z.number().optional(),
+  /** The currency the capital and the bands are in: the portfolio's. */
+  currency: z.string().optional(),
   benchmark: benchmarkRef.nullable().optional(),
   result: shape<ScenarioResult>('ScenarioResult', {
     nominal: true,
@@ -371,6 +376,9 @@ export const ScenarioEngineDataSchema = z.object({
 
 export const IncomeDataSchema = z.object({
   _meta: meta,
+  /** The currency every amount is in: the portfolio's. Absent from results computed before it was stated. */
+  currency: z.string().optional(),
+  unconverted: z.array(z.string()).optional(),
   totals: z.object({ mtd: z.number(), ytd: z.number(), all_time: z.number(), portfolio_yield: z.number() }),
   by_position: z.array(z.object({ symbol: z.string(), total: z.number(), count: z.number() })),
   monthly_history: z.array(z.object({ month: z.string(), amount: z.number() })),
@@ -399,6 +407,9 @@ export const AllocationDataSchema = z.object({
   bySector: z.array(AllocationSliceSchema),
   bySymbol: z.array(HoldingSliceSchema),
   total: z.number(),
+  /** The currency every value is in: the portfolio's. Null for an empty book. */
+  currency: z.string().nullable().optional(),
+  unconverted: z.array(z.string()).optional(),
 })
 
 // ─── factors (P1-26 / P1-27) ─────────────────────────────────────────────────

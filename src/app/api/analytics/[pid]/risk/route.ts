@@ -16,6 +16,7 @@ import { rollingRiskSeries, detectStressPeriods } from '@/lib/services/rolling-m
 import { calculateSortinoRatio, detectCadence } from '@/lib/services/asset-metrics'
 import { portfolioValueSeries } from '@/lib/services/portfolio-series'
 import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
+import { closesInBase, todaysSymbolFactors } from '@/lib/services/book-valuation'
 
 
 /**
@@ -66,7 +67,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
 
       // Get price history — tries DB first, falls back to Yahoo Finance
       const symbols = positions.map(p => p.symbol)
-      const { rows: history, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
+      const { rows: quoted, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
+      // The value series weights each holding by quantity × close, so the closes
+      // go into the portfolio's currency first (today's rate): a mixed book's
+      // series added pesos to dollars. Each holding's own return is unchanged.
+      const fx = await todaysSymbolFactors(supabase, symbols, portfolio?.currency ?? 'USD')
+      const history = closesInBase(quoted, fx.factors)
 
       if (history.length < 10) {
         return { message: 'No positions' }
@@ -391,6 +397,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
             COMMON_ASSUMPTIONS.tradingDays,
             COMMON_ASSUMPTIONS.splitAdjusted,
             COMMON_ASSUMPTIONS.priceReturn,
+            COMMON_ASSUMPTIONS.baseCurrencyToday(fx.base),
             { name: 'VaR', value: '95%, un día; histórico, paramétrico, Cornish-Fisher y CVaR', source: 'var.ts' },
             { name: 'Alfa de esta vista', value: 'Rendimiento activo simple (tasa libre en cero para beta y alfa)', source: 'Convención de la ruta de riesgo' },
             { name: 'Puntaje de riesgo', value: 'Volatilidad, caída máxima y Sharpe negativo, escala 0-10', source: 'Convención (risk route)' },

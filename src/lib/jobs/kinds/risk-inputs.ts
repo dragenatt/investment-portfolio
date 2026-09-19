@@ -16,6 +16,7 @@ import type { HistorySource } from '@/lib/services/price-history'
 import { loadFactorReturns } from '@/lib/jobs/kinds/factors'
 import { alignRiskInputs, MIN_RISK_OBSERVATIONS, realSector, sectorLabel, type AlignedRiskInputs } from '@/lib/services/risk-sources'
 import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
+import { closesInBase, todaysSymbolFactors } from '@/lib/services/book-valuation'
 
 
 export type RiskInputPosition = {
@@ -37,6 +38,14 @@ export type RiskInputs = {
   /** Company headquarters country where known. */
   companyCountries: Record<string, string | null>
   benchmark: { symbol: string; name: string }
+  /**
+   * The portfolio's base currency. The holdings' closes are in it, at today's
+   * rate (todaysSymbolFactors), so `common.bookValue` and the weights are one
+   * unit; each holding's returns are unchanged by the constant factor.
+   */
+  currency: string
+  /** Holdings whose quote currency or rate is unknown, left in their own unit. */
+  unconverted: string[]
   riskFreeRate: number
   riskFree: RiskFreeRate
   excludedSymbols: string[]
@@ -66,7 +75,11 @@ export async function loadRiskInputs(supabase: SupabaseClient, pid: string): Pro
   if (positions.length === 0) return { message: 'No hay posiciones.' }
 
   const symbols = positions.map((p) => p.symbol)
-  const { rows: history, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
+  const { rows: quoted, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: undefined })
+  // Weights from quantity × close added a dollar close to a peso close as one
+  // unit. Into the base currency first, at today's rate.
+  const fx = await todaysSymbolFactors(supabase, symbols, (portfolio as { currency?: string } | null)?.currency ?? 'USD')
+  const history = closesInBase(quoted, fx.factors)
 
   const common = alignCommonHistory(positions, history, { minObservations: MIN_RISK_OBSERVATIONS })
   if ('message' in common) return { message: common.message }
@@ -127,6 +140,8 @@ export async function loadRiskInputs(supabase: SupabaseClient, pid: string): Pro
     companySectors,
     companyCountries,
     benchmark: { symbol: benchmarkSymbol, name: benchmarkName },
+    currency: fx.base,
+    unconverted: fx.unconverted.filter((s) => common.symbols.includes(s)),
     riskFreeRate: riskFree.rate,
     riskFree,
     excludedSymbols: symbols.filter((s) => !common.symbols.includes(s)),
@@ -154,7 +169,14 @@ export function riskInputsMetadata(
       priceSource: combinePriceSources(sources.prices, aligned.benchmarkReturns ? sources.benchmark : null),
     },
     period: { from: common.commonDates[0], to: common.lastDate, observations: aligned.intervalsUsed, cadence: cadence.label },
-    assumptions: [COMMON_ASSUMPTIONS.tradingDays, COMMON_ASSUMPTIONS.splitAdjusted, COMMON_ASSUMPTIONS.priceReturn, COMMON_ASSUMPTIONS.currentWeights, ...(options.assumptions ?? [])],
+    assumptions: [
+      COMMON_ASSUMPTIONS.tradingDays,
+      COMMON_ASSUMPTIONS.splitAdjusted,
+      COMMON_ASSUMPTIONS.priceReturn,
+      COMMON_ASSUMPTIONS.currentWeights,
+      COMMON_ASSUMPTIONS.baseCurrencyToday(inputs.currency),
+      ...(options.assumptions ?? []),
+    ],
     benchmark: options.usesBenchmark === false || !aligned.benchmarkReturns ? null : inputs.benchmark,
     riskFreeRate: options.usesRiskFree ? inputs.riskFree : null,
   })

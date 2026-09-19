@@ -10,6 +10,7 @@ import {
 } from '@/lib/services/attribution'
 import { getBatchQuotes } from '@/lib/services/market'
 import { apiHandler } from '@/lib/api/handler'
+import { valueBookInBase } from '@/lib/services/book-valuation'
 
 async function getHandler(req: Request, { params }: { params: Promise<{ pid: string }> }) {
   const { pid } = await params
@@ -27,7 +28,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       // Get positions with asset type
       const { data: positions } = await supabase
         .from('positions')
-        .select('symbol, quantity, avg_cost, asset_type')
+        .select('symbol, quantity, avg_cost, asset_type, currency')
         .eq('portfolio_id', pid)
         .gt('quantity', 0)
 
@@ -70,14 +71,23 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
 
       // Group by sector with returns
       // Fall back to asset_type if company_data has no sector
+      // Value and cost in the portfolio's currency at today's rate. As quantity
+      // × price they were in whatever each holding trades in, and the cost in
+      // whatever its purchase was recorded in: a mixed book's weights added
+      // pesos to dollars, and a holding bought in pesos but quoted in dollars
+      // compared a dollar value with a peso cost.
+      const { data: portfolio } = await supabase.from('portfolios').select('base_currency').eq('id', pid).maybeSingle()
+      const base = String(portfolio?.base_currency ?? 'USD')
+      const valued = await valueBookInBase(supabase, positions, priceMap, base)
+      const costed = await valueBookInBase(supabase, positions, {}, base)
+
       const sectorData: Record<string, { value: number; cost: number }> = {}
       const perPosition: Array<{ symbol: string; sector: string; value: number; cost: number }> = []
       let totalValue = 0
 
-      for (const pos of positions) {
-        const price = priceMap[pos.symbol] ?? pos.avg_cost
-        const value = pos.quantity * price
-        const cost = pos.quantity * pos.avg_cost
+      for (const [i, pos] of positions.entries()) {
+        const value = valued.values[i]
+        const cost = costed.values[i]
         totalValue += value
 
         // Use company sector, fall back to capitalized asset_type, then "Other"
@@ -97,7 +107,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       }))
 
       // Calculate overall portfolio return as benchmark comparison
-      const totalCost = positions.reduce((sum, pos) => sum + pos.quantity * pos.avg_cost, 0)
+      const totalCost = costed.total
       const benchmarkReturn = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0
 
       // Which holdings produced the number at the top of the page. Weight times
@@ -116,6 +126,8 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
 
       return {
         ...computeAttribution(portfolioSectors, benchmarkReturn, SP500_SECTOR_WEIGHTS),
+        /** The currency every amount is in: the portfolio's. */
+        currency: valued.base,
         contribution,
         _meta: buildResultMetadata({
           model: 'attribution',
@@ -129,6 +141,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
             { name: 'Pesos sectoriales del índice', value: 'S&P 500 aproximados, fijos en el código', source: 'attribution.ts (SP500_SECTOR_WEIGHTS)' },
             { name: 'Rendimiento', value: 'No realizado sobre costo promedio', source: 'attribution route' },
             { name: 'Sin cotización', value: 'Se usa el costo promedio', source: 'attribution route' },
+            { name: 'Moneda', value: `Valor y costo en ${valued.base} al tipo de cambio de hoy`, source: 'book-valuation.ts' },
           ],
           benchmark: { symbol: '^GSPC', name: 'S&P 500 (pesos sectoriales)' },
         }),

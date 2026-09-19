@@ -204,7 +204,8 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               <MonteCarloChart
                 bands={monteCarlo?.bands ?? []}
                 currentValue={monteCarlo?.current_value ?? 0}
-                currency={currency}
+                // The cone is in the portfolio's currency, which the job states.
+                currency={monteCarlo?.currency ?? currency}
                 var95={monteCarlo?.var_95}
                 simulations={monteCarlo?.simulations}
                 horizonWeeks={horizonWeeks}
@@ -263,6 +264,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               totals={income?.totals ?? { mtd: 0, ytd: 0, all_time: 0, portfolio_yield: 0 }}
               byPosition={income?.by_position ?? []}
               monthlyHistory={income?.monthly_history ?? []}
+              currency={income?.currency}
               isLoading={incomeLoading}
             />
             <AuditTrail meta={income?._meta} className="mt-2" />

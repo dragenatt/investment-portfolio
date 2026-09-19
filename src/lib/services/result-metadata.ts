@@ -25,24 +25,31 @@ import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
  * The version of each model behind a result. Bump a model's version when a
  * change moves its numbers, so a result can be matched to the code that made it.
  */
+// 1.1.0 below (base currency): weights and amounts in the portfolio's currency
+// at today's rate (book-valuation.ts todaysSymbolFactors / valueBookInBase).
+// Quantity × close in each holding's own currency added pesos to dollars, so a
+// mixed book's weights moved; every amount changes unit, from "whatever the
+// holdings trade in" to the portfolio's currency. Each holding's return is
+// unchanged, so a single-currency book's ratios (volatility, Sharpe, drawdown)
+// are the same numbers.
 export const MODEL_VERSIONS = {
-  risk: '1.0.0',
+  risk: '1.1.0',
   returns: '1.0.0',
-  attribution: '1.0.0',
+  attribution: '1.1.0',
   temporalAttribution: '1.0.0',
-  allocation: '1.0.0',
+  allocation: '1.1.0',
   exposure: '1.0.0',
-  income: '1.0.0',
+  income: '1.1.0',
   performance: '1.0.0',
   benchmark: '1.0.0',
-  riskSources: '1.0.0',
-  portfolioHealth: '1.0.0',
-  diagnostic: '1.0.0',
-  scenarioComparison: '1.0.0',
+  riskSources: '1.1.0',
+  portfolioHealth: '1.1.0',
+  diagnostic: '1.1.0',
+  scenarioComparison: '1.1.0',
   scenarioEngine: SCENARIO_ENGINE_VERSION,
-  optimization: '1.0.0',
+  optimization: '1.1.0',
   factors: CONSTRUCTION_VERSION,
-  monteCarlo: '1.0.0',
+  monteCarlo: '1.1.0',
   // 2.0.0 (4.9): replayed through the scenario engine; a rebalance pays the
   // trade cost on every trade, both the sale and the purchase.
   backtest: '2.0.0',
@@ -107,7 +114,13 @@ export const COMMON_ASSUMPTIONS = {
   splitAdjusted: { name: 'Precios', value: 'Ajustados por splits', source: 'corporate-actions.ts' },
   currentWeights: { name: 'Pesos', value: 'Los actuales, constantes en todo el periodo', source: 'Convención del cálculo' },
   gross: { name: 'Costos', value: 'No incluidos: cifras brutas', source: 'costs.ts (nunca se inventan costos)' },
-} satisfies Record<string, ResultAssumption>
+  /** Weights and amounts in the book's currency; each holding's return in its own. */
+  baseCurrencyToday: (base: string): ResultAssumption => ({
+    name: 'Moneda',
+    value: `Pesos y montos en ${base} al tipo de cambio de hoy; el rendimiento de cada posición, en la moneda en que cotiza`,
+    source: 'book-valuation.ts (todaysSymbolFactors)',
+  }),
+} satisfies Record<string, ResultAssumption | ((base: string) => ResultAssumption)>
 
 /**
  * Build the metadata for a result computed now.

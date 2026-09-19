@@ -68,25 +68,32 @@ function toSlices(totals: Map<string, number>, total: number): AllocationSlice[]
  * some of them: the route used to return `{ byType, bySymbol, total }` with no
  * `bySector` at all in that case, so a reader could not tell "no sectors" from
  * "sectors were not computed".
+ *
+ * `valuesInBase`, when given, is each position's value already in the
+ * portfolio's currency (valueBookInBase), in the order of `positions`; it
+ * replaces quantity × price, which for a book quoted in two currencies adds
+ * pesos to dollars. The quote still decides each holding's freshness.
  */
 export function summariseAllocation(
   positions: AllocationPosition[],
   quoteBySymbol: Record<string, StoredQuote>,
   sectorBySymbol: Record<string, string>,
   asOf: Date = new Date(),
+  valuesInBase?: number[],
 ): AllocationBreakdown {
   const byType = new Map<string, number>()
   const bySector = new Map<string, number>()
   const bySymbol: HoldingSlice[] = []
   let total = 0
 
-  for (const position of positions) {
+  positions.forEach((position, i) => {
     const stored = quoteBySymbol[position.symbol]
     const quote = stored && Number.isFinite(stored.price) ? stored : undefined
     const price = quote?.price ?? position.avg_cost
-    if (!Number.isFinite(position.quantity) || !Number.isFinite(price)) continue
+    if (!Number.isFinite(position.quantity) || !Number.isFinite(price)) return
 
-    const value = position.quantity * price
+    const value = valuesInBase ? valuesInBase[i] : position.quantity * price
+    if (!Number.isFinite(value)) return
     total += value
 
     byType.set(position.asset_type, (byType.get(position.asset_type) ?? 0) + value)
@@ -95,7 +102,7 @@ export function summariseAllocation(
     // A quote with no row is classified unavailable, which is what the average
     // cost standing in for it is.
     bySymbol.push({ symbol: position.symbol, value, pct: 0, freshness: freshnessOf(quote, { asOf }) })
-  }
+  })
 
   for (const holding of bySymbol) holding.pct = total > 0 ? (holding.value / total) * 100 : 0
 

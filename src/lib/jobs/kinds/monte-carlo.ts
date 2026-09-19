@@ -4,6 +4,7 @@ import { simulatePortfolioGBM } from '@/lib/services/monte-carlo'
 import { fetchAdjustedPriceHistory, type PriceRow } from '@/lib/services/price-history'
 import { buildResultMetadata, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
 import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
+import { closesInBase, todaysSymbolFactors } from '@/lib/services/book-valuation'
 
 /** One trading year of closes — the window the covariance matrix is estimated on. */
 const LOOKBACK_DAYS = TRADING_DAYS_PER_YEAR
@@ -64,7 +65,15 @@ export async function computeMonteCarlo(supabase: SupabaseClient, pid: string, p
 
   // Get price history — tries DB first, falls back to Yahoo Finance
   const symbols = positions.map(p => p.symbol)
-  const { rows: history, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: Math.min(symbols.length * (LOOKBACK_DAYS + 60), 5000) })
+  const { rows: quoted, source: priceSource } = await fetchAdjustedPriceHistory(supabase, symbols, { limit: Math.min(symbols.length * (LOOKBACK_DAYS + 60), 5000) })
+
+  // The cone is money, so it has to be in one currency: each holding's closes
+  // into the portfolio's, at today's rate. Summed as quoted, a dollar book was
+  // drawn in dollars under the portfolio's peso label, and a mixed book added
+  // pesos to dollars — its weights as wrong as its total.
+  const { data: portfolio } = await supabase.from('portfolios').select('base_currency').eq('id', pid).maybeSingle()
+  const fx = await todaysSymbolFactors(supabase, symbols, String(portfolio?.base_currency ?? 'USD'))
+  const history = closesInBase(quoted, fx.factors)
 
   if (history.length < MIN_OBSERVATIONS) {
     return { message: 'No positions' }
@@ -115,6 +124,9 @@ export async function computeMonteCarlo(supabase: SupabaseClient, pid: string, p
   }))
 
   return {
+    /** The currency every amount below is in: the portfolio's. */
+    currency: fx.base,
+    unconverted: fx.unconverted.filter((s) => covered.includes(s)),
     current_value: round2(currentValue),
     weeks,
     simulations: SIMULATIONS,
@@ -137,6 +149,7 @@ export async function computeMonteCarlo(supabase: SupabaseClient, pid: string, p
       assumptions: [
         COMMON_ASSUMPTIONS.tradingDays,
         COMMON_ASSUMPTIONS.splitAdjusted,
+        COMMON_ASSUMPTIONS.baseCurrencyToday(fx.base),
         { name: 'Proceso', value: 'Movimiento browniano geométrico correlacionado, pasos semanales, comprar y mantener', source: 'monte-carlo.ts' },
         { name: 'Ventana de estimación', value: `Hasta ${LOOKBACK_DAYS} días`, source: 'docs/FINANCIAL_ASSUMPTIONS.md (Covariance window)' },
         { name: 'Trayectorias', value: `${SIMULATIONS}, semilla fija`, source: 'monte-carlo.ts' },

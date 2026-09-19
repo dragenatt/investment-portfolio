@@ -61,6 +61,52 @@ export async function todaysUsdRates(
   return rates
 }
 
+export type TodaysFactors = {
+  /** What one unit of each symbol's close is worth in `base` today. 1 where unknown. */
+  factors: Record<string, number>
+  /** Symbols whose quote currency or rate is unknown, left in their own unit. */
+  unconverted: string[]
+  base: string
+}
+
+/**
+ * The multiplier that puts each symbol's closes into `base`, at TODAY's rate.
+ *
+ * For the engines that weight a book from its price history — risk, Monte
+ * Carlo, optimisation, factors. Summing quantity × close across a dollar-quoted
+ * and a peso-quoted holding added two units as one: the weights of a mixed book
+ * were wrong, and every amount was in no currency at all while the screen
+ * labelled it with the portfolio's.
+ *
+ * Today's rate for every date, on purpose. Scaling a series by a constant keeps
+ * each holding's own return, so the risk figures stay measured in the currency
+ * each instrument trades in — as the backtest and the stress test measure them
+ * — while the weights and every amount come out in one unit. Converting each
+ * date at its own rate would put the exchange rate inside every volatility and
+ * beta: a different model, not a unit fix.
+ */
+export async function todaysSymbolFactors(
+  supabase: SupabaseClient,
+  symbols: string[],
+  base: string,
+  asOf: Date = new Date(),
+): Promise<TodaysFactors> {
+  const baseCode = (base || 'USD').toUpperCase()
+  const today = asOf.toISOString().slice(0, 10)
+  const unique = [...new Set(symbols)]
+  const quoteCurrency = await symbolCurrencies(supabase, unique)
+  const usdRates = await todaysUsdRates(supabase, [...Object.values(quoteCurrency), baseCode], today)
+  const conversion = buildConversion({ currencyBySymbol: quoteCurrency, base: baseCode, usdRates })
+  const factors = Object.fromEntries(unique.map((symbol) => [symbol, conversion.factor(symbol, today)]))
+  const unconverted = [...new Set([...conversion.unknownCurrency, ...conversion.missingRate])]
+  return { factors, unconverted, base: baseCode }
+}
+
+/** Closes multiplied into base by `todaysSymbolFactors`; rows of other symbols pass through. */
+export function closesInBase<T extends { symbol: string; close: number }>(rows: T[], factors: Record<string, number>): T[] {
+  return rows.map((row) => (row.symbol in factors ? { ...row, close: row.close * factors[row.symbol] } : row))
+}
+
 /**
  * Value positions in `base`: the live quote converted from its quote currency,
  * or the average cost converted from the currency it was recorded in.
