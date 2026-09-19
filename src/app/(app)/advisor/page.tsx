@@ -974,7 +974,12 @@ export default function AdvisorPage() {
             >
               Recalcular
             </button>
-            {results.aporteNec !== null && results.aporteNec > 0 && (
+            {/* Offered only when it is not what the plan already uses: after
+                taking it, the recommendation is the same figure, and a button
+                to "use" what is in use says nothing. */}
+            {results.aporteNec !== null &&
+              results.aporteNec > 0 &&
+              Math.abs(results.aporteNec - results.planParams.aportacionMensual) >= 0.01 && (
               <button
                 type="button"
                 onClick={() => recalcularAportacion(results.aporteNec!)}
