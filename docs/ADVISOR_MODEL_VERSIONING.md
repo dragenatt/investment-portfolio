@@ -43,6 +43,43 @@ the answer moved because the model changed, not because their plan did.
 
 ## Version history
 
+### 3.0.0 — one engine (task 4.9)
+
+**What was wrong with 2.1.0.** Nothing inside it, measured on its own. The
+problem was that it was a second engine. The advisor drew its shocks from its
+own generator (`mulberry32` + `standardNormal`, one stream for every path in
+turn) and stepped them with its own arithmetic monthly return; every other
+projection in the app — the portfolio's scenario engine, the Monte Carlo cone —
+used correlated geometric Brownian motion. The same plan had two answers
+depending on which screen asked.
+
+**What 3.0.0 does.** The advisor runs on the scenario engine:
+
+- **Draws** — `planShocks`: one `createNormalSampler` stream per path, seeded by
+  `pathSeed(seed, path)`. A path's first months do not depend on the horizon,
+  so a longer horizon extends the same paths (this replaced the second-stream
+  workaround `extendScenarios` needed under 2.x).
+- **Step** — `planMonthFactor`: the engine's lognormal factor,
+  `exp((ln(1+r) − σ²/2)/12 + σ/√12·z)`. `ln(1 + r)` reads the profile's return
+  as effective, so mean growth is `1 + r` a year and a path with no volatility
+  follows the compound-interest projection exactly. The −100% monthly floor is
+  gone: a lognormal step cannot cross it.
+- **Percentiles** — the engine's, interpolated between ranks, instead of the
+  nearest rank.
+
+A test pins that `evaluarPlan` and `runScenario(scenarioFromPlan(plan))` give
+the same distribution for the same seed and path count.
+
+**How far the numbers moved.** On the documented example (Moderado, $50,000 +
+$4,000/month, 20 years, goal $2,500,000, seed 20260912): median $2,135,458 →
+$2,132,887; probability 30.1% → 29.8%; contribution for 75%: $5,800.64 →
+$5,911.55; first arrival P25: month 231 → 230. Same assumptions, same process
+family, different draws and step: a plan saved under 2.1.0 is not reproducible
+under 3.0.0 and must not be compared with one recomputed now as if only the
+plan had changed.
+
+The scenario engine moved to 2.0.0 in the same change (one stream per path).
+
 ### 2.1.0 — the shocks deliver the volatility they claim
 
 **What was wrong with 2.0.0.** The monthly step drew a fresh *annual-equivalent*

@@ -67,7 +67,14 @@ describe('reproducibility', () => {
     expect(seeded.model.seed).toBe(42)
     expect(seeded.final.nominal.p50).not.toBe(derived.final.nominal.p50)
     expect(run({ ...risky, seed: 42 })).toEqual(seeded)
-    expect(derived.model).toMatchObject({ engineVersion: '1.0.0', simulations: 400, months: 60, riskSource: 'prueba', gross: true })
+    expect(derived.model).toMatchObject({ engineVersion: '2.0.0', simulations: 400, months: 60, riskSource: 'prueba', gross: true })
+  })
+
+  it('extends every path when the horizon grows, without redrawing a month (2.0.0)', () => {
+    // One stream per path: a 5-year run is the first five years of a 10-year one.
+    const short = run({ ...risky, seed: 7, horizonMonths: 60 })
+    const long = run({ ...risky, seed: 7, horizonMonths: 120 })
+    for (let m = 0; m <= 60; m++) expect(long.nominal[m]).toEqual(short.nominal[m])
   })
 })
 

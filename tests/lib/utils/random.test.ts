@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mulberry32, standardNormal, createNormalSampler } from '@/lib/utils/random'
 import { buildScenarios } from '@/lib/services/advisor'
+import { pathNormals } from '@/lib/services/monte-carlo'
 
 describe('mulberry32', () => {
   it('is deterministic for a seed', () => {
@@ -43,11 +44,12 @@ describe('standardNormal', () => {
     expect(Number.isFinite(standardNormal(() => 0))).toBe(true)
   })
 
-  it('still drives the advisor scenarios exactly as before', () => {
-    // buildScenarios now imports these instead of owning a private copy.
+  it('no longer drives the advisor: since model 3.0.0 its draws are the scenario engine\'s', () => {
+    // Each path its own createNormalSampler stream (pathNormals), not one
+    // standardNormal stream shared by every path in turn.
     const scenarios = buildScenarios({ months: 3, simulations: 2, seed: 42 })
-    const random = mulberry32(42)
-    expect(scenarios.shocks[0][0]).toBeCloseTo(standardNormal(random), 12)
+    expect(scenarios.shocks[1]).toEqual(pathNormals(42, 1, 3))
+    expect(scenarios.shocks[0][0]).not.toBeCloseTo(standardNormal(mulberry32(42)), 6)
   })
 })
 

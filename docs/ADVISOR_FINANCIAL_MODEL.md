@@ -3,7 +3,7 @@
 What the advisor computes, in enough detail to reproduce every number without
 reading the code.
 
-Model version at the time of writing: **2.1.0**. Every result carries its
+Model version at the time of writing: **3.0.0**. Every result carries its
 version; see `docs/ADVISOR_MODEL_VERSIONING.md` for why that matters and what
 has changed between versions.
 
@@ -154,6 +154,11 @@ sigmaMensual = volatilidadAnual / sqrt(12)
 
 **Worked** — `0.10 / sqrt(12) = 0.0288675135`, i.e. 2.887% per month. See §8.
 
+The **simulation** (§6) states the same annual return as the drift of the
+scenario engine's lognormal step, `ln(1 + rendimientoAnual)`, so a simulated
+year grows by `1 + r` on average and a path with no volatility follows this
+compound-interest projection exactly.
+
 ---
 
 ## 5. Deterministic projection
@@ -190,23 +195,32 @@ This is the figure in the "Resumen Financiero" block, and it is deliberately
 
 ## 6. Monte Carlo
 
+Since model 3.0.0 the advisor runs on the **scenario engine**
+(`src/lib/services/scenario-engine.ts`): the same draws and the same monthly
+step as every other projection in the app. Before it, the advisor had its own
+generator and its own arithmetic step, and the same plan gave two answers
+depending on which screen asked. A test (`advisor-on-engine.test.ts`) pins that
+a plan evaluated by the advisor and the same plan run through
+`runScenario(scenarioFromPlan(plan))` produce the same distribution.
+
 ### The scenario set
 
-Shocks are drawn **once**, up front, into a `ScenarioSet`, and every question
-about the plan is answered against that same set — common random numbers.
+Shocks are drawn **once**, up front, into a `ScenarioSet` (`planShocks`), and
+every question about the plan is answered against that same set — common random
+numbers.
 
 ```
-random = mulberry32(seed)
-for each simulation:
+for each simulation i:
+    next = createNormalSampler(pathSeed(seed, i))   # one stream per path
     for each month:
-        u1 = max(random(), MIN_VALUE)     # clamped so log never sees zero
-        u2 = random()
-        shock = sqrt(-2 * ln(u1)) * cos(2 * pi * u2)      # Box-Muller
+        shock = next()                              # Box-Muller, both halves used
+
+pathSeed(seed, i) = splitmix32 of seed and i        # neighbouring paths unrelated
 ```
 
-`mulberry32` is a small seeded PRNG; the exact implementation is in
-`src/lib/services/advisor.ts`. Draws are consumed simulation by simulation, so
-simulation *i* uses draws `[i*months, (i+1)*months)`.
+`createNormalSampler` is mulberry32 feeding Box-Muller, using both values of each
+pair; the implementation is in `src/lib/utils/random.ts`, and `pathSeed` in
+`src/lib/services/monte-carlo.ts`.
 
 **Why one shared set.** With fresh randomness per call, raising a contribution
 could lower the reported probability purely by luck, and the recommended
@@ -214,39 +228,50 @@ contribution would be scored against a different universe than the one it was
 solved in. Common random numbers make a difference between two plans a
 difference between the plans.
 
+**Why one stream per path.** A path's first months do not depend on how many
+months are drawn, so a longer horizon extends every path instead of reshuffling
+them. That is what lets the sensitivity table and the strategy comparison put a
+25-year plan beside a 20-year one on the same luck.
+
 The seed is derived from the user's own inputs, so the same plan always produces
 the same answer, and it is reported alongside every result.
 
 ### The monthly step
 
-One function, used by every simulation loop in the engine:
+One function, used by every simulation loop in the advisor — the engine's
+`planMonthFactor`, the factor `runScenario` applies to a single holding:
 
 ```
-monthly = tasaMensual + shock * volatilidadAnual / sqrt(12)
-monthly = max(-1, monthly)                  # cannot lose more than everything
-value   = value * (1 + monthly) + aportacionMensual
+drift  = (ln(1 + rendimientoAnual) - volatilidadAnual^2 / 2) / 12
+factor = exp(drift + volatilidadAnual / sqrt(12) * shock)
+value  = value * factor + aportacionMensual
 ```
 
-A path that leaves the reals is recorded as zero rather than poisoning every
-percentile above it.
+Lognormal: a month can lose almost everything but never more, so no floor is
+needed on the step. `ln(1 + r)` takes the annual return as effective — a year's
+growth averages `1 + r` — and the `- σ²/2` keeps that mean while the median falls
+as volatility rises (volatility drag). `rendimientoAnual` is floored at −99%
+before the logarithm.
 
 ### Extending a set
 
-`analizarSensibilidad` needs a horizon 5 years longer than the plan. Rebuilding
-a longer set would shift the draw stream for every simulation after the first,
-so the "current" row would stop matching the projection above it. Instead the
-existing paths are lengthened from a second, independently seeded stream
-(`seed XOR 0x9e3779b9`), leaving every month already drawn exactly where it was.
+`analizarSensibilidad` and the strategy comparison need horizons longer than the
+plan. Each path has its own stream, so the set is simply drawn again for more
+months: every month already drawn comes back unchanged, and the rest is
+appended. (Until 3.0.0 one stream fed every path in turn, and a longer set had
+to borrow its extra months from a second generator.)
 
 ---
 
 ## 7. Distribution
 
-Percentiles by **nearest rank** over the sorted final values:
+Percentiles of the sorted final values, **interpolated between ranks** — the
+scenario engine's definition, so the advisor's P10 and the engine's P10 are the
+same statistic (2.x took the nearest rank):
 
 ```
-index = min(n - 1, max(0, ceil(p/100 * n) - 1))
-percentile = sorted[index]
+position   = (n - 1) * p
+percentile = sorted[floor(position)] + (sorted[ceil(position)] - sorted[floor(position)]) * (position - floor(position))
 ```
 
 Deciles rather than min and max: the extremes of a simulation are the least
@@ -257,13 +282,13 @@ about the number of draws than about risk.
 
 | | Value |
 |---|---:|
-| P10 | $1,480,482 |
-| P25 | $1,764,216 |
-| **P50 (median)** | **$2,135,458** |
-| P75 | $2,625,779 |
-| P90 | $3,163,716 |
+| P10 | $1,463,182 |
+| P25 | $1,736,403 |
+| **P50 (median)** | **$2,132,887** |
+| P75 | $2,633,738 |
+| P90 | $3,156,418 |
 
-The median ($2,135,458) sits **below** the deterministic projection
+The median ($2,132,887) sits **below** the deterministic projection
 ($2,223,630). That gap is volatility drag, and it is real: the geometric mean of
 a volatile series is below its arithmetic mean.
 
@@ -274,10 +299,10 @@ chart draws. The last year is identical to the table above by construction.
 
 | Year | P10 | P50 | P90 | Paid in |
 |---:|---:|---:|---:|---:|
-| 1 | $93,409 | $102,526 | $112,933 | $98,000 |
-| 5 | $291,249 | $348,882 | $423,937 | $290,000 |
-| 10 | $596,679 | $771,370 | $999,744 | $530,000 |
-| 20 | $1,480,482 | $2,135,458 | $3,163,716 | $1,010,000 |
+| 1 | $92,945 | $102,209 | $112,723 | $98,000 |
+| 5 | $294,951 | $353,935 | $424,683 | $290,000 |
+| 10 | $592,835 | $765,346 | $1,008,255 | $530,000 |
+| 20 | $1,463,182 | $2,132,887 | $3,156,418 | $1,010,000 |
 
 ---
 
@@ -311,7 +336,7 @@ divides the realised standard deviation by √12:
 
 Every probability computed under 2.0.0 was therefore too confident. Fixed in
 2.1.0; the tests measure realised volatility and assert it lands within sampling
-error of the documented figure.
+error of the documented figure, and still do under 3.0.0's lognormal step.
 
 ---
 
@@ -327,7 +352,7 @@ Nothing more sophisticated. It is a **model probability**, conditional on the
 assumed return and volatility being right, and it is not a probability about the
 world.
 
-**Worked** — 301 of 1,000 paths finish at or above $2,500,000: **30.1%**.
+**Worked** — 298 of 1,000 paths finish at or above $2,500,000: **29.8%**.
 
 A plan with no goal reports `null` rather than zero.
 
@@ -365,7 +390,7 @@ on the mean is roughly a coin flip, so that figure scores near 50%, not 75%.
 Solving against the same simulated paths makes the loop close: feed the
 recommendation back in and the model agrees.
 
-**Worked** — target 75%: **$5,800.64 per month**, against the $4,000 actually
+**Worked** — target 75%: **$5,911.55 per month**, against the $4,000 actually
 being contributed.
 
 ---
@@ -390,13 +415,13 @@ plan in percentage points.
 ### Worked
 
 ```
-Expected return   5% -> 9.3%    7% -> 30.1%    9% -> 60.4%
-Horizon          15y -> 0.8%   20y -> 30.1%   25y -> 76.0%
-Contribution   3,200 -> 12.4% 4,000 -> 30.1% 4,800 -> 51.7%
+Expected return   5% -> 9.6%    7% -> 29.8%    9% -> 59.7%
+Horizon          15y -> 1.0%   20y -> 29.8%   25y -> 75.9%
+Contribution   3,200 -> 12.1% 4,000 -> 29.8% 4,800 -> 51.2%
 ```
 
 The most useful row is usually the expected return. Two percentage points of an
-assumed number — a number nobody can know — move the answer from 9% to 60%,
+assumed number — a number nobody can know — move the answer from 10% to 60%,
 which is a far larger swing than a 20% change in the contribution the user
 actually controls.
 
@@ -425,11 +450,11 @@ back, because someone planning around a date cares about arrival. And the
 percentile is taken over every path, so a goal that most paths miss has **no**
 median date rather than a flattering one computed over the survivors.
 
-**Worked** — 346 of 1,000 paths reach $2,500,000 at some point (34.6%); 654
-never do. The 25th-percentile arrival is month 231. There is **no median date**,
+**Worked** — 336 of 1,000 paths reach $2,500,000 at some point (33.6%); 664
+never do. The 25th-percentile arrival is month 230. There is **no median date**,
 because fewer than half the paths arrive at all.
 
-Note 34.6% (ever reach) against 30.1% (finish above). Arrivals must be at least
+Note 33.6% (ever reach) against 29.8% (finish above). Arrivals must be at least
 as common as finishing above, since a path can touch the goal and fall back.
 A test asserts that invariant, because it is what breaks if the two loops ever
 stop sharing the monthly step.
@@ -440,12 +465,12 @@ stop sharing the monthly step.
 
 What the model does not include at all:
 
-- **Inflation.** Every figure is nominal. $2,135,458 in 2046 buys materially
+- **Inflation.** Every figure is nominal. $2,132,887 in 2046 buys materially
   less than it does today. This is the single largest omission.
 - **Costs, commissions and spreads.** All returns are gross.
 - **Taxes.** No ISR on gains, no withholding on interest or dividends.
 - **Dividends.** The engine measures price return, not total return.
-- **Fat tails.** Shocks are normal. Real markets produce extreme moves more
+- **Fat tails.** Shocks are normal, so monthly returns are lognormal. Real markets produce extreme moves more
   often than a normal distribution allows, so the P10 here is optimistic about
   how bad a bad case gets.
 - **Correlation and rebalancing.** The portfolio is modelled as a single asset
@@ -469,10 +494,10 @@ Every non-observed number the advisor uses:
 | Model portfolios | fixed weights per profile | assumed | `CARTERAS` |
 | Simulations | 1,000 | assumed | advisor page |
 | Target confidence | 75% | assumed | advisor page |
-| Annual return floor | −99% | guard | `MIN_ANNUAL_RETURN` |
-| Monthly return floor | −100% | guard | `monthlyStep` |
+| Annual return floor | −99% | guard | `MIN_ANNUAL_RETURN` (projection), `planDrift` (simulation) |
+| Simulated drift | ln(1 + expected return) | convention | `planDrift` (scenario engine) |
 | Months per year | 12 | convention | — |
-| Shock distribution | normal (Box-Muller) | assumed | `buildScenarios` |
+| Shock distribution | normal (Box-Muller, one stream per path), lognormal step | assumed | `planShocks`, `planMonthFactor` (scenario engine) |
 | Bisection cap | contribution up to 1e9, 60 iterations | guard | `aporteParaProbabilidadMeta` |
 | Slow-run threshold | 2,000 ms | assumed | `advisor-telemetry.ts` |
 
@@ -522,9 +547,9 @@ const scenarios = buildScenarios({ months: 240, simulations: 1000, seed: 2026091
 const plan = evaluarPlan(params, 2_500_000, scenarios)
 
 plan.proyeccionDeterminista.valorFinal              // 2,223,630
-plan.distribucion.p50                               // 2,135,458
-plan.probabilidadMetaPct                            // 30.10
-aporteParaProbabilidadMeta(params, 2_500_000, 75, scenarios)   // 5,800.64
+plan.distribucion.p50                               // 2,132,887
+plan.probabilidadMetaPct                            // 29.80
+aporteParaProbabilidadMeta(params, 2_500_000, 75, scenarios)   // 5,911.55
 ```
 
 Every figure quoted in this document comes from that snippet. If a change moves

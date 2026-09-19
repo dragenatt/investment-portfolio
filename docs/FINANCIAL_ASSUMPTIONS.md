@@ -31,7 +31,8 @@ modules consume it.
 | Volatility, aggressive | 16% | annual fraction | assumed | `VOLATILIDADES` |
 | Advisor target confidence | 75% | probability | assumed | advisor page |
 | Advisor simulations | 1,000 | count | assumed | advisor page |
-| Simulated return floor | -99% | annual fraction | assumed (guard) | `advisor.ts` |
+| Simulated return floor | -99% | annual fraction | assumed (guard) | `advisor.ts`, `scenario-engine.ts` (`planDrift`) |
+| Advisor process | the scenario engine's lognormal monthly step, drift ln(1 + r) | model | assumed | `scenario-engine.ts` (`planMonthFactor`) |
 | Covariance window | 252 | days | assumed | `monte-carlo.ts` |
 | Default benchmark | SPY | symbol | assumed | `benchmarks.ts` |
 | Portfolio Health thresholds | nine components, 0–100 | score | cited limits + **educational convention** | `portfolio-health.ts` |
@@ -199,11 +200,14 @@ from 100 paths is not the same claim as one from 10,000.
 
 ## Simulated return floor
 
-**-99% annual, assumed guard.** `MIN_ANNUAL_RETURN` in `advisor.ts`.
+**-99% annual, assumed guard.** `MIN_ANNUAL_RETURN` in `advisor.ts` for the
+deterministic projection, `planDrift` in `scenario-engine.ts` for the
+simulation.
 
-A long, unlevered position cannot lose more than everything, and
-`Math.pow(1 + r, 1/12)` with `r` below -100% is `NaN` rather than a loss. The
-floor is what keeps the monthly conversion away from a negative base.
+A long, unlevered position cannot lose more than everything: `(1 + r)^(1/12)`
+and `ln(1 + r)` with `r` below -100% are `NaN` rather than a loss. Since model
+3.0.0 the simulated month is lognormal and cannot fall below -100% on its own;
+the floor now only guards the stated annual return.
 
 ## Covariance window
 
@@ -255,6 +259,10 @@ shocks.
 - **Process.** Each holding follows a geometric Brownian motion with correlated
   shocks, stepped monthly — the generator the portfolio Monte Carlo already uses
   (`forEachCorrelatedStep`), so a scenario and the cone agree on the same inputs.
+- **Streams (2.0.0).** Each path draws from its own stream (`pathSeed`), so a
+  longer horizon extends every path without redrawing a month. The advisor's
+  plans run on the same draws and step (`planShocks`, `planMonthFactor`); a plan
+  states an effective annual return, which becomes the drift `ln(1 + r)`.
 - **Risk model.** From history by default: annualised mean, volatility and
   correlation of the holdings' daily returns. A user may set one expected annual
   return for every holding instead; volatility and correlation stay historical,

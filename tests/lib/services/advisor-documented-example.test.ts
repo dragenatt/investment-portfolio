@@ -94,11 +94,11 @@ describe('the documented worked example — section 5, deterministic', () => {
 
 describe('the documented worked example — section 7, distribution', () => {
   it('matches the documented percentiles', () => {
-    expect(pesos(plan.distribucion.p10)).toBe(1_480_482)
-    expect(pesos(plan.distribucion.p25)).toBe(1_764_216)
-    expect(pesos(plan.distribucion.p50)).toBe(2_135_458)
-    expect(pesos(plan.distribucion.p75)).toBe(2_625_779)
-    expect(pesos(plan.distribucion.p90)).toBe(3_163_716)
+    expect(pesos(plan.distribucion.p10)).toBe(1_463_182)
+    expect(pesos(plan.distribucion.p25)).toBe(1_736_403)
+    expect(pesos(plan.distribucion.p50)).toBe(2_132_887)
+    expect(pesos(plan.distribucion.p75)).toBe(2_633_738)
+    expect(pesos(plan.distribucion.p90)).toBe(3_156_418)
   })
 
   it('puts the median below the deterministic value, as the document explains', () => {
@@ -109,28 +109,28 @@ describe('the documented worked example — section 7, distribution', () => {
   it('matches the documented bands over time', () => {
     const bandas = bandasDeIncertidumbre(params, scenarios)
     const año = (n: number) => bandas[n - 1]
-    expect(pesos(año(1).p50)).toBe(102_526)
-    expect(pesos(año(5).p50)).toBe(348_882)
-    expect(pesos(año(10).p50)).toBe(771_370)
-    expect(pesos(año(20).p50)).toBe(2_135_458)
+    expect(pesos(año(1).p50)).toBe(102_209)
+    expect(pesos(año(5).p50)).toBe(353_935)
+    expect(pesos(año(10).p50)).toBe(765_346)
+    expect(pesos(año(20).p50)).toBe(2_132_887)
     expect(pesos(año(20).aportado)).toBe(1_010_000)
   })
 })
 
 describe('the documented worked example — sections 9 to 11', () => {
   it('matches the documented probability', () => {
-    expect(plan.probabilidadMetaPct).toBeCloseTo(30.1, 2)
+    expect(plan.probabilidadMetaPct).toBeCloseTo(29.8, 2)
   })
 
   it('matches the documented required contribution', () => {
-    expect(aporteParaProbabilidadMeta(params, META, 75, scenarios)).toBeCloseTo(5_800.64, 2)
+    expect(aporteParaProbabilidadMeta(params, META, 75, scenarios)).toBeCloseTo(5_911.55, 2)
   })
 
   it('matches the documented sensitivity rows', () => {
     const s = analizarSensibilidad(params, META, scenarios)
-    expect(s.rendimiento.map((r) => Number(r.probabilidadPct.toFixed(1)))).toEqual([9.3, 30.1, 60.4])
-    expect(s.horizonte.map((r) => Number(r.probabilidadPct.toFixed(1)))).toEqual([0.8, 30.1, 76])
-    expect(s.aportacion.map((r) => Number(r.probabilidadPct.toFixed(1)))).toEqual([12.4, 30.1, 51.7])
+    expect(s.rendimiento.map((r) => Number(r.probabilidadPct.toFixed(1)))).toEqual([9.6, 29.8, 59.7])
+    expect(s.horizonte.map((r) => Number(r.probabilidadPct.toFixed(1)))).toEqual([1, 29.8, 75.9])
+    expect(s.aportacion.map((r) => Number(r.probabilidadPct.toFixed(1)))).toEqual([12.1, 29.8, 51.2])
   })
 })
 
@@ -140,9 +140,9 @@ describe('the documented worked example — section 12, goal date', () => {
   })!
 
   it('matches the documented arrival figures', () => {
-    expect(fecha.probabilidadPct).toBeCloseTo(34.6, 1)
-    expect(fecha.simulacionesQueNoLlegan).toBe(654)
-    expect(fecha.mesP25).toBe(231)
+    expect(fecha.probabilidadPct).toBeCloseTo(33.6, 1)
+    expect(fecha.simulacionesQueNoLlegan).toBe(664)
+    expect(fecha.mesP25).toBe(230)
   })
 
   it('reports no median date, because fewer than half the paths arrive', () => {
@@ -158,6 +158,6 @@ describe('the documented worked example — section 12, goal date', () => {
 describe('the documented model version', () => {
   it('is the one the document names', () => {
     // If this fails the document's header is stale, whatever else still passes.
-    expect(ADVISOR_MODEL_VERSION).toBe('2.1.0')
+    expect(ADVISOR_MODEL_VERSION).toBe('3.0.0')
   })
 })

@@ -111,6 +111,29 @@ export function gbmInputsFromHistory(returnsMatrix: number[][]): GbmInputs {
 }
 
 /**
+ * The seed of path `path` in a per-path stream: splitmix32 of the run's seed and
+ * the path index, so neighbouring paths get unrelated streams.
+ */
+export function pathSeed(seed: number, path: number): number {
+  let z = (Math.imul(seed >>> 0, 0x9e3779b1) + Math.imul(path + 1, 0x85ebca6b)) >>> 0
+  z = Math.imul(z ^ (z >>> 16), 0x7feb352d) >>> 0
+  z = Math.imul(z ^ (z >>> 15), 0x846ca68b) >>> 0
+  return (z ^ (z >>> 16)) >>> 0
+}
+
+/**
+ * The standard normals one path draws in a per-path stream, `count` of them.
+ * The first k never depend on `count`: that is the property the per-path
+ * stream exists for.
+ */
+export function pathNormals(seed: number, path: number, count: number): number[] {
+  const next = createNormalSampler(pathSeed(seed, path))
+  const out = new Array<number>(count)
+  for (let i = 0; i < count; i++) out[i] = next()
+  return out
+}
+
+/**
  * Walk correlated GBM price paths step by step — the one generator every
  * simulation here is built on.
  *
@@ -125,7 +148,21 @@ export function gbmInputsFromHistory(returnsMatrix: number[][]): GbmInputs {
  * process is not.
  */
 export function forEachCorrelatedStep(
-  params: { inputs: GbmInputs; steps: number; stepsPerYear: number; numSimulations: number; seed: number },
+  params: {
+    inputs: GbmInputs
+    steps: number
+    stepsPerYear: number
+    numSimulations: number
+    seed: number
+    /**
+     * 'single' (the default): one stream for every path, in order — what the
+     * portfolio cone has always drawn. 'perPath': each path its own stream
+     * (pathSeed), so a longer horizon extends every path without changing any
+     * month already drawn, and a comparison across horizons is a comparison of
+     * horizons, not of different luck.
+     */
+    streams?: 'single' | 'perPath'
+  },
   onStep: (sim: number, step: number, relatives: number[]) => void,
 ): void {
   const { inputs, seed } = params
@@ -140,11 +177,13 @@ export function forEachCorrelatedStep(
   const diffusion = inputs.sigma.map((s) => s * sqrtDt)
   const cholesky = inputs.cholesky
 
-  const nextNormal = createNormalSampler(seed)
+  const perPath = params.streams === 'perPath'
+  let nextNormal = createNormalSampler(seed)
   const prices = new Array<number>(assetCount).fill(1)
   const shocks = new Array<number>(assetCount).fill(0)
 
   for (let sim = 0; sim < paths; sim++) {
+    if (perPath) nextNormal = createNormalSampler(pathSeed(seed, sim))
     for (let i = 0; i < assetCount; i++) prices[i] = 1
 
     for (let step = 0; step < steps; step++) {

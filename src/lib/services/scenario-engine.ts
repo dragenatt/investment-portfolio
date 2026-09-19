@@ -17,12 +17,18 @@
 // figures are gross.
 
 import { choleskyDecomposition } from './covariance'
-import { forEachCorrelatedStep, gbmInputsFromHistory, percentile, type GbmInputs } from './monte-carlo'
+import { forEachCorrelatedStep, gbmInputsFromHistory, pathNormals, percentile, type GbmInputs } from './monte-carlo'
 import { DEFAULT_COST_MODEL, tradeCost, type CostModel } from './costs'
 import type { PlanParams } from './advisor'
 import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
 
-export const SCENARIO_ENGINE_VERSION = '1.0.0'
+/**
+ * 2.0.0 (4.9): each path draws from its own stream (pathSeed), so a longer
+ * horizon extends every path without changing a month already drawn, and the
+ * advisor's plans run on this engine's shocks and step. Same process as 1.0.0;
+ * different draws, so a result from 1.0.0 is not reproducible under 2.0.0.
+ */
+export const SCENARIO_ENGINE_VERSION = '2.0.0'
 
 const MONTHS_PER_YEAR = 12
 const DEFAULT_SIMULATIONS = 1000
@@ -325,7 +331,7 @@ export function runScenario(spec: ScenarioSpec): ScenarioResult | { errors: stri
   }
 
   forEachCorrelatedStep(
-    { inputs: gbmInputsFor(s), steps: months, stepsPerYear: MONTHS_PER_YEAR, numSimulations: paths, seed: s.seed },
+    { inputs: gbmInputsFor(s), steps: months, stepsPerYear: MONTHS_PER_YEAR, numSimulations: paths, seed: s.seed, streams: 'perPath' },
     (sim, step, relatives) => {
       const month = step + 1
       if (step === 0) {
@@ -440,6 +446,55 @@ export function runScenario(spec: ScenarioSpec): ScenarioResult | { errors: stri
   }
 }
 
+// ─── Plans: the advisor's single-holding scenarios, on this engine ──────────
+//
+// A plan is a scenario with one diversified holding (scenarioFromPlan). The
+// advisor asks it many questions at once — a probability, the contribution that
+// reaches a target, a fan by year, a date of arrival, a sensitivity sweep, a
+// comparison of horizons — and every one must be answered on the SAME paths, or
+// the answers disagree with each other for no reason but luck. So the advisor
+// keeps the draws (planShocks) and steps them with planMonthFactor: the same
+// draws and the same factor runScenario uses for one holding, which a test pins.
+
+/**
+ * The standard normals a plan's paths use: one row per path, from the engine's
+ * per-path streams. A path's first months do not depend on how many are asked
+ * for, so a longer horizon only appends.
+ */
+export function planShocks(seed: number, simulations: number, months: number): number[][] {
+  const paths = Math.max(1, Math.floor(simulations))
+  const steps = Math.max(0, Math.floor(months))
+  return Array.from({ length: paths }, (_, path) => pathNormals(seed, path, steps))
+}
+
+/** A plan cannot lose more than everything in a year; ln(1 + r) needs r > -1. */
+const MIN_PLAN_ANNUAL_RETURN = -0.99
+
+/**
+ * A plan's expected return as the engine's drift.
+ *
+ * A plan states an EFFECTIVE annual return — "7% a year" means a year's growth
+ * of 1.07 on average. The engine's μ is a continuous rate, E[growth] = e^μ, so
+ * a plan's 7% is μ = ln(1.07). Passing 0.07 straight through would make every
+ * plan grow 7.25% a year on average, and a plan with no volatility would stop
+ * matching the compound-interest projection shown beside it.
+ */
+export function planDrift(effectiveAnnualReturn: number): number {
+  return Math.log(1 + Math.max(MIN_PLAN_ANNUAL_RETURN, effectiveAnnualReturn))
+}
+
+/**
+ * One month of a plan path: the engine's GBM factor for one holding, computed
+ * exactly as forEachCorrelatedStep computes it for scenarioFromPlan's inputs.
+ * Effective annual return and annual volatility, as fractions.
+ */
+export function planMonthFactor(annualReturn: number, annualVolatility: number, shock: number): number {
+  const dt = 1 / MONTHS_PER_YEAR
+  const drift = (planDrift(annualReturn) - (annualVolatility * annualVolatility) / 2) * dt
+  const diffusion = annualVolatility * Math.sqrt(dt)
+  return Math.exp(drift + diffusion * shock)
+}
+
 // ─── Adapters: the same scenario from each consumer's inputs ────────────────
 
 /** Correlation from a covariance matrix, clamped against rounding. */
@@ -474,7 +529,9 @@ export function scenarioFromPlan(plan: PlanParams, options: { simulations?: numb
     contributions: { monthly: plan.aportacionMensual },
     horizonMonths: Math.round(plan.años * MONTHS_PER_YEAR),
     risk: {
-      expectedReturns: [plan.rendimientoAnual],
+      // The profile's effective annual return as the engine's continuous drift
+      // (planDrift), so the plan's mean growth is 1 + r a year, as stated.
+      expectedReturns: [planDrift(plan.rendimientoAnual)],
       volatilities: [plan.volatilidadAnual],
       correlation: [[1]],
       source: 'Rendimiento y volatilidad del perfil del advisor (docs/FINANCIAL_ASSUMPTIONS.md)',

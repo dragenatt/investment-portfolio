@@ -25,14 +25,21 @@
 // contribution search then runs on the same scenarios as the probability it is
 // solving for, which makes the loop close by construction.
 //
+// Since model 3.0.0 (4.9) the draws and the monthly step are the scenario
+// engine's (planShocks, planMonthFactor): the advisor had its own generator and
+// its own arithmetic monthly step, the app its correlated GBM, and the same plan
+// gave two answers depending on which screen asked. A test pins that a plan
+// evaluated here and the same plan run through runScenario agree.
+//
 // See docs/ADVISOR_MODEL_VERSIONING.md and docs/FINANCIAL_ASSUMPTIONS.md.
 
 import { allocateMoney, roundMoney, toCents } from '@/lib/utils/money'
 import { validateWeights, validateProbability } from './validation'
-import { mulberry32, standardNormal } from '@/lib/utils/random'
+import { planMonthFactor, planShocks } from './scenario-engine'
+import { percentile as enginePercentile } from './monte-carlo'
 
 /** Bump on any change that moves a saved projection's numbers. */
-export const ADVISOR_MODEL_VERSION = '2.1.0'
+export const ADVISOR_MODEL_VERSION = '3.0.0'
 
 const MONTHS_PER_YEAR = 12
 
@@ -111,42 +118,21 @@ export type PlanOutcome = {
 export function buildScenarios(request: ScenarioRequest): ScenarioSet {
   const months = Math.max(0, Math.floor(request.months))
   const simulations = Math.max(1, Math.floor(request.simulations))
-  const random = mulberry32(request.seed)
-
-  const shocks: number[][] = []
-  for (let sim = 0; sim < simulations; sim++) {
-    const path = new Array<number>(months)
-    for (let month = 0; month < months; month++) path[month] = standardNormal(random)
-    shocks.push(path)
-  }
-
-  return { seed: request.seed, simulations, months, shocks }
+  // The scenario engine's draws: one stream per path (planShocks).
+  return { seed: request.seed, simulations, months, shocks: planShocks(request.seed, simulations, months) }
 }
 
 /**
  * Lengthen a scenario set without disturbing the months it already holds.
  *
- * Rebuilding a longer set from scratch is not an option. buildScenarios consumes
- * draws path by path, so asking for more months shifts the stream for every
- * simulation after the first, and the sensitivity table's "current" row would
- * stop matching the projection printed above it.
- *
- * The extra months come from a second, independently seeded stream. The shocks
- * are iid standard normals, so which generator produced a given one is
- * immaterial; what matters is that the ones already drawn do not move.
+ * Each path has its own stream, so drawing it again for more months reproduces
+ * the months it already had and appends the rest. (Before 3.0.0 one stream fed
+ * every path in turn, and a longer set had to borrow its extra months from a
+ * second generator to keep the first ones in place.)
  */
 function extendScenarios(scenarios: ScenarioSet, months: number): ScenarioSet {
   if (months <= scenarios.months) return scenarios
-
-  const extra = months - scenarios.months
-  const random = mulberry32((scenarios.seed ^ 0x9e3779b9) >>> 0)
-  const shocks = scenarios.shocks.map((path) => {
-    const extended = path.slice()
-    for (let i = 0; i < extra; i++) extended.push(standardNormal(random))
-    return extended
-  })
-
-  return { ...scenarios, months, shocks }
+  return buildScenarios({ seed: scenarios.seed, simulations: scenarios.simulations, months })
 }
 
 // ─── Projection ─────────────────────────────────────────────────────────────
@@ -188,45 +174,25 @@ function deterministicProjection(params: PlanParams) {
  * converted to a monthly rate — the floor is what keeps pow() away from a
  * negative base.
  */
-/** Independent monthly shocks accumulate as sqrt(time), so scale by sqrt(12). */
-const MONTHS_SQRT = Math.sqrt(MONTHS_PER_YEAR)
-
 /**
- * One month of a simulated path.
+ * One month of a plan path: the scenario engine's GBM step on this month's
+ * shock, then the month's contribution.
  *
- * The shock is scaled to a MONTHLY standard deviation. The earlier version
- * drew a fresh annual-equivalent return every month and converted the whole
- * thing to a monthly rate:
- *
- *     monthlyRate(mu + shock * sigma)
- *
- * which averages twelve independent annual draws inside each year and so
- * divides the realised annual standard deviation by sqrt(12). A profile
- * documented at 10% volatility delivered 2.7%; the aggressive profile's 16%
- * delivered 4.4%. Measured, not inferred — see the tests.
- *
- * The consequence was not cosmetic. Every probability the advisor reported was
- * computed against a market three and a half times calmer than the one the
- * assumptions register describes, so every one of them was too confident, and
- * the uncertainty fan D7 exists to draw was that much too narrow.
- *
- * sqrt(time) scaling is the same convention used everywhere else in this
- * codebase for annualising, and it restores the documented figure to within
- * sampling error. It also brings back volatility drag: the median outcome now
- * falls as volatility rises at a fixed mean return, which is a real property of
- * compounding that the old form largely erased.
+ * History, because each version moved the numbers: 2.0.0 drew an annual return
+ * every month and so delivered a volatility sqrt(12) too small; 2.1.0 scaled
+ * the shock to a monthly standard deviation on an arithmetic monthly return.
+ * 3.0.0 is the engine's lognormal step — the same factor runScenario applies —
+ * so a plan cannot lose more than everything by construction, and the advisor
+ * and every other projection in the app share one process.
  */
-function monthlyStep(params: PlanParams, shock: number): number {
-  const drift = monthlyRate(params.rendimientoAnual)
-  const monthly = drift + (shock * params.volatilidadAnual) / MONTHS_SQRT
-  // Cannot lose more than everything in one month.
-  return Math.max(-1, monthly)
+function nextMonth(params: PlanParams, value: number, shock: number): number {
+  return value * planMonthFactor(params.rendimientoAnual, params.volatilidadAnual, shock) + params.aportacionMensual
 }
 
 function simulatePath(params: PlanParams, shocks: number[], months: number): number {
   let value = params.capitalInicial
   for (let month = 0; month < months; month++) {
-    value = value * (1 + monthlyStep(params, shocks[month])) + params.aportacionMensual
+    value = nextMonth(params, value, shocks[month])
     if (!Number.isFinite(value)) return 0
   }
   return Math.max(0, value)
@@ -290,7 +256,7 @@ export function bandasDeIncertidumbre(
     let roto = false
     for (let month = 0; month < years * MONTHS_PER_YEAR; month++) {
       if (!roto) {
-        value = value * (1 + monthlyStep(params, shocks[month])) + params.aportacionMensual
+        value = nextMonth(params, value, shocks[month])
         // Same guard as simulatePath: a path that leaves the reals is recorded
         // as zero rather than poisoning every percentile above it.
         if (!Number.isFinite(value)) {
@@ -321,11 +287,13 @@ export function bandasDeIncertidumbre(
   })
 }
 
-/** Percentile of an already-sorted series, by nearest rank. */
+/**
+ * Percentile of an already-sorted series — the scenario engine's (interpolated
+ * between ranks), so the advisor's P10 and the engine's P10 are the same
+ * statistic. 2.x took the nearest rank.
+ */
 function percentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return 0
-  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1))
-  return sorted[index]
+  return enginePercentile(sorted, p / 100)
 }
 
 function distributionOf(sorted: number[]): Distribucion {
@@ -914,7 +882,7 @@ export function proyectarFechaMeta(
     if (value >= meta) arrivedAt = 0
 
     for (let month = 0; month < months && arrivedAt === null; month++) {
-      value = value * (1 + monthlyStep(params, path[month])) + params.aportacionMensual
+      value = nextMonth(params, value, path[month])
       if (!Number.isFinite(value)) break
       if (value >= meta) arrivedAt = month + 1
     }
