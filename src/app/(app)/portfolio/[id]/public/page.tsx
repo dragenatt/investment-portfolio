@@ -18,7 +18,7 @@ import { Avatar } from '@/components/ui/avatar'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { cn } from '@/lib/utils'
-import { TrendingUp, TrendingDown, Lock, Eye, GitCompareArrows, Heart, ArrowLeft } from 'lucide-react'
+import { TrendingUp, TrendingDown, Lock, GitCompareArrows, Heart, ArrowLeft } from 'lucide-react'
 import { useLike } from '@/lib/hooks/use-social'
 import { useTranslation } from '@/lib/i18n'
 import { changeTone, formatSignedPercent, toneTextClass } from '@/lib/utils/change-tone'
@@ -159,6 +159,7 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
         <div className="flex items-center gap-4">
           <Avatar className="h-12 w-12 rounded-full flex-shrink-0 bg-primary/10">
             {portfolio.owner?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- an avatar can be on any host; next/image needs each one allow-listed, and these are 32-64px thumbnails
               <img src={portfolio.owner.avatar_url} alt={ownerName} className="h-full w-full object-cover rounded-full" />
             ) : (
               <span className="text-lg font-bold text-primary">{ownerName[0]?.toUpperCase()}</span>

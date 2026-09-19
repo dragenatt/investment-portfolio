@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock global fetch to prevent real HTTP calls to Yahoo Finance
 const mockFetch = vi.fn().mockResolvedValue({

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { FormattedAmount } from '@/components/shared/formatted-amount'
+import {} from '@/components/shared/formatted-amount'
 import { formatPercent } from '@/lib/utils/numbers'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TrendingUp, TrendingDown, Flame, Snowflake } from 'lucide-react'

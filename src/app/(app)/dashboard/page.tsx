@@ -13,12 +13,10 @@ import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { ErrorDisplay } from '@/components/shared/error-display'
 import { useMemo, useState } from 'react'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
-import { useTranslation } from '@/lib/i18n'
 import { PortfolioChart, AllocationDonut } from '@/components/charts/lazy-charts'
 import { DataGate } from '@/components/shared/data-gate'
 
 export default function DashboardPage() {
-  const { t } = useTranslation()
   const { data: portfolios, isLoading, error, mutate } = usePortfolios()
   const [chartRange, setChartRange] = useState('30')
   const { data: chartData, isLoading: chartLoading, error: chartError, currency: chartCurrency, unconverted } = usePortfolioHistory(chartRange)

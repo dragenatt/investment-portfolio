@@ -63,7 +63,7 @@ export function useSaveComparison() {
   const [error, setError] = useState<Error | null>(null)
 
   const save = useCallback(
-    async (portfolioIds: string[], name: string, description?: string) => {
+    async (portfolioIds: string[], name: string) => {
       setIsLoading(true)
       setError(null)
       try {

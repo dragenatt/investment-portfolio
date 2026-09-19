@@ -27,8 +27,6 @@ function uniformCov(n: number, vol: number, correlation: number): number[][] {
 const diagCov = (vols: number[]) =>
   vols.map((v, i) => vols.map((w, j) => (i === j ? v * w : 0)))
 
-const weightsOf = (point: { weights: { symbol: string; weight: number }[] }) =>
-  Object.fromEntries(point.weights.map((w) => [w.symbol, w.weight]))
 
 describe('projectOntoSimplex', () => {
   it('leaves a point that is already on the simplex alone', () => {

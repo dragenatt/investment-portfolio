@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseCSV, type CSVRow } from '@/lib/utils/csv-parser'
+import { parseCSV } from '@/lib/utils/csv-parser'
 
 describe('parseCSV', () => {
   describe('valid CSV parsing', () => {

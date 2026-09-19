@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from '@/components/ui/card'
 import { FinanceTooltip } from '@/components/shared/finance-tooltip'
-import { formatNumber } from '@/lib/utils/numbers'
+import {} from '@/lib/utils/numbers'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Calculator, TrendingUp, Wallet } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'

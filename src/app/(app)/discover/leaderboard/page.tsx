@@ -119,6 +119,7 @@ export default function LeaderboardPage() {
                       <>
                         <Avatar className="h-8 w-8 rounded-full flex-shrink-0">
                           {ranking.avatarUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element -- an avatar can be on any host; next/image needs each one allow-listed, and these are 32-64px thumbnails
                             <img src={ranking.avatarUrl} alt="" className="h-full w-full object-cover rounded-full" />
                           )}
                         </Avatar>

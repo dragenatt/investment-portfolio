@@ -2,7 +2,6 @@
 
 import { createContext, useContext } from 'react'
 import type { Dictionary, Locale } from './types'
-import { defaultLocale } from './types'
 
 type I18nContextValue = {
   locale: Locale

@@ -83,11 +83,11 @@ export function PortfolioChart({ data, isLoading, onPeriodChange, currency, unco
   }
 
   // Determine if performance is positive or negative
-  const { isPositive, startValue, lastPoint } = useMemo(() => {
-    if (!data || data.length < 2) return { isPositive: true, startValue: 0, lastPoint: null }
+  const { isPositive, startValue } = useMemo(() => {
+    if (!data || data.length < 2) return { isPositive: true, startValue: 0 }
     const first = data[0].value
     const last = data[data.length - 1].value
-    return { isPositive: last >= first, startValue: first, lastPoint: data[data.length - 1] }
+    return { isPositive: last >= first, startValue: first }
   }, [data])
 
   /**

@@ -6,6 +6,19 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    // A leading underscore is how this project says a binding is deliberately
+    // unused: a handler that must keep its signature, a destructured field kept
+    // for shape. Without this the only way to say it was a disable comment,
+    // which silences more than it should (see use-debounce.ts, where one hid a
+    // real "ref written during render").
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
+    },
+  },
+  {
     // Playwright fixtures take a callback named `use`, which the React hooks
     // rule mistakes for a hook call in a non-component. It is a false positive:
     // there is no React in this directory at all.

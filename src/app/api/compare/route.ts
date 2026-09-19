@@ -2,11 +2,9 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { validate } from '@/lib/api/validate'
 import { SaveComparisonSchema } from '@/lib/schemas/social'
-import { getCachedComparison, cacheComparison, CACHE_KEYS } from '@/lib/cache/redis'
+import { getCachedComparison, cacheComparison } from '@/lib/cache/redis'
 import { apiHandler } from '@/lib/api/handler'
 import { SNAPSHOT_VALUATION_VERSION } from '@/lib/services/snapshots'
-
-type Period = '1M' | '3M' | '6M' | '1Y' | '5Y' | 'ALL'
 
 function getPeriodDays(period: string): number {
   const map: Record<string, number> = {

@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Search, TrendingUp, TrendingDown, Loader2, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react'
 import Link from 'next/link'
 import { SectorBrowser } from '@/components/market/sector-browser'
-import { changeTone, formatSignedPercent, formatSignedNumber, toneColor, toneTextClass } from '@/lib/utils/change-tone'
+import { changeTone, formatSignedPercent, formatSignedNumber, toneTextClass } from '@/lib/utils/change-tone'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

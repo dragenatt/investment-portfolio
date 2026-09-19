@@ -23,12 +23,19 @@ export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
   fn: T,
   delay: number
 ): T {
+  // The latest callback, kept in a ref so a re-render does not restart the
+  // timer. Assigned in an effect, not during render: writing a ref while
+  // rendering is what the React rules forbid, and the disable comment that
+  // used to sit below turned the whole check off for this function rather
+  // than fixing it. The timer only ever fires after a commit, so the ref it
+  // reads is the same one either way.
   const fnRef = useRef(fn)
-  fnRef.current = fn
+  useEffect(() => {
+    fnRef.current = fn
+  }, [fn])
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks -- intentional: stable debounced callback
   const debounced = useCallback(
     (...args: unknown[]) => {
       if (timerRef.current) clearTimeout(timerRef.current)

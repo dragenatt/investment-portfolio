@@ -4,8 +4,9 @@ import { getHistory } from '@/lib/services/market'
 import { apiHandler } from '@/lib/api/handler'
 import { buildResultMetadata } from '@/lib/services/result-metadata'
 
-async function getHandler(req: Request, { params }: { params: Promise<{ pid: string }> }) {
-  const { pid } = await params
+async function getHandler(req: Request, _ctx: { params: Promise<{ pid: string }> }) {
+  // The indices asked for are the whole request; the portfolio in the path is
+  // not read (this route has no screen — docs/RESULT_METADATA.md).
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)

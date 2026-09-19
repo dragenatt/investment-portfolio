@@ -32,7 +32,7 @@ function isMarketHours(): boolean {
 const DEBOUNCE_MS = 30_000
 let lastUpdateTime = 0
 
-Deno.serve(async (req: Request) => {
+Deno.serve(async (_req: Request) => {
   try {
     // Check market hours
     if (!isMarketHours()) {

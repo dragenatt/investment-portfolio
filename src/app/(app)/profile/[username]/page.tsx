@@ -1,14 +1,12 @@
 'use client'
 
 import { use } from 'react'
-import { useState } from 'react'
 import { usePublicProfile } from '@/lib/hooks/use-discover'
 import { usePublicPortfolios } from '@/lib/hooks/use-discover'
 import { useFollow } from '@/lib/hooks/use-social'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Avatar } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
 import { ExternalLink, Heart, Users, Briefcase } from 'lucide-react'
@@ -59,6 +57,7 @@ export default function PublicProfilePage({
                 <div className="relative">
                   <Avatar className="h-24 w-24 rounded-full">
                     {profile.avatarUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element -- an avatar can be on any host; next/image needs each one allow-listed, and these are 32-64px thumbnails
                       <img
                         src={profile.avatarUrl}
                         alt=""

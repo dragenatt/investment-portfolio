@@ -5,7 +5,7 @@ import { usePortfolios } from '@/lib/hooks/use-portfolios'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
@@ -105,7 +105,7 @@ export default function PrivacySettingsPage() {
       } else {
         toast.success('Guardado')
       }
-    } catch (err) {
+    } catch {
       toast.error('Error al guardar')
     } finally {
       setSaving((prev) => ({ ...prev, [portfolioId]: false }))

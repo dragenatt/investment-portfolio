@@ -266,7 +266,7 @@ self.addEventListener('message', (event) => {
   event.waitUntil(
     Promise.resolve(pending || 'unknown').then((status) => {
       if (pending) revalidations.delete(message.url)
-      event.source && event.source.postMessage({ type: 'shell-status', url: message.url, status })
+      if (event.source) event.source.postMessage({ type: 'shell-status', url: message.url, status })
     }),
   )
 })

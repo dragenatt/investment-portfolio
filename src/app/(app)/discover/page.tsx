@@ -8,10 +8,10 @@ import { WinnersLosers } from '@/components/discover/winners-losers'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
@@ -124,6 +124,7 @@ export default function DiscoverPage() {
                   <div className="flex items-start gap-4">
                     <Avatar className="h-12 w-12 rounded-full flex-shrink-0">
                       {user.avatarUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element -- an avatar can be on any host; next/image needs each one allow-listed, and these are 32-64px thumbnails
                         <img src={user.avatarUrl} alt="" className="h-full w-full object-cover rounded-full" />
                       )}
                     </Avatar>
@@ -167,6 +168,7 @@ export default function DiscoverPage() {
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 rounded-full flex-shrink-0">
                           {portfolio.owner.avatarUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element -- an avatar can be on any host; next/image needs each one allow-listed, and these are 32-64px thumbnails
                             <img src={portfolio.owner.avatarUrl} alt="" className="h-full w-full object-cover rounded-full" />
                           )}
                         </Avatar>

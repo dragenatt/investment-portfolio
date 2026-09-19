@@ -67,7 +67,7 @@ export default function SocialProfileSettingsPage() {
 
       toast.success('Perfil actualizado')
       mutate()
-    } catch (err) {
+    } catch {
       toast.error('Error al guardar')
     } finally {
       setSaving(false)
@@ -108,6 +108,7 @@ export default function SocialProfileSettingsPage() {
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16 rounded-full">
                 {profile.avatar_url && (
+                  // eslint-disable-next-line @next/next/no-img-element -- an avatar can be on any host; next/image needs each one allow-listed, and these are 32-64px thumbnails
                   <img
                     src={profile.avatar_url}
                     alt={profile.username || profile.email}

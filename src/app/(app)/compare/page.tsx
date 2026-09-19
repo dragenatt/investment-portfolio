@@ -155,10 +155,6 @@ export default function ComparePage() {
     })
   }, [comparison])
 
-  const selectedPortfolioNames = selectedPortfolios
-    .map((id) => ownPortfolios?.find((p: { id: string }) => p.id === id)?.name || publicPortfolios.find((p) => p.id === id)?.name)
-    .filter(Boolean)
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -588,7 +584,6 @@ function MetricRow({
   getValue,
   format,
   best,
-  worst,
 }: {
   label: string
   tooltip?: string
@@ -605,8 +600,8 @@ function MetricRow({
       </td>
       {metrics.map((m) => {
         const value = getValue(m)
+        // Only the best value is marked; the worst is left unlabelled on purpose.
         const isBest = m.portfolioId === best && metrics.length > 1
-        const isWorst = m.portfolioId === worst && metrics.length > 1
         return (
           <td key={m.portfolioId} className="text-right py-3 px-3 relative">
             <div className="flex items-center justify-end gap-1.5">
