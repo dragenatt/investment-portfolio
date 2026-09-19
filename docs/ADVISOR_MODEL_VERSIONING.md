@@ -23,6 +23,20 @@ Together with the user's own inputs — capital, contribution, horizon, goal —
 that is everything needed to reproduce the result exactly. Nothing in the engine
 reads the clock or `Math.random()`.
 
+## The seed is not the model
+
+Which seed a run uses is a choice of the screen, not part of the model: given a
+seed, the model's numbers are fixed, and the seed travels with every result. So
+changing how the seed is chosen does not bump the version — a saved projection
+is still reproduced exactly from what it carries.
+
+The advisor uses one seed for every run, `ADVISOR_SEED` (task 5.1). Until then it
+hashed the seed from the plan, so a plan re-run at another contribution was drawn
+on different luck; a questionnaire answered before 5.1 carries the old seed and
+reproduces with it, and one answered today may differ from it by that draw
+alone. Saved goals are recalculated on a seed of their own (`seedForGoal`), for
+the same reason: runs that are compared share their draws.
+
 ## Versioning rule
 
 **Bump the version whenever a change moves the numbers a saved projection would

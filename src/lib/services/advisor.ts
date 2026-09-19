@@ -123,6 +123,37 @@ export function buildScenarios(request: ScenarioRequest): ScenarioSet {
 }
 
 /**
+ * The advisor's draw: one seed for every plan (task 5.1, P0-23).
+ *
+ * The seed used to be hashed from the plan — capital, contribution, horizon,
+ * goal and profile — so the same plan at $1,000 a month and at $2,000 was
+ * scored on different luck, and the gap between the two answers mixed the
+ * change the user made with a change in coin flips. Runs that are compared must
+ * share their draws (common random numbers), and whatever the user may vary
+ * between them is exactly what the seed must not depend on. That is every input.
+ *
+ * A constant rather than one seed per browser session keeps the other promise:
+ * the same questionnaire gives the same answer tomorrow. Each path has its own
+ * stream (pathSeed), so a longer horizon extends the same paths, and a profile
+ * only scales the shocks: every comparison the advisor offers — contribution,
+ * horizon, goal, profile — is made on one set of draws. The seed is reported
+ * with every result, and it is the one the documented example uses.
+ */
+export const ADVISOR_SEED = 20260912
+
+/** Paths per advisor run: enough for stable deciles without stalling the browser. */
+export const ADVISOR_SIMULATIONS = 1000
+
+/** The scenario set an advisor run is answered on, for a horizon in years. */
+export function advisorScenarios(years: number): ScenarioSet {
+  return buildScenarios({
+    months: Math.round(years * MONTHS_PER_YEAR),
+    simulations: ADVISOR_SIMULATIONS,
+    seed: ADVISOR_SEED,
+  })
+}
+
+/**
  * Lengthen a scenario set without disturbing the months it already holds.
  *
  * Each path has its own stream, so drawing it again for more months reproduces

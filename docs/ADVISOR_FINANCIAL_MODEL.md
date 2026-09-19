@@ -233,8 +233,16 @@ months are drawn, so a longer horizon extends every path instead of reshuffling
 them. That is what lets the sensitivity table and the strategy comparison put a
 25-year plan beside a 20-year one on the same luck.
 
-The seed is derived from the user's own inputs, so the same plan always produces
-the same answer, and it is reported alongside every result.
+**Why one seed for every plan.** The set above answers every question about one
+plan; the seed makes two runs share it too. Every advisor run draws from
+`ADVISOR_SEED` (`advisorScenarios`), whatever the capital, contribution,
+horizon, goal or profile, so the same plan at $1,000 and at $2,000 a month is
+scored on the same luck and the gap between the answers is the gap between the
+plans. Until task 5.1 the seed was hashed from those inputs, which kept a run
+reproducible but gave every variant of a plan its own draw. A constant rather
+than one seed per session keeps both promises: runs compare, and the same
+questionnaire gives the same answer tomorrow. The seed is reported alongside
+every result.
 
 ### The monthly step
 

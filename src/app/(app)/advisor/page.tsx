@@ -14,7 +14,8 @@ import {
   type PerfilNombre,
 } from '@/lib/utils/investment-profile'
 import {
-  buildScenarios,
+  advisorScenarios,
+  ADVISOR_SIMULATIONS,
   evaluarPlan,
   aporteParaProbabilidadMeta,
   analizarSensibilidad,
@@ -270,22 +271,6 @@ const ETIQUETA_ETAPA = (t: {
 
 const PROBABILIDAD_OBJETIVO = 75
 
-/** Scenarios per run: enough for stable deciles without stalling the browser. */
-const SIMULACIONES = 1000
-
-/**
- * A seed derived from the plan itself, so re-running the same questionnaire
- * gives the same answer while two different plans still get different draws.
- */
-function seedFor(...parts: number[]): number {
-  let hash = 2166136261
-  for (const part of parts) {
-    hash ^= Math.round(part * 100)
-    hash = Math.imul(hash, 16777619)
-  }
-  return hash >>> 0
-}
-
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function AdvisorPage() {
@@ -428,12 +413,11 @@ export default function AdvisorPage() {
         // One scenario set answers every question about this plan, so the
         // recommended contribution is scored against the same simulated paths
         // it was solved on. That is what stops the advisor recommending an
-        // amount and then calling that same amount insufficient.
-        const scenarios = buildScenarios({
-          months: horizonte * 12,
-          simulations: SIMULACIONES,
-          seed: seedFor(capitalInicial, aportacionMensual, horizonte, meta, perfil.nivel),
-        })
+        // amount and then calling that same amount insufficient. The set does
+        // not depend on the plan (5.1): a second run at another contribution
+        // or horizon is scored on the same draws, so it can be compared with
+        // this one.
+        const scenarios = advisorScenarios(horizonte)
         return {
           scenarios,
           plan: evaluarPlan(planParams, meta, scenarios),
@@ -755,7 +739,7 @@ export default function AdvisorPage() {
             Supuestos: rendimiento {(RENDIMIENTOS[results.nivel] * 100).toFixed(0)}% anual y
             volatilidad {(VOLATILIDADES[results.nivel] * 100).toFixed(0)}% anual, ambos supuestos de
             la cartera modelo del perfil {results.nombre} y no mediciones de tus posiciones;{' '}
-            {SIMULACIONES.toLocaleString('es-MX')} trayectorias con rendimientos normales; sin
+            {ADVISOR_SIMULATIONS.toLocaleString('es-MX')} trayectorias con rendimientos normales; sin
             inflacion, comisiones ni impuestos. La banda ancha deja fuera 1 de cada 10 escenarios
             por abajo y 1 de cada 10 por arriba.
           </p>
