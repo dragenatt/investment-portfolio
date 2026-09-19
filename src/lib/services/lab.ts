@@ -23,7 +23,8 @@
 import { portfolioVolatility, riskContributions } from './risk-attribution'
 import { parametricVaR, cornishFisherVaR } from './var'
 import { recoveryRequired } from './drawdown'
-import { buildScenarios, evaluarPlan } from './advisor'
+import { runScenario, scenarioFromPlan } from './scenario-engine'
+import { forEachCorrelatedStep, pathNormals } from './monte-carlo'
 import { formatoMoneda } from '@/lib/utils/money'
 import { efficientFrontier, portfolioRiskReturn } from './optimizer'
 import { riskParityWeights } from './allocation-strategies'
@@ -31,7 +32,6 @@ import { runFactorRegression } from './factors'
 import { runStrategy } from './strategy-engine'
 import type { Strategy } from './strategy-rule'
 import type { Bar } from './backtest'
-import { mulberry32, standardNormal } from '@/lib/utils/random'
 import { isEnabled, type FeatureFlag } from './feature-flags'
 import { TRADING_DAYS_PER_YEAR as TRADING_DAYS } from '@/lib/constants/financial-constants'
 
@@ -469,7 +469,7 @@ const EXPERIMENTS: Experiment[] = [
       'Una calculadora de interes compuesto te da una cifra. Esa cifra es el escenario promedio, y la probabilidad de caer exactamente ahi es practicamente cero. Simular muchos caminos muestra el abanico completo.',
     params: MONTE_CARLO_PARAMS,
     simulation:
-      'Se generan 600 caminos mensuales con choques aleatorios normales, con semilla fija, usando el mismo motor que el Asesor. Cada camino aplica el rendimiento esperado, un choque de la volatilidad indicada y la aportacion del mes. Se reportan los percentiles 10, 25, 50, 75 y 90 del valor final.',
+      'Se generan 600 caminos mensuales con semilla fija en el motor de escenarios de la app, el mismo que usan el Asesor y las proyecciones de tu portafolio. Cada mes aplica el rendimiento esperado, un choque aleatorio de la volatilidad indicada (paso lognormal) y la aportacion. Se reportan los percentiles 10, 25, 50, 75 y 90 del valor final.',
     questions: [
       'Que tan lejos esta el P10 del P90? Te parece un rango aceptable?',
       'Si subes la volatilidad al doble, cuanto se ensancha el abanico?',
@@ -483,24 +483,26 @@ const EXPERIMENTS: Experiment[] = [
       const expectedReturn = read(input, MONTE_CARLO_PARAMS[3]) / 100
       const volatility = read(input, MONTE_CARLO_PARAMS[4]) / 100
 
-      // A fixed seed, so moving one slider changes the answer for that reason
-      // and not because the dice were rolled again.
-      const scenarios = buildScenarios({ months: years * 12, simulations: 600, seed: 4242 })
-      const outcome = evaluarPlan(
-        {
-          capitalInicial: capital,
-          aportacionMensual: monthly,
-          años: years,
-          rendimientoAnual: expectedReturn,
-          volatilidadAnual: volatility,
-        },
-        null,
-        scenarios,
-      )
+      // The scenario engine itself (4.9), not a copy of it: the plan as a
+      // scenario, and the same plan with no volatility for the calculator's
+      // single figure. A fixed seed, so moving one slider changes the answer
+      // for that reason and not because the dice were rolled again.
+      const plan = {
+        capitalInicial: capital,
+        aportacionMensual: monthly,
+        años: years,
+        rendimientoAnual: expectedReturn,
+        volatilidadAnual: volatility,
+      }
+      const simulated = runScenario(scenarioFromPlan(plan, { seed: 4242, simulations: 600 }))
+      const certain = runScenario(scenarioFromPlan({ ...plan, volatilidadAnual: 0 }, { seed: 4242, simulations: 1 }))
+      if ('errors' in simulated || 'errors' in certain) {
+        throw new Error(`Monte Carlo: ${'errors' in simulated ? simulated.errors.join(' ') : ''}`)
+      }
 
-      const d = outcome.distribucion
+      const d = simulated.nominal[simulated.nominal.length - 1]
       const spread = d.p50 > 0 ? ((d.p90 - d.p10) / d.p50) * 100 : 0
-      const deterministic = outcome.proyeccionDeterminista
+      const deterministic = { valorFinal: certain.final.nominal.p50, capitalAportado: simulated.final.contributed }
 
       return {
         series: [
@@ -924,20 +926,28 @@ const EXPERIMENTS: Experiment[] = [
         },
       }
 
-      const dt = 1 / TRADING_DAYS
       const base = Date.UTC(2000, 0, 3)
+      const dateOf = (t: number) => new Date(base + t * 86_400_000).toISOString().slice(0, 10)
       const outcomes: Array<{ versus: number; strategy: number; buyAndHold: number; trades: number }> = []
 
-      for (let path = 0; path < paths; path++) {
-        const random = mulberry32(BACKTEST_SEED + path)
-        const bars: Bar[] = []
-        let close = 100
-        for (let t = 0; t < BACKTEST_BARS; t++) {
-          if (t > 0) {
-            close *= Math.exp((drift - (vol * vol) / 2) * dt + vol * Math.sqrt(dt) * standardNormal(random))
-          }
-          bars.push({ date: new Date(base + t * 86_400_000).toISOString().slice(0, 10), close })
-        }
+      // Daily price paths from the app's one generator (4.9): the same GBM
+      // step and the same per-path streams as the scenario engine, one asset.
+      const pricePaths: Bar[][] = Array.from({ length: paths }, () => [{ date: dateOf(0), close: 100 }])
+      forEachCorrelatedStep(
+        {
+          inputs: { mu: [drift], sigma: [vol], cholesky: [[1]] },
+          steps: BACKTEST_BARS - 1,
+          stepsPerYear: TRADING_DAYS,
+          numSimulations: paths,
+          seed: BACKTEST_SEED,
+          streams: 'perPath',
+        },
+        (sim, step, relatives) => {
+          pricePaths[sim].push({ date: dateOf(step + 1), close: 100 * relatives[0] })
+        },
+      )
+
+      for (const bars of pricePaths) {
         const run = runStrategy(strategy, bars, { costPct })
         if (!run) continue
         outcomes.push({
@@ -1077,15 +1087,16 @@ const EXPERIMENTS: Experiment[] = [
       // it monthly returns would inflate the alpha twentyfold — the same
       // cadence trap that once reported the S&P 500 at 70% volatility.
       const n = years * TRADING_DAYS
-      const random = mulberry32(FACTOR_SEED)
+      // The engine's normal stream (4.9), three draws a day in a fixed order.
+      const draws = pathNormals(FACTOR_SEED, 0, 3 * n)
       const perDay = (annual: number) => annual / Math.sqrt(TRADING_DAYS)
       const market: number[] = []
       const smallMinusBig: number[] = []
       const asset: number[] = []
       for (let t = 0; t < n; t++) {
-        const m = perDay(factorVol) * standardNormal(random)
-        const s = perDay(factorVol) * standardNormal(random)
-        const noise = perDay(idio) * standardNormal(random)
+        const m = perDay(factorVol) * draws[3 * t]
+        const s = perDay(factorVol) * draws[3 * t + 1]
+        const noise = perDay(idio) * draws[3 * t + 2]
         market.push(m)
         smallMinusBig.push(s)
         asset.push(alpha / TRADING_DAYS + beta * m + size * s + noise)
