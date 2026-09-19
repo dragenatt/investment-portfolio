@@ -54,6 +54,23 @@ export function rateOn(series: Record<string, number> | undefined, date: string)
   return Number.isFinite(value) && value > 0 ? value : null
 }
 
+/**
+ * Multiply an amount in `currency` on `date` by this to get `base`, or null
+ * when either rate is unknown. The same quote → USD → base route
+ * buildConversion takes for a symbol, for an amount whose currency is known
+ * directly — a transaction price, an average cost.
+ */
+export function currencyFactor(usdRates: RateSeries, currency: string, base: string, date: string): number | null {
+  const from = (currency || '').toUpperCase()
+  const to = (base || 'USD').toUpperCase()
+  if (!from) return null
+  if (from === to) return 1
+  const usdPerFrom = from === 'USD' ? 1 : rateOn(usdRates[from], date)
+  const basePerUsd = to === 'USD' ? 1 : rateOn(usdRates[to], date)
+  if (usdPerFrom === null || basePerUsd === null) return null
+  return basePerUsd / usdPerFrom
+}
+
 export type ConversionInputs = {
   /** symbol -> the currency its closes are quoted in. */
   currencyBySymbol: Record<string, string>

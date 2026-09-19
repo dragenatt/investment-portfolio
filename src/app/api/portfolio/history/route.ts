@@ -9,6 +9,7 @@ import { lastSettledSession, topUpStoredHistory, writeThrough, isDailyRange } fr
 import type { Conversion } from '@/lib/services/fx'
 import { historicalConversion } from '@/lib/services/fx-history'
 import { apiHandler } from '@/lib/api/handler'
+import { SNAPSHOT_VALUATION_VERSION } from '@/lib/services/snapshots'
 
 /**
  * The provider range each button asks for.
@@ -240,6 +241,7 @@ async function getHandler(req: Request) {
     .select('portfolio_id, snapshot_date, total_value')
     .in('portfolio_id', portfolioIds)
     .gte('snapshot_date', cutoffStr)
+    .gte('valuation_version', SNAPSHOT_VALUATION_VERSION)
     .order('snapshot_date', { ascending: true })
 
   if (snapshotData && snapshotsCoverWindow(snapshotData, portfolioIds, cutoffStr)) {

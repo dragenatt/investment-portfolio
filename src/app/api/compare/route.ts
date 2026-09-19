@@ -4,6 +4,7 @@ import { validate } from '@/lib/api/validate'
 import { SaveComparisonSchema } from '@/lib/schemas/social'
 import { getCachedComparison, cacheComparison, CACHE_KEYS } from '@/lib/cache/redis'
 import { apiHandler } from '@/lib/api/handler'
+import { SNAPSHOT_VALUATION_VERSION } from '@/lib/services/snapshots'
 
 type Period = '1M' | '3M' | '6M' | '1Y' | '5Y' | 'ALL'
 
@@ -65,6 +66,7 @@ async function getHandler(req: Request) {
       currency
     `)
     .in('portfolio_id', portfolioIds)
+    .gte('valuation_version', SNAPSHOT_VALUATION_VERSION)
     .order('snapshot_date', { ascending: false })
 
   if (latestErr) return error(latestErr.message, 500)
@@ -97,6 +99,7 @@ async function getHandler(req: Request) {
     .select('portfolio_id, total_value, snapshot_date')
     .in('portfolio_id', portfolioIds)
     .gte('snapshot_date', startDate)
+    .gte('valuation_version', SNAPSHOT_VALUATION_VERSION)
     .order('snapshot_date', { ascending: true })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

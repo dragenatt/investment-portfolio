@@ -48,7 +48,7 @@ export function periodToRange(period: string): string {
 export async function loadBookTransactions(supabase: SupabaseClient, pid: string): Promise<BookTransaction[]> {
   const { data } = await supabase
     .from('transactions')
-    .select('executed_at, type, quantity, price, position:positions!inner(portfolio_id, symbol)')
+    .select('executed_at, type, quantity, price, currency, position:positions!inner(portfolio_id, symbol, currency)')
     .eq('position.portfolio_id', pid)
     .order('executed_at', { ascending: true })
     // Ties on executed_at (the modal records a date, not a time) replay in entry order.
@@ -60,6 +60,8 @@ export async function loadBookTransactions(supabase: SupabaseClient, pid: string
     symbol: (t.position as unknown as { symbol: string }).symbol,
     quantity: t.quantity as number,
     price: t.price as number,
+    // The transaction's own currency, else the position's.
+    currency: String((t.currency as string | null) ?? (t.position as unknown as { currency: string | null }).currency ?? 'USD').toUpperCase(),
   }))
 }
 

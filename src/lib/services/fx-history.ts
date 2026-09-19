@@ -7,7 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAdjustedPriceHistory, symbolCurrencies } from './price-history'
-import { buildConversion, fxPairSymbol, type Conversion, type RateSeries } from './fx'
+import { buildConversion, currencyFactor, fxPairSymbol, type Conversion, type RateSeries } from './fx'
 
 /**
  * A multiplier per symbol and date into `base`.
@@ -26,8 +26,30 @@ export async function historicalConversion(
   base: string,
   from: string,
 ): Promise<Conversion> {
+  return (await historicalFx(supabase, symbols, [], base, from)).conversion
+}
+
+export type HistoricalFx = {
+  /** Closes of a symbol into base, at each date's rate. */
+  conversion: Conversion
+  /** An amount in `currency` on `date` into base, or null when a rate is unknown. */
+  cashFactor: (currency: string, date: string) => number | null
+}
+
+/**
+ * historicalConversion, plus the same rates for amounts whose currency is
+ * known directly — what a transaction was recorded in — so a purchase and the
+ * closes that later value it end up in one unit.
+ */
+export async function historicalFx(
+  supabase: SupabaseClient,
+  symbols: string[],
+  currencies: string[],
+  base: string,
+  from: string,
+): Promise<HistoricalFx> {
   const currencyBySymbol = await symbolCurrencies(supabase, symbols)
-  const needed = [...new Set([...Object.values(currencyBySymbol), base.toUpperCase()])]
+  const needed = [...new Set([...Object.values(currencyBySymbol), ...currencies.map((c) => c.toUpperCase()), base.toUpperCase()])]
     .map(fxPairSymbol)
     .filter((pair): pair is string => pair !== null)
 
@@ -44,5 +66,8 @@ export async function historicalConversion(
     }
   }
 
-  return buildConversion({ currencyBySymbol, base: base.toUpperCase(), usdRates })
+  return {
+    conversion: buildConversion({ currencyBySymbol, base: base.toUpperCase(), usdRates }),
+    cashFactor: (currency, date) => currencyFactor(usdRates, currency, base, date),
+  }
 }

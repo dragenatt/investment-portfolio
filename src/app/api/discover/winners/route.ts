@@ -2,6 +2,7 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { apiHandler } from '@/lib/api/handler'
+import { SNAPSHOT_VALUATION_VERSION } from '@/lib/services/snapshots'
 
 async function getHandler() {
   const supabase = await createServerSupabase()
@@ -19,11 +20,13 @@ async function getHandler() {
       .from('portfolio_snapshots')
       .select('portfolio_id, total_value, total_return_pct')
       .eq('snapshot_date', today)
+      .gte('valuation_version', SNAPSHOT_VALUATION_VERSION)
 
     const { data: yesterdaySnaps } = await supabase
       .from('portfolio_snapshots')
       .select('portfolio_id, total_value')
       .eq('snapshot_date', yesterdayStr)
+      .gte('valuation_version', SNAPSHOT_VALUATION_VERSION)
 
     if (!todaySnaps || !yesterdaySnaps) return { winners: [], losers: [] }
 

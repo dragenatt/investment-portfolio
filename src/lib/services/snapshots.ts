@@ -27,6 +27,7 @@ import {
   type LeaderboardSnapshot,
 } from './discover'
 import { TRADING_DAYS_PER_YEAR } from '@/lib/constants/financial-constants'
+import { valueBookInBase } from './book-valuation'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -65,9 +66,18 @@ type SnapshotResult = {
   win_rate: number | null
   diversification_score: number | null
   currency: string
+  valuation_version: number
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
+
+/**
+ * Snapshots at this version or above value the book in the portfolio's base
+ * currency. Earlier rows summed each symbol's quote currency and each
+ * position's cost currency as one unit (migration 024) and every reader skips
+ * them: one of them next to a converted row reads as a seventeen-fold jump.
+ */
+export const SNAPSHOT_VALUATION_VERSION = 2
 
 
 // ─── Supabase Admin Client ──────────────────────────────────────────────────
@@ -341,7 +351,8 @@ export async function computePortfolioSnapshot(
       sortino_ratio: null,
       win_rate: null,
       diversification_score: null,
-      currency: portfolio.currency
+      currency: portfolio.currency,
+      valuation_version: SNAPSHOT_VALUATION_VERSION,
     }
   }
 
@@ -349,25 +360,23 @@ export async function computePortfolioSnapshot(
   const symbols = [...new Set(positions.map((p: Position) => p.symbol))]
   const prices = await fetchCurrentPrices(symbols)
 
-  // 3. Calculate portfolio value and allocation
-  let totalValue = 0
-  let totalCost = 0
-  const positionValues: Array<{ symbol: string; value: number; cost: number; weight: number }> = []
-
-  for (const pos of positions as Position[]) {
-    const price = prices[pos.symbol]
-    if (!price) {
-      // Use avg_cost as fallback if no price available
-      const value = pos.quantity * pos.avg_cost
-      totalValue += value
-      totalCost += pos.quantity * pos.avg_cost
-      positionValues.push({ symbol: pos.symbol, value, cost: pos.quantity * pos.avg_cost, weight: 0 })
-    } else {
-      const value = pos.quantity * price
-      totalValue += value
-      totalCost += pos.quantity * pos.avg_cost
-      positionValues.push({ symbol: pos.symbol, value, cost: pos.quantity * pos.avg_cost, weight: 0 })
-    }
+  // 3. Calculate portfolio value and allocation — in the portfolio's own
+  // currency. Value converts each quote from the currency it trades in; cost
+  // converts each average cost from the currency it was recorded in. Summing
+  // units × quote against units × cost as one unit put a book holding dollar
+  // assets bought in pesos at a 94% loss in total_return_pct — the figure the
+  // returns tab, the leaderboard and Discover read (book-valuation.ts).
+  const base = String(portfolio.currency ?? 'USD')
+  const asOf = new Date(`${today}T23:59:59Z`)
+  const valuation = await valueBookInBase(supabase, positions as Position[], prices, base, asOf)
+  const costs = await valueBookInBase(supabase, positions as Position[], {}, base, asOf)
+  const totalValue = valuation.total
+  const totalCost = costs.total
+  const positionValues: Array<{ symbol: string; value: number; cost: number; weight: number }> = (positions as Position[]).map(
+    (pos, i) => ({ symbol: pos.symbol, value: valuation.values[i], cost: costs.values[i], weight: 0 }),
+  )
+  if (valuation.unconverted.length > 0 || costs.unconverted.length > 0) {
+    console.warn(`[snapshots] ${portfolioId}: left unconverted`, [...new Set([...valuation.unconverted, ...costs.unconverted])])
   }
 
   // Calculate weights
@@ -375,14 +384,12 @@ export async function computePortfolioSnapshot(
     pv.weight = totalValue > 0 ? pv.value / totalValue : 0
   }
 
-  // Allocation by asset type
+  // Allocation by asset type, on the same converted values.
   const allocation: Record<string, number> = {}
-  for (const pos of positions as Position[]) {
-    const price = prices[pos.symbol] || pos.avg_cost
-    const value = pos.quantity * price
-    const weight = totalValue > 0 ? (value / totalValue) * 100 : 0
+  ;(positions as Position[]).forEach((pos, i) => {
+    const weight = totalValue > 0 ? (valuation.values[i] / totalValue) * 100 : 0
     allocation[pos.asset_type] = (allocation[pos.asset_type] || 0) + weight
-  }
+  })
   // Round allocation values
   for (const key in allocation) {
     allocation[key] = Math.round(allocation[key] * 100) / 100
@@ -411,6 +418,7 @@ export async function computePortfolioSnapshot(
     .select('snapshot_date, total_value, total_return_pct')
     .eq('portfolio_id', portfolioId)
     .gte('snapshot_date', oneYearAgo.toISOString().split('T')[0])
+    .gte('valuation_version', SNAPSHOT_VALUATION_VERSION)
     .order('snapshot_date', { ascending: true })
 
   const history: HistoricalSnapshot[] = historicalSnapshots || []
@@ -520,7 +528,8 @@ export async function computePortfolioSnapshot(
     sortino_ratio: sortinoVal,
     win_rate: winRateVal,
     diversification_score: diversificationVal,
-    currency: portfolio.currency
+    currency: portfolio.currency,
+    valuation_version: SNAPSHOT_VALUATION_VERSION,
   }
 }
 
@@ -623,6 +632,7 @@ export async function refreshLeaderboard(): Promise<{ portfolios: number }> {
       portfolios!inner(name, user_id, like_count, visibility, deleted_at)
     `)
     .eq('snapshot_date', today)
+    .gte('valuation_version', SNAPSHOT_VALUATION_VERSION)
     .eq('portfolios.visibility', 'public')
     .is('portfolios.deleted_at', null)
 

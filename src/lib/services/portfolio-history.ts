@@ -11,6 +11,8 @@ type HistoryTransaction = {
   symbol: string
   quantity: number
   price: number
+  /** The currency `price` was recorded in. Absent in callers that predate it. */
+  currency?: string
 }
 
 export type DailySnapshot = {

@@ -6,6 +6,7 @@ import { getDailyBaselines } from '@/lib/services/baselines'
 import { aggregateDailyChange, aggregatePositionValues } from '@/lib/services/pnl'
 import { fromCents, subtractMoney, toCents } from '@/lib/utils/money'
 import { apiHandler } from '@/lib/api/handler'
+import { SNAPSHOT_VALUATION_VERSION } from '@/lib/services/snapshots'
 
 async function getHandler() {
   const supabase = await createServerSupabase()
@@ -96,6 +97,7 @@ async function getHandler() {
         .select('portfolio_id, snapshot_date, total_value')
         .in('portfolio_id', pids)
         .gte('snapshot_date', lastWeek.toISOString().split('T')[0])
+        .gte('valuation_version', SNAPSHOT_VALUATION_VERSION)
         .order('snapshot_date', { ascending: false })
 
       let yesterdayCents = 0

@@ -19,6 +19,10 @@ export type ReturnsSummary = {
   period: string
   /** Size-weighted average age of the invested capital, in days. */
   capital_age_days?: number | null
+  /** The currency every figure is in: the portfolio's base currency. */
+  currency?: string
+  /** Holdings whose exchange rate was unknown and were left unconverted. */
+  unconverted?: string[]
 }
 
 export type CalendarYear = {

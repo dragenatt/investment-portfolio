@@ -13,6 +13,10 @@ import {
 } from '@/lib/services/returns'
 import { reconstructBookHistory } from '@/lib/services/portfolio-history'
 import { loadBookTransactions, loadPriceMapWithSource, periodCutoff } from '@/lib/services/book-inputs'
+import { historicalFx } from '@/lib/services/fx-history'
+import { bookInBase } from '@/lib/services/book-currency'
+import { valueBookInBase } from '@/lib/services/book-valuation'
+import { SNAPSHOT_VALUATION_VERSION } from '@/lib/services/snapshots'
 import { apiHandler } from '@/lib/api/handler'
 
 async function getHandler(req: Request, { params }: { params: Promise<{ pid: string }> }) {
@@ -25,22 +29,52 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   const period = url.searchParams.get('period') || '1Y'
 
   const data = await withAuditedCache(
-    `${CACHE_KEYS.ANALYTICS_RETURNS}${user.id}:${pid}:${period}`,
+    // v2: every figure in the portfolio's base currency. Results cached before
+    // mixed pesos and dollars and must not be served.
+    `${CACHE_KEYS.ANALYTICS_RETURNS}${user.id}:${pid}:${period}:v2`,
     600,
     async () => {
       const cutoff = periodCutoff(period)
 
-      // Try snapshots first
+      // Try snapshots first — only those valued in the base currency (024).
       const { data: snapshots } = await supabase
         .from('portfolio_snapshots')
         .select('snapshot_date, total_value, total_cost')
         .eq('portfolio_id', pid)
         .gte('snapshot_date', cutoff)
+        .gte('valuation_version', SNAPSHOT_VALUATION_VERSION)
         .order('snapshot_date', { ascending: true })
+
+      const { data: portfolio } = await supabase.from('portfolios').select('base_currency').eq('id', pid).maybeSingle()
+      const base = String(portfolio?.base_currency ?? 'USD').toUpperCase()
+
+      const { data: positions } = await supabase
+        .from('positions')
+        .select('symbol, quantity, avg_cost, currency')
+        .eq('portfolio_id', pid)
+        .gt('quantity', 0)
 
       // Every transaction, not just those in the window: the holdings on the
       // first day of the window depend on everything bought before it.
-      const bookTransactions = await loadBookTransactions(supabase, pid)
+      const recorded = await loadBookTransactions(supabase, pid)
+
+      // One currency for everything below (book-currency.ts). Transaction prices
+      // are in what each trade was recorded in; closes in what each symbol
+      // trades in. Compared unconverted, a book of dollar assets bought in pesos
+      // read as down 94% on capital that had moved a fraction of a percent.
+      const symbols = [...new Set([...recorded.map((t) => t.symbol), ...(positions ?? []).map((p) => p.symbol as string)])]
+      const firstTrade = recorded[0]?.executed_at.slice(0, 10) ?? cutoff
+      const fx = await historicalFx(
+        supabase,
+        symbols,
+        [...recorded.map((t) => t.currency ?? 'USD'), ...(positions ?? []).map((p) => String(p.currency ?? 'USD'))],
+        base,
+        firstTrade < cutoff ? firstTrade : cutoff,
+      )
+      const unconverted = new Set<string>()
+      const inBase = bookInBase(recorded, {}, fx.conversion, fx.cashFactor)
+      inBase.unconverted.forEach((s) => unconverted.add(s))
+      const bookTransactions = inBase.transactions
       const inWindow = bookTransactions.filter((t) => t.executed_at.slice(0, 10) >= cutoff)
 
       // MWR keeps its investor convention, unchanged: a purchase is money
@@ -51,12 +85,6 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
           date: t.executed_at.split('T')[0],
           amount: t.type === 'buy' ? -t.quantity * t.price : t.quantity * t.price,
         }))
-
-      const { data: positions } = await supabase
-        .from('positions')
-        .select('symbol, quantity, avg_cost')
-        .eq('portfolio_id', pid)
-        .gt('quantity', 0)
 
       let snaps = (snapshots ?? []).map((s) => ({ date: s.snapshot_date, value: s.total_value }))
       // TWR takes the book's convention, the opposite sign: a purchase is money
@@ -75,11 +103,10 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       // FALLBACK: no stored snapshots, so rebuild the book from the transactions
       // and price history.
       if (snaps.length < 2) {
-        const symbols = [
-          ...new Set([...bookTransactions.map((t) => t.symbol), ...(positions ?? []).map((p) => p.symbol)]),
-        ]
         const loaded = await loadPriceMapWithSource(supabase, symbols, cutoff, period)
-        const priceMap = loaded.prices
+        const converted = bookInBase([], loaded.prices, fx.conversion, fx.cashFactor)
+        converted.unconverted.forEach((s) => unconverted.add(s))
+        const priceMap = converted.prices
         priceSource = loaded.source
         basis = 'Portafolio reconstruido de sus operaciones y precios de cierre diarios'
 
@@ -90,23 +117,28 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         snaps = book.snapshots
         twrFlows = book.flows
 
-        // What the current holdings are worth at their latest price: the same
-        // figure the old last snapshot produced, so simple return and MWR are
-        // unchanged by the rebuild. The rebuilt last snapshot cannot stand in
-        // for it — it is the book BEFORE that day's trades.
-        currentValue =
-          positions && positions.length > 0
-            ? positions.reduce((sum, pos) => {
-                const closes = priceMap[pos.symbol] ?? {}
-                const dates = Object.keys(closes).sort()
-                const latest = dates.length > 0 ? closes[dates[dates.length - 1]] : pos.avg_cost
-                return sum + pos.quantity * latest
-              }, 0)
-            : null
+        // What the current holdings are worth at their latest close, in the
+        // base currency at today's rate. The rebuilt last snapshot cannot stand
+        // in for it — it is the book BEFORE that day's trades.
+        if (positions && positions.length > 0) {
+          const latest: Record<string, number> = {}
+          for (const [symbol, closes] of Object.entries(loaded.prices)) {
+            const dates = Object.keys(closes).sort()
+            if (dates.length > 0) latest[symbol] = closes[dates[dates.length - 1]]
+          }
+          const valuation = await valueBookInBase(supabase, positions, latest, base)
+          valuation.unconverted.forEach((s) => unconverted.add(s))
+          currentValue = valuation.total
+        } else {
+          currentValue = null
+        }
       }
 
-      // Calculate total cost from positions
-      const totalCost = (positions ?? []).reduce((sum, p) => sum + p.quantity * p.avg_cost, 0)
+      // What the open positions cost, each average cost converted from the
+      // currency it was recorded in.
+      const costs = await valueBookInBase(supabase, positions ?? [], {}, base)
+      costs.unconverted.forEach((s) => unconverted.add(s))
+      const totalCost = costs.total
 
       // Simple return: unrealised, on the holdings still open.
       const simple = currentValue !== null ? calculateSimpleReturn(currentValue, totalCost) : 0
@@ -126,6 +158,10 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
           twr,
           mwr,
           period,
+          /** Every figure above is in this currency. */
+          currency: base,
+          /** Holdings whose rate was unknown and were left as they were. */
+          unconverted: [...unconverted],
           // Why the two differ, in the terms that caused it. Null when one side
           // could not be computed, because there is nothing to compare.
           // calculateTWR is cumulative over the window and MWR is annual, so the
@@ -152,6 +188,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
             { name: 'TWR', value: 'Libro antes de las operaciones del día; flujos valuados al cierre', source: 'returns.ts, portfolio-history.ts' },
             { name: 'MWR', value: 'TIR anual de los flujos del inversionista hasta el valor actual', source: 'returns.ts (XIRR)' },
             { name: 'Rendimiento simple', value: 'No realizado, sobre el costo de las posiciones abiertas', source: 'returns.ts' },
+            { name: 'Moneda', value: `Todo en ${base}: cierres al tipo de cambio de su fecha, operaciones al de la suya`, source: 'book-currency.ts, fx.ts' },
           ],
         }),
       }

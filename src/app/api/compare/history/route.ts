@@ -3,6 +3,7 @@ import { success, error } from '@/lib/api/response'
 import { withCache } from '@/lib/cache/with-cache'
 import { CACHE_KEYS } from '@/lib/cache/redis'
 import { apiHandler } from '@/lib/api/handler'
+import { SNAPSHOT_VALUATION_VERSION } from '@/lib/services/snapshots'
 
 function getPeriodDays(period: string): number {
   const map: Record<string, number> = {
@@ -57,6 +58,7 @@ async function getHandler(req: Request) {
         .select('portfolio_id, snapshot_date, total_value')
         .in('portfolio_id', portfolioIds)
         .gte('snapshot_date', startDate)
+        .gte('valuation_version', SNAPSHOT_VALUATION_VERSION)
         .order('snapshot_date', { ascending: true })
 
       if (snapErr) throw new Error(snapErr.message)
