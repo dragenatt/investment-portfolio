@@ -58,3 +58,6 @@ commit-msg.txt
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# e2e session and synthetic book id (auth.setup.ts)
+/e2e/.auth/

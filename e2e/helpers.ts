@@ -1,14 +1,7 @@
 import { test as base, expect, type Page } from '@playwright/test'
+import { E2E_EMAIL, E2E_PASSWORD } from './env'
 
-/**
- * Credentials for the signed-in suite.
- *
- * Absent by default. Everything that needs them skips loudly rather than
- * passing vacuously — see `authTest` below.
- */
-export const E2E_EMAIL = process.env.E2E_EMAIL
-export const E2E_PASSWORD = process.env.E2E_PASSWORD
-export const HAS_CREDENTIALS = Boolean(E2E_EMAIL && E2E_PASSWORD)
+export * from './env'
 
 /**
  * A page that fails the test if the browser console reports an error.

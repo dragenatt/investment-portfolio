@@ -1,13 +1,15 @@
 import { defineConfig, devices } from '@playwright/test'
+import { AUTH_FILE, HAS_CREDENTIALS } from './e2e/env'
 
 /**
  * End-to-end configuration.
  *
  * The suite is split in two by design. `public` covers everything reachable
- * without signing in and runs anywhere, including CI with no secrets. `auth`
- * covers the signed-in flows and is SKIPPED unless E2E_EMAIL and E2E_PASSWORD
- * are present — a suite that silently passes because it never ran is worse than
- * no suite, so the skip is explicit and visible in the report.
+ * without signing in and runs anywhere, including CI with no secrets.
+ * `authenticated` covers the signed-in flows, after `setup` signs in once, and
+ * both are SKIPPED unless E2E_EMAIL and E2E_PASSWORD are present — a suite
+ * that silently passes because it never ran is worse than no suite, so the skip
+ * is explicit and visible in the report.
  *
  * Run: npm run test:e2e
  */
@@ -38,8 +40,18 @@ export default defineConfig({
     video: 'off',
   },
 
+  // `setup` signs in once and keeps the synthetic book (auth.setup.ts); the
+  // signed-in specs load its session instead of signing in per test. Without
+  // credentials the setup and the signed-in specs skip, and `public` still runs.
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'setup', testMatch: /auth\.setup\.ts/, use: { ...devices['Desktop Chrome'] } },
+    { name: 'public', testMatch: /public\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'authenticated',
+      testMatch: /authenticated\.spec\.ts/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'], storageState: HAS_CREDENTIALS ? AUTH_FILE : undefined },
+    },
   ],
 
   // Reuses an already-running server locally; starts one in CI.
