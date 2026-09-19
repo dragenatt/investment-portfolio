@@ -577,12 +577,16 @@ export type PortfolioBacktestData = {
   _meta?: ResultMetadata
 }
 
+/**
+ * Five rebalancing schedules over the book's history, as a background job
+ * (4.8) — the same job_id and polling path Monte Carlo and factors use, so a
+ * slow provider cannot hold a request open past the platform's limit. The
+ * synchronous route stays as the fallback where jobs are unavailable.
+ */
 export function usePortfolioBacktest(pid: string | null, costPct = 0.1) {
-  return useSWR<PortfolioBacktestData | { message: string }>(
-    pid ? `/api/analytics/${pid}/backtest?cost=${costPct}` : null,
-    apiFetcher,
-    { revalidateOnFocus: false },
-  )
+  return useJob<PortfolioBacktestData | { message: string }>('backtest', pid, { costPct }, {
+    fallbackUrl: pid ? `/api/analytics/${pid}/backtest?cost=${costPct}` : undefined,
+  })
 }
 
 // --- Exposure (P1-19 / P1-20) ---
@@ -616,10 +620,13 @@ export type StressData = {
   _meta?: ResultMetadata
 }
 
+/**
+ * Dated crises applied to the current book, as a background job (4.8): decades
+ * of history per holding from a slow provider is exactly the work the job
+ * runner exists for. The synchronous route stays as the fallback.
+ */
 export function useStress(pid: string | null) {
-  return useSWR<StressData | { message: string }>(
-    pid ? `/api/analytics/${pid}/stress` : null,
-    apiFetcher,
-    { revalidateOnFocus: false },
-  )
+  return useJob<StressData | { message: string }>('stress', pid, {}, {
+    fallbackUrl: pid ? `/api/analytics/${pid}/stress` : undefined,
+  })
 }
