@@ -285,14 +285,14 @@ export function whatIf(
  */
 export function describeWhatIf(result: WhatIfResult): string {
   if (!result.changed) {
-    return 'Este escenario no cambia nada respecto al portafolio actual, asi que ninguna metrica se mueve.'
+    return 'Este escenario no cambia nada respecto al portafolio actual, así que ninguna métrica se mueve.'
   }
 
   const { delta } = result
 
   const risk =
     Math.abs(delta.volatilityPp) < 0.01
-      ? 'deja el riesgo practicamente igual'
+      ? 'deja el riesgo prácticamente igual'
       : delta.volatilityPp < 0
         ? `baja la volatilidad ${Math.abs(delta.volatilityPp).toFixed(2)} puntos`
         : `sube la volatilidad ${delta.volatilityPp.toFixed(2)} puntos`
@@ -317,8 +317,8 @@ export function describeWhatIf(result: WhatIfResult): string {
     Math.abs(delta.hhi) < 0.005
       ? ''
       : delta.hhi < 0
-        ? ` Tambien reparte mejor el portafolio (HHI ${delta.hhi.toFixed(3)}).`
-        : ` Tambien lo concentra mas (HHI +${delta.hhi.toFixed(3)}).`
+        ? ` También reparte mejor el portafolio (HHI ${delta.hhi.toFixed(3)}).`
+        : ` También lo concentra más (HHI +${delta.hhi.toFixed(3)}).`
 
   return `Este cambio ${risk} ${ret}.${goal}${concentration} Nada de esto se ha ejecutado.`
 }

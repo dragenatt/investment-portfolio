@@ -77,9 +77,10 @@ export function diffForAudit(
     if (oldValue === undefined && newValue === undefined) continue
 
     const bothNumeric = typeof oldValue === 'number' && typeof newValue === 'number'
-    const same = bothNumeric
-      ? oldValue === newValue
-      : String(oldValue ?? '') === String(newValue ?? '')
+    // Objects by their content: String() turns every one into
+    // "[object Object]", so a changed cost model compared equal to the old one.
+    const text = (v: unknown) => (v !== null && typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''))
+    const same = bothNumeric ? oldValue === newValue : text(oldValue) === text(newValue)
 
     if (!same) changes.push({ field, oldValue, newValue })
   }

@@ -23,6 +23,7 @@ import {
   validarEntradasAdvisor,
   type PlanOutcome,
   type PlanParams,
+  type ScenarioSet,
   type CampoProblema,
 } from '@/lib/services/advisor'
 import {
@@ -44,6 +45,7 @@ import {
 } from '@/lib/services/advisor-export'
 import { ExportarPlan } from '@/components/advisor/advisor-export'
 import { GuardarComoMeta } from '@/components/advisor/advisor-save-goal'
+import { ComparadorEstrategias } from '@/components/advisor/advisor-strategy-compare'
 import {
   construirDiagnostico,
   registrarDiagnostico,
@@ -192,6 +194,10 @@ interface ResultsState {
   /** The inputs the plan was evaluated on, so it can be saved as a goal as-is. */
   planParams: PlanParams
   meta: number
+  /** The shocks every figure above was computed on; the strategy comparison reuses them. */
+  scenarios: ScenarioSet
+  /** Monthly income as entered, for the saving-effort row; null when not given. */
+  ingresoMensual: number | null
 }
 
 type Distribucion = PlanOutcome['distribucion']
@@ -479,6 +485,8 @@ export default function AdvisorPage() {
           bandas,
           planParams,
           meta,
+          scenarios,
+          ingresoMensual: ingresos > 0 ? ingresos : null,
           exportable: construirPlanExportable({
             perfil: {
               nivel: perfil.nivel,
@@ -894,6 +902,15 @@ export default function AdvisorPage() {
           <PorQueEstaRecomendacion explicacion={results.explicacion} />
           <ViabilidadCard viabilidad={results.viabilidad} />
           <InvertirVsAhorrarCard comparacion={results.ahorroVsInversion} />
+          {results.meta > 0 && (
+            <ComparadorEstrategias
+              params={results.planParams}
+              meta={results.meta}
+              scenarios={results.scenarios}
+              ingresoMensual={results.ingresoMensual}
+              aporteNecesario={results.aporteNec}
+            />
+          )}
           <ModoEducativo educacion={results.educacion} />
           <ExportarPlan plan={results.exportable} />
           <GuardarComoMeta

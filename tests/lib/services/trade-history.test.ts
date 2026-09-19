@@ -195,7 +195,16 @@ describe('deriveTradeHistory — robustness', () => {
       130,
     )!
     expect(result.quantity).toBe(0)
-    expect(result.warnings.join(' ')).toMatch(/more than|sobrevend|held/i)
+    expect(result.warnings.join(' ')).toMatch(/solo había/i)
+  })
+
+  it('values the remaining units at cost when there is no quote, and says so', () => {
+    // The route passed 0 for a missing quote, which read as losing the whole
+    // cost basis.
+    const result = deriveTradeHistory([tx('buy', 10, 100, '2025-01-01', 5)], null)!
+    expect(result.marketValue).toBeCloseTo(result.costBasis, 2)
+    expect(result.unrealizedPnl).toBeCloseTo(0, 2)
+    expect(result.warnings.join(' ')).toMatch(/Sin cotización/)
   })
 
   it('flags a sale with no purchase behind it rather than inventing a basis', () => {

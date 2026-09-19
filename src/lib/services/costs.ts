@@ -42,6 +42,39 @@ export const DEFAULT_COST_MODEL: CostModel = {
   source: 'No cost model configured — every return shown is gross.',
 }
 
+/** Whether a model charges anything at all. */
+export function isCostModelConfigured(model: CostModel | null | undefined): model is CostModel {
+  return (
+    !!model &&
+    (model.commissionPct > 0 ||
+      (model.commissionMin ?? 0) > 0 ||
+      model.spreadPct > 0 ||
+      model.custodyAnnualPct > 0 ||
+      model.capitalGainsTaxPct > 0)
+  )
+}
+
+/**
+ * A stored portfolios.cost_model, or null when there is none or it is not a
+ * usable model. Never fills a gap with a guess: a field that is missing or
+ * not a finite, non-negative number makes the whole model unusable.
+ */
+export function costModelFrom(stored: unknown): CostModel | null {
+  if (!stored || typeof stored !== 'object') return null
+  const s = stored as Record<string, unknown>
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null)
+  const commissionPct = n(s.commissionPct)
+  const spreadPct = n(s.spreadPct)
+  const custodyAnnualPct = n(s.custodyAnnualPct)
+  const capitalGainsTaxPct = n(s.capitalGainsTaxPct)
+  if (commissionPct === null || spreadPct === null || custodyAnnualPct === null || capitalGainsTaxPct === null) return null
+  const commissionMin = s.commissionMin === undefined ? undefined : n(s.commissionMin)
+  if (commissionMin === null) return null
+  const source = typeof s.source === 'string' && s.source.trim() ? s.source.trim() : null
+  if (!source) return null
+  return { commissionPct, commissionMin, spreadPct, custodyAnnualPct, capitalGainsTaxPct, source }
+}
+
 function finite(...values: number[]): boolean {
   return values.every((v) => Number.isFinite(v))
 }
@@ -142,14 +175,14 @@ export function annualDrag(
     explanation:
       'Una diferencia de ' +
       gap.toFixed(2) +
-      ' puntos anuales parece pequena, pero durante ' +
+      ' puntos anuales parece pequeña, pero durante ' +
       years +
-      ' anios se lleva ' +
+      ' años se lleva ' +
       costOfCosts.toFixed(0) +
       ', el ' +
       sharePct.toFixed(1) +
-      '% de lo que habrias acumulado sin costos. La comision se cobra sobre un saldo que habria ' +
-      'seguido creciendo, asi que la perdida se capitaliza igual que el rendimiento.',
+      '% de lo que habrías acumulado sin costos. La comisión se cobra sobre un saldo que habría ' +
+      'seguido creciendo, así que la pérdida se capitaliza igual que el rendimiento.',
   }
 }
 
@@ -193,17 +226,17 @@ export function describeCostModel(model: CostModel): string {
 
   if (!configured) {
     return (
-      'No hay un modelo de costos configurado, asi que todos los rendimientos que ves son ' +
+      'No hay un modelo de costos configurado, así que todos los rendimientos que ves son ' +
       'brutos: no descuentan comisiones, spread, custodia ni impuestos. Inventar cifras ' +
-      'plausibles daria un rendimiento neto que parece autoritativo y seria ficcion.'
+      'plausibles daría un rendimiento neto que parece autoritativo y sería ficción.'
     )
   }
 
   return (
     'Costos aplicados: ' +
     model.commissionPct.toFixed(2) +
-    '% de comision por operacion' +
-    (model.commissionMin ? ' (minimo ' + model.commissionMin.toFixed(2) + ')' : '') +
+    '% de comisión por operación' +
+    (model.commissionMin ? ' (mínimo ' + model.commissionMin.toFixed(2) + ')' : '') +
     ', ' +
     model.spreadPct.toFixed(2) +
     '% de spread, ' +

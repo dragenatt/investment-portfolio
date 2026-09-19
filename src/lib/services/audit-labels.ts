@@ -55,6 +55,7 @@ export const AUDIT_FIELD_NAMES: Record<string, string> = {
   show_transactions: 'mostrar transacciones',
   show_allocation: 'mostrar asignación',
   tags: 'etiquetas',
+  cost_model: 'modelo de costos',
 }
 
 export const AUDIT_ACTION_NAMES: Record<AuditAction, string> = {

@@ -17,6 +17,7 @@ const LABELS: Record<string, string> = {
   new: 'Nuevo',
   history: 'Historial',
   goals: 'Metas',
+  costs: 'Costos',
 }
 
 const SYMBOL_NAMES: Record<string, string> = {

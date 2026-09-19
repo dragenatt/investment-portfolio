@@ -7,7 +7,7 @@ import { getPortfolioDetail } from '@/lib/services/portfolio'
 import { recordAudit, recordAuditChanges, diffForAudit } from '@/lib/services/audit'
 
 /** What a portfolio edit can change, and so what its history lists. */
-const AUDITED_FIELDS = ['name', 'description', 'benchmark_symbol']
+const AUDITED_FIELDS = ['name', 'description', 'benchmark_symbol', 'cost_model']
 
 export const GET = apiHandler(async (_req: Request, ctx) => {
   const { id } = await (ctx as { params: Promise<{ id: string }> }).params
@@ -34,7 +34,7 @@ export const PATCH = apiHandler(async (req: Request, ctx) => {
 
   const { data: before } = await supabase
     .from('portfolios')
-    .select('name, description, benchmark_symbol')
+    .select('name, description, benchmark_symbol, cost_model')
     .eq('id', id)
     .single()
 

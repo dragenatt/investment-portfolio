@@ -91,7 +91,7 @@ function dateOf(iso: string): string {
  */
 export function deriveTradeHistory(
   transactions: RawTransaction[],
-  currentPrice: number,
+  currentPrice: number | null,
   options: { asOf?: Date } = {},
 ): TradeHistory | null {
   if (transactions.length === 0) return null
@@ -134,14 +134,14 @@ export function deriveTradeHistory(
       case 'sell': {
         if (quantity <= 0) {
           warnings.push(
-            `A sale on ${date} has no purchase behind it, so there is no cost basis to measure the gain against. It is recorded as pure proceeds.`,
+            `La venta del ${date} no tiene una compra registrada antes, así que no hay costo contra el cual medir la ganancia. Se registra como ingreso completo.`,
           )
         }
 
         const sellable = Math.min(qty, Math.max(0, quantity))
         if (sellable < qty) {
           warnings.push(
-            `The sale on ${date} is for ${qty} units but only ${quantity} were held. The excess is ignored rather than creating a short position the rest of the app cannot represent.`,
+            `La venta del ${date} es por ${qty} unidades, pero solo había ${quantity}. El excedente se ignora en lugar de crear una posición corta que el resto de la app no puede representar.`,
           )
         }
 
@@ -191,13 +191,19 @@ export function deriveTradeHistory(
         // across, so costCents is deliberately untouched.
         const ratio = qty
         if (ratio > 0) quantity = multiplyQuantity(quantity, ratio)
-        else warnings.push(`The split on ${date} has a ratio of ${ratio}, which is not usable.`)
+        else warnings.push(`El split del ${date} tiene una proporción de ${ratio}, que no se puede usar.`)
         break
       }
     }
   }
 
-  const price = finite(currentPrice)
+  // No quote: the shares are valued at what they cost, so unrealised P&L reads
+  // zero and says why. Passing 0 instead — as the route did — valued them at
+  // nothing and reported the whole cost basis as an unrealised loss.
+  if (currentPrice === null && quantity > 0) {
+    warnings.push('Sin cotización actual: las unidades restantes se valúan a su costo, así que la ganancia no realizada se muestra en cero.')
+  }
+  const price = currentPrice === null ? (quantity > 0 ? fromCents(costCents) / quantity : 0) : finite(currentPrice)
   const marketValue = multiplyMoney(price, quantity)
   const marketValueCents = toCents(marketValue)
   const costBasis = fromCents(costCents)
@@ -234,4 +240,85 @@ export function deriveTradeHistory(
     simpleReturnPct: calculateSimpleReturn(returnedToDate, invested),
     warnings,
   }
+}
+
+// ─── Every position of a book (4.6) ─────────────────────────────────────────
+
+export type BookPosition = { id: string; symbol: string; currency: string | null }
+
+export type PositionHistory = TradeHistory & {
+  symbol: string
+  /** The currency the position's cost is recorded in; every figure is in it. */
+  currency: string
+  price_currency: string | null
+  /** False when there was no quote and the units are valued at cost. */
+  priced: boolean
+  /** True when the quote's currency or today's rate was unknown and it was used unconverted. */
+  unconverted: boolean
+}
+
+export type HistoryTotals = {
+  currency: string
+  realizedPnl: number
+  unrealizedPnl: number
+  totalFees: number
+  dividendsReceived: number
+  marketValue: number
+  costBasis: number
+}
+
+/**
+ * Replay every position of a book and total the results per cost currency.
+ *
+ * Each quote is converted into the currency the position's COST is recorded
+ * in before it meets that cost: most positions in production record a peso
+ * cost for a dollar-quoted symbol, and subtracting one from the other as the
+ * same unit put unrealised P&L off by the exchange rate. Totals stay per
+ * currency, because a sum of pesos and dollars is a number in no currency.
+ *
+ * `quoteToCost(symbol, costCurrency)` answers the multiplier and whether it is
+ * a real conversion; the caller builds it from fx.ts and today's rates.
+ */
+export function summariseBookHistory(
+  positions: BookPosition[],
+  transactionsByPosition: Map<string, RawTransaction[]>,
+  quotes: Record<string, number>,
+  quoteCurrency: Record<string, string>,
+  quoteToCost: (symbol: string, costCurrency: string) => { factor: number; converted: boolean },
+  options: { asOf?: Date } = {},
+): { positions: PositionHistory[]; totals: HistoryTotals[] } {
+  const results: PositionHistory[] = []
+  for (const position of positions) {
+    const currency = String(position.currency ?? 'USD').toUpperCase()
+    const quote = quotes[position.symbol]
+    const conversion = quote === undefined ? null : quoteToCost(position.symbol, currency)
+    const price = quote === undefined ? null : quote * conversion!.factor
+    const history = deriveTradeHistory(transactionsByPosition.get(position.id) ?? [], price, options)
+    if (!history) continue
+    results.push({
+      symbol: position.symbol,
+      currency,
+      price_currency: quoteCurrency[position.symbol] ?? null,
+      priced: quote !== undefined,
+      unconverted: conversion !== null && !conversion.converted,
+      ...history,
+    })
+  }
+
+  const totals = new Map<string, HistoryTotals>()
+  for (const r of results) {
+    const t = totals.get(r.currency) ?? {
+      currency: r.currency, realizedPnl: 0, unrealizedPnl: 0, totalFees: 0, dividendsReceived: 0, marketValue: 0, costBasis: 0,
+    }
+    totals.set(r.currency, {
+      currency: r.currency,
+      realizedPnl: addMoney(t.realizedPnl, r.realizedPnl),
+      unrealizedPnl: addMoney(t.unrealizedPnl, r.unrealizedPnl),
+      totalFees: addMoney(t.totalFees, r.totalFees),
+      dividendsReceived: addMoney(t.dividendsReceived, r.dividendsReceived),
+      marketValue: addMoney(t.marketValue, r.marketValue),
+      costBasis: addMoney(t.costBasis, r.costBasis),
+    })
+  }
+  return { positions: results, totals: [...totals.values()] }
 }

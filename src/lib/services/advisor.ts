@@ -800,6 +800,14 @@ export function compararEstrategias(
   scenarios: ScenarioSet,
   contexto: { ingresoMensual?: number } = {},
 ): ComparacionEstrategias {
+  // simulateAll stops at the scenario set's last month, so an option longer
+  // than the set was silently scored as if it ended there: a 25-year option on
+  // a 15-year plan's shocks reported fifteen years of growth beside twenty-five
+  // years of contributions. The set is lengthened instead — the months already
+  // drawn do not move, so the option that matches the plan still reproduces it.
+  const longest = Math.max(0, ...opciones.map((o) => Math.round(o.años * MONTHS_PER_YEAR)))
+  const shared = extendScenarios(scenarios, longest)
+
   const resultados = opciones.map((opcion) => {
     const params: PlanParams = {
       capitalInicial: opcion.capitalInicial ?? base.capitalInicial,
@@ -809,7 +817,7 @@ export function compararEstrategias(
       volatilidadAnual: opcion.volatilidadAnual ?? base.volatilidadAnual,
     }
 
-    const sorted = simulateAll(params, scenarios)
+    const sorted = simulateAll(params, shared)
     const distribucion = distributionOf(sorted)
     const probabilidadPct = probabilityFromSorted(sorted, meta)
     const totalAportado = roundMoney(params.aportacionMensual * params.años * MONTHS_PER_YEAR)
@@ -835,7 +843,7 @@ export function compararEstrategias(
         params.aportacionMensual.toFixed(0) +
         ' al mes durante ' +
         params.años +
-        ' anios suma ' +
+        ' años suma ' +
         totalAportado.toFixed(0) +
         ' de tu bolsillo, con una probabilidad estimada de ' +
         probabilidadPct.toFixed(0) +
@@ -847,9 +855,9 @@ export function compararEstrategias(
     meta,
     opciones: resultados,
     nota:
-      'Ninguna de estas opciones es la correcta por si sola: cambian cuanto cuesta cada mes, ' +
-      'cuantos anios ocupa y cuanto riesgo corres de quedarte corto. La eleccion depende de que ' +
-      'estas dispuesto a ceder, y eso no lo decide el modelo.',
+      'Ninguna de estas opciones es la correcta por sí sola: cambian cuánto cuesta cada mes, ' +
+      'cuántos años ocupa y cuánto riesgo corres de quedarte corto. La elección depende de qué ' +
+      'estás dispuesto a ceder, y eso no lo decide el modelo.',
   }
 }
 

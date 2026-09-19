@@ -21,6 +21,7 @@ import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttributi
 import { RebalancePanel } from '@/components/analytics/rebalance-panel'
 import { ExposureCard } from '@/components/analytics/exposure-card'
 import { StressPanel } from '@/components/analytics/stress-panel'
+import { WhatIfTool } from '@/components/analytics/what-if-tool'
 import { FRESHNESS_STATUS_LABELS } from '@/lib/services/freshness'
 import { cn } from '@/lib/utils'
 
@@ -80,6 +81,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           <TabsTrigger value="allocation">Asignacion</TabsTrigger>
           <TabsTrigger value="scenarios">Escenarios</TabsTrigger>
           <TabsTrigger value="backtesting">Backtesting</TabsTrigger>
+          <TabsTrigger value="whatif">¿Qué pasaría si?</TabsTrigger>
           <TabsTrigger value="metrics">Metricas explicadas</TabsTrigger>
         </TabsList>
 
@@ -367,6 +369,13 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
         <TabsContent value="backtesting" className="space-y-6 mt-6">
           <ErrorBoundary>
             <PortfolioBacktest portfolioId={id} />
+          </ErrorBoundary>
+        </TabsContent>
+
+        {/* 4.6: one change seen across every metric at once. */}
+        <TabsContent value="whatif" className="space-y-6 mt-6">
+          <ErrorBoundary>
+            <WhatIfTool portfolioId={id} />
           </ErrorBoundary>
         </TabsContent>
 

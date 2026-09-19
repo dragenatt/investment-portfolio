@@ -5,6 +5,7 @@ import { useTransactions, type Transaction } from '@/lib/hooks/use-transactions'
 import { formatCurrency } from '@/lib/utils/currency'
 import { DIRECTION_LABEL, transactionCash } from '@/lib/utils/transaction-display'
 import { TransactionEditModal } from '@/components/portfolio/transaction-edit-modal'
+import { TradeHistorySummary } from '@/components/portfolio/trade-history-summary'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -97,6 +98,8 @@ export default function TransactionsPage({ params }: { params: Promise<{ id: str
         <Link href={`/portfolio/${id}`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}><ArrowLeft className="h-4 w-4 mr-1" /> {t.common.back}</Link>
         <h1 className="text-2xl font-bold">{t.portfolio.transactions}</h1>
       </div>
+
+      <TradeHistorySummary portfolioId={id} transactions={transactions} />
 
       <div className="flex gap-3">
         <Select value={typeFilter} onValueChange={v => { if (v) { setTypeFilter(v); setPage(0) } }}>

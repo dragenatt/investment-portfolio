@@ -2,8 +2,10 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { apiHandler } from '@/lib/api/handler'
 import { getBatchQuotes } from '@/lib/services/market'
-import { deriveTradeHistory, type RawTransaction } from '@/lib/services/trade-history'
-import { addMoney } from '@/lib/utils/money'
+import { summariseBookHistory, type RawTransaction } from '@/lib/services/trade-history'
+import { symbolCurrencies } from '@/lib/services/price-history'
+import { todaysUsdRates } from '@/lib/services/book-valuation'
+import { buildConversion, type Conversion } from '@/lib/services/fx'
 
 /**
  * What every position's transactions add up to.
@@ -12,6 +14,9 @@ import { addMoney } from '@/lib/utils/money'
  * that exists and is usually taxable; an unrealised one is a price quote that
  * can evaporate before it is ever collected. A single "P&L" number hides that
  * difference, and it is the difference an investor most needs to see.
+ *
+ * The quote is converted into each position's cost currency and totals stay per
+ * currency — see summariseBookHistory for why both were wrong before 4.6.
  */
 export const GET = apiHandler(async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
   const { id } = await ctx.params
@@ -24,7 +29,7 @@ export const GET = apiHandler(async (_req: Request, ctx: { params: Promise<{ id:
     .select('id, symbol, currency')
     .eq('portfolio_id', id)
 
-  if (!positions || positions.length === 0) return success({ positions: [], totals: null })
+  if (!positions || positions.length === 0) return success({ positions: [], totals: [] })
 
   const { data: transactions } = await supabase
     .from('transactions')
@@ -34,15 +39,16 @@ export const GET = apiHandler(async (_req: Request, ctx: { params: Promise<{ id:
     // Ties on executed_at (the modal records a date, not a time) replay in entry order.
     .order('created_at', { ascending: true })
 
-  const priceMap: Record<string, number> = {}
+  const symbols = [...new Set(positions.map((p) => p.symbol as string))]
+  const quotes: Record<string, number> = {}
   try {
-    const quotes = await getBatchQuotes(positions.map((p) => p.symbol))
-    for (const [symbol, quote] of Object.entries(quotes)) {
-      if (quote.price != null) priceMap[symbol] = quote.price
+    const batch = await getBatchQuotes(symbols)
+    for (const [symbol, quote] of Object.entries(batch)) {
+      if (quote.price != null && Number.isFinite(quote.price) && quote.price > 0) quotes[symbol] = quote.price
     }
   } catch {
-    // Without a quote the unrealised figure falls back to cost, which reports
-    // zero unrealised P&L rather than an invented one.
+    // Without a quote the remaining units are valued at cost (trade-history.ts),
+    // which reports zero unrealised P&L and says so, rather than an invented one.
   }
 
   const byPosition = new Map<string, RawTransaction[]>()
@@ -52,40 +58,22 @@ export const GET = apiHandler(async (_req: Request, ctx: { params: Promise<{ id:
     else byPosition.set(txn.position_id, [txn as RawTransaction])
   }
 
-  const results = positions
-    .map((position) => {
-      const txns = byPosition.get(position.id) ?? []
-      const history = deriveTradeHistory(txns, priceMap[position.symbol] ?? 0)
-      return history ? { symbol: position.symbol, currency: position.currency, ...history } : null
-    })
-    .filter((r): r is NonNullable<typeof r> => r !== null)
+  // One conversion per cost currency, at today's rate.
+  const today = new Date().toISOString().slice(0, 10)
+  const quoteCurrency = await symbolCurrencies(supabase, symbols)
+  const costCurrencies = [...new Set(positions.map((p) => String(p.currency ?? 'USD').toUpperCase()))]
+  const usdRates = await todaysUsdRates(supabase, [...Object.values(quoteCurrency), ...costCurrencies], today)
+  const conversions = new Map<string, Conversion>()
+  const quoteToCost = (symbol: string, costCurrency: string) => {
+    let conversion = conversions.get(costCurrency)
+    if (!conversion) {
+      conversion = buildConversion({ currencyBySymbol: quoteCurrency, base: costCurrency, usdRates })
+      conversions.set(costCurrency, conversion)
+    }
+    const factor = conversion.factor(symbol, today)
+    const converted = !conversion.unknownCurrency.includes(symbol) && !conversion.missingRate.includes(symbol)
+    return { factor, converted }
+  }
 
-  if (results.length === 0) return success({ positions: [], totals: null })
-
-  const totals = results.reduce(
-    (acc, r) => ({
-      realizedPnl: addMoney(acc.realizedPnl, r.realizedPnl),
-      unrealizedPnl: addMoney(acc.unrealizedPnl, r.unrealizedPnl),
-      totalFees: addMoney(acc.totalFees, r.totalFees),
-      dividendsReceived: addMoney(acc.dividendsReceived, r.dividendsReceived),
-      marketValue: addMoney(acc.marketValue, r.marketValue),
-      costBasis: addMoney(acc.costBasis, r.costBasis),
-    }),
-    {
-      realizedPnl: 0,
-      unrealizedPnl: 0,
-      totalFees: 0,
-      dividendsReceived: 0,
-      marketValue: 0,
-      costBasis: 0,
-    },
-  )
-
-  return success({
-    positions: results,
-    totals,
-    // Totals are summed across whatever currencies the positions are in. Saying
-    // so beats silently presenting a number that adds pesos to dollars.
-    currencies: [...new Set(results.map((r) => r.currency))],
-  })
+  return success(summariseBookHistory(positions, byPosition, quotes, quoteCurrency, quoteToCost))
 })

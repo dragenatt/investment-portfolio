@@ -189,6 +189,26 @@ describe('compararEstrategias (P1-5)', () => {
     expect(result.opciones[0].esfuerzoAhorroPct).toBeNull()
   })
 
+  it('simulates an option longer than the scenario set for its whole horizon', () => {
+    // Scored on a 10-year set, a 25-year option used to stop at year ten: same
+    // growth as the 10-year option, fifteen more years of contributions.
+    const short = buildScenarios({ months: 10 * 12, simulations: 400, seed: 7 })
+    const result = compararEstrategias(base, META, [
+      { aportacionMensual: 3000, años: 10 },
+      { aportacionMensual: 3000, años: 25 },
+    ], short)
+    expect(result.opciones[1].mediana).toBeGreaterThan(result.opciones[0].mediana * 2)
+  })
+
+  it('reproduces the plan itself when an option matches it', () => {
+    // Lengthening the set must not move the months already drawn.
+    const plan = { aportacionMensual: base.aportacionMensual, años: base.años }
+    const alone = compararEstrategias(base, META, [plan], scenarios)
+    const beside = compararEstrategias(base, META, [plan, { aportacionMensual: 1000, años: 40 }], scenarios)
+    expect(beside.opciones[0].mediana).toBe(alone.opciones[0].mediana)
+    expect(beside.opciones[0].probabilidadPct).toBe(alone.opciones[0].probabilidadPct)
+  })
+
   it('does not crown a winner', () => {
     const result = compararEstrategias(base, META, options, scenarios) as Record<string, unknown>
     expect(result.mejor).toBeUndefined()

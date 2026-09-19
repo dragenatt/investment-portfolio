@@ -15,6 +15,9 @@ import {
 } from '@/lib/services/rebalance'
 import { formatCurrency } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
+import { usePortfolio } from '@/lib/hooks/use-portfolios'
+import { costModelFrom, isCostModelConfigured, rebalanceCost, type CostModel } from '@/lib/services/costs'
 
 // P0-12 and P1-10: the rebalance planner and its before/after simulator, which
 // existed in full and were imported by nothing. The route serves the inputs;
@@ -64,7 +67,7 @@ function Field({ id, label, children }: { id: string; label: string; children: R
 
 const inputClass = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm'
 
-function Panel({ inputs }: { inputs: RebalanceInputs }) {
+function Panel({ inputs, portfolioId, costModel }: { inputs: RebalanceInputs; portfolioId: string; costModel: CostModel | null }) {
   const symbols = inputs.holdings.map((h) => h.symbol)
   const [source, setSource] = useState<TargetSource>(inputs.targets.drift ? 'drift' : 'equal')
   const [mode, setMode] = useState<Mode>('deviation')
@@ -244,6 +247,24 @@ function Panel({ inputs }: { inputs: RebalanceInputs }) {
                 Rotación: <span className="font-financial">{pct(result.plan.turnoverPct)}</span> del portafolio (
                 <span className="font-financial">{money(result.plan.totalValue)}</span>). Las compras y ventas se compensan: un rebalanceo mueve dinero entre posiciones, no pide aportar más.
               </p>
+              {/* 4.6: what executing it costs, on the costs the user stated — never on invented ones. */}
+              {isCostModelConfigured(costModel) ? (
+                (() => {
+                  const cost = rebalanceCost(result.plan.actions.map((a) => a.tradeValue), costModel, result.plan.totalValue)
+                  return (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Ejecutarlo costaría unos <span className="font-financial">{money(cost.total)}</span>
+                      {cost.pctOfPortfolio !== null && <> (<span className="font-financial">{pct(cost.pctOfPortfolio)}</span> del portafolio)</>} en
+                      comisiones y spread, con tus costos ({costModel.source}). No incluye impuestos por las ventas con ganancia.
+                    </p>
+                  )
+                })()
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Sin costos configurados, el plan no descuenta comisiones ni spread.{' '}
+                  <Link href={`/portfolio/${portfolioId}/costs`} className="text-primary hover:underline">Configura tus costos</Link>.
+                </p>
+              )}
             </div>
           )}
 
@@ -299,6 +320,8 @@ function Panel({ inputs }: { inputs: RebalanceInputs }) {
 
 export function RebalancePanel({ portfolioId }: { portfolioId: string }) {
   const { data, isLoading, error } = useRebalanceInputs(portfolioId)
+  const { data: portfolio } = usePortfolio(portfolioId)
+  const costModel = costModelFrom(portfolio?.cost_model)
 
   return (
     <Card className="rounded-2xl">
@@ -318,7 +341,7 @@ export function RebalancePanel({ portfolioId }: { portfolioId: string }) {
           <p className="text-sm text-muted-foreground">{data && 'message' in data ? data.message : 'Sin datos suficientes.'}</p>
         ) : (
           <>
-            <Panel inputs={data} />
+            <Panel inputs={data} portfolioId={portfolioId} costModel={costModel} />
             <AuditTrail meta={data._meta} className="mt-3" />
           </>
         )}

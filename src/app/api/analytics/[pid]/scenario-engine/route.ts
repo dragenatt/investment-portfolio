@@ -6,7 +6,7 @@ import { loadRiskInputs, riskInputsMetadata } from '@/lib/jobs/kinds/risk-inputs
 import { calculateCovarianceMatrix } from '@/lib/services/covariance'
 import { historicalExpectedReturns, efficientFrontier } from '@/lib/services/optimizer'
 import { minimiseCVaRWeights, riskParityWeights } from '@/lib/services/allocation-strategies'
-import { DEFAULT_COST_MODEL } from '@/lib/services/costs'
+import { DEFAULT_COST_MODEL, costModelFrom, isCostModelConfigured, describeCostModel } from '@/lib/services/costs'
 import {
   estimateReliability,
   parsePortfolioScenarioRequest,
@@ -38,7 +38,12 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   if (!user) return error('Unauthorized', 401)
 
   const request = parsePortfolioScenarioRequest(new URL(req.url).searchParams)
-  const cacheKey = `analytics:scenario-engine:${user.id}:${pid}:${JSON.stringify(request)}`
+  // The costs the user stated for this portfolio (4.6) apply unless the request
+  // names its own. Part of the cache key, so saving new costs is not answered
+  // with a projection computed on the old ones.
+  const { data: portfolioRow } = await supabase.from('portfolios').select('cost_model').eq('id', pid).maybeSingle()
+  const storedCosts = costModelFrom(portfolioRow?.cost_model)
+  const cacheKey = `analytics:scenario-engine:${user.id}:${pid}:${JSON.stringify(request)}:${JSON.stringify(storedCosts)}`
 
   const data = await withAuditedCache(cacheKey, 1800, async () => {
     const inputs = await loadRiskInputs(supabase, pid)
@@ -61,6 +66,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
     if (!weights) return { message: `No se pudieron calcular los pesos de ${PRESET_NAMES[request.allocation]} con este historial.` }
 
     const costsGiven = request.custodyAnnualPct > 0 || request.commissionPct > 0
+    const useStored = !costsGiven && isCostModelConfigured(storedCosts)
     const spec = scenarioFromWeights({
       capital: request.capital ?? common.bookValue,
       symbols,
@@ -78,7 +84,9 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
             commissionPct: request.commissionPct,
             source: 'Costos indicados en el escenario',
           }
-        : DEFAULT_COST_MODEL,
+        : useStored
+          ? storedCosts!
+          : DEFAULT_COST_MODEL,
       shocks: request.shock ? [request.shock] : [],
       simulations: REQUEST_SIMULATIONS,
       expectedReturnOverride: request.expectedReturn,
@@ -106,7 +114,11 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
           { name: 'Rendimiento esperado', value: result.model.riskSource, source: 'scenario-engine.ts' },
           { name: 'Trayectorias', value: String(result.model.simulations), source: 'scenario-engine.ts' },
           { name: 'Reproducibilidad', value: `Escenario ${result.model.key}, semilla ${result.model.seed}`, source: 'scenario-engine.ts' },
-          result.model.gross ? COMMON_ASSUMPTIONS.gross : { name: 'Costos', value: `Custodia ${request.custodyAnnualPct}% anual, comisión ${request.commissionPct}%`, source: 'Indicados en el escenario' },
+          result.model.gross
+            ? COMMON_ASSUMPTIONS.gross
+            : useStored
+              ? { name: 'Costos', value: describeCostModel(storedCosts!), source: 'Costos del portafolio' }
+              : { name: 'Costos', value: `Custodia ${request.custodyAnnualPct}% anual, comisión ${request.commissionPct}%`, source: 'Indicados en el escenario' },
         ],
       }),
     }
