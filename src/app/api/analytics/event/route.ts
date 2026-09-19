@@ -10,7 +10,9 @@ import { FUNNEL_EVENTS, isFunnelEvent, type FunnelEvent } from '@/lib/analytics/
  * occurs, so a client cannot inflate a step it never reached.
  */
 const CLIENT_REPORTABLE: FunnelEvent[] = [
-  FUNNEL_EVENTS.ACCOUNT_CREATED,
+  // "cuenta_creada" was here and is not any more: the browser could only report
+  // it when signUp returned a session, which with email confirmation on it does
+  // not, so the step went uncounted. The signup trigger records it (025).
   FUNNEL_EVENTS.FIRST_MONTE_CARLO,
 ]
 

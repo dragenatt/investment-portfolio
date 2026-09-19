@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { useTranslation } from '@/lib/i18n'
-import { FUNNEL_EVENTS } from '@/lib/analytics/events'
 import { clearOfflineUserData } from '@/lib/pwa/offline-data'
 
 export default function RegisterPage() {
@@ -46,15 +45,12 @@ export default function RegisterPage() {
       return
     }
 
-    // Recorded from here because signUp only happens in the browser. The
-    // session already exists at this point, so the endpoint can attribute the
-    // event; with email confirmation on there is no session and the early
-    // return above means this step is not counted.
-    await fetch('/api/analytics/event', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: FUNNEL_EVENTS.ACCOUNT_CREATED }),
-    }).catch(() => {})
+    // The funnel's first step is not recorded here any more. It was posted
+    // from the browser right after signUp, and with email confirmation on the
+    // early return above meant it was never counted at all — production had
+    // not one "cuenta_creada" row. The trigger that creates the profile
+    // records it now (migration 025), so it counts however the account was
+    // created.
 
     // A new session: nothing saved for offline use by a previous user stays.
     await clearOfflineUserData()

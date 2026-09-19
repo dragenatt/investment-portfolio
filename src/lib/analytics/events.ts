@@ -8,7 +8,7 @@ export const FUNNEL_EVENTS = {
   ACCOUNT_CREATED: 'cuenta_creada',
   PORTFOLIO_CREATED: 'portafolio_creado',
   FIRST_MONTE_CARLO: 'primera_simulacion_montecarlo',
-  /** Reserved for P1-1 (backtesting). Nothing emits this yet. */
+  /** A portfolio backtest actually run (the job, not a reused result). */
   BACKTEST_RUN: 'simulacion_backtesting_ejecutada',
 } as const
 

@@ -280,6 +280,8 @@ export default function AdvisorPage() {
   const [loading, setLoading] = useState(false)
   const [etapas, setEtapas] = useState<Etapa[]>(etapasIniciales)
   const [results, setResults] = useState<ResultsState | null>(null)
+  /** The results screen's shortcut: re-run this plan at another contribution. */
+  const [nuevaAportacion, setNuevaAportacion] = useState('')
 
   const [form, setForm] = useState<FormState>({
     edad: '',
@@ -333,7 +335,15 @@ export default function AdvisorPage() {
     }
   }, [step, form])
 
-  const handleSubmit = useCallback(async () => {
+  /**
+   * Run the analysis on a set of answers.
+   *
+   * Takes them as an argument rather than reading the form, so the results
+   * screen can re-run the same plan with one figure changed (the contribution)
+   * without walking the four steps again. Every run draws from the same seed
+   * (5.1), so the two answers are comparable.
+   */
+  const runAnalysis = useCallback(async (entrada: FormState) => {
     // Five real stages, each announced as it begins and timed as it runs. The
     // 1.5s setTimeout that used to wrap all of this existed only to make the
     // work look like work; the analysis is genuinely CPU-bound and takes as
@@ -344,12 +354,12 @@ export default function AdvisorPage() {
 
     try {
       const entradas = await progreso.etapa('preparando', () => {
-        const edad = Number(form.edad)
-        const ingresos = Number(form.ingresos)
-        const horizonte = Number(form.horizonte)
-        const capitalInicial = Number(form.capitalInicial)
-        const aportacionMensual = Number(form.aportacionMensual)
-        const meta = Number(form.meta)
+        const edad = Number(entrada.edad)
+        const ingresos = Number(entrada.ingresos)
+        const horizonte = Number(entrada.horizonte)
+        const capitalInicial = Number(entrada.capitalInicial)
+        const aportacionMensual = Number(entrada.aportacionMensual)
+        const meta = Number(entrada.meta)
 
         const validacion = validarEntradasAdvisor({
           edad,
@@ -358,11 +368,11 @@ export default function AdvisorPage() {
           capitalInicial,
           aportacionMensual,
           meta,
-          porcentajeInversion: form.porcentajeInversion,
-          riesgo: form.riesgo,
-          experiencia: form.experiencia,
-          estabilidad: form.estabilidad,
-          reaccion: form.reaccion,
+          porcentajeInversion: entrada.porcentajeInversion,
+          riesgo: entrada.riesgo,
+          experiencia: entrada.experiencia,
+          estabilidad: entrada.estabilidad,
+          reaccion: entrada.reaccion,
         })
 
         // The step gate should have caught this; refuse rather than simulate
@@ -389,12 +399,12 @@ export default function AdvisorPage() {
         const perfil = obtenerPerfilFinal({
           edad,
           ingresos,
-          riesgo: form.riesgo,
+          riesgo: entrada.riesgo,
           horizonte,
-          experiencia: form.experiencia,
-          estabilidad: form.estabilidad,
-          reaccion: form.reaccion,
-          porcentajeInversion: form.porcentajeInversion,
+          experiencia: entrada.experiencia,
+          estabilidad: entrada.estabilidad,
+          reaccion: entrada.reaccion,
+          porcentajeInversion: entrada.porcentajeInversion,
         })
 
         return {
@@ -517,7 +527,27 @@ export default function AdvisorPage() {
     } finally {
       setLoading(false)
     }
-  }, [form])
+  }, [])
+
+  const handleSubmit = useCallback(() => runAnalysis(form), [runAnalysis, form])
+
+  /**
+   * Re-run the plan on screen with a different monthly contribution.
+   *
+   * The only way back used to be "Volver a empezar", four steps for one
+   * number. The new run keeps every other answer and draws from the same seed,
+   * so the two results differ by the contribution alone.
+   */
+  const recalcularAportacion = useCallback(
+    (monto: number) => {
+      if (!(monto > 0)) return
+      const siguiente = { ...form, aportacionMensual: String(monto) }
+      setForm(siguiente)
+      setNuevaAportacion('')
+      void runAnalysis(siguiente)
+    },
+    [form, runAnalysis],
+  )
 
   const handleReset = useCallback(() => {
     setResults(null)
@@ -906,7 +936,57 @@ export default function AdvisorPage() {
           />
         </div>
 
-        {/* H. Reset Button */}
+        {/* H. One number, without the four steps again. */}
+        <div className="premium-card p-6 space-y-3">
+          <div>
+            <h3 className="font-semibold mb-1">Cambiar solo la aportación</h3>
+            <p className="text-sm text-muted-foreground">
+              Vuelve a correr este mismo plan con otra aportación mensual, sin repetir el cuestionario. Las dos
+              corridas usan los mismos escenarios simulados, así que lo que cambie entre ellas es la aportación y
+              nada más.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <label htmlFor="advisor-nueva-aportacion" className="block text-sm font-medium">
+                Nueva aportación mensual
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-financial">
+                  $
+                </span>
+                <input
+                  id="advisor-nueva-aportacion"
+                  type="number"
+                  inputMode="decimal"
+                  value={nuevaAportacion}
+                  placeholder={String(results.planParams.aportacionMensual)}
+                  onChange={(e) => setNuevaAportacion(e.target.value)}
+                  className="w-44 rounded-xl border border-border bg-secondary pl-8 pr-4 py-2.5 text-sm font-financial focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={!(Number(nuevaAportacion) > 0)}
+              onClick={() => recalcularAportacion(Number(nuevaAportacion))}
+              className="btn-press rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Recalcular
+            </button>
+            {results.aporteNec !== null && results.aporteNec > 0 && (
+              <button
+                type="button"
+                onClick={() => recalcularAportacion(results.aporteNec!)}
+                className="text-sm underline underline-offset-4 hover:text-foreground"
+              >
+                Usar la recomendada ({fmt.format(results.aporteNec)})
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* I. Reset Button */}
         <div className="flex justify-center">
           <button
             type="button"

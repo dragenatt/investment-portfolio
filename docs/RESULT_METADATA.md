@@ -46,3 +46,21 @@ must not look like "the benchmark was not recorded".
 Bump a model's entry in `MODEL_VERSIONS` whenever a change moves its numbers.
 Three are owned by their engines and imported: `advisor` (`ADVISOR_MODEL_VERSION`),
 `scenarioEngine` (`SCENARIO_ENGINE_VERSION`) and `factors` (`CONSTRUCTION_VERSION`).
+
+## Which route answers what
+
+The roadmap named some of these differently. The routes were not renamed — a
+name in a URL is a contract with every saved link and every cache key, and the
+model id in `_meta.model.id` already says which model produced a result. The
+mapping is here instead:
+
+| Roadmap name | Route | Model id |
+|---|---|---|
+| efficient-frontier | `/api/analytics/[pid]/optimization` | `optimization` — the frontier, the allocation strategies, the robust and Black-Litterman comparisons all come from one calculation, so they are one route |
+| rolling-risk | `/api/analytics/[pid]/risk` → `rolling_risk` | `risk` — rolling volatility, Sharpe and correlation are computed from the same value series as the rest of the card; a second route would recompute it |
+| scenario-comparison | `/api/analytics/[pid]/scenarios` | `scenarioComparison` |
+| portfolio-backtest | `/api/analytics/[pid]/backtest` (and the `backtest` job) | `backtest` |
+
+Two routes have no screen at all: `benchmark` and `performance`. Nothing in the
+app requests them, so nothing holds them to a shape — the contract lint test
+names them with that reason (docs/API_CONTRACTS.md).

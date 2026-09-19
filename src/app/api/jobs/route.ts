@@ -5,6 +5,8 @@ import { apiHandler } from '@/lib/api/handler'
 import { createAdminSupabase } from '@/lib/services/snapshots'
 import { isJobKind, normaliseJobParams } from '@/lib/services/jobs'
 import { findOrCreateJob, executeJob, publicJob } from '@/lib/jobs/runner'
+import { recordFunnelEvent } from '@/lib/analytics/funnel'
+import { FUNNEL_EVENTS } from '@/lib/analytics/events'
 
 // The first attempt runs in after() within this invocation. Must stay above every
 // JOB_POLICY timeout (JOB_MAX_DURATION_SECONDS); a literal, because route
@@ -56,6 +58,13 @@ async function postHandler(req: Request) {
     kind,
     params: normaliseJobParams(kind, body.params),
   })
+
+  // The funnel's backtesting step (012 reserved it for P1-1; the screen that
+  // runs one exists since 4.3/4.8). Only a run counts — a reused job is the
+  // same answer served again — and it never fails the request.
+  if (dispatch.run && kind === 'backtest') {
+    after(() => recordFunnelEvent(FUNNEL_EVENTS.BACKTEST_RUN, user.id))
+  }
 
   if (dispatch.run) {
     after(async () => {

@@ -85,6 +85,16 @@ test.describe('signed in', () => {
     await expectNoBrokenNumbers(page)
   })
 
+  test('the advisor re-runs the same plan at another contribution', async ({ page }) => {
+    await completeAdvisor(page, '1000')
+    // The shortcut: one number, not the four steps again (Ola 7).
+    await page.getByLabel('Nueva aportación mensual').fill('1500')
+    await page.getByRole('button', { name: 'Recalcular' }).click()
+    await expect(page.getByText(`semilla ${ADVISOR_SEED}`)).toBeVisible({ timeout: 45_000 })
+    await expect(page.getByLabel('Nueva aportación mensual')).toHaveValue('')
+    await expectNoBrokenNumbers(page)
+  })
+
   test('an advisor plan saved as a goal shows in Metas with its pace', async ({ page }) => {
     const name = `${E2E_PREFIX} meta ${Date.now()}`
     await completeAdvisor(page, '1000')
