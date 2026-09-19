@@ -58,14 +58,25 @@ async function getHandler(req: Request) {
 
     // Chunk sequentially so we respect provider rate limits.
     let resolved = 0
+    const unresolved: string[] = []
     for (const group of chunk(symbols, CHUNK_SIZE)) {
       const filled = await refreshBaselines(group, supabase, date)
       resolved += Object.keys(filled).length
+      unresolved.push(...group.filter((symbol) => !filled[symbol]))
     }
 
     const duration = Date.now() - startTime
     const errors = symbols.length - resolved
-    await finishCronRun(supabase, runId, { processed: resolved, errors: Math.max(0, errors) })
+    // Which symbols, not just how many. This run is reported 'partial' every
+    // day because a handful of tickers no provider resolves — a BMV listing
+    // written without its .MX suffix, an instrument that is not a listing —
+    // and with nothing recorded, a real failure would look exactly the same
+    // (docs/DATA_QUALITY.md).
+    await finishCronRun(supabase, runId, {
+      processed: resolved,
+      errors: Math.max(0, errors),
+      errorDetails: unresolved.length > 0 ? { unresolved_symbols: unresolved.slice(0, 50), unresolved_count: unresolved.length } : null,
+    })
     await supabase.from('cron_runs').update({ duration_ms: duration }).eq('id', runId)
 
     return NextResponse.json({
@@ -73,7 +84,8 @@ async function getHandler(req: Request) {
       date,
       symbols: symbols.length,
       resolved,
-      unresolved: Math.max(0, errors),
+      unresolved: unresolved.length,
+      unresolved_symbols: unresolved.slice(0, 50),
       duration: `${duration}ms`,
       timestamp: new Date().toISOString(),
     })

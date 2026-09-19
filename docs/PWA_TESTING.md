@@ -69,7 +69,13 @@ the refresh went once it has loaded, and reloads into the login redirect.
   the worker and deletes all `it-*` caches.
 - Registration only happens in production builds.
 
-## Verified (2026-09-14, local production build)
+## Verified (2026-09-14, re-run 2026-09-19, local production build)
+
+The 2026-09-19 re-run (Ola 6, item 5 of the correction plan) was made against
+`npx next build && npx next start -p 3100` on the current master and produced
+the same result as the table below: no installability errors, no manifest
+errors, the worker controlling the page, and all three offline cases served by
+it. Installing on real devices is still open — see the manual checklist.
 
 ### Automated: `node scripts/pwa-check.mjs http://localhost:3100`
 
