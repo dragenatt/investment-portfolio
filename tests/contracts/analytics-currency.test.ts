@@ -91,6 +91,19 @@ describe('every engine values the book in the portfolio currency', () => {
     expect(data.unconverted).toEqual([])
   })
 
+  it('temporal attribution decomposes the return the returns tab shows', async () => {
+    const returns = await get('returns', () => import('@/app/api/analytics/[pid]/returns/route'), 'period=1Y')
+    const temporal = await get(
+      'attribution/temporal',
+      () => import('@/app/api/analytics/[pid]/attribution/temporal/route'),
+      'granularity=month&period=1Y',
+    )
+    expect(temporal.currency).toBe('MXN')
+    expect(returns.summary.currency).toBe('MXN')
+    // Both rebuild the same book from the same trades and closes, in pesos.
+    expect(temporal.total.portfolioReturnPct).toBeCloseTo(returns.summary.twr, 1)
+  })
+
   it('income: each dividend in pesos at the rate of the day it was paid', async () => {
     const data = await get('income', () => import('@/app/api/analytics/[pid]/income/route'))
     expect(data.currency).toBe('MXN')

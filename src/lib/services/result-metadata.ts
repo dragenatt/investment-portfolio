@@ -36,7 +36,9 @@ export const MODEL_VERSIONS = {
   risk: '1.1.0',
   returns: '1.0.0',
   attribution: '1.1.0',
-  temporalAttribution: '1.0.0',
+  // 1.1.0: the rebuilt book in the portfolio's currency (bookInputsInBase),
+  // each trade and close at its own date's rate, as the returns tab rebuilds it.
+  temporalAttribution: '1.1.0',
   allocation: '1.1.0',
   exposure: '1.0.0',
   income: '1.1.0',

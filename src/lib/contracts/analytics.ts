@@ -266,7 +266,14 @@ export const TemporalAttributionDataSchema = z.intersection(
     unmeasurable: true,
     unlinkable: true,
   }),
-  z.object({ _meta: meta, period: z.string(), from: z.string() }),
+  z.object({
+    _meta: meta,
+    period: z.string(),
+    from: z.string(),
+    /** The currency the rebuilt book is in: the portfolio's. */
+    currency: z.string().optional(),
+    unconverted: z.array(z.string()).optional(),
+  }),
 )
 
 // ─── risk-sources (P2-5) ─────────────────────────────────────────────────────

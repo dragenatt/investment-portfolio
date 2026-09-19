@@ -8,6 +8,8 @@ import type { BookTransaction, PriceMap } from '@/lib/services/portfolio-history
 import { getHistory } from '@/lib/services/market'
 import { topUpStoredHistory } from '@/lib/services/price-history'
 import { combinePriceSources, type PriceSource } from '@/lib/services/result-metadata'
+import { historicalFx } from '@/lib/services/fx-history'
+import { bookInBase } from '@/lib/services/book-currency'
 
 export const RETURN_PERIODS = ['1M', '3M', '6M', 'YTD', '1Y', 'ALL'] as const
 export type ReturnPeriod = (typeof RETURN_PERIODS)[number]
@@ -121,4 +123,38 @@ export async function loadPriceMapWithSource(
     }),
   )
   return { prices: priceMap, source: combinePriceSources(...tiers) }
+}
+
+/**
+ * A rebuilt book's inputs in the portfolio's base currency: every transaction
+ * at its own day's rate, every close at its own date's (book-currency.ts) — the
+ * way the returns tab rebuilds its book.
+ *
+ * Temporal attribution and the diagnostic's return side rebuilt the book
+ * unconverted, so a dollar listing bought in pesos entered the chain at its
+ * peso price and was valued the next day in dollars; they decomposed a return
+ * that was not the one the returns tab shows. `symbols` may include series
+ * that are not held, a benchmark, which are converted the same way.
+ */
+export async function bookInputsInBase(
+  supabase: SupabaseClient,
+  pid: string,
+  transactions: BookTransaction[],
+  symbols: string[],
+  cutoff: string,
+  period: string,
+): Promise<{ transactions: BookTransaction[]; prices: PriceMap; source: PriceSource; unconverted: string[]; base: string }> {
+  const { data: portfolio } = await supabase.from('portfolios').select('base_currency').eq('id', pid).maybeSingle()
+  const base = String(portfolio?.base_currency ?? 'USD').toUpperCase()
+  const firstTrade = transactions[0]?.executed_at.slice(0, 10) ?? cutoff
+  const fx = await historicalFx(
+    supabase,
+    symbols,
+    transactions.map((t) => t.currency ?? 'USD'),
+    base,
+    firstTrade < cutoff ? firstTrade : cutoff,
+  )
+  const loaded = await loadPriceMapWithSource(supabase, symbols, cutoff, period)
+  const converted = bookInBase(transactions, loaded.prices, fx.conversion, fx.cashFactor)
+  return { transactions: converted.transactions, prices: converted.prices, source: loaded.source, unconverted: converted.unconverted, base }
 }

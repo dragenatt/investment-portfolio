@@ -5,7 +5,7 @@ import { apiHandler } from '@/lib/api/handler'
 import { loadRiskInputs, riskInputsMetadata } from '@/lib/jobs/kinds/risk-inputs'
 import { analyseRiskSources } from '@/lib/services/risk-sources'
 import { calculateCovarianceMatrix } from '@/lib/services/covariance'
-import { loadBookTransactions, loadPriceMap, periodCutoff } from '@/lib/services/book-inputs'
+import { bookInputsInBase, loadBookTransactions, periodCutoff } from '@/lib/services/book-inputs'
 import { reconstructBookHistory } from '@/lib/services/portfolio-history'
 import { temporalAttribution } from '@/lib/services/temporal-attribution'
 import { closeReturn, diagnosePortfolio } from '@/lib/services/portfolio-diagnostic'
@@ -24,7 +24,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
 
-  const data = await withAuditedCache(`analytics:diagnostic:${user.id}:${pid}`, 1800, async () => {
+  const data = await withAuditedCache(`analytics:diagnostic:v2:${user.id}:${pid}`, 1800, async () => {
     // Risk side: the same inputs as the risk sources and the health score.
     const inputs = await loadRiskInputs(supabase, pid)
     let riskSources = null
@@ -56,13 +56,15 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
     // Return side: the book rebuilt from its transactions, as the returns tab does.
     const benchmarkSymbol = 'message' in inputs ? await getPortfolioBenchmark(supabase, pid) : inputs.benchmark.symbol
     const benchmarkName = BENCHMARKS.find((b) => b.symbol === benchmarkSymbol)?.name ?? benchmarkSymbol
-    const transactions = await loadBookTransactions(supabase, pid)
+    const recorded = await loadBookTransactions(supabase, pid)
     let attribution = null
     let benchmarkReturnPct: number | null = null
-    if (transactions.length > 0) {
+    if (recorded.length > 0) {
       const cutoff = periodCutoff(RETURN_PERIOD)
-      const symbols = [...new Set([...transactions.map((t) => t.symbol), benchmarkSymbol])]
-      const prices = await loadPriceMap(supabase, symbols, cutoff, RETURN_PERIOD)
+      const symbols = [...new Set([...recorded.map((t) => t.symbol), benchmarkSymbol])]
+      // In the portfolio's currency, the benchmark too, so "did it beat the
+      // benchmark" compares two returns in one currency (bookInputsInBase).
+      const { transactions, prices } = await bookInputsInBase(supabase, pid, recorded, symbols, cutoff, RETURN_PERIOD)
       attribution = temporalAttribution(reconstructBookHistory(transactions, prices, { from: cutoff }), 'day')
       if (attribution.total) {
         benchmarkReturnPct = closeReturn(prices[benchmarkSymbol] ?? {}, attribution.total.start, attribution.total.end)
@@ -86,7 +88,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
       benchmark: { symbol: benchmarkSymbol, name: benchmarkName },
       _meta: (() => {
         const assumptions = [
-          { name: 'Rendimientos', value: `Ponderados por tiempo, últimos ${RETURN_PERIOD}, reconstruidos de las operaciones`, source: 'temporal-attribution.ts' },
+          { name: 'Rendimientos', value: `Ponderados por tiempo, últimos ${RETURN_PERIOD}, reconstruidos de las operaciones, en la moneda del portafolio (el benchmark también)`, source: 'temporal-attribution.ts' },
           { name: 'Sobreexposición sectorial', value: 'Más de 35% del portafolio', source: 'exposure.ts' },
           { name: 'Sensibilidad de riesgo', value: '5 puntos entre el peso que más y el que menos mueve la volatilidad', source: 'Convención (portfolio-diagnostic.ts)' },
         ]
@@ -98,7 +100,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ pid: st
         }
         return buildResultMetadata({
           model: 'diagnostic',
-          data: { description: 'Operaciones del portafolio y cierres diarios del último año', symbols: [...new Set(transactions.map((t) => t.symbol))], priceSource: 'stored' },
+          data: { description: 'Operaciones del portafolio y cierres diarios del último año', symbols: [...new Set(recorded.map((t) => t.symbol))], priceSource: 'stored' },
           period: attribution?.total ? { from: attribution.total.start, to: attribution.total.end } : {},
           assumptions: [COMMON_ASSUMPTIONS.priceReturn, ...assumptions],
           benchmark: { symbol: benchmarkSymbol, name: benchmarkName },
