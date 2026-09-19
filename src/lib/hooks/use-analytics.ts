@@ -494,6 +494,16 @@ export function useOptimization(pid: string | null) {
   })
 }
 
+/**
+ * The optimisation run again with the user's Black-Litterman opinions (4.7).
+ * Synchronous: opinions do not fit a job's numeric params. Null key — no
+ * request — when there are none, so the job's result stands.
+ */
+export function useOptimizationWithViews(pid: string | null, views: import('@/lib/services/black-litterman').ViewInput[]) {
+  const key = pid && views.length > 0 ? `/api/analytics/${pid}/optimization?views=${encodeURIComponent(JSON.stringify(views))}` : null
+  return useSWR<OptimizationData>(key, apiFetcher, { revalidateOnFocus: false, keepPreviousData: true })
+}
+
 // --- Scenario comparison (E2) ---
 
 export type { ScenarioComparison, ScenarioMetrics, ScenarioExplanation } from '@/lib/services/scenario-comparison'

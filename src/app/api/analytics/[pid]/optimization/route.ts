@@ -2,7 +2,9 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { success, error } from '@/lib/api/response'
 import { withAuditedCache } from '@/lib/cache/with-cache'
 import { apiHandler } from '@/lib/api/handler'
+import { z } from 'zod'
 import { computeOptimization, type OptimizationParams } from '@/lib/jobs/kinds/optimization'
+import type { ViewInput } from '@/lib/services/black-litterman'
 
 // Synchronous entry point, kept for existing callers. The calculation itself
 // lives in src/lib/jobs/kinds so the background job (POST /api/jobs, C1) runs
@@ -44,13 +46,37 @@ function annualReturn(raw: string | null): number | undefined {
   return percent / 100
 }
 
+const ViewInputSchema = z.object({
+  kind: z.enum(['absolute', 'vsEquilibrium', 'outperform']),
+  symbol: z.string().min(1).max(20),
+  other: z.string().min(1).max(20).optional(),
+  pct: z.number().min(-100).max(100),
+  confidencePct: z.number().min(1).max(99),
+})
+const ViewsSchema = z.array(ViewInputSchema).max(5)
+
+/**
+ * Black-Litterman opinions (4.7) as `views=<JSON array>`. An unparseable value
+ * is refused outright rather than half-applied: running the model without an
+ * opinion the user believes they gave would be worse than an error.
+ */
+function parseViews(raw: string | null): ViewInput[] | undefined | 'invalid' {
+  if (!raw) return undefined
+  try {
+    const parsed = ViewsSchema.safeParse(JSON.parse(raw))
+    return parsed.success ? parsed.data : 'invalid'
+  } catch {
+    return 'invalid'
+  }
+}
+
 /** The part of the cache key that describes the constraints, so two different asks do not share a result. */
 function constraintKey(params: OptimizationParams): string {
   const caps = Object.entries(params.sectorCaps ?? {})
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([sector, cap]) => `${sector}=${cap}`)
     .join('|')
-  return `${params.minWeight ?? ''}:${params.maxWeight ?? ''}:${params.minReturn ?? ''}:${caps}`
+  return `${params.minWeight ?? ''}:${params.maxWeight ?? ''}:${params.minReturn ?? ''}:${caps}:${JSON.stringify(params.views ?? [])}`
 }
 
 async function getHandler(req: Request, { params }: { params: Promise<{ pid: string }> }) {
@@ -62,7 +88,10 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
   // P1-31 lists minimum weight, maximum weight and sector caps as inputs to the
   // optimisation. With none supplied the behaviour is exactly what it was.
   const url = new URL(req.url)
+  const views = parseViews(url.searchParams.get('views'))
+  if (views === 'invalid') return error('Las opiniones no tienen un formato válido.', 400)
   const constraints: OptimizationParams = {
+    views,
     minWeight: fraction(url.searchParams.get('minWeight')),
     maxWeight: fraction(url.searchParams.get('maxWeight')),
     sectorCaps: sectorCaps(url.searchParams.get('sectorCaps')),

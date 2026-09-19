@@ -17,11 +17,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useReturns, useRisk, useMonteCarlo, useAttribution, useIncome, useAllocation, useFactors, useOptimization } from '@/lib/hooks/use-analytics'
 import { useCurrency } from '@/lib/hooks/use-currency'
-import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, RiskSources, ModelComparison, PortfolioHealth, PortfolioDiagnostic, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart, PortfolioBacktest } from '@/components/charts/lazy-charts'
+import { AllocationDonut, DrawdownChart, AttributionWaterfall, TemporalAttribution, RiskSources, PortfolioHealth, PortfolioDiagnostic, IncomeDashboard, MonteCarloChart, RollingRiskChart, FactorExposure, EfficientFrontierChart, PortfolioBacktest } from '@/components/charts/lazy-charts'
 import { RebalancePanel } from '@/components/analytics/rebalance-panel'
 import { ExposureCard } from '@/components/analytics/exposure-card'
 import { StressPanel } from '@/components/analytics/stress-panel'
 import { WhatIfTool } from '@/components/analytics/what-if-tool'
+import { ModelComparisonWithViews } from '@/components/analytics/black-litterman-views'
 import { FRESHNESS_STATUS_LABELS } from '@/lib/services/freshness'
 import { cn } from '@/lib/utils'
 
@@ -249,8 +250,8 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           </DataGate>
           <DataGate error={optimizationError} hasData={!!optimization} what="la comparación de modelos">
             <ErrorBoundary>
-              <ModelComparison data={optimization?.model_comparison} isLoading={optimizationLoading} />
-              <AuditTrail meta={optimization?._meta} className="mt-2" />
+              {/* 4.7: the comparison with the reader's Black-Litterman opinions applied. */}
+              <ModelComparisonWithViews pid={id} data={optimization} isLoading={optimizationLoading} />
             </ErrorBoundary>
           </DataGate>
         </TabsContent>

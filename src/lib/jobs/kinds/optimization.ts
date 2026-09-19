@@ -14,7 +14,7 @@ import {
   weightSensitivity,
   type ReturnRange,
 } from '@/lib/services/robust-optimizer'
-import { compareBlackLittermanVsMarkowitz } from '@/lib/services/black-litterman'
+import { compareBlackLittermanVsMarkowitz, impliedEquilibriumReturns, viewsFromInputs, type ViewInput } from '@/lib/services/black-litterman'
 import { compareModels } from '@/lib/services/model-comparison'
 import { buildResultMetadata, COMMON_ASSUMPTIONS } from '@/lib/services/result-metadata'
 import { resolveConstraints, type WeightConstraints } from '@/lib/services/weight-constraints'
@@ -45,6 +45,11 @@ export type OptimizationParams = {
    * the trade-off the task is about never appears.
    */
   minReturn?: number
+  /**
+   * The user's opinions for Black-Litterman (4.7). Only the synchronous route
+   * passes them: job params are numbers, and an opinion is not one.
+   */
+  views?: ViewInput[]
 }
 
 /** Why the request produced no curve, in words a reader can act on. */
@@ -192,11 +197,16 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
   //
   // With no views it returns those weights back unchanged, which is the
   // model's defining property and the reason it is safe to show by default.
+  const equilibrium = currentWeights ? impliedEquilibriumReturns(cov, currentWeights) : null
   const blackLitterman =
-    currentWeights && activeSymbols.length >= 2
-      ? compareBlackLittermanVsMarkowitz(activeSymbols, cov, currentWeights, [], {
-          riskFreeRate: riskFree.rate,
-        })
+    currentWeights && equilibrium && activeSymbols.length >= 2
+      ? compareBlackLittermanVsMarkowitz(
+          activeSymbols,
+          cov,
+          currentWeights,
+          viewsFromInputs(params.views ?? [], activeSymbols, equilibrium).views,
+          { riskFreeRate: riskFree.rate },
+        )
       : null
 
   // ── The five models on one ruler (P2-6) ──────────────────────────────
@@ -212,6 +222,7 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
         riskFreeRate: riskFree.rate,
         currentWeights,
         ranges,
+        views: params.views ?? null,
       })
     : null
 
@@ -276,7 +287,7 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
           ...blackLitterman,
           // Said plainly: the prior is the user's own book, not the market.
           equilibrium_basis:
-            'Los rendimientos de equilibrio se derivan de TUS pesos actuales, no de una cartera de mercado por capitalizacion. Responden a "que tendrias que estar creyendo para que tu asignacion actual fuera optima", que es una pregunta util pero no es el prior clasico del modelo.',
+            'Los rendimientos de equilibrio se derivan de TUS pesos actuales, no de una cartera de mercado por capitalización. Responden a "qué tendrías que estar creyendo para que tu asignación actual fuera óptima", que es una pregunta útil pero no es el prior clásico del modelo.',
         }
       : null,
     model_comparison: modelComparison,

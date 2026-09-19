@@ -55,10 +55,10 @@ export const DEFAULT_TAU = 0.05
 
 export const BLACK_LITTERMAN_CAVEAT =
   'Black-Litterman no predice nada. Parte de lo que el mercado ya implica y se mueve hacia tus opiniones en ' +
-  'proporcion a la confianza que TU les des. Si una opinion esta equivocada y la declaras con mucha confianza, ' +
-  'el modelo construira una cartera equivocada con mucha conviccion, y mas rapido que Markowitz clasico porque ' +
-  'se fia de ti. Su virtud es que la pregunta "que tan seguro estoy" pasa a ser una entrada explicita en vez de ' +
-  'quedar escondida dentro de un numero unico. Sin opiniones, te devuelve la cartera del mercado: ese es el ' +
+  'proporción a la confianza que TÚ les des. Si una opinión está equivocada y la declaras con mucha confianza, ' +
+  'el modelo construirá una cartera equivocada con mucha convicción, y más rápido que Markowitz clásico porque ' +
+  'se fía de ti. Su virtud es que la pregunta "qué tan seguro estoy" pasa a ser una entrada explícita en vez de ' +
+  'quedar escondida dentro de un número único. Sin opiniones, te devuelve la cartera del mercado: ese es el ' +
   'comportamiento por defecto y no es un error.'
 
 export type View = {
@@ -73,6 +73,78 @@ export type View = {
   expectedReturn: number
   /** How sure the user is, 0 to 1. Zero means the view is ignored entirely. */
   confidence: number
+}
+
+/**
+ * An opinion as a person states it (4.7), before it becomes a row of P and Q.
+ *
+ *   absolute        "AAPL will return 9% a year"
+ *   vsEquilibrium   "AAPL will return 2 points more than the market implies"
+ *   outperform      "AAPL will beat MSFT by 3 points a year"
+ *
+ * The second is the one the model was built around — it says how far to move
+ * from the prior rather than guessing a level from nothing — and the third is
+ * usually the only kind a person can actually defend.
+ */
+export type ViewInput = {
+  kind: 'absolute' | 'vsEquilibrium' | 'outperform'
+  symbol: string
+  /** The asset the first is compared against, for 'outperform'. */
+  other?: string
+  /** Percent a year: the level, the points above equilibrium, or the margin. */
+  pct: number
+  /** How sure, 1 to 99. Certainty is not offered: it makes the system singular and the belief unfalsifiable. */
+  confidencePct: number
+}
+
+export type ViewRejection = { index: number; reason: string }
+
+/**
+ * Turn stated opinions into the model's views, refusing — with a reason — any
+ * that cannot be applied, instead of dropping it where the user would believe
+ * it counted.
+ */
+export function viewsFromInputs(
+  inputs: ViewInput[],
+  symbols: string[],
+  equilibriumReturns: number[],
+): { views: View[]; rejected: ViewRejection[] } {
+  const views: View[] = []
+  const rejected: ViewRejection[] = []
+  inputs.forEach((input, index) => {
+    const reject = (reason: string) => rejected.push({ index, reason })
+    const i = symbols.indexOf(input.symbol)
+    if (i < 0) return reject(`${input.symbol} no entra en el análisis: no está en el portafolio o no tiene historial suficiente.`)
+    if (!Number.isFinite(input.pct)) return reject('El rendimiento de la opinión no es un número.')
+    if (!Number.isFinite(input.confidencePct) || input.confidencePct < 1 || input.confidencePct > 99) {
+      return reject('La confianza va de 1% a 99%.')
+    }
+    const confidence = input.confidencePct / 100
+    const pct = input.pct / 100
+    if (input.kind === 'absolute') {
+      views.push({ symbols: [input.symbol], weights: [1], expectedReturn: pct, confidence })
+    } else if (input.kind === 'vsEquilibrium') {
+      views.push({ symbols: [input.symbol], weights: [1], expectedReturn: equilibriumReturns[i] + pct, confidence })
+    } else {
+      const other = input.other ?? ''
+      if (!symbols.includes(other)) return reject(`${other || 'El segundo activo'} no entra en el análisis.`)
+      if (other === input.symbol) return reject('Una opinión relativa compara dos activos distintos.')
+      views.push({ symbols: [input.symbol, other], weights: [1, -1], expectedReturn: pct, confidence })
+    }
+  })
+  return { views, rejected }
+}
+
+/** The opinion back in words, the way the screen lists it. */
+export function describeView(input: ViewInput): string {
+  const points = (v: number) => `${Math.abs(v).toFixed(1)} puntos`
+  const statement =
+    input.kind === 'absolute'
+      ? `${input.symbol} rendirá ${input.pct.toFixed(1)}% al año`
+      : input.kind === 'vsEquilibrium'
+        ? `${input.symbol} rendirá ${points(input.pct)} ${input.pct >= 0 ? 'más' : 'menos'} de lo que el mercado implica`
+        : `${input.symbol} ${input.pct >= 0 ? 'superará' : 'quedará detrás de'} ${input.other} por ${points(input.pct)} al año`
+  return `${statement} (confianza ${input.confidencePct.toFixed(0)}%)`
 }
 
 function isSquareFinite(matrix: number[][], n: number): boolean {
@@ -386,10 +458,10 @@ export function compareBlackLittermanVsMarkowitz(
 
   const summary =
     blended.viewsApplied === 0
-      ? 'Sin opiniones, Black-Litterman devuelve exactamente la cartera que el mercado ya implica. No es que el modelo no haya hecho nada: ese ES su punto de partida, y que exista un punto de partida sensato es justo lo que le falta a la media-varianza clasica, que sin opiniones se va a las esquinas.'
+      ? 'Sin opiniones, Black-Litterman devuelve exactamente la cartera que el mercado ya implica. No es que el modelo no haya hecho nada: ese ES su punto de partida, y que exista un punto de partida sensato es justo lo que le falta a la media-varianza clásica, que sin opiniones se va a las esquinas.'
       : moved.length === 0
-        ? `Tus ${blended.viewsApplied} opinion(es) no mueven los pesos de forma apreciable. Suele pasar cuando la confianza declarada es baja o cuando la opinion coincide con lo que el mercado ya descuenta: si todo el mundo ya piensa eso, esta en el precio.`
-        : `Tus ${blended.viewsApplied} opinion(es) mueven ${moved.length} de ${weightShifts.length} pesos respecto a la cartera de equilibrio. Los mayores cambios: ` +
+        ? `Tus ${blended.viewsApplied} opinión(es) no mueven los pesos de forma apreciable. Suele pasar cuando la confianza declarada es baja o cuando la opinión coincide con lo que el mercado ya descuenta: si todo el mundo ya piensa eso, está en el precio.`
+        : `Tus ${blended.viewsApplied} opinión(es) mueven ${moved.length} de ${weightShifts.length} pesos respecto a la cartera de equilibrio. Los mayores cambios: ` +
           moved
             .slice(0, 3)
             .map(
@@ -397,7 +469,7 @@ export function compareBlackLittermanVsMarkowitz(
                 `${s.symbol} ${s.deltaPp >= 0 ? '+' : ''}${s.deltaPp.toFixed(1)} puntos (${(s.markowitzWeight * 100).toFixed(0)}% a ${(s.blackLittermanWeight * 100).toFixed(0)}%)`,
             )
             .join(', ') +
-          '. Fijate en que tambien se mueven activos sobre los que no opinaste: el modelo propaga tu opinion a lo que se mueve junto con aquello de lo que hablaste, que es lo que un ajuste a mano no sabria hacer.'
+          '. Fíjate en que también se mueven activos sobre los que no opinaste: el modelo propaga tu opinión a lo que se mueve junto con aquello de lo que hablaste, que es lo que un ajuste a mano no sabría hacer.'
 
   return {
     equilibriumReturns,

@@ -18,7 +18,15 @@
 
 import { efficientFrontier, portfolioRiskReturn } from './optimizer'
 import { minimiseCVaRWeights, riskParityWeights } from './allocation-strategies'
-import { compareBlackLittermanVsMarkowitz } from './black-litterman'
+import {
+  compareBlackLittermanVsMarkowitz,
+  describeView,
+  impliedEquilibriumReturns,
+  viewsFromInputs,
+  type BLWeightShift,
+  type ViewInput,
+  type ViewRejection,
+} from './black-litterman'
 import { compareRobustVsClassic, type ReturnRange } from './robust-optimizer'
 import { conditionalVaR, historicalVaR } from './var'
 import { calculateMaxDrawdown } from './analytics'
@@ -113,6 +121,8 @@ export type ModelComparison = {
   current: WeightEvaluation | null
   /** How far the models disagree on each holding, widest first. */
   weightSpread: WeightSpread[]
+  /** Null when Black-Litterman could not be computed. */
+  blackLitterman: BlackLittermanDetail | null
   summary: string
   caveat: string
 }
@@ -136,6 +146,77 @@ export type ModelComparisonInput = {
   currentWeights?: number[] | null
   /** Ranges for the robust model; without them it is unavailable. */
   ranges?: ReturnRange[] | null
+  /** The user's opinions for Black-Litterman (4.7). Without them it returns the equilibrium. */
+  views?: ViewInput[] | null
+}
+
+/** What the user's opinions did to Black-Litterman, for the explanation beside the table. */
+export type BlackLittermanDetail = {
+  /** The opinions that were applied, in words. */
+  views: string[]
+  /** Opinions that could not be applied, and why. */
+  rejected: Array<ViewRejection & { view: string }>
+  viewsApplied: number
+  /** Each holding's weight in the pure equilibrium and after the opinions. */
+  weightShifts: BLWeightShift[]
+  /** Each holding's implied return and the blended one, in percent a year. */
+  returns: Array<{ symbol: string; equilibriumPct: number; posteriorPct: number }>
+  /**
+   * Where the result goes against the opinion's own direction, explained. A
+   * correct posterior can still surprise: see blackLittermanNotes.
+   */
+  notes: string[]
+  summary: string
+  caveat: string
+}
+
+/** A weight change smaller than this is not worth explaining. */
+const NOTE_SHIFT_PP = 1
+
+/**
+ * The results a reader will think are mistakes, explained before they have to
+ * ask.
+ *
+ * An opinion that an asset will do better raises its expected return — and,
+ * through the covariance, the expected return of everything that moves with
+ * it. When the others move with it MORE than it moves with them (a calm asset
+ * next to volatile ones), they gain more than it does, and the optimiser can
+ * end up holding less of the very asset the opinion favoured. That is the
+ * model working, not failing, and the way to say "this beats that" is a
+ * relative opinion.
+ */
+export function blackLittermanNotes(
+  inputs: ViewInput[],
+  applied: boolean[],
+  symbols: string[],
+  equilibriumReturns: number[],
+  weightShifts: BLWeightShift[],
+  posteriorReturns: number[],
+): string[] {
+  const notes: string[] = []
+  inputs.forEach((input, k) => {
+    if (!applied[k] || input.kind === 'outperform') return
+    const i = symbols.indexOf(input.symbol)
+    const shift = weightShifts.find((s) => s.symbol === input.symbol)
+    if (i < 0 || !shift) return
+    const asserted = input.kind === 'absolute' ? input.pct / 100 : equilibriumReturns[i] + input.pct / 100
+    const bullish = asserted > equilibriumReturns[i]
+    const against = bullish ? shift.deltaPp <= -NOTE_SHIFT_PP : shift.deltaPp >= NOTE_SHIFT_PP
+    if (!against) return
+    const others = symbols
+      .map((symbol, j) => ({ symbol, gain: (posteriorReturns[j] - equilibriumReturns[j]) * 100 }))
+      .filter((o) => o.symbol !== input.symbol && (bullish ? o.gain > 0 : o.gain < 0))
+      .sort((a, b) => Math.abs(b.gain) - Math.abs(a.gain))
+      .slice(0, 2)
+      .map((o) => o.symbol)
+    notes.push(
+      `Tu opinión ${bullish ? 'sube' : 'baja'} el rendimiento esperado de ${input.symbol}, y aun así su peso ${bullish ? 'baja' : 'sube'}: ` +
+        `el modelo también ${bullish ? 'subió' : 'bajó'} el de ${others.length > 0 ? others.join(' y ') : 'los activos que se mueven con él'}, que se mueven con ${input.symbol} ` +
+        `más de lo que ${input.symbol} se mueve con ellos, así que ${bullish ? 'ganan' : 'pierden'} más. Es el modelo funcionando, no un error. ` +
+        `Si lo que crees es que ${input.symbol} le ganará a otro activo, decláralo así ("superará a").`,
+    )
+  })
+  return notes
 }
 
 function normalised(weights: number[]): number[] | null {
@@ -196,8 +277,42 @@ export function evaluateWeights(
   }
 }
 
+/**
+ * Black-Litterman with the user's opinions. The equilibrium is the one their
+ * current weights imply, so with no opinions the model hands their book back.
+ */
+function blackLittermanWithViews(input: ModelComparisonInput) {
+  const { symbols, cov, riskFreeRate, currentWeights } = input
+  if (!currentWeights || currentWeights.length !== symbols.length) return null
+  const equilibrium = impliedEquilibriumReturns(cov, currentWeights)
+  if (!equilibrium) return null
+  const stated = input.views ?? []
+  const { views, rejected } = viewsFromInputs(stated, symbols, equilibrium)
+  const comparison = compareBlackLittermanVsMarkowitz(symbols, cov, currentWeights, views, { riskFreeRate })
+  if (!comparison) return null
+  const applied = stated.map((_, i) => !rejected.some((r) => r.index === i))
+  const detail: BlackLittermanDetail = {
+    views: stated.filter((_, i) => applied[i]).map(describeView),
+    rejected: rejected.map((r) => ({ ...r, view: describeView(stated[r.index]) })),
+    viewsApplied: comparison.viewsApplied,
+    weightShifts: comparison.weightShifts,
+    returns: symbols.map((symbol, i) => ({
+      symbol,
+      equilibriumPct: comparison.equilibriumReturns[i] * 100,
+      posteriorPct: comparison.posteriorReturns[i] * 100,
+    })),
+    notes: blackLittermanNotes(stated, applied, symbols, equilibrium, comparison.weightShifts, comparison.posteriorReturns),
+    summary: comparison.summary,
+    caveat: comparison.caveat,
+  }
+  return { comparison, detail }
+}
+
 /** Every model's weights, or the reason it has none on this data. */
-function modelWeights(input: ModelComparisonInput): Record<ModelId, number[] | string> {
+function modelWeights(
+  input: ModelComparisonInput,
+  bl: ReturnType<typeof blackLittermanWithViews>,
+): Record<ModelId, number[] | string> {
   const { symbols, cov, estimatedReturns, riskFreeRate, returnsMatrix } = input
   const weightsOf = (point: { weights: Array<{ symbol: string; weight: number }> } | null | undefined) =>
     point ? symbols.map((s) => point.weights.find((w) => w.symbol === s)?.weight ?? 0) : null
@@ -205,10 +320,6 @@ function modelWeights(input: ModelComparisonInput): Record<ModelId, number[] | s
   const frontier = efficientFrontier(symbols, cov, estimatedReturns, { riskFreeRate })
   const cvar = minimiseCVaRWeights(returnsMatrix, CONFIDENCE)
   const parity = riskParityWeights(cov)
-  const bl =
-    input.currentWeights && input.currentWeights.length === symbols.length
-      ? compareBlackLittermanVsMarkowitz(symbols, cov, input.currentWeights, [], { riskFreeRate })
-      : null
   const robust =
     input.ranges && input.ranges.length === symbols.length
       ? compareRobustVsClassic(symbols, cov, input.ranges, { riskFreeRate })
@@ -219,7 +330,7 @@ function modelWeights(input: ModelComparisonInput): Record<ModelId, number[] | s
     minCVaR: cvar ?? 'No hay suficientes días en el historial para medir la cola de pérdidas.',
     riskParity: parity ?? 'La matriz de covarianza no permite repartir el riesgo por igual.',
     blackLitterman:
-      weightsOf(bl?.blackLitterman) ??
+      weightsOf(bl?.comparison.blackLitterman) ??
       (input.currentWeights ? 'No se pudo derivar el equilibrio de tus pesos actuales.' : 'Se necesitan los pesos actuales del portafolio.'),
     robust: weightsOf(robust?.robust) ?? 'No hay rangos de rendimiento con los que optimizar el peor caso.',
   }
@@ -232,7 +343,8 @@ export function compareModels(input: ModelComparisonInput): ModelComparison | nu
   const n = input.symbols.length
   if (n < 2 || input.returnsMatrix.length !== n || input.cov.length !== n || input.estimatedReturns.length !== n) return null
 
-  const weights = modelWeights(input)
+  const bl = blackLittermanWithViews(input)
+  const weights = modelWeights(input, bl)
   const models: ModelResult[] = []
   const unavailable: ModelComparison['unavailable'] = []
 
@@ -262,6 +374,7 @@ export function compareModels(input: ModelComparisonInput): ModelComparison | nu
     unavailable,
     current,
     weightSpread,
+    blackLitterman: bl?.detail ?? null,
     summary: describeModelComparison(models, weightSpread),
     caveat: MODEL_COMPARISON_CAVEAT,
   }
