@@ -543,6 +543,72 @@ export function scenarioFromPlan(plan: PlanParams, options: { simulations?: numb
   }
 }
 
+/**
+ * A book described by estimates — weights, an annualised covariance matrix and
+ * annual expected returns — as a scenario. What the rebalance panel and the
+ * what-if tool are served; the covariance becomes the engine's volatilities and
+ * correlations.
+ *
+ * Weights are kept exactly as given: a point-in-time comparison must measure
+ * the book it was handed. runScenario still validates them before simulating.
+ */
+export function scenarioFromEstimates(params: {
+  capital: number
+  symbols: string[]
+  weights: number[]
+  cov: number[][]
+  expectedReturns: number[]
+  horizonMonths?: number
+  rebalance?: ScenarioSpec['rebalance']
+  costs?: CostModel
+  source?: string
+}): ScenarioSpec {
+  return {
+    capital: params.capital,
+    holdings: params.symbols.map((symbol, i) => ({ symbol, weight: params.weights[i] })),
+    horizonMonths: params.horizonMonths ?? MONTHS_PER_YEAR,
+    risk: {
+      expectedReturns: [...params.expectedReturns],
+      volatilities: params.cov.map((row, i) => Math.sqrt(Math.max(0, row[i]))),
+      correlation: correlationOf(params.cov),
+      source: params.source ?? 'Media y covarianza históricas anualizadas',
+    },
+    rebalance: params.rebalance,
+    costs: params.costs,
+  }
+}
+
+/** The covariance a scenario's risk model describes: ρ_ij σ_i σ_j. */
+export function scenarioCovariance(spec: Pick<ScenarioSpec, 'risk'>): number[][] {
+  const { volatilities: sd, correlation } = spec.risk
+  return correlation.map((row, i) => row.map((rho, j) => rho * sd[i] * sd[j]))
+}
+
+/**
+ * The book's annual expected return and volatility at its weights: the moments
+ * every point-in-time comparison reads (a rebalance's before and after, a
+ * what-if). Null when the weights and the risk model do not line up.
+ */
+export function scenarioMoments(
+  spec: Pick<ScenarioSpec, 'holdings' | 'risk'>,
+): { weights: number[]; expectedReturn: number; volatility: number; cov: number[][] } | null {
+  const n = spec.holdings.length
+  const { expectedReturns, volatilities, correlation } = spec.risk
+  if (n === 0 || expectedReturns.length !== n || volatilities.length !== n || correlation.length !== n) return null
+  if (correlation.some((row) => row.length !== n)) return null
+  const weights = spec.holdings.map((h) => h.weight)
+  const cov = scenarioCovariance(spec)
+  let variance = 0
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) variance += weights[i] * weights[j] * cov[i][j]
+  if (!Number.isFinite(variance) || variance < -1e-12) return null
+  return {
+    weights,
+    expectedReturn: weights.reduce((sum, w, i) => sum + w * (expectedReturns[i] ?? 0), 0),
+    volatility: Math.sqrt(Math.max(0, variance)),
+    cov,
+  }
+}
+
 /** A portfolio or model allocation as a scenario, from its weights and history. */
 export function scenarioFromWeights(params: {
   capital: number

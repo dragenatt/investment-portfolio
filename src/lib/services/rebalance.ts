@@ -15,9 +15,10 @@
 // Nothing here executes anything. A plan is a proposal.
 
 import { allocateMoney, roundMoney, subtractMoney } from '@/lib/utils/money'
-import { portfolioVolatility, riskContributions, type RiskContribution } from './risk-attribution'
+import { riskContributions, type RiskContribution } from './risk-attribution'
 import { parametricVaR } from './var'
 import { validateWeights } from './validation'
+import { scenarioFromEstimates, scenarioMoments, type ScenarioSpec } from './scenario-engine'
 
 export type Holding = { symbol: string; value: number }
 export type TargetWeight = { symbol: string; targetWeight: number }
@@ -299,6 +300,11 @@ export type PortfolioSnapshot = {
 export type RebalanceSimulation = {
   before: PortfolioSnapshot
   after: PortfolioSnapshot
+  /**
+   * The two books as scenario-engine scenarios (4.9): what was compared is
+   * exactly what a projection would run.
+   */
+  scenarios: { before: ScenarioSpec; after: ScenarioSpec }
   delta: {
     expectedReturnPp: number
     volatilityPp: number
@@ -328,20 +334,35 @@ export type SimulationInputs = {
   assetBetas?: number[] | null
 }
 
+/**
+ * A book at given weights as a scenario of the scenario engine (4.9). The
+ * rebalance panel used to carry its own tuple of weights, covariance and
+ * expected returns; the engine's scenario is now the one definition of a book.
+ */
+function bookScenario(symbols: string[], weights: number[], inputs: SimulationInputs): ScenarioSpec {
+  return scenarioFromEstimates({
+    capital: 1,
+    symbols,
+    weights,
+    cov: inputs.cov,
+    expectedReturns: inputs.expectedReturns,
+    source: 'Estimaciones servidas al panel de rebalanceo',
+  })
+}
+
 function snapshot(
   symbols: string[],
   weights: number[],
   inputs: SimulationInputs,
 ): PortfolioSnapshot | null {
-  const sigma = portfolioVolatility(weights, inputs.cov)
-  if (sigma === null) return null
-
-  const expectedReturn = weights.reduce(
-    (sum, w, i) => sum + w * (inputs.expectedReturns[i] ?? 0),
-    0,
-  )
+  // The engine reads the scenario's moments; the numbers are the ones the
+  // panel always showed (a test pins them against the direct formulas).
+  const moments = scenarioMoments(bookScenario(symbols, weights, inputs))
+  if (!moments) return null
+  const sigma = moments.volatility
+  const expectedReturn = moments.expectedReturn
   const riskFreeRate = inputs.riskFreeRate ?? 0
-  const attribution = riskContributions(symbols, weights, inputs.cov)
+  const attribution = riskContributions(symbols, weights, moments.cov)
 
   const weightMap: Record<string, number> = {}
   symbols.forEach((symbol, i) => {
@@ -413,7 +434,14 @@ export function simulateRebalance(
     beta: before.beta === null || after.beta === null ? null : after.beta - before.beta,
   }
 
-  return { before, after, delta, plan, summary: summariseSimulation(delta, plan) }
+  return {
+    before,
+    after,
+    scenarios: { before: bookScenario(symbols, currentWeights, inputs), after: bookScenario(symbols, targetWeights, inputs) },
+    delta,
+    plan,
+    summary: summariseSimulation(delta, plan),
+  }
 }
 
 function summariseSimulation(
