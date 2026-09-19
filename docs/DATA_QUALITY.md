@@ -146,3 +146,34 @@ is therefore skipped.
 `classifyJumps` is the single implementation of this. The data quality report
 and the correction call the same function, so they can never disagree about what
 happened on a given day.
+
+## How a stored quote gets refreshed
+
+`current_prices` is the quote every screen falls back to and the table Realtime
+streams from. Two things write it:
+
+1. **A browser asking for the symbols on screen** (`/api/market/batch`), which
+   publishes what moved so every other open tab updates without a request.
+2. **The nightly snapshot job**, which already fetches a fresh quote for every
+   held symbol to value the snapshots and now publishes those too
+   (`quote-store.ts`).
+
+Before (2), a holding nobody had open kept whatever price it was last looked at
+with: held symbols were found 43 hours old on production while the ones on the
+owner's screen were minutes old. Every holding now has a quote at most a day
+old, and the freshness label (`freshness.ts`) says which it is.
+
+The route used to answer for the first twenty symbols and drop the rest
+silently, so a book with more holdings than that had no live price for the
+remainder — and their stored quote never refreshed, because that route is what
+writes it. It now fetches every symbol asked for, in batches of twenty (the
+provider's own limit), up to the hundred that Realtime's filter can watch.
+
+### Symbols no provider knows
+
+A symbol the provider chain cannot resolve never gets a row at all. On
+production these are tickers written without the suffix the provider expects —
+a BMV listing as `FEMSAUBD` rather than `FEMSAUBD.MX` — and instruments that
+are not listings (`BITCOIN.XBT`). Their holdings are valued at average cost and
+labelled "sin precio"; nothing is invented for them. Normalising a ticker as it
+is entered would fix the first kind, and is not done today.

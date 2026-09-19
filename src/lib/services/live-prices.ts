@@ -19,6 +19,11 @@ export const LIVE_POLL_MS = 5 * 60 * 1000
 export const FALLBACK_POLL_MS = 60 * 1000
 /** Realtime's `in` filter accepts at most this many values. */
 export const MAX_FILTER_SYMBOLS = 100
+/**
+ * Symbols per provider call. Twelve Data's batch endpoint takes twenty, so the
+ * quotes route asks for them twenty at a time rather than in one call.
+ */
+export const QUOTES_PER_REQUEST = 20
 
 export type CurrentPriceRow = {
   symbol: string
@@ -30,6 +35,20 @@ export type CurrentPriceRow = {
   source: string
   fetched_at: string
   expires_at: string
+}
+
+/**
+ * A symbol list in provider-sized batches.
+ *
+ * The quotes route used to slice the list to twenty and answer for those, so a
+ * book with more holdings than that silently had no live price for the rest —
+ * and, since that route is what writes current_prices, their stored quote never
+ * refreshed either. Every symbol asked for is now fetched.
+ */
+export function symbolChunks(symbols: string[], size: number = QUOTES_PER_REQUEST): string[][] {
+  const chunks: string[][] = []
+  for (let i = 0; i < symbols.length; i += Math.max(1, size)) chunks.push(symbols.slice(i, i + Math.max(1, size)))
+  return chunks
 }
 
 /** Currency pairs live on the FX exchange, as the rates route has always stored them. */

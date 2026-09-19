@@ -19,6 +19,7 @@ import { calculateBetaAlpha, calculateDailyReturns, calculateSharpeRatio, type B
 import { calculateSortinoRatio } from './asset-metrics'
 import { getRiskFreeRate } from './risk-free-rate'
 import { getBatchQuotes } from './market'
+import { publishQuotes } from './quote-store'
 import {
   buildLeaderboards,
   LEADERBOARD_CATEGORIES,
@@ -134,9 +135,16 @@ export async function finishCronRun(
  * Finnhub directly and stop there, so without those keys every position was
  * valued at its average cost and the snapshot recorded no market movement.
  * `fresh` skips the five-minute price cache: a snapshot is the day's record.
+ *
+ * What comes back is also published to current_prices (quote-store.ts). This
+ * job is the only thing that reads a quote for every held symbol every night;
+ * keeping the numbers and discarding the quotes left the stored price of any
+ * holding nobody had on screen as old as the last time someone looked at it,
+ * and that stored price is what the analytics routes value books with.
  */
 async function fetchCurrentPrices(
-  symbols: string[]
+  symbols: string[],
+  writer?: SupabaseClient,
 ): Promise<Record<string, number>> {
   const prices: Record<string, number> = {}
 
@@ -148,6 +156,7 @@ async function fetchCurrentPrices(
       const price = (quotes[symbol] ?? quotes[symbol.toUpperCase()])?.price
       if (price != null && price > 0) prices[symbol] = price
     }
+    if (writer) await publishQuotes(writer, quotes)
   } catch (err) {
     // Unpriced positions fall back to their average cost below.
     console.warn('[snapshots] provider chain failed', err)
@@ -358,7 +367,9 @@ export async function computePortfolioSnapshot(
 
   // 2. Fetch current prices
   const symbols = [...new Set(positions.map((p: Position) => p.symbol))]
-  const prices = await fetchCurrentPrices(symbols)
+  // The client here is the service role (crons and the backfill), so the
+  // quotes it just fetched are published for everyone (quote-store.ts).
+  const prices = await fetchCurrentPrices(symbols, supabase)
 
   // 3. Calculate portfolio value and allocation — in the portfolio's own
   // currency. Value converts each quote from the currency it trades in; cost
