@@ -3,6 +3,7 @@ import {
   positionDailyChange,
   aggregateDailyChange,
   positionValuation,
+  positionInDisplayCurrency,
   aggregatePositionValues,
   dailyChangeFromPct,
 } from '@/lib/services/pnl'
@@ -169,5 +170,64 @@ describe('aggregatePositionValues', () => {
       totalReturn: 0,
       totalReturnPct: 0,
     })
+  })
+})
+
+describe('positionInDisplayCurrency', () => {
+  // The portfolio detail page showed every holding at a 94% loss with an
+  // average cost seventeen times too high, under a header that said +0.64%.
+  // A position has two currencies — VOO trades in dollars and was bought with
+  // pesos — and a row on screen has one, so both amounts have to be put into
+  // the display currency before the row is built. Synthetic figures.
+  const RATES: Record<string, number> = { USD: 1, MXN: 17, EUR: 0.9 }
+  const toMxn = (amount: number, from: string) => (amount / RATES[from]) * RATES.MXN
+
+  it('puts the cost and the price into the same currency before comparing them', () => {
+    // Bought at 10,000 pesos a share; now quoted at 600 dollars = 10,200 pesos.
+    const row = positionInDisplayCurrency(
+      { quantity: 2, avgCost: 10_000, costCurrency: 'MXN', currentPrice: 600, priceCurrency: 'USD' },
+      toMxn,
+      'MXN',
+    )
+
+    expect(row.avgCost).toBeCloseTo(10_000)
+    expect(row.currentPrice).toBeCloseTo(10_200)
+    expect(row.marketValue).toBeCloseTo(20_400)
+    expect(row.pnlAbsolute).toBeCloseTo(400)
+    expect(row.pnlPercent).toBeCloseTo(2)
+  })
+
+  it('labels the row with the display currency, so nothing converts it twice', () => {
+    const row = positionInDisplayCurrency(
+      { quantity: 1, avgCost: 10_000, costCurrency: 'MXN', currentPrice: 600, priceCurrency: 'USD' },
+      toMxn,
+      'MXN',
+    )
+
+    // The old row carried the PRICE currency, so the renderer took a peso cost
+    // for dollars and multiplied it by the rate again: 10,000 became 170,000.
+    expect(row.currency).toBe('MXN')
+  })
+
+  it('is a no-op when everything is already in the display currency', () => {
+    const row = positionInDisplayCurrency(
+      { quantity: 3, avgCost: 100, costCurrency: 'MXN', currentPrice: 110, priceCurrency: 'MXN' },
+      toMxn,
+      'MXN',
+    )
+
+    expect(row.avgCost).toBe(100)
+    expect(row.currentPrice).toBe(110)
+    expect(row.pnlPercent).toBeCloseTo(10)
+  })
+
+  it('reports no gain and no loss for a position with no cost', () => {
+    const row = positionInDisplayCurrency(
+      { quantity: 1, avgCost: 0, costCurrency: 'MXN', currentPrice: 600, priceCurrency: 'USD' },
+      toMxn,
+      'MXN',
+    )
+
+    expect(row.pnlPercent).toBe(0)
   })
 })

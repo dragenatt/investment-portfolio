@@ -38,7 +38,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n'
 import { freshnessOfQuote } from '@/lib/services/freshness'
-import { dailyChangeFromPct, positionValuation } from '@/lib/services/pnl'
+import { dailyChangeFromPct, positionInDisplayCurrency } from '@/lib/services/pnl'
 
 export default function PortfolioDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { t } = useTranslation()
@@ -47,7 +47,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
   const { data: portfolio, isLoading, error: portfolioError } = usePortfolio(id)
   const { data: transactions } = useTransactions(id)
   const { data: alerts, mutate: mutateAlerts } = usePortfolioAlerts(id)
-  const { convert } = useCurrency()
+  const { convert, currency: displayCurrency } = useCurrency()
 
   const symbols = useMemo(() => {
     if (!portfolio?.positions) return []
@@ -70,21 +70,35 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
     })
   }, [portfolio, livePrices])
 
-  // Enriched positions for PositionPnLTable
-  // NOTE: Do NOT convert currencies here — FormattedAmount handles conversion at render time.
-  // Pass raw values in their original currency to avoid double-conversion.
+  // Enriched positions for PositionPnLTable.
+  //
+  // Every amount goes into the display currency here, because a row has ONE
+  // currency field and a position has two: VOO trades in dollars and was
+  // bought with pesos. This used to pass both raw amounts and label the row
+  // with the price currency — so the P&L compared a dollar price against a
+  // peso cost, and the renderer converted the peso cost again as though it
+  // were dollars. Every holding read as a 94% loss at seventeen times its
+  // real cost, under a header that said +0.64%.
   const enrichedPositions = useMemo(() => {
     if (!positionsWithPrices.length) return []
     const asOf = new Date()
     return positionsWithPrices
       .filter((pos: { quantity: number }) => pos.quantity > 0)
       .map((pos: { id: string; symbol: string; name?: string; asset_type: string; quantity: number; avg_cost: number; currency: string; currentPrice: number; priceCurrency: string; changePct: number }) => {
-        const currentPrice = pos.currentPrice
-        const avgCost = pos.avg_cost
-        const { marketValue, pnlAbsolute, pnlPercent } = positionValuation(pos.quantity, currentPrice, avgCost)
+        const { avgCost, currentPrice, marketValue, pnlAbsolute, pnlPercent, currency } =
+          positionInDisplayCurrency(
+            {
+              quantity: pos.quantity,
+              avgCost: pos.avg_cost,
+              costCurrency: pos.currency || 'USD',
+              currentPrice: pos.currentPrice,
+              priceCurrency: pos.priceCurrency || pos.currency || 'USD',
+            },
+            convert,
+            displayCurrency,
+          )
         const changePct = pos.changePct ?? 0
         const dailyChange = dailyChangeFromPct(marketValue, changePct)
-        const priceCurrency = pos.priceCurrency || pos.currency || 'USD'
 
         return {
           id: pos.id,
@@ -93,7 +107,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           asset_type: pos.asset_type,
           quantity: pos.quantity,
           avg_cost: avgCost,
-          currency: priceCurrency,
+          currency,
           current_price: currentPrice,
           market_value: marketValue,
           pnl_absolute: pnlAbsolute,
@@ -108,7 +122,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
           freshness: livePrices == null ? undefined : freshnessOfQuote(livePrices[pos.symbol], { asOf }),
         }
       })
-  }, [positionsWithPrices, livePrices])
+  }, [positionsWithPrices, livePrices, convert, displayCurrency])
 
   const allocation = useMemo(() => {
     if (!positionsWithPrices.length) return []

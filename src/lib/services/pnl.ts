@@ -95,6 +95,55 @@ export function positionValuation(
   }
 }
 
+/** A holding as the book records it: two amounts, not always one currency. */
+export type PositionInBook = {
+  quantity: number
+  /** The average cost, in the currency the purchases were recorded in. */
+  avgCost: number
+  costCurrency: string
+  /** The latest quote, in the currency the asset TRADES in. */
+  currentPrice: number
+  priceCurrency: string
+}
+
+export type DisplayedPosition = PositionValuation & {
+  avgCost: number
+  currentPrice: number
+  /** The single currency every amount above is expressed in. */
+  currency: string
+}
+
+/**
+ * One holding, every amount in the display currency.
+ *
+ * A position has two currencies and they are routinely different: VOO trades
+ * in dollars and was bought with pesos. A row on screen has one — the table
+ * formats the cost, the price, the market value and the P&L with a single
+ * currency field — so the conversion has to happen before the row is built,
+ * not at render time.
+ *
+ * The portfolio detail page used to skip this, pass both raw amounts and
+ * label the row with the PRICE currency. Two things went wrong at once: the
+ * P&L compared a dollar price against a peso cost, and the renderer then
+ * converted the peso cost again as though it were dollars. Every position in
+ * a peso book holding dollar assets read as a 94% loss with an average cost
+ * seventeen times too high, while the header above it said +0.64%.
+ */
+export function positionInDisplayCurrency(
+  position: PositionInBook,
+  toDisplay: (amount: number, from: string) => number,
+  displayCurrency: string,
+): DisplayedPosition {
+  const avgCost = toDisplay(position.avgCost, position.costCurrency)
+  const currentPrice = toDisplay(position.currentPrice, position.priceCurrency)
+  return {
+    ...positionValuation(position.quantity, currentPrice, avgCost),
+    avgCost,
+    currentPrice,
+    currency: displayCurrency,
+  }
+}
+
 export type PortfolioTotals = {
   totalValue: number
   totalCost: number
