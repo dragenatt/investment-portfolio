@@ -14,7 +14,14 @@ const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-serif' })
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
-  title: 'InvestTracker — Tu Portafolio de Inversión',
+  // Every page shared one title and one description: a search result, a
+  // bookmark and a browser tab all said "InvestTracker — Tu Portafolio de
+  // Inversión", whichever page you were on. `default` keeps that for the
+  // landing page; `template` lets a page say what it is.
+  title: {
+    default: 'InvestTracker — Tu Portafolio de Inversión',
+    template: '%s · InvestTracker',
+  },
   description: 'Plataforma profesional para trackear y analizar tus inversiones en tiempo real.',
   manifest: '/manifest.json',
   appleWebApp: {

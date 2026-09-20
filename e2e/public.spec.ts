@@ -74,6 +74,44 @@ test.describe('the public pages render cleanly', () => {
   }
 })
 
+test.describe('the public pages are navigable', () => {
+  // Every page shared one title and one description, the two auth pages had no
+  // heading and no main landmark, and no field carried autocomplete — which is
+  // what a password manager and a phone keyboard read.
+  const titles: Array<[string, RegExp]> = [
+    ['/', /InvestTracker/],
+    ['/login', /Iniciar sesión · InvestTracker/],
+    ['/register', /Crear cuenta · InvestTracker/],
+  ]
+
+  for (const [path, title] of titles) {
+    test(`${path} says what page it is`, async ({ page }) => {
+      await page.goto(path)
+      await expect(page).toHaveTitle(title)
+    })
+  }
+
+  for (const path of ['/', '/login', '/register']) {
+    test(`${path} has one main landmark and one h1`, async ({ page }) => {
+      await page.goto(path)
+      await expect(page.locator('main')).toHaveCount(1)
+      await expect(page.locator('h1')).toHaveCount(1)
+    })
+  }
+
+  test('the sign-in fields are the ones a password manager fills', async ({ page }) => {
+    await page.goto('/login')
+    await expect(page.locator('#email')).toHaveAttribute('autocomplete', 'email')
+    await expect(page.locator('#password')).toHaveAttribute('autocomplete', 'current-password')
+  })
+
+  test('registering asks for a new password, not the saved one', async ({ page }) => {
+    await page.goto('/register')
+    await expect(page.locator('#password')).toHaveAttribute('autocomplete', 'new-password')
+    await expect(page.locator('#email')).toHaveAttribute('autocomplete', 'email')
+  })
+})
+
 test.describe('responsive', () => {
   test('the login page is usable on a phone-sized viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })

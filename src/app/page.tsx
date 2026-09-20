@@ -42,6 +42,9 @@ export default function LandingPage() {
         </div>
       </nav>
 
+      {/* The page's content, as a landmark: "skip to main content" and every
+          screen reader's "go to main" rely on this element existing. */}
+      <main>
       {/* Hero */}
       <section className="max-w-4xl mx-auto text-center pt-16 pb-12 px-6">
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 text-foreground">
@@ -123,6 +126,8 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">

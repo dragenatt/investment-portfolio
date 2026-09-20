@@ -59,25 +59,27 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <main className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">{t.auth.register_title}</CardTitle>
+          <CardTitle className="text-2xl"><h1>{t.auth.register_title}</h1></CardTitle>
           <CardDescription>{t.auth.register_desc}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">{t.auth.name}</Label>
-              <Input id="name" value={displayName} onChange={e => setDisplayName(e.target.value)} required />
+              <Input id="name" autoComplete="name" value={displayName} onChange={e => setDisplayName(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">{t.auth.email}</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+              <Input id="email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">{t.auth.password}</Label>
-              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+              {/* new-password, not current-password: this is what tells a
+                  password manager to offer to generate and save one. */}
+              <Input id="password" type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             {success && (
@@ -94,6 +96,6 @@ export default function RegisterPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </main>
   )
 }

@@ -45,21 +45,27 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <main className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">{t.auth.login_title}</CardTitle>
+          {/* The page's heading, not a styled div: this is the only heading on
+              the page, and a screen reader had nothing to announce it by.
+              Tailwind's preflight leaves an h1 at the size of its parent, so
+              it looks exactly as it did. */}
+          <CardTitle className="text-2xl"><h1>{t.auth.login_title}</h1></CardTitle>
           <CardDescription>{t.auth.login_desc}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">{t.auth.email}</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+              <Input id="email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">{t.auth.password}</Label>
-              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+              {/* autoComplete is what a password manager and a phone keyboard
+                  read to offer the saved credentials for this site. */}
+              <Input id="password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
@@ -71,6 +77,6 @@ export default function LoginPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </main>
   )
 }
