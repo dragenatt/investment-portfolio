@@ -9,8 +9,19 @@ import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter'
 import { ServiceWorkerRegistration } from '@/components/pwa/service-worker-registration'
 import { isEnabled } from '@/lib/services/feature-flags'
 
+// Three fonts, three preloads on every page — 104 KB of them. Measured on the
+// production landing page (2026-09-20), `document.fonts` reports Plus Jakarta
+// Sans and JetBrains Mono as loaded and every Fraunces face as unloaded: the
+// landing page pays for a font it does not draw a single character with.
+//
+// So only Fraunces stops being preloaded. It is used by card titles, which is
+// most of the app but none of the landing page, and it loads on demand there
+// with font-display: swap and next/font's size-adjusted fallback — a brief
+// style swap, no layout shift. JetBrains Mono keeps its preload because the
+// landing page does use it, and it is the font the dashboard's largest figure
+// is drawn in.
 const plusJakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-sans' })
-const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-serif' })
+const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-serif', preload: false })
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata: Metadata = {
