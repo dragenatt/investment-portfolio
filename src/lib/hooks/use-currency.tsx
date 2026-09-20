@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import useSWR from 'swr'
 import { convertCurrency, canConvert, formatCurrency } from '@/lib/utils/currency'
 import { useRates } from '@/lib/hooks/use-rates'
+import { BASE_CURRENCY, LAST_RESORT_RATES } from '@/lib/utils/fx-pairs'
 import { apiFetcher } from '@/lib/api/fetcher'
 
 type CurrencyContextType = {
@@ -22,7 +23,10 @@ type CurrencyContextType = {
 
 const CurrencyContext = createContext<CurrencyContextType | null>(null)
 
-const FALLBACK_RATES: Record<string, number> = { USD: 1, MXN: 17.5, EUR: 0.92 }
+// What to convert with before /api/rates answers, so the first paint is not
+// wrong by a factor of seventeen. The same documented observations the route
+// falls back to, in one place.
+const FALLBACK_RATES: Record<string, number> = { [BASE_CURRENCY]: 1, ...LAST_RESORT_RATES }
 
 export function CurrencyProvider({ children, initialCurrency = 'MXN' }: { children: ReactNode; initialCurrency?: string }) {
   const [currency, setCurrencyState] = useState(initialCurrency)

@@ -20,6 +20,7 @@ import {
   finishCronRun,
 } from '@/lib/services/snapshots'
 import { fetchAndStoreBenchmarks } from '@/lib/services/benchmarks'
+import { refreshExchangeRates } from '@/lib/services/fx-rates'
 import { apiHandler } from '@/lib/api/handler'
 import { sweepJobs } from '@/lib/jobs/runner'
 import { runNightlyNotifications } from '@/lib/services/portfolio-notifications'
@@ -70,6 +71,19 @@ async function getHandler(req: Request) {
       leaderboard = { error: leaderboardError instanceof Error ? leaderboardError.message : 'Unknown error' }
     }
 
+    // 3. Exchange rates for every currency anything is quoted in. The browser
+    // only ever fetched the pairs for the currencies the interface offers as a
+    // display currency, so a holding quoted in yen had no rate at all and its
+    // value went into totals unconverted. Its own try: an FX problem must not
+    // cost the benchmarks below.
+    let exchangeRates: { written: number } | { error: string }
+    try {
+      exchangeRates = { written: await refreshExchangeRates(supabase) }
+    } catch (fxError) {
+      console.error('[cron] exchange rates failed', fxError)
+      exchangeRates = { error: fxError instanceof Error ? fxError.message : 'Unknown error' }
+    }
+
     // 4. Fetch benchmark prices
     const benchmarksStored = await fetchAndStoreBenchmarks(supabase)
 
@@ -110,6 +124,7 @@ async function getHandler(req: Request) {
       success: true,
       snapshots: { processed: snapshotResult.processed, errors: snapshotResult.errors },
       leaderboard,
+      exchangeRates,
       benchmarks: { stored: benchmarksStored },
       jobs,
       notifications,
