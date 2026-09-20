@@ -11,19 +11,24 @@ import { getLocaleFromCookies } from '@/lib/i18n/locale'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
 
-  const locale = await getLocaleFromCookies()
-  const dictionary = await getDictionary(locale)
+  // Everything this layout needs runs before the first byte of every page in
+  // the app, so what can overlap does. Four awaits in a row became two rounds:
+  // the session and the locale have nothing to do with each other, and the
+  // dictionary only needs the locale — not the profile, which only needs the
+  // user. Measured p75 TTFB before this: /advisor 3.8s, /dashboard 2.8s.
+  const [{ data: { user } }, locale] = await Promise.all([
+    supabase.auth.getUser(),
+    getLocaleFromCookies(),
+  ])
+  if (!user) redirect('/login')
 
   // Seed the display currency from the user's saved preference so the whole app
   // renders in their base currency on first paint (no flash of the default).
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('base_currency')
-    .eq('user_id', user.id)
-    .single()
+  const [dictionary, { data: profile }] = await Promise.all([
+    getDictionary(locale),
+    supabase.from('profiles').select('base_currency').eq('user_id', user.id).single(),
+  ])
   const baseCurrency = profile?.base_currency ?? 'MXN'
 
   return (

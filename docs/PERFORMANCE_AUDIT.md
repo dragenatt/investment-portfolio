@@ -211,14 +211,70 @@ First-load JavaScript per page route, before → after.
 The "after" figures include the web-vitals reporter, which added ~3 KB gzip to
 every page.
 
+## Server response time, measured from the field — 2026-09-20
+
+The section below used to say this was worth profiling once field data
+existed. It does now, from the `web_vitals` table, and it says something more
+useful than "signed-in pages are slow":
+
+| Route | TTFB p75 | n | What the server does before the first byte |
+|---|---|---|---|
+| /advisor | 3,767 ms | 18 | proxy auth + app layout (auth, locale, profile) |
+| /dashboard | 3,091 ms | 32 | the same |
+| **/login** | **2,036 ms** | 23 | **nothing — a client page under a pass-through layout** |
+| /portfolio/[id] | 2,009 ms | 18 | proxy auth + app layout |
+| /market/[symbol] | 1,202 ms | 15 | the same |
+| /discover | 450 ms | 7 | the same |
+
+**The login page is the finding.** It fetches nothing, queries nothing and
+renders a form, and it still takes two seconds to answer. That is a floor
+every route pays before any of its own work begins, and it is not the layout's
+queries — /login does not run the app layout at all.
+
+What is in that floor, in the order it costs:
+
+1. **Cold starts.** Eight users, requests minutes apart: most requests wake a
+   function that is not running. Nothing in this repository shortens that; it
+   is a platform setting (Fluid compute, or a plan that keeps functions warm).
+2. **One Supabase Auth round trip per request, in the proxy.** `getUser()`
+   verifies the token against the Auth server over the network, on every
+   request including static-ish ones. The project signs its JWTs with ES256
+   and publishes a JWKS, so `auth.getClaims()` could verify the same token
+   locally with no round trip. It is a real change to the auth path — a
+   locally verified token stays valid until it expires rather than dying the
+   moment a session is revoked — so it is written down here rather than done
+   quietly as part of a performance pass.
+
+The **difference above the floor** is what the page itself adds: ~1.7s on
+/advisor, ~1.1s on /dashboard, ~0 on /discover. That part is the app layout,
+and the two Supabase round trips inside it now overlap what can overlap —
+session and locale together, then dictionary and profile together. Four
+sequential awaits became two rounds.
+
+### The cache is switched off in production
+
+Worth stating plainly because it changes how every other number here should be
+read: `UPSTASH_REDIS_REST_URL` is not set on the deployment. The runtime log
+for any request that touches the cache says so, repeatedly:
+
+    Redis credentials not configured - caching disabled
+
+Every `withCache`, `withAuditedCache` and `withCacheInfo` is therefore a miss,
+always. Analytics routes recompute on every request, the 24-hour risk-free
+rate cache never holds (which is why one publisher's outage was logged 99
+times instead of 4), and the new Redis layer in front of `getHistory` does
+nothing in production until this is configured. The in-memory halves still
+work within a single invocation.
+
+This is a configuration change, not a code change, and it is the largest
+single lever on the numbers in this table.
+
 ## Next opportunities, not done here
 
-- **Server response time on signed-in pages.** Field TTFB during verification
-  was ~800 ms on `/dashboard` and ~650 ms on analytics, against ~250 ms on
-  lighter pages. The request path authenticates in the proxy
-  (`supabase.auth.getUser()`), again in the `(app)` layout, and reads the
-  profile, all before the page renders. Worth profiling once field data
-  confirms it outside local testing.
+- **Local JWT verification in the proxy** (`auth.getClaims()` instead of
+  `getUser()`), as described above: one network round trip saved on every
+  request, at the cost of a revoked session staying valid until its token
+  expires.
 - **The largest remaining shared chunk** (~69 KB gzip on every route) has no
   single library marker; it is framework and app shell code. Next step is the
   interactive analyzer (`npx next experimental-analyze`) on that chunk.
