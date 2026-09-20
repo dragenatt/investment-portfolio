@@ -6,6 +6,7 @@
  * - /quote = real-time quote
  * - /stock/candle = historical OHLCV
  * - /search = symbol lookup
+ * - /stock/profile2 = sector and country of listing
  */
 
 const BASE = 'https://finnhub.io/api/v1'
@@ -35,6 +36,52 @@ export type FinnhubBar = {
 
 export async function isAvailable(): Promise<boolean> {
   return !!getApiKey()
+}
+
+export type FinnhubProfile = {
+  symbol: string
+  name: string | null
+  /** Finnhub's own industry label, which is what fills company_data.sector. */
+  sector: string | null
+  /** Two-letter country of the listing, which is what fills company_data.hq. */
+  country: string | null
+  marketCap: number | null
+  website: string | null
+}
+
+/**
+ * Company profile — the sector and country the exposure screens group by.
+ * GET /stock/profile2?symbol={symbol}&token={key}
+ *
+ * Answers `{}` for a symbol it does not cover, including most non-US listings
+ * and every ETF and index, which is read here as "no profile" rather than an
+ * error. Market capitalisation arrives in millions.
+ */
+export async function getCompanyProfile(symbol: string): Promise<FinnhubProfile | null> {
+  const apiKey = getApiKey()
+  if (!apiKey) return null
+
+  const res = await fetch(
+    `${BASE}/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
+    { next: { revalidate: 86400 } } as RequestInit,
+  )
+  if (!res.ok) return null
+
+  const data = (await res.json()) as Record<string, unknown>
+  const industry = typeof data.finnhubIndustry === 'string' ? data.finnhubIndustry : null
+  const country = typeof data.country === 'string' ? data.country : null
+  if (!industry && !country) return null
+
+  const capInMillions = typeof data.marketCapitalization === 'number' ? data.marketCapitalization : null
+
+  return {
+    symbol: symbol.toUpperCase(),
+    name: typeof data.name === 'string' ? data.name : null,
+    sector: industry,
+    country,
+    marketCap: capInMillions != null ? Math.round(capInMillions * 1_000_000) : null,
+    website: typeof data.weburl === 'string' ? data.weburl : null,
+  }
 }
 
 /**

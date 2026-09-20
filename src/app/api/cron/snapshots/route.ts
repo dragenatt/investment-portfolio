@@ -21,6 +21,7 @@ import {
 } from '@/lib/services/snapshots'
 import { fetchAndStoreBenchmarks } from '@/lib/services/benchmarks'
 import { refreshExchangeRates } from '@/lib/services/fx-rates'
+import { refreshHeldCompanyProfiles } from '@/lib/services/company-profiles'
 import { apiHandler } from '@/lib/api/handler'
 import { sweepJobs } from '@/lib/jobs/runner'
 import { runNightlyNotifications } from '@/lib/services/portfolio-notifications'
@@ -87,6 +88,18 @@ async function getHandler(req: Request) {
     // 4. Fetch benchmark prices
     const benchmarksStored = await fetchAndStoreBenchmarks(supabase)
 
+    // 4b. Sector and country for every held symbol. company_data is read by
+    // five screens and was written by nothing: four rows existed, seeded by
+    // hand, so "Por Sector" described four of thirty positions. Its own try,
+    // and it skips anything already stored and fresh.
+    let profiles: { written: number } | { error: string }
+    try {
+      profiles = { written: await refreshHeldCompanyProfiles(supabase) }
+    } catch (profileError) {
+      console.error('[cron] company profiles failed', profileError)
+      profiles = { error: profileError instanceof Error ? profileError.message : 'Unknown error' }
+    }
+
     // 5. Background jobs (C1): fail unfinished jobs nobody has polled for an hour
     // past their deadline, and delete finished ones older than a week. Its own
     // try, so a sweep problem never costs the snapshots above.
@@ -126,6 +139,7 @@ async function getHandler(req: Request) {
       leaderboard,
       exchangeRates,
       benchmarks: { stored: benchmarksStored },
+      profiles,
       jobs,
       notifications,
       duration: `${duration}ms`,

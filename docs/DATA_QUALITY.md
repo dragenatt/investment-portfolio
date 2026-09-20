@@ -169,6 +169,35 @@ remainder — and their stored quote never refreshed, because that route is what
 writes it. It now fetches every symbol asked for, in batches of twenty (the
 provider's own limit), up to the hundred that Realtime's filter can watch.
 
+## Where a sector and a country come from
+
+`company_data` is read by five screens — the allocation breakdown, the exposure
+map, attribution, the optimiser's sector caps and the concentration
+notification — and until 2026-09-20 **nothing ever wrote to it**. Production
+held four rows, seeded by hand (AAPL, GOOGL, NVDA, VOO), so "Por Sector"
+described four of thirty positions and the geography chart one country.
+
+Two sources fill it now, nightly, for held symbols only:
+
+1. **A written-down table** (`company-profiles.ts`), for instruments with no
+   company behind them. An index is not a company, and an ETF's sector is its
+   mandate rather than an industry — VNQ is Real Estate, GLD is Commodities,
+   VOO is ETF, ^N225 is an Index domiciled in JP. Source: each fund's own
+   factsheet, read 2026-09-20.
+2. **Finnhub `/stock/profile2`** for everything else: free tier, already the
+   fallback quote provider, and it answers with the industry and the country
+   of the listing. Needs `FINNHUB_API_KEY`; without it only (1) applies.
+
+The listing suffix has the last word on the country — `.MX` is Mexico, `.SA`
+Brazil — because a US provider reporting a Mexican listing as American is
+exactly the error the map would repeat. A symbol neither source covers is left
+alone: "Unknown" is the truth about a ticker nobody can classify, and several
+of the ones in production are not real tickers.
+
+A profile is kept for 30 days, and an existing row is updated field by field so
+the fundamentals stored alongside it (P/E, 52-week range, analyst targets)
+survive the write.
+
 ### Symbols no provider knows
 
 A symbol the provider chain cannot resolve never gets a row at all. On
