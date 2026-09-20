@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { updateSession } from '@/lib/supabase/middleware'
+import { updateSession, sessionFailureResponse } from '@/lib/supabase/middleware'
 import { checkAddress, checkIdentity, clientAddress, FixedWindowCounter } from '@/lib/api/request-limits'
 import { buildContentSecurityPolicy, createNonce } from '@/lib/security/csp'
 
@@ -9,6 +9,26 @@ const counter = new FixedWindowCounter()
 
 // Drop finished windows every 5 minutes so the map does not keep every address.
 setInterval(() => counter.prune(Date.now()), 5 * 60 * 1000)
+
+/**
+ * The session read, with the proxy's own net under it.
+ *
+ * updateSession already treats an unusable session as no session; this catches
+ * the case where the call itself fails — a missing environment variable, an
+ * SDK that throws where it used to return. Whatever the cause, a visitor
+ * should meet a login page, not a 500 from the proxy on every route at once.
+ */
+async function readSession(
+  request: NextRequest,
+  extraRequestHeaders: Record<string, string> = {},
+): Promise<{ response: NextResponse; userId: string | null }> {
+  try {
+    return await updateSession(request, extraRequestHeaders)
+  } catch (err) {
+    console.error('[proxy] session handling failed:', err)
+    return { response: sessionFailureResponse(request, extraRequestHeaders), userId: null }
+  }
+}
 
 function tooManyRequests(retryAfterSeconds: number) {
   return NextResponse.json(
@@ -38,7 +58,7 @@ export async function proxy(request: NextRequest) {
 
     // JSON responses: no document, so no CSP. Security headers for every route
     // are set in next.config.ts.
-    const { response, userId } = await updateSession(request)
+    const { response, userId } = await readSession(request)
 
     const decision = checkIdentity(counter, { userId, address }, now)
     if (!decision.allowed) {
@@ -61,7 +81,7 @@ export async function proxy(request: NextRequest) {
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
     posthogHost: process.env.NEXT_PUBLIC_POSTHOG_KEY ? process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com' : undefined,
   })
-  const { response } = await updateSession(request, { 'x-nonce': nonce, 'Content-Security-Policy': csp })
+  const { response } = await readSession(request, { 'x-nonce': nonce, 'Content-Security-Policy': csp })
   response.headers.set('Content-Security-Policy', csp)
   return response
 }

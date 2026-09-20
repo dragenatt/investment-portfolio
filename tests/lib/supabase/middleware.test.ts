@@ -1,0 +1,122 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { NextRequest } from 'next/server'
+import { AuthApiError } from '@supabase/supabase-js'
+
+// Ten 500s across four users came from one line: getUser() rejects when the
+// refresh token in the cookie is spent, and nothing caught it. A session that
+// cannot be refreshed is the same situation as no session, and a page must say
+// so with a login redirect rather than an error.
+
+const auth = vi.hoisted(() => ({ getUser: vi.fn() }))
+
+vi.mock('@supabase/ssr', () => ({ createServerClient: () => ({ auth }) }))
+
+const { updateSession, sessionFailureResponse } = await import('@/lib/supabase/middleware')
+
+const AUTH_COOKIE = 'sb-abcdefgh-auth-token'
+
+/** How a cookie is removed: an empty value that expired at the epoch. */
+const EXPIRED = /Expires=Thu, 01 Jan 1970/i
+
+function request(path: string, cookie = `${AUTH_COOKIE}=stale-refresh-token`) {
+  return new NextRequest(`https://app.example/${path.replace(/^\//, '')}`, {
+    headers: { cookie },
+  })
+}
+
+/** The Set-Cookie lines a response carries, as one string. */
+function setCookie(response: { headers: Headers }): string {
+  return response.headers.getSetCookie().join('\n')
+}
+
+beforeEach(() => {
+  auth.getUser.mockReset()
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+})
+
+describe('updateSession with an unusable session', () => {
+  it('redirects a page to login instead of throwing', async () => {
+    auth.getUser.mockRejectedValue(new AuthApiError('Invalid Refresh Token', 400, 'refresh_token_not_found'))
+
+    const { response, userId } = await updateSession(request('/lab?e=volatility'))
+
+    expect(response.status).toBe(307)
+    // The page they asked for comes back after signing in, query and all.
+    expect(response.headers.get('location')).toBe('https://app.example/login?next=%2Flab%3Fe%3Dvolatility')
+    expect(userId).toBeNull()
+  })
+
+  it('drops the spent cookie so the browser stops presenting it', async () => {
+    auth.getUser.mockRejectedValue(new AuthApiError('Invalid Refresh Token', 400, 'refresh_token_not_found'))
+
+    const { response } = await updateSession(request('/dashboard'))
+
+    expect(setCookie(response)).toContain(AUTH_COOKIE)
+    expect(setCookie(response)).toMatch(EXPIRED)
+  })
+
+  it('clears the chunked cookies too', async () => {
+    auth.getUser.mockRejectedValue(new AuthApiError('Invalid Refresh Token', 400, 'refresh_token_not_found'))
+
+    const { response } = await updateSession(
+      request('/api/portfolio', `${AUTH_COOKIE}.0=part-one; ${AUTH_COOKIE}.1=part-two`),
+    )
+
+    expect(setCookie(response)).toContain(`${AUTH_COOKIE}.0`)
+    expect(setCookie(response)).toContain(`${AUTH_COOKIE}.1`)
+  })
+
+  it('lets an API route answer for itself rather than redirecting it', async () => {
+    auth.getUser.mockRejectedValue(new AuthApiError('Invalid Refresh Token', 400, 'refresh_token_not_found'))
+
+    const { response, userId } = await updateSession(request('/api/portfolio'))
+
+    expect(response.status).toBe(200)
+    expect(userId).toBeNull()
+  })
+
+  it('still serves the public pages', async () => {
+    auth.getUser.mockRejectedValue(new AuthApiError('Invalid Refresh Token', 400, 'refresh_token_not_found'))
+
+    const { response } = await updateSession(request('/'))
+
+    expect(response.status).toBe(200)
+  })
+})
+
+describe('updateSession when Supabase cannot be reached', () => {
+  it('signs the request out for now but keeps the cookie', async () => {
+    auth.getUser.mockRejectedValue(new TypeError('fetch failed'))
+
+    const { response } = await updateSession(request('/dashboard'))
+
+    // A bad minute of connectivity is not evidence that the session is spent.
+    expect(response.status).toBe(307)
+    expect(setCookie(response)).not.toMatch(EXPIRED)
+  })
+})
+
+describe('updateSession with a live session', () => {
+  it('passes the user id back and touches no cookie', async () => {
+    auth.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+
+    const { response, userId } = await updateSession(request('/dashboard'))
+
+    expect(userId).toBe('user-1')
+    expect(response.status).toBe(200)
+    expect(setCookie(response)).toBe('')
+  })
+})
+
+describe('sessionFailureResponse', () => {
+  it('sends a private page to login', () => {
+    expect(sessionFailureResponse(request('/portfolio/123')).headers.get('location')).toBe(
+      'https://app.example/login?next=%2Fportfolio%2F123',
+    )
+  })
+
+  it('lets a public page and an API route through', () => {
+    expect(sessionFailureResponse(request('/login')).status).toBe(200)
+    expect(sessionFailureResponse(request('/api/health')).status).toBe(200)
+  })
+})
