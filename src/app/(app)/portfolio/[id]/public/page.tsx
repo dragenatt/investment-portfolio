@@ -22,6 +22,8 @@ import { TrendingUp, TrendingDown, Lock, GitCompareArrows, Heart, ArrowLeft } fr
 import { useLike } from '@/lib/hooks/use-social'
 import { useTranslation } from '@/lib/i18n'
 import { changeTone, formatSignedPercent, toneTextClass } from '@/lib/utils/change-tone'
+import { useCurrency } from '@/lib/hooks/use-currency'
+import { positionInDisplayCurrency } from '@/lib/services/pnl'
 
 type PortfolioData = {
   id: string
@@ -58,6 +60,7 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
     apiFetcher
   )
   const { isLiked, toggle: toggleLike, isLoading: likingLoading } = useLike(id)
+  const { convert, currency: displayCurrency } = useCurrency()
 
   const symbols = useMemo(() => {
     if (!portfolio?.positions) return []
@@ -74,23 +77,39 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
       .filter(p => p.quantity > 0)
       .map(pos => {
         const liveData = livePrices?.[pos.symbol]
-        const currentPrice = liveData?.price ?? pos.avg_cost
-        const marketValue = pos.quantity * currentPrice
-        const costBasis = pos.quantity * pos.avg_cost
-        const pnl = marketValue - costBasis
-        const pnlPct = costBasis > 0 ? (pnl / costBasis) * 100 : 0
+        // Everything into one currency before anything is added or
+        // subtracted. This page had the same defect the owner's own view did
+        // — a quote in dollars against a cost in pesos — and one worse: the
+        // totals summed each holding in whatever currency it happened to
+        // trade in and rendered the result with no currency at all. This is
+        // the view strangers see of a shared portfolio.
+        const { avgCost, currentPrice, marketValue, costBasis, pnlAbsolute, pnlPercent } =
+          positionInDisplayCurrency(
+            {
+              quantity: pos.quantity,
+              avgCost: pos.avg_cost,
+              costCurrency: pos.currency || 'USD',
+              currentPrice: liveData?.price ?? pos.avg_cost,
+              priceCurrency: liveData?.price != null
+                ? liveData.currency || pos.currency || 'USD'
+                : pos.currency || 'USD',
+            },
+            convert,
+            displayCurrency,
+          )
         return {
           ...pos,
+          avgCost,
           currentPrice,
           marketValue,
           costBasis,
-          pnl,
-          pnlPct,
+          pnl: pnlAbsolute,
+          pnlPct: pnlPercent,
           changePct: liveData?.changePct ?? 0,
         }
       })
       .sort((a, b) => b.marketValue - a.marketValue)
-  }, [portfolio, livePrices])
+  }, [portfolio, livePrices, convert, displayCurrency])
 
   const summary = useMemo(() => {
     let totalValue = 0

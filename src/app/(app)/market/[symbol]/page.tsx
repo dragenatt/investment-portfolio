@@ -23,6 +23,8 @@ import { toast } from 'sonner'
 import { useSWRConfig } from 'swr'
 import { useRouter } from 'next/navigation'
 import { useTrade } from '@/lib/contexts/trade-context'
+import { useCurrency } from '@/lib/hooks/use-currency'
+import { positionInDisplayCurrency, dailyChangeFromPct } from '@/lib/services/pnl'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { Button } from '@/components/ui/button'
@@ -56,6 +58,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
   const { mutate } = useSWRConfig()
   const router = useRouter()
   const { openTrade } = useTrade()
+  const { convert, currency: displayCurrency } = useCurrency()
   const [hoverPrice, setHoverPrice] = useState<number | null>(null)
 
   // ─── Find user positions for this symbol across all portfolios ────
@@ -209,11 +212,26 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
           </CardHeader>
           <CardContent className="space-y-3">
             {userPositions.map((pos) => {
-              const marketValue = pos.quantity * quote.price
-              const costBasis = pos.quantity * pos.avgCost
-              const totalReturn = marketValue - costBasis
-              const totalReturnPct = costBasis > 0 ? (totalReturn / costBasis) * 100 : 0
-              const todayReturn = pos.quantity * (quote.change ?? 0)
+              // The quote and the cost are not in the same currency — this
+              // asset trades in dollars and may have been bought with pesos —
+              // so both go into the display currency before anything is
+              // subtracted. Subtracting them as they came reported the same
+              // 94% loss the portfolio table used to.
+              const { marketValue, avgCost: avgCostInDisplay, pnlAbsolute: totalReturn, pnlPercent: totalReturnPct } =
+                positionInDisplayCurrency(
+                  {
+                    quantity: pos.quantity,
+                    avgCost: pos.avgCost,
+                    costCurrency: pos.currency,
+                    currentPrice: quote.price,
+                    priceCurrency: quote.currency,
+                  },
+                  convert,
+                  displayCurrency,
+                )
+              // From the percentage, not the provider's absolute `change`,
+              // which is frequently null even when the percentage is present.
+              const todayReturn = dailyChangeFromPct(marketValue, quote.changePct)
               const returnTone = changeTone(totalReturnPct, 2)
               const todayTone = changeTone(quote.changePct, 2)
 
@@ -235,16 +253,16 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">{t.market.market_value}</p>
-                      <FormattedAmount value={marketValue} from={quote.currency} className="text-sm font-semibold" />
+                      <FormattedAmount value={marketValue} from={displayCurrency} className="text-sm font-semibold" />
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">{t.market.average_cost}</p>
-                      <FormattedAmount value={pos.avgCost} from={pos.currency} className="text-sm font-semibold" />
+                      <FormattedAmount value={avgCostInDisplay} from={displayCurrency} className="text-sm font-semibold" />
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">{t.market.total_return}</p>
                       <div className="flex items-center gap-1">
-                        <FormattedAmount value={totalReturn} from={quote.currency} showSign colorize className="text-sm font-semibold" />
+                        <FormattedAmount value={totalReturn} from={displayCurrency} showSign colorize className="text-sm font-semibold" />
                         <span className={cn('font-financial', 'text-xs', toneTextClass(returnTone))}>
                           ({formatPercent(totalReturnPct)})
                         </span>
@@ -253,7 +271,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
                     <div className="col-span-2">
                       <p className="text-xs text-muted-foreground">{t.market.today_return}</p>
                       <div className="flex items-center gap-1">
-                        <FormattedAmount value={todayReturn} from={quote.currency} showSign colorize className="text-sm font-semibold" />
+                        <FormattedAmount value={todayReturn} from={displayCurrency} showSign colorize className="text-sm font-semibold" />
                         <span className={cn('font-financial', 'text-xs', toneTextClass(todayTone))}>
                           ({formatPercent(quote.changePct)})
                         </span>
