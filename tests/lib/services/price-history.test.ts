@@ -4,8 +4,30 @@ const getHistory = vi.fn()
 vi.mock('@/lib/services/market', () => ({ getHistory: (...args: unknown[]) => getHistory(...args) }))
 
 const upsert = vi.fn()
+/** What symbolCurrencies() would find for a symbol, keyed by table. */
+const lookups = vi.hoisted(() => ({
+  price_history: [] as Array<Record<string, unknown>>,
+  current_prices: [] as Array<Record<string, unknown>>,
+}))
+
 vi.mock('@/lib/supabase/admin', () => ({
-  serviceRoleClient: () => ({ from: () => ({ upsert }) }),
+  serviceRoleClient: () => ({
+    from: (table: 'price_history' | 'current_prices') => ({
+      upsert,
+      // The chain symbolCurrencies() walks, in both of its shapes.
+      select: () => {
+        const rows = lookups[table] ?? []
+        const result = { data: rows, error: null }
+        const chain = {
+          in: () => chain,
+          not: () => chain,
+          order: () => result,
+          then: (resolve: (value: typeof result) => unknown) => resolve(result),
+        }
+        return chain
+      },
+    }),
+  }),
 }))
 
 import {
@@ -28,6 +50,8 @@ const bar = (date: string, close: number) => ({ date: `${date}T13:30:00.000Z`, o
 beforeEach(() => {
   getHistory.mockReset()
   upsert.mockReset().mockResolvedValue({ error: null })
+  lookups.price_history = []
+  lookups.current_prices = []
   resetTopUpAttempts()
 })
 
@@ -260,5 +284,55 @@ describe('what may be written to the daily table', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('writeThrough: the unit a close is in', () => {
+  // Only Yahoo puts a currency on every bar. Twelve Data and Finnhub do not,
+  // which is how 2,089 of 4,090 rows on production came to be stored with no
+  // unit at all — recoverable, but only because every one of those symbols
+  // happened to have a labelled row somewhere else.
+  const unlabelled = {
+    symbol: 'SYNTH',
+    exchange: 'yahoo',
+    date: '2026-09-18',
+    open: 1,
+    high: 1,
+    low: 1,
+    close: 1,
+    volume: 1,
+    currency: null,
+  }
+
+  it("labels a bar with the symbol's known currency", async () => {
+    lookups.price_history = [{ symbol: 'SYNTH', currency: 'JPY', date: '2026-09-01' }]
+
+    await writeThrough([unlabelled])
+
+    expect(upsert.mock.calls[0][0]).toEqual([expect.objectContaining({ symbol: 'SYNTH', currency: 'JPY' })])
+  })
+
+  it('falls back to what the symbol is quoted in', async () => {
+    lookups.current_prices = [{ symbol: 'SYNTH', currency: 'BRL' }]
+
+    await writeThrough([unlabelled])
+
+    expect(upsert.mock.calls[0][0]).toEqual([expect.objectContaining({ currency: 'BRL' })])
+  })
+
+  it('leaves a bar unlabelled when nothing knows the symbol', async () => {
+    // Unknown is the honest record. Guessing USD is the silently wrong
+    // conversion this column exists to prevent.
+    await writeThrough([unlabelled])
+
+    expect(upsert.mock.calls[0][0]).toEqual([expect.objectContaining({ currency: null })])
+  })
+
+  it("does not overwrite a currency the provider did state", async () => {
+    lookups.price_history = [{ symbol: 'SYNTH', currency: 'JPY', date: '2026-09-01' }]
+
+    await writeThrough([{ ...unlabelled, currency: 'USD' }])
+
+    expect(upsert.mock.calls[0][0]).toEqual([expect.objectContaining({ currency: 'USD' })])
   })
 })

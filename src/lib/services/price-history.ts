@@ -405,6 +405,33 @@ export function isDailyRange(range: string): boolean {
   return DAILY_RANGES.has(range)
 }
 
+/**
+ * Bars whose provider did not say what unit they are in, labelled with the
+ * currency the app already knows for that symbol.
+ *
+ * Only Yahoo puts a currency on every bar; Twelve Data and Finnhub do not,
+ * which is how half of price_history came to be stored with no unit at all.
+ * The answer was always available — it is what symbolCurrencies() works out at
+ * read time — so it is written down at ingest instead of recomputed by every
+ * reader forever. A symbol nothing knows about still stores NULL: unknown is
+ * the honest record, and guessing 'USD' is the silently wrong conversion this
+ * column exists to prevent.
+ */
+async function withKnownCurrency(writer: SupabaseClient, rows: StoredBar[]): Promise<StoredBar[]> {
+  const unlabelled = [...new Set(rows.filter((row) => !row.currency).map((row) => row.symbol))]
+  if (unlabelled.length === 0) return rows
+
+  try {
+    const known = await symbolCurrencies(writer, unlabelled)
+    if (Object.keys(known).length === 0) return rows
+    return rows.map((row) => (row.currency ? row : { ...row, currency: known[row.symbol] ?? null }))
+  } catch (thrown) {
+    // Looking up a label must never cost the closes themselves.
+    console.warn('[price-history] no se pudo etiquetar la moneda', thrown)
+    return rows
+  }
+}
+
 /** Write provider bars back to price_history with the service role. */
 export async function writeThrough(bars: StoredBar[]): Promise<void> {
   if (bars.length === 0) return
@@ -432,7 +459,7 @@ export async function writeThrough(bars: StoredBar[]): Promise<void> {
     try {
       const { error } = await writer
         .from('price_history')
-        .upsert(rowsToCache, { onConflict: 'symbol,exchange,date' })
+        .upsert(await withKnownCurrency(writer, rowsToCache), { onConflict: 'symbol,exchange,date' })
       if (error) {
         console.warn('[price-history] fallo al escribir el cache', {
           filas: rowsToCache.length,
