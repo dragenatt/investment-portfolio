@@ -297,6 +297,37 @@ fixed in finding 4, `soft_delete_portfolio`, `toggle_follow`,
 `toggle_portfolio_like` and `handle_new_user`. Every one filters on
 `auth.uid()` or is a trigger function; none returns another user's data.
 
+### 19b. The two anon-callable RPCs, re-read — 2026-09-20 — no change needed
+
+The consolidated diagnostic asked for one specific thing to be checked again:
+`get_portfolio_allocation` and `get_portfolio_performance` are SECURITY DEFINER
+and executable by `anon`, so what does an anonymous caller actually get? Read
+from the live definitions, not from the migrations.
+
+**Both gate on the portfolio first.** Neither returns anything unless the row
+is not soft-deleted AND the caller is its owner OR it is public:
+
+- `get_portfolio_allocation` additionally requires `show_allocation`. Amounts
+  are gated on `show_amounts` and per-symbol rows on `show_positions`, each
+  falling back to the owner. A public portfolio with amounts off returns
+  percentages and asset types, no money.
+- `get_portfolio_performance` requires only `visibility = 'public'`, and
+  returns the return percentage and the date of the last snapshot to anyone.
+  Amounts — current value and dividend income — are gated on `show_amounts`.
+
+That asymmetry is deliberate rather than an oversight: there is no
+`show_performance` column, because making a portfolio public *is* the decision
+to show its performance. That is what Discover ranks on and what the
+leaderboard is.
+
+The other four anon-callable functions return nothing to an anonymous caller
+at all: `auth_user_portfolio_ids`, `auth_user_position_ids`,
+`user_owns_portfolio` and `user_has_portfolio_share` all filter on
+`auth.uid()`, which is NULL for `anon` — an empty set and two falses.
+
+One cosmetic note: `get_portfolio_allocation` computes `is_owner` and never
+uses it.
+
 ### 20. Reviewed with no issue — Info
 
 - **Injection (A03).** Database access goes through PostgREST/supabase-js, which
