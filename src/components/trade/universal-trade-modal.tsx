@@ -116,8 +116,16 @@ function TradeForm({ onClose }: { onClose: () => void }) {
     if (quote?.price != null && selectedSymbol) {
       const native = quote.currency || 'USD'
       setQuoteCurrency(native)
-      const priceInTxnCurrency = convertCurrency(quote.price, native, currency, rates)
-      const rounded = priceInTxnCurrency.toFixed(priceInTxnCurrency >= 1 ? 2 : 6)
+      const market = convertCurrency(quote.price, native, currency, rates)
+      // No rate joins the quote's currency to the one this transaction is
+      // recorded in — a Nikkei quote in yen against a peso book. Filling the
+      // field anyway would put a yen figure in a peso box, and nothing after
+      // it would know. The field is left for the person to fill.
+      if (!market.converted) {
+        setPrice('')
+        return
+      }
+      const rounded = market.amount.toFixed(market.amount >= 1 ? 2 : 6)
       setPrice(rounded)
       const p = parseFloat(rounded)
       if (p > 0) {
@@ -142,11 +150,17 @@ function TradeForm({ onClose }: { onClose: () => void }) {
   function handleCurrencyChange(next: string | null) {
     if (!next || next === currency) return
     const p = parseFloat(price)
-    if (p > 0) setPrice(convertCurrency(p, currency, next, rates).toFixed(p >= 1 ? 2 : 6))
+    if (p > 0) setPrice(convertCurrency(p, currency, next, rates).amount.toFixed(p >= 1 ? 2 : 6))
     const amt = parseFloat(amount)
-    if (amt > 0) setAmount(convertCurrency(amt, currency, next, rates).toFixed(2))
+    if (amt > 0) setAmount(convertCurrency(amt, currency, next, rates).amount.toFixed(2))
     setCurrency(next)
   }
+
+  // The market price in the transaction's currency — or, when no rate joins
+  // the two, still in the currency it was quoted in, which the label says.
+  const marketPrice = quote?.price != null
+    ? convertCurrency(quote.price, quoteCurrency, currency, rates)
+    : null
 
   // -- Linked field calculations (copied from transaction-modal.tsx lines 56-97) --
 
@@ -398,9 +412,9 @@ function TradeForm({ onClose }: { onClose: () => void }) {
             <span className="text-xs text-muted-foreground">
               Mercado:{' '}
               <span className="font-financial font-medium text-foreground">
-                {convertCurrency(quote.price, quoteCurrency, currency, rates).toFixed(2)}
+                {marketPrice?.amount.toFixed(2)}
               </span>{' '}
-              {currency}
+              {marketPrice?.converted ? currency : quoteCurrency}
               {quoteCurrency !== currency && (
                 <span className="ml-1 opacity-70 font-financial">
                   ({quote.price.toFixed(2)} {quoteCurrency})

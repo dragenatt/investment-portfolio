@@ -46,6 +46,13 @@ type PortfolioStats = {
   bestPosition?: { symbol: string; changePct: number }
   todayReturn?: number
   todayReturnPct?: number
+  /**
+   * Currencies in this total that no rate reaches, so their amounts are in
+   * the total as they came — a yen figure counted as pesos. Empty is the
+   * normal case; anything in it has to be said on the screen, because the
+   * number alone cannot be told apart from a correct one.
+   */
+  unconverted: string[]
   isLoading: boolean
 }
 
@@ -57,7 +64,7 @@ export function usePortfolioStats(
   portfolios: Portfolio[] | undefined,
   livePrices: Record<string, LivePrice> | undefined
 ): PortfolioStats {
-  const { convert, currency: displayCurrency } = useCurrency()
+  const { convert, canConvert, currency: displayCurrency } = useCurrency()
 
   return useMemo(() => {
     if (!portfolios) {
@@ -72,6 +79,7 @@ export function usePortfolioStats(
         bestPosition: undefined,
         todayReturn: undefined,
         todayReturnPct: undefined,
+        unconverted: [],
         isLoading: true,
       }
     }
@@ -81,6 +89,7 @@ export function usePortfolioStats(
     let positionCount = 0
     const allocationMap: Record<string, number> = {}
     const movers: Mover[] = []
+    const unconverted = new Set<string>()
     let todayReturn = 0
 
     for (const portfolio of portfolios) {
@@ -91,9 +100,15 @@ export function usePortfolioStats(
           const costCurrency = pos.currency || 'USD'
 
           const livePrice = liveData?.price ?? pos.avg_cost
-          const livePriceInDisplay = liveData
-            ? convert(livePrice, priceCurrency)
-            : convert(livePrice, costCurrency)
+          const valueCurrency = liveData ? priceCurrency : costCurrency
+          // Both halves of this position's contribution have to reach the
+          // display currency: the price that makes its value and the cost that
+          // makes its return. Either one failing puts a foreign figure in the
+          // total, so both are asked about.
+          for (const unit of [valueCurrency, costCurrency]) {
+            if (!canConvert(unit)) unconverted.add(unit)
+          }
+          const livePriceInDisplay = convert(livePrice, valueCurrency)
           const value = pos.quantity * livePriceInDisplay
 
           const avgCostInDisplay = convert(pos.avg_cost, costCurrency)
@@ -154,7 +169,11 @@ export function usePortfolioStats(
       bestPosition,
       todayReturn: hasPrices ? todayReturn : undefined,
       todayReturnPct: hasPrices ? todayReturnPct : undefined,
+      unconverted: [...unconverted].sort(),
       isLoading: false,
     }
-  }, [portfolios, livePrices, convert, displayCurrency])
+    // `convert` and `canConvert` are rebuilt on every render of the provider;
+    // the display currency and the rates behind them are what actually change
+    // an answer, and the rates arrive with the prices.
+  }, [portfolios, livePrices, convert, canConvert, displayCurrency])
 }

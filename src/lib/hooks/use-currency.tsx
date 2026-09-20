@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import useSWR from 'swr'
-import { convertCurrency, formatCurrency } from '@/lib/utils/currency'
+import { convertCurrency, canConvert, formatCurrency } from '@/lib/utils/currency'
 import { useRates } from '@/lib/hooks/use-rates'
 import { apiFetcher } from '@/lib/api/fetcher'
 
@@ -11,6 +11,12 @@ type CurrencyContextType = {
   setCurrency: (c: string) => void
   format: (amount: number, from?: string) => string
   convert: (amount: number, from: string) => number
+  /**
+   * Whether a rate joins `from` to the display currency. `convert` returns the
+   * amount unchanged when it does not, which is only safe for a screen that
+   * has asked this first and said something about the answer.
+   */
+  canConvert: (from: string) => boolean
   rates: Record<string, number>
 }
 
@@ -50,14 +56,15 @@ export function CurrencyProvider({ children, initialCurrency = 'MXN' }: { childr
     }).catch(() => { /* best-effort; UI already reflects the change */ })
   }, [mutateProfile])
 
-  const convert = (amount: number, from: string) => convertCurrency(amount, from, currency, activeRates)
+  const convert = (amount: number, from: string) => convertCurrency(amount, from, currency, activeRates).amount
+  const canConvertFrom = (from: string) => canConvert(from, currency, activeRates)
   const format = (amount: number, from?: string) => {
     const converted = from ? convert(amount, from) : amount
     return formatCurrency(converted, currency)
   }
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, format, convert, rates: activeRates }}>
+    <CurrencyContext.Provider value={{ currency, setCurrency, format, convert, canConvert: canConvertFrom, rates: activeRates }}>
       {children}
     </CurrencyContext.Provider>
   )

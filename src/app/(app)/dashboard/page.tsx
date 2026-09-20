@@ -100,6 +100,7 @@ export default function DashboardPage() {
           todayReturn={todayReturn}
           todayReturnPct={todayReturnPct}
           totalCost={stats.totalCost}
+          unconverted={stats.unconverted}
         />
       </ErrorBoundary>
 
