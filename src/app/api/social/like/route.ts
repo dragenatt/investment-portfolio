@@ -17,8 +17,13 @@ async function postHandler(req: Request) {
   const { portfolio_id } = body
   if (!portfolio_id) return error('portfolio_id is required', 400)
 
+  // Named as toggle_portfolio_like declares it. `portfolio_id` matched no
+  // function, so PostgREST answered "Could not find the function" and every
+  // like was a 500 — the third time this exact mismatch has shipped, after
+  // get_public_portfolios and search_users. tests/lint/rpc-arguments.test.ts
+  // now checks the names against the migrations.
   const { data, error: dbError } = await supabase.rpc('toggle_portfolio_like', {
-    portfolio_id,
+    target_portfolio_id: portfolio_id,
   })
 
   if (dbError) return error(dbError.message, 500)
