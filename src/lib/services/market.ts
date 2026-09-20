@@ -8,6 +8,7 @@
  * - Circuit breakers for each data source
  * - Retry with exponential backoff for transient failures
  * - In-memory quote cache (60s TTL) for within-invocation reuse
+ * - History cache, in memory and in Redis (5 min intraday, 1 hour otherwise)
  * - Redis cache for cross-invocation performance
  * - Automatic fallback with timeout of 4s per source
  */
@@ -15,7 +16,7 @@
 import * as twelveData from './twelve-data'
 import * as finnhub from './finnhub'
 import { CircuitBreaker, withRetry } from './resilience'
-import { cachePrice, cacheBatchPrices, getCachedPriceEntries, type CachedPriceEntry } from '@/lib/cache/redis'
+import { cachePrice, cacheBatchPrices, getCachedPriceEntries, cacheGet, cacheSet, CACHE_KEYS, type CachedPriceEntry } from '@/lib/cache/redis'
 
 // ─── Symbol normalization ───────────────────────────────────────────────────
 // Maps Yahoo-style index symbols to Twelve Data format.
@@ -604,7 +605,8 @@ async function fetchYahooBatch(
   )
 }
 
-export async function getHistory(symbol: string, range: string = '1mo') {
+/** The provider chain for one series, with no cache in front of it. */
+async function fetchHistory(symbol: string, range: string) {
   if (!shouldSkipTwelveData(symbol) && await twelveData.isAvailable()) {
     try {
       const tdSymbol = toTwelveDataSymbol(symbol)
@@ -621,6 +623,71 @@ export async function getHistory(symbol: string, range: string = '1mo') {
   }
 
   return yahooHistory(symbol, range)
+}
+
+// ─── History cache ──────────────────────────────────────────────────────────
+//
+// getQuote has had a 60-second cache since the beginning. getHistory had none,
+// and it is asked for far more often than it looks: opening one asset's page
+// requests five series — /stats wants the symbol at 6mo, the benchmark at 6mo
+// and the symbol at 5y; /signal wants the symbol at 6mo again; the chart asks
+// for its own range — and two of those are the same request, made from
+// different endpoints that could not see each other. Each one walked the whole
+// provider chain, up to 6 seconds per source before falling through.
+//
+// Two layers, because they fix different halves of it: a Map, so the duplicate
+// calls inside one invocation are free, and Redis, so the next invocation does
+// not start from nothing. The TTLs are the ones /api/market/[symbol]/history
+// has been serving this same data with.
+
+type HistorySeries = Awaited<ReturnType<typeof fetchHistory>>
+
+/** Ranges whose bars are intraday, and go stale within the session. */
+const INTRADAY_RANGES = new Set(['1d', '5d'])
+const HISTORY_TTL_MS = 3_600_000
+const HISTORY_INTRADAY_TTL_MS = 300_000
+
+function historyTtlMs(range: string): number {
+  return INTRADAY_RANGES.has(range) ? HISTORY_INTRADAY_TTL_MS : HISTORY_TTL_MS
+}
+
+/** The range belongs in the key: a symbol's 6mo and 5y are different series. */
+function historyKey(symbol: string, range: string): string {
+  return `${symbol.toUpperCase()}:${range}`
+}
+
+const historyCache = new Map<string, { data: HistorySeries; expiresAt: number }>()
+
+/** Clear the in-memory history cache (useful for testing) */
+export function clearHistoryCache() {
+  historyCache.clear()
+}
+
+export async function getHistory(symbol: string, range: string = '1mo'): Promise<HistorySeries> {
+  const key = historyKey(symbol, range)
+  const ttlMs = historyTtlMs(range)
+
+  const local = historyCache.get(key)
+  if (local && Date.now() < local.expiresAt) return local.data
+  if (local) historyCache.delete(key)
+
+  const shared = await cacheGet<HistorySeries>(`${CACHE_KEYS.MARKET_HISTORY}${key}`)
+  if (shared && shared.length > 0) {
+    historyCache.set(key, { data: shared, expiresAt: Date.now() + ttlMs })
+    return shared
+  }
+
+  const history = await fetchHistory(symbol, range)
+
+  // An empty series is what the provider chain returns when every source
+  // failed. Remembering that for an hour would turn one bad minute into an
+  // hour of empty charts, so only a real series is kept.
+  if (history.length > 0) {
+    historyCache.set(key, { data: history, expiresAt: Date.now() + ttlMs })
+    await cacheSet(`${CACHE_KEYS.MARKET_HISTORY}${key}`, history, Math.round(ttlMs / 1000))
+  }
+
+  return history
 }
 
 /** Returns which data source is currently active */

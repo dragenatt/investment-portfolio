@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getQuote, searchSymbols, getHistory, clearQuoteCache } from '@/lib/services/market'
+import { getQuote, searchSymbols, getHistory, clearQuoteCache, clearHistoryCache } from '@/lib/services/market'
 
 // Mock the twelve-data module
 vi.mock('@/lib/services/twelve-data', () => ({
@@ -15,6 +15,7 @@ vi.stubGlobal('fetch', mockFetch)
 beforeEach(() => {
   mockFetch.mockReset()
   clearQuoteCache()
+  clearHistoryCache()
 })
 
 describe('getQuote', () => {

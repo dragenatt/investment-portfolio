@@ -27,6 +27,9 @@ vi.mock('@/lib/cache/redis', () => ({
   cachePrice: vi.fn(),
   getCachedPriceEntries: vi.fn().mockResolvedValue({}),
   cacheBatchPrices: vi.fn(),
+  cacheGet: vi.fn().mockResolvedValue(null),
+  cacheSet: vi.fn(),
+  CACHE_KEYS: { MARKET_HISTORY: 'market:history:' },
 }))
 
 // Mock resilience utilities - use function keyword for constructor compatibility
@@ -50,6 +53,7 @@ import {
   getHistory,
   searchSymbols,
   clearQuoteCache,
+  clearHistoryCache,
   getActiveSource,
 } from '@/lib/services/market'
 import * as twelveData from '@/lib/services/twelve-data'
@@ -59,9 +63,11 @@ import * as cache from '@/lib/cache/redis'
 describe('Market Service', () => {
   beforeEach(() => {
     clearQuoteCache()
+    clearHistoryCache()
     vi.clearAllMocks()
     // Restore fetch mock after clearAllMocks
     mockFetch.mockResolvedValue({ ok: false, json: async () => ({}) })
+    vi.mocked(cache.cacheGet).mockResolvedValue(null)
   })
 
   describe('getQuote', () => {
