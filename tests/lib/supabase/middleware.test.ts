@@ -120,3 +120,34 @@ describe('sessionFailureResponse', () => {
     expect(sessionFailureResponse(request('/api/health')).status).toBe(200)
   })
 })
+
+describe('a path that is not a page', () => {
+  // /lo-que-sea went to /login?next=%2Flo-que-sea: a visitor was asked to sign
+  // in for something that would not be there afterwards, and not-found.tsx —
+  // which has existed all along — was unreachable without a session.
+  beforeEach(() => {
+    auth.getUser.mockResolvedValue({ data: { user: null } })
+  })
+
+  it('continues to Next, which renders the 404', async () => {
+    const { response } = await updateSession(request('/lo-que-sea', ''))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+  })
+
+  it('still sends a real page to login, remembering where it was going', async () => {
+    const { response } = await updateSession(request('/portfolio/abc', ''))
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe('https://app.example/login?next=%2Fportfolio%2Fabc')
+  })
+
+  it('treats a deeper path by its section', async () => {
+    const known = await updateSession(request('/settings/privacy', ''))
+    const unknown = await updateSession(request('/settings-de-mentira/privacy', ''))
+
+    expect(known.response.status).toBe(307)
+    expect(unknown.response.status).toBe(200)
+  })
+})

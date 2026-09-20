@@ -15,6 +15,40 @@ function isPublicPath(pathname: string): boolean {
 }
 
 /**
+ * The first segment of every section this app actually serves — the folders
+ * under src/app/(app), which tests/lint/app-sections.test.ts keeps in step
+ * with this list.
+ *
+ * It exists to tell two different situations apart. /portfolio/<id> is a real
+ * page that happens to need a session, and a visitor asking for it should sign
+ * in and land there. /lo-que-sea is not a page at all, and sending that
+ * visitor to /login?next=%2Flo-que-sea asks them to sign in for something that
+ * will not be there afterwards. not-found.tsx has existed all along; for
+ * anyone without a session it was unreachable, because this file answered
+ * first for every path in the app.
+ */
+export const APP_SECTIONS = [
+  'admin',
+  'advisor',
+  'alerts',
+  'compare',
+  'dashboard',
+  'discover',
+  'goals',
+  'lab',
+  'market',
+  'portfolio',
+  'profile',
+  'settings',
+  'watchlist',
+] as const
+
+function isKnownSection(pathname: string): boolean {
+  const section = pathname.split('/')[1] ?? ''
+  return (APP_SECTIONS as readonly string[]).includes(section)
+}
+
+/**
  * Supabase keeps the session in `sb-<project-ref>-auth-token`, split across
  * `.0`, `.1`… when it outgrows one cookie. Matching the shape rather than a
  * fixed name clears every chunk without hardcoding the project reference.
@@ -123,8 +157,13 @@ export async function updateSession(
   }
 
   // Redirect unauthenticated users to login, remembering the full path and
-  // query they asked for.
+  // query they asked for — but only for a path that is a page. One that
+  // belongs to no section of this app is a 404, and continues to Next, which
+  // renders not-found.tsx.
   if (!user && !isPublicPath(request.nextUrl.pathname)) {
+    if (!isKnownSection(request.nextUrl.pathname)) {
+      return { response: finish(supabaseResponse), userId: null }
+    }
     return { response: finish(NextResponse.redirect(loginUrlFor(request.nextUrl))), userId: null }
   }
 
@@ -145,7 +184,7 @@ export function sessionFailureResponse(
   extraRequestHeaders: Record<string, string> = {},
 ): NextResponse {
   const pathname = request.nextUrl.pathname
-  if (!pathname.startsWith('/api/') && !isPublicPath(pathname)) {
+  if (!pathname.startsWith('/api/') && !isPublicPath(pathname) && isKnownSection(pathname)) {
     return NextResponse.redirect(loginUrlFor(request.nextUrl))
   }
   const headers = new Headers(request.headers)

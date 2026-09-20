@@ -52,6 +52,16 @@ test.describe('public pages', () => {
       await expect(page, `${path} should require a session`).toHaveURL(/login/)
     }
   })
+
+  test('a path that is not a page answers 404, not a login form', async ({ page }) => {
+    // It used to redirect to /login?next=/esta-pagina-no-existe: a visitor was
+    // asked to sign in for something that would not be there afterwards.
+    const response = await page.goto('/esta-pagina-no-existe')
+
+    expect(response?.status()).toBe(404)
+    await expect(page).not.toHaveURL(/login/)
+    await expect(page.getByText('404')).toBeVisible()
+  })
 })
 
 test.describe('the public pages render cleanly', () => {
