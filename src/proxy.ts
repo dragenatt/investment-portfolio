@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession, sessionFailureResponse } from '@/lib/supabase/middleware'
 import { checkAddress, checkIdentity, clientAddress, FixedWindowCounter } from '@/lib/api/request-limits'
-import { buildContentSecurityPolicy, createNonce } from '@/lib/security/csp'
+import { buildContentSecurityPolicy, createNonce, reportingEndpointsHeader } from '@/lib/security/csp'
 
 // Request limits (C8): per address before the session is read, then per user
 // when signed in or per address when not. See src/lib/api/request-limits.ts.
@@ -83,6 +83,9 @@ export async function proxy(request: NextRequest) {
   })
   const { response } = await readSession(request, { 'x-nonce': nonce, 'Content-Security-Policy': csp })
   response.headers.set('Content-Security-Policy', csp)
+  // Names the group the policy's `report-to` refers to; without it that
+  // directive points at nothing and the browser drops the report.
+  response.headers.set('Reporting-Endpoints', reportingEndpointsHeader())
   return response
 }
 

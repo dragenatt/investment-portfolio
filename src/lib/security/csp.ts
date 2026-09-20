@@ -14,6 +14,15 @@
 // style="" attributes, which a nonce cannot cover. Injected CSS can restyle a
 // page but cannot run code, so this is the accepted trade-off, written down.
 
+/**
+ * The reporting group named in `report-to` and in the Reporting-Endpoints
+ * header the proxy sets. The two have to agree, so the name lives here.
+ */
+export const CSP_REPORT_GROUP = 'csp'
+
+/** Where a browser posts a violation. Public by necessity — see the route. */
+export const CSP_REPORT_PATH = '/api/csp-report'
+
 export type CspOptions = {
   nonce: string
   isDev: boolean
@@ -62,11 +71,23 @@ export function buildContentSecurityPolicy({ nonce, isDev, supabaseUrl, posthogH
     // Same-origin framing stays possible (the accessibility audit loads pages
     // in same-origin iframes); every other site is refused.
     'frame-ancestors': ["'self'"],
+    // Where a violation goes. Without this the policy is enforced in silence:
+    // a directive too strict for something legitimate looks, from here, like
+    // a feature that mysteriously stopped working for some people. `report-to`
+    // is the current mechanism and pairs with the Reporting-Endpoints header;
+    // `report-uri` is deprecated and kept for browsers that only know it.
+    'report-to': [CSP_REPORT_GROUP],
+    'report-uri': [CSP_REPORT_PATH],
   }
 
   return Object.entries(directives)
     .map(([name, values]) => `${name} ${values.join(' ')}`)
     .join('; ')
+}
+
+/** The Reporting-Endpoints header value that names the group above. */
+export function reportingEndpointsHeader(): string {
+  return `${CSP_REPORT_GROUP}="${CSP_REPORT_PATH}"`
 }
 
 /** A fresh, unguessable nonce per request. */

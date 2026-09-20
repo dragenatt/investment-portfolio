@@ -9,6 +9,27 @@ export type ApiResponse<T = unknown> = {
 }
 
 /**
+ * No response this API builds belongs in a shared cache.
+ *
+ * Every one of them is either the caller's own data or an answer that depends
+ * on whether they are signed in. With no header of its own, a dynamic route
+ * inherits the platform's default — which production serves as
+ * `public, max-age=0, must-revalidate`, including on a 401. `public` is an
+ * invitation for a proxy or a CDN to keep a copy and hand it to somebody else;
+ * `must-revalidate` is not a promise that it will ask.
+ *
+ * The two market routes that DO want an edge cache build their own
+ * NextResponse and set `s-maxage` themselves — quotes are the same for
+ * everyone and are meant to be shared. They do not come through here.
+ */
+const PRIVATE_CACHE = 'private, no-store'
+
+function uncached(response: NextResponse): NextResponse {
+  response.headers.set('Cache-Control', PRIVATE_CACHE)
+  return response
+}
+
+/**
  * Successful response.
  *
  * Every payload is scanned for non-finite numbers on the way out. Roadmap rule
@@ -36,7 +57,7 @@ export function success<T>(data: T, meta?: ApiResponse['meta'], status = 200) {
     })
   }
 
-  return NextResponse.json({ data: payload, error: null, meta } satisfies ApiResponse<T>, { status })
+  return uncached(NextResponse.json({ data: payload, error: null, meta } satisfies ApiResponse<T>, { status }))
 }
 
 /**
@@ -54,7 +75,7 @@ export const GENERIC_SERVER_ERROR = 'Error interno del servidor. Intenta de nuev
 export function error(message: string, status = 400) {
   if (status === 500) {
     console.error(`[api 500] ${message}`)
-    return NextResponse.json({ data: null, error: GENERIC_SERVER_ERROR } satisfies ApiResponse, { status })
+    return uncached(NextResponse.json({ data: null, error: GENERIC_SERVER_ERROR } satisfies ApiResponse, { status }))
   }
-  return NextResponse.json({ data: null, error: message } satisfies ApiResponse, { status })
+  return uncached(NextResponse.json({ data: null, error: message } satisfies ApiResponse, { status }))
 }

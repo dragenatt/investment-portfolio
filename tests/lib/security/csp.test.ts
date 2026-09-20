@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { buildContentSecurityPolicy, createNonce } from '@/lib/security/csp'
+import {
+  buildContentSecurityPolicy,
+  createNonce,
+  reportingEndpointsHeader,
+  CSP_REPORT_GROUP,
+  CSP_REPORT_PATH,
+} from '@/lib/security/csp'
 
 function directives(csp: string): Record<string, string[]> {
   return Object.fromEntries(
@@ -59,5 +65,23 @@ describe('createNonce', () => {
     const b = createNonce()
     expect(a).not.toBe(b)
     expect(a).toMatch(/^[A-Za-z0-9+/=]{24,}$/)
+  })
+})
+
+describe('violation reporting', () => {
+  // Without this the policy is enforced in silence: a directive too strict for
+  // something legitimate looks like a feature that stopped working for some
+  // people, and an attempted injection looks like nothing at all.
+  it('names a group and an endpoint', () => {
+    const policy = directives(buildContentSecurityPolicy(base))
+
+    expect(policy['report-to']).toEqual([CSP_REPORT_GROUP])
+    expect(policy['report-uri']).toEqual([CSP_REPORT_PATH])
+  })
+
+  it('the header the proxy sets names the same group', () => {
+    // If the two ever disagree the browser silently drops every report.
+    expect(reportingEndpointsHeader()).toBe(`${CSP_REPORT_GROUP}="${CSP_REPORT_PATH}"`)
+    expect(directives(buildContentSecurityPolicy(base))['report-to']).toEqual([CSP_REPORT_GROUP])
   })
 })
