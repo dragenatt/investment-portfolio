@@ -10,8 +10,11 @@
 // exactly as it did when the calculation ran inside the request.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import * as Sentry from '@sentry/nextjs'
 import {
   JOB_POLICY,
+  JOB_MIN_ATTEMPT_MS,
+  attemptBudgetMs,
   jobKey,
   reconcileJob,
   isReusable,
@@ -239,11 +242,35 @@ export async function findOrCreateJob(
  * one that just failed. Writes are conditional on the attempt number, so an
  * attempt that finishes after a newer one was claimed changes nothing.
  */
-export async function executeJob(admin: SupabaseClient, userClient: SupabaseClient, job: JobRow): Promise<void> {
+export async function executeJob(
+  admin: SupabaseClient,
+  userClient: SupabaseClient,
+  job: JobRow,
+  elapsedMs = 0,
+): Promise<void> {
   const compute = COMPUTE[job.kind]
+
+  // What is left of this invocation, not what the policy would like. The
+  // request has already authenticated, checked the portfolio and written a job
+  // row by the time after() runs, and a 50-second attempt on top of that
+  // overshoots the platform's 60 — which kills the function mid-write, losing
+  // a calculation that had finished.
+  const budgetMs = attemptBudgetMs(job.kind, elapsedMs)
+  if (budgetMs < JOB_MIN_ATTEMPT_MS) {
+    await recordFailure(
+      admin,
+      job,
+      'timeout',
+      `No quedaba tiempo en esta invocacion para el calculo (${Math.max(0, Math.round(budgetMs))} ms).`,
+      Date.now(),
+      { budgetMs, elapsedMs, started: false },
+    )
+    return
+  }
+
   const outcome = await runAttempt(
     () => compute(userClient, job.portfolio_id, job.params ?? {}),
-    JOB_POLICY[job.kind].timeoutMs,
+    budgetMs,
   )
   const now = Date.now()
 
@@ -266,7 +293,30 @@ export async function executeJob(admin: SupabaseClient, userClient: SupabaseClie
     return
   }
 
-  const next = outcomeOfFailure(job, outcome.errorKind, outcome.error, now)
+  await recordFailure(admin, job, outcome.errorKind, outcome.error, now, {
+    budgetMs,
+    elapsedMs,
+    started: true,
+  })
+}
+
+/**
+ * Write a failed attempt down, and report a timeout as its own kind of event.
+ *
+ * A job that ran out of time is not the same as a job that threw: it usually
+ * means the work no longer fits the invocation it was given, which is a
+ * capacity problem rather than a bug in the calculation. It is worth being
+ * able to count them separately, which is what the distinct message is for.
+ */
+async function recordFailure(
+  admin: SupabaseClient,
+  job: JobRow,
+  errorKind: JobErrorKind,
+  error: string,
+  now: number,
+  context: { budgetMs: number; elapsedMs: number; started: boolean },
+): Promise<void> {
+  const next = outcomeOfFailure(job, errorKind, error, now)
   const { data: recorded } = await admin
     .from(TABLE)
     .update({ ...next, updated_at: iso(now) })
@@ -274,6 +324,20 @@ export async function executeJob(admin: SupabaseClient, userClient: SupabaseClie
     .eq('attempts', job.attempts)
     .eq('status', 'processing')
     .select('id')
+
+  if (errorKind === 'timeout') {
+    Sentry.captureMessage('Background job ran out of its invocation budget', {
+      level: next.status === 'failed' ? 'error' : 'warning',
+      extra: {
+        kind: job.kind,
+        attempts: job.attempts,
+        maxAttempts: job.max_attempts,
+        policyTimeoutMs: JOB_POLICY[job.kind].timeoutMs,
+        ...context,
+      },
+    })
+  }
+
   // A failure with attempts left is not news yet; the retry may still succeed.
   if (next.status === 'failed' && recorded && recorded.length > 0) await announce(admin, job, false)
 }

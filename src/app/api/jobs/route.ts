@@ -24,6 +24,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
  * GET /api/jobs/[job_id]/status for the outcome.
  */
 async function postHandler(req: Request) {
+  // When this invocation began. The attempt below gets what is left of it, not
+  // the whole 60 seconds — see attemptBudgetMs.
+  const invocationStart = Date.now()
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
@@ -70,7 +73,7 @@ async function postHandler(req: Request) {
     after(async () => {
       // A fresh client inside after(): Route Handlers may read cookies here.
       const userClient = await createServerSupabase()
-      await executeJob(admin, userClient, dispatch.job)
+      await executeJob(admin, userClient, dispatch.job, Date.now() - invocationStart)
     })
   }
 

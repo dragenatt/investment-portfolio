@@ -19,6 +19,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
  * no longer exists.
  */
 async function getHandler(_req: Request, { params }: { params: Promise<{ job_id: string }> }) {
+  // A retry claimed here gets what is left of this invocation — see
+  // attemptBudgetMs.
+  const invocationStart = Date.now()
   const { job_id: jobId } = await params
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -38,7 +41,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ job_id:
   if (dispatch.run) {
     after(async () => {
       const userClient = await createServerSupabase()
-      await executeJob(admin, userClient, dispatch.job)
+      await executeJob(admin, userClient, dispatch.job, Date.now() - invocationStart)
     })
   }
 

@@ -3,6 +3,9 @@ import {
   JOB_KINDS,
   JOB_POLICY,
   JOB_MAX_DURATION_SECONDS,
+  JOB_COMPLETION_RESERVE_MS,
+  JOB_MIN_ATTEMPT_MS,
+  attemptBudgetMs,
   jobKey,
   normaliseJobParams,
   reconcileJob,
@@ -46,6 +49,45 @@ describe('JOB_POLICY', () => {
       expect(policy.maxAttempts).toBeLessThanOrEqual(5)
       expect(policy.resultTtlSeconds).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('attemptBudgetMs', () => {
+  // The policy timeouts were written as if the attempt began the moment the
+  // function did. It does not: the request authenticates, checks the portfolio
+  // against RLS and writes a job row first, and 50 seconds of stress test on
+  // top of that is what produced "Task timed out after 60 seconds" in
+  // production on 2026-09-18 — the platform killing the invocation while the
+  // outcome was being written.
+  it('never lets an attempt outlast the invocation it runs in', () => {
+    for (const kind of JOB_KINDS) {
+      for (const elapsed of [0, 1_000, 5_000, 20_000]) {
+        const budget = attemptBudgetMs(kind, elapsed)
+        expect(budget + elapsed + JOB_COMPLETION_RESERVE_MS).toBeLessThanOrEqual(
+          JOB_MAX_DURATION_SECONDS * 1000,
+        )
+      }
+    }
+  })
+
+  it('gives a fresh invocation what the policy asks for', () => {
+    // 50s of stress + 5s reserve still fits in 60, so the policy stands.
+    expect(attemptBudgetMs('stress', 0)).toBe(JOB_POLICY.stress.timeoutMs)
+    expect(attemptBudgetMs('monteCarlo', 3_000)).toBe(JOB_POLICY.monteCarlo.timeoutMs)
+  })
+
+  it('shortens the attempt when the request has already spent time', () => {
+    expect(attemptBudgetMs('stress', 10_000)).toBe(45_000)
+    expect(attemptBudgetMs('stress', 20_000)).toBe(35_000)
+  })
+
+  it('goes below the useful minimum rather than pretending, when nothing is left', () => {
+    expect(attemptBudgetMs('stress', 58_000)).toBeLessThan(JOB_MIN_ATTEMPT_MS)
+    expect(attemptBudgetMs('backtest', 70_000)).toBeLessThan(0)
+  })
+
+  it('treats a negative elapsed time as none at all', () => {
+    expect(attemptBudgetMs('factors', -5_000)).toBe(JOB_POLICY.factors.timeoutMs)
   })
 })
 

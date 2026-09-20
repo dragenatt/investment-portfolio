@@ -46,6 +46,19 @@ export type JobRecord = {
  */
 export const JOB_MAX_DURATION_SECONDS = 60
 
+/**
+ * Time held back at the end of an attempt to write its outcome down.
+ *
+ * Without it, a calculation that used its whole timeout leaves nothing for the
+ * update that records the result, and the platform kills the invocation
+ * mid-write: the work is done and nobody will ever know. Production, 2026-09-18:
+ * "Vercel Runtime Timeout Error: Task timed out after 60 seconds" on /api/jobs.
+ */
+export const JOB_COMPLETION_RESERVE_MS = 5_000
+
+/** Below this, an attempt is not worth starting; a retry will have a full one. */
+export const JOB_MIN_ATTEMPT_MS = 2_000
+
 export type JobPolicy = {
   timeoutMs: number
   maxAttempts: number
@@ -60,6 +73,23 @@ export const JOB_POLICY: Record<JobKind, JobPolicy> = {
   optimization: { timeoutMs: 45_000, maxAttempts: 3, resultTtlSeconds: 900 },
   // Several decades of history per holding, from a slow provider.
   stress: { timeoutMs: 50_000, maxAttempts: 2, resultTtlSeconds: 3600 },
+}
+
+/**
+ * How long this attempt may run, given how much of the invocation is already
+ * spent.
+ *
+ * The policy timeouts were written against the whole 60 seconds, as if the
+ * attempt began the moment the function did. It does not: the request has
+ * already authenticated, checked the portfolio against RLS and written a job
+ * row before `after()` gets its turn, and a stress test allowed 50 seconds on
+ * top of five seconds of that overshoots the limit. The budget is what is
+ * actually left, so the attempt ends inside the invocation and its timeout is
+ * recorded rather than the whole thing being killed.
+ */
+export function attemptBudgetMs(kind: JobKind, elapsedMs: number): number {
+  const invocationLeft = JOB_MAX_DURATION_SECONDS * 1_000 - Math.max(0, elapsedMs) - JOB_COMPLETION_RESERVE_MS
+  return Math.min(JOB_POLICY[kind].timeoutMs, invocationLeft)
 }
 
 export function isJobKind(value: unknown): value is JobKind {
