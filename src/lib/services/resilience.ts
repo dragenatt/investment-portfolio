@@ -37,6 +37,23 @@ export async function withRetry<T>(
 // Circuit Breaker
 type CircuitState = 'closed' | 'open' | 'half-open'
 
+/**
+ * Thrown when a call is refused because the breaker is open — the provider is
+ * known to be down, and this call never left the building. It is a distinct
+ * type so a caller can tell "we did not ask" from "we asked and it failed",
+ * and stay quiet about the first. The message is unchanged.
+ */
+export class CircuitOpenError extends Error {
+  constructor(public readonly breaker: string) {
+    super(`Circuit breaker [${breaker}] is OPEN`)
+    this.name = 'CircuitOpenError'
+  }
+}
+
+export function isCircuitOpenError(err: unknown): err is CircuitOpenError {
+  return err instanceof CircuitOpenError
+}
+
 interface CircuitBreakerOptions {
   failureThreshold: number     // failures before opening
   resetTimeoutMs: number       // time before trying half-open
@@ -61,7 +78,7 @@ export class CircuitBreaker {
         this.state = 'half-open'
         this.successes = 0
       } else {
-        throw new Error(`Circuit breaker [${this.options.name}] is OPEN`)
+        throw new CircuitOpenError(this.options.name)
       }
     }
 

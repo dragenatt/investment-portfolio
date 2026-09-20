@@ -12,6 +12,7 @@
 // analytics.ts. See docs/FINANCIAL_ASSUMPTIONS.md.
 
 import { withCache } from '@/lib/cache/with-cache'
+import { CircuitBreaker, isCircuitOpenError } from './resilience'
 
 export type RiskFreeCurrency = 'MXN' | 'USD' | 'EUR'
 
@@ -217,6 +218,66 @@ const OECD_MEX_3M_URL =
 const BANXICO_CETES_28_URL =
   'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43936/datos/oportuno'
 
+// ─── Breakers ───────────────────────────────────────────────────────────────
+//
+// The OECD endpoint answered 500 to production 99 times between 2026-09-16 and
+// 2026-09-20, on ten different routes, while answering 200 from everywhere
+// else — so the URL is right and the outage is theirs. Each of those failures
+// cost a request up to PROVIDER_TIMEOUT_MS of waiting before the chain could
+// fall through to the documented default, and wrote one more identical line to
+// the log.
+//
+// The market providers have had breakers since the beginning; the rate
+// providers had none. The window is far longer than market.ts uses (15 minutes
+// against 30 seconds) because these are daily- and monthly-published figures:
+// a publisher that has been down for an hour will not be back in half a
+// minute, and nothing is lost by not asking, since the answer only changes
+// once a day.
+
+const BREAKER_RESET_MS = 15 * 60_000
+const BREAKER_FAILURE_THRESHOLD = 3
+
+const breakers = new Map<string, CircuitBreaker>()
+
+function breakerFor(id: string): CircuitBreaker {
+  const existing = breakers.get(id)
+  if (existing) return existing
+  const breaker = new CircuitBreaker({
+    name: `rate:${id}`,
+    failureThreshold: BREAKER_FAILURE_THRESHOLD,
+    resetTimeoutMs: BREAKER_RESET_MS,
+    successThreshold: 1,
+  })
+  breakers.set(id, breaker)
+  return breaker
+}
+
+/**
+ * The same provider, with a breaker in front of it. A refused call answers
+ * null — "nothing from this one right now" — which is what the chain already
+ * knows how to walk past. It is not reported as a failure, because no call was
+ * made; the breaker said so once when it opened.
+ */
+function guarded(provider: RateProvider): RateProvider {
+  const breaker = breakerFor(provider.id)
+  return {
+    id: provider.id,
+    load: async () => {
+      try {
+        return await breaker.execute(() => provider.load())
+      } catch (err) {
+        if (isCircuitOpenError(err)) return null
+        throw err
+      }
+    },
+  }
+}
+
+/** Forget every breaker's state (useful for testing). */
+export function resetRateBreakers() {
+  breakers.clear()
+}
+
 function banxicoProvider(): RateProvider | null {
   const token = process.env.BANXICO_API_TOKEN
   if (!token) return null
@@ -228,6 +289,10 @@ function banxicoProvider(): RateProvider | null {
 }
 
 function providersFor(currency: RiskFreeCurrency): RateProvider[] {
+  return liveProvidersFor(currency).map(guarded)
+}
+
+function liveProvidersFor(currency: RiskFreeCurrency): RateProvider[] {
   switch (currency) {
     case 'USD':
       return [

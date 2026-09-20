@@ -1,10 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   parseTreasuryBillsRate,
   parseEcbEstrRate,
   parseOecdShortTermRate,
   parseBanxicoCetesRate,
   resolveRiskFreeRate,
+  getRiskFreeRate,
+  resetRateBreakers,
   type RateProvider,
 } from '@/lib/services/risk-free-rate'
 import treasuryFixture from '../../fixtures/us-treasury-bills.json'
@@ -150,5 +152,76 @@ describe('resolveRiskFreeRate', () => {
     const result = await resolveRiskFreeRate('USD', [provider('broken', { rate: 3, asOf: null })], null, DEFAULT)
     expect(result.source).toBe('documented-default')
     expect(result.isFallback).toBe(true)
+  })
+})
+
+describe('a publisher that is down', () => {
+  // OECD answered 500 to production 99 times in four days, once per analytics
+  // request, each costing up to four seconds of waiting before the chain could
+  // fall through — and writing one more identical line to the log.
+  const originalToken = process.env.BANXICO_API_TOKEN
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    resetRateBreakers()
+    delete process.env.BANXICO_API_TOKEN
+    delete process.env.RISK_FREE_RATE_MXN
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, statusText: 'Internal Server Error' })
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    if (originalToken) process.env.BANXICO_API_TOKEN = originalToken
+    resetRateBreakers()
+  })
+
+  it('stops asking after a few failures instead of once per request', async () => {
+    for (let i = 0; i < 10; i++) await getRiskFreeRate('MXN')
+
+    // Three failures open the breaker; the other seven requests never left.
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('still answers, with the fallback labelled as one', async () => {
+    const first = await getRiskFreeRate('MXN')
+    const afterBreakerOpened = await getRiskFreeRate('MXN')
+
+    for (const reading of [first, afterBreakerOpened]) {
+      expect(reading.isFallback).toBe(true)
+      expect(reading.source).toBe('default:oecd-mex-3m-2026-08')
+      expect(reading.rate).toBeCloseTo(0.0679, 6)
+    }
+  })
+
+  it('asks again once the window has passed', async () => {
+    vi.useFakeTimers()
+    try {
+      for (let i = 0; i < 5; i++) await getRiskFreeRate('MXN')
+      expect(fetchMock).toHaveBeenCalledTimes(3)
+
+      vi.advanceTimersByTime(15 * 60_000 + 1)
+      await getRiskFreeRate('MXN')
+
+      expect(fetchMock).toHaveBeenCalledTimes(4)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a publisher that recovers is used again', async () => {
+    for (let i = 0; i < 5; i++) await getRiskFreeRate('MXN')
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+
+    resetRateBreakers()
+    fetchMock.mockResolvedValue({ ok: true, json: async () => oecdFixture })
+
+    const recovered = await getRiskFreeRate('MXN')
+
+    expect(recovered.isFallback).toBe(false)
+    expect(recovered.source).toBe('oecd:mex-3m-interbank')
   })
 })

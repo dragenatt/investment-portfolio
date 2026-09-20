@@ -118,6 +118,36 @@ a fraction.
 Upstash layer. These figures are published daily at best, so a shorter window
 would only spend the publishers' rate limits.
 
+**The cache only holds where Upstash is configured.** With no
+`UPSTASH_REDIS_REST_URL`, `withCache` computes every time, and the chain is
+walked on every request that needs a rate.
+
+### When a publisher is down
+
+Production, 2026-09-16 to 2026-09-20: OECD answered **500 to ninety-nine
+requests**, across ten routes, while answering 200 from everywhere else — the
+URL is right, the outage is theirs. Two things follow from it.
+
+Each provider now sits behind a circuit breaker: three failures and it is
+skipped for fifteen minutes. The window is far longer than the thirty seconds
+`market.ts` uses because these are daily- and monthly-published figures — a
+publisher that has been down for an hour will not be back in half a minute,
+and not asking costs nothing when the answer changes once a day. A skipped
+provider answers `null`, the same as one with nothing to say, so the chain
+walks past it without logging a failure that never happened.
+
+And the MXN chain should not depend on one publisher. `BANXICO_API_TOKEN` is
+free — register at [Banxico SIE](https://www.banxico.org.mx/SieAPIRest/) — and
+`banxicoProvider()` is already written and waiting for it. With the token set,
+CETES answers first and an OECD outage stops mattering. Without it, the chain
+for MXN is one link long.
+
+For the record, during this outage the fallback and the live figure were the
+same number: OECD's latest observation on 2026-09-20 was still 2026-08 at
+6.79%, which is what `DEFAULTS.MXN` holds. The metrics were not wrong. What
+was missing is the ability to know when they become wrong, which is what
+`isFallback` and `asOf` are for.
+
 ### Currency and the benchmark
 
 The risk-free rate follows the portfolio's currency, and since P0-14 the
