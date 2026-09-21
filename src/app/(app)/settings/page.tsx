@@ -77,7 +77,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <AccountSecurity />
+      <AccountSecurity email={profile?.email ?? null} />
 
       <Card className="rounded-2xl border-border shadow-sm">
         <CardHeader><CardTitle className="text-xl">{t.settings.preferences}</CardTitle></CardHeader>
