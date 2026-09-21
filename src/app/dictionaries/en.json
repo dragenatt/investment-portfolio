@@ -194,7 +194,7 @@
   "alerts": {
     "title": "Alerts",
     "no_alerts": "No configured alerts",
-    "no_alerts_desc": "Price alerts will be available soon. You will be able to receive notifications when your assets reach the target price.",
+    "no_alerts_desc": "Create one with the button above. Prices are checked once a day, after the close, and you are told in your notifications when one is met.",
     "above": "goes above",
     "below": "goes below",
     "change": "changes",

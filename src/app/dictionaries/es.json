@@ -194,7 +194,7 @@
   "alerts": {
     "title": "Alertas",
     "no_alerts": "Sin alertas configuradas",
-    "no_alerts_desc": "Las alertas de precio estarán disponibles próximamente. Podrás recibir notificaciones cuando tus activos alcancen el precio objetivo.",
+    "no_alerts_desc": "Crea una con el botón de arriba. Revisamos los precios una vez al día, después del cierre, y te avisamos en tus notificaciones cuando se cumpla.",
     "above": "sube a",
     "below": "baja a",
     "change": "cambia",
