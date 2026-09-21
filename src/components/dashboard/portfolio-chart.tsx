@@ -153,7 +153,11 @@ export function PortfolioChart({ data, isLoading, onPeriodChange, currency, unco
                   <stop offset="0%" stopColor={lineColor} stopOpacity={0.20} />
                   <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
                 </linearGradient>
-                <filter id={glowId}>
+                {/* The region is the chart, not the line's box. A filter region
+                    defaults to a percentage of the element's bounding box, and a
+                    flat line's box is zero high: the region was empty and the
+                    line vanished, leaving the fill under nothing. */}
+                <filter id={glowId} filterUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%">
                   <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor={lineColor} floodOpacity="0.4" />
                 </filter>
               </defs>
