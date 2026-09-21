@@ -1,22 +1,30 @@
 /**
  * Market data service with multi-source fallback + caching
  *
- * Priority: Twelve Data (if API key set) → Finnhub (if API key set) → Yahoo Finance (always available)
- * Each function tries the primary source first, falls back automatically.
+ * Quotes: Yahoo's spark endpoint first (every symbol, twenty per request, no
+ * key), then Twelve Data → Finnhub → Yahoo's per-symbol chart for whatever it
+ * did not answer. History: Twelve Data → Finnhub → Yahoo.
+ *
+ * Quotes used to start with Twelve Data. On the key this app runs with (basic
+ * plan: 8 credits a minute, 800 a day, one credit per symbol) a batch of more
+ * than eight symbols is refused outright, and its quotes move once a minute —
+ * so a live screen polling a book of thirty symbols never got a Twelve Data
+ * price, and spent the daily credits the history charts depend on trying.
  *
  * Resilience:
  * - Circuit breakers for each data source
  * - Retry with exponential backoff for transient failures
- * - In-memory quote cache (60s TTL) for within-invocation reuse
+ * - Quote cache in memory and in Redis for LIVE_QUOTE_TTL_MS: what "live" can mean
  * - History cache, in memory and in Redis (5 min intraday, 1 hour otherwise)
- * - Redis cache for cross-invocation performance
  * - Automatic fallback with timeout of 4s per source
+ * - Quote fetches bypass Next's data cache (see yahooQuote)
  */
 
 import * as twelveData from './twelve-data'
 import * as finnhub from './finnhub'
 import { CircuitBreaker, withRetry } from './resilience'
 import { cachePrice, cacheBatchPrices, getCachedPriceEntries, cacheGet, cacheSet, CACHE_KEYS, type CachedPriceEntry } from '@/lib/cache/redis'
+import { LIVE_QUOTE_TTL_MS } from './live-prices'
 
 // ─── Symbol normalization ───────────────────────────────────────────────────
 // Maps Yahoo-style index symbols to Twelve Data format.
@@ -81,7 +89,10 @@ type QuoteResult = {
   name?: string
 }
 
-const CACHE_TTL_MS = 60_000 // 60 seconds
+// How long a quote is reused before a provider is asked again: LIVE_QUOTE_TTL_MS
+// (live-prices.ts), the same interval the screens poll at.
+const QUOTE_TTL_S = LIVE_QUOTE_TTL_MS / 1000
+const CACHE_TTL_MS = LIVE_QUOTE_TTL_MS
 const quoteCache = new Map<string, CachedQuote>()
 
 function getCachedEntry(symbol: string): CachedQuote | null {
@@ -122,7 +133,7 @@ function quoteFromCache(symbol: string, entry: CachedPriceEntry): QuoteResult {
 /** Write a quote to the shared price cache, previous close included. */
 function sharePrice(symbol: string, quote: Pick<QuoteResult, 'price' | 'previousClose' | 'currency'>) {
   if (quote.price == null) return
-  cachePrice(symbol, quote.price, 300, { previousClose: quote.previousClose, currency: quote.currency })
+  cachePrice(symbol, quote.price, QUOTE_TTL_S, { previousClose: quote.previousClose, currency: quote.currency })
 }
 
 /** Clear the in-memory cache (useful for testing) */
@@ -185,10 +196,18 @@ async function yahooSearch(query: string) {
   }))
 }
 
+// Quote fetches are 'no-store'. They used `next: { revalidate: 30 }`, and
+// Next's data cache answers an expired entry with the stale copy while it
+// refreshes in the background — so the price came back up to a minute older
+// than the cache said, then sat in the quote cache stamped as fetched "now".
+// Measured: BTC-USD held one price for over two minutes while Yahoo moved it
+// every ten seconds. Freshness is the quote cache's job, with a known TTL.
+const LIVE: RequestInit = { cache: 'no-store' }
+
 async function yahooQuote(symbol: string): Promise<QuoteResult | null> {
   const res = await fetch(
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`,
-    { next: { revalidate: 30 } } as RequestInit
+    LIVE,
   )
   if (!res.ok) return null
   const data = await res.json()
@@ -215,6 +234,66 @@ async function yahooQuote(symbol: string): Promise<QuoteResult | null> {
     marketState: meta.marketState,
     name: resolveSymbolName(meta.symbol, meta.shortName || meta.longName),
   }
+}
+
+/** Symbols per spark request; the endpoint answers for up to twenty. */
+const SPARK_BATCH = 20
+
+type SparkMeta = {
+  symbol?: string
+  regularMarketPrice?: number
+  previousClose?: number
+  chartPreviousClose?: number
+  currency?: string
+  exchangeName?: string
+  shortName?: string
+  longName?: string
+}
+
+/**
+ * Quotes for many symbols from Yahoo's spark endpoint, twenty per request.
+ *
+ * The same figures as yahooQuote — the price and the previous session's close
+ * from the chart meta — in one round trip per twenty symbols instead of one per
+ * symbol. A symbol Yahoo does not know is simply absent from the answer. A
+ * failed request throws, so the breaker counts it and the caller falls back.
+ */
+async function yahooSparkQuotes(symbols: string[]): Promise<Record<string, QuoteResult>> {
+  const chunks: string[][] = []
+  for (let i = 0; i < symbols.length; i += SPARK_BATCH) chunks.push(symbols.slice(i, i + SPARK_BATCH))
+
+  const answers = await Promise.all(
+    chunks.map(async (chunk) => {
+      const res = await fetch(
+        `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${chunk.map(encodeURIComponent).join(',')}&range=1d&interval=1d`,
+        LIVE,
+      )
+      if (!res.ok) throw new Error(`Yahoo spark ${res.status}`)
+      const data = await res.json()
+      return (data?.spark?.result ?? []) as Array<{ symbol?: string; response?: Array<{ meta?: SparkMeta }> }>
+    }),
+  )
+
+  const quotes: Record<string, QuoteResult> = {}
+  for (const item of answers.flat()) {
+    const meta = item.response?.[0]?.meta
+    const symbol = (item.symbol ?? meta?.symbol ?? '').toUpperCase()
+    const price = typeof meta?.regularMarketPrice === 'number' && Number.isFinite(meta.regularMarketPrice) ? meta.regularMarketPrice : null
+    if (!symbol || !meta || price == null) continue
+    const previousClose = meta.previousClose ?? meta.chartPreviousClose ?? null
+    const change = previousClose != null ? price - previousClose : null
+    quotes[symbol] = {
+      symbol,
+      price,
+      previousClose,
+      change,
+      changePct: change != null && previousClose ? (change / previousClose) * 100 : null,
+      currency: meta.currency ?? 'USD',
+      exchange: meta.exchangeName ?? '',
+      name: resolveSymbolName(symbol, meta.shortName || meta.longName),
+    }
+  }
+  return quotes
 }
 
 async function yahooHistory(symbol: string, range: string = '1mo') {
@@ -325,7 +404,18 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
     return quoteResult
   }
 
-  // 3. Try Twelve Data with circuit breaker and retry (skip unsupported symbols)
+  // 3. Yahoo spark: the live source (see the header of this file)
+  try {
+    const quote = (await yahooBreaker.execute(() => withTimeout(yahooSparkQuotes([symbol]))))[symbol.toUpperCase()]
+    if (quote?.price != null) {
+      const normalized = { ...quote, symbol }
+      setCache(symbol, normalized)
+      sharePrice(symbol, normalized)
+      return normalized
+    }
+  } catch { /* fall through */ }
+
+  // 4. Try Twelve Data with circuit breaker and retry (skip unsupported symbols)
   if (!shouldSkipTwelveData(symbol) && await twelveData.isAvailable()) {
     try {
       const tdSymbol = toTwelveDataSymbol(symbol)
@@ -341,7 +431,7 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
     } catch { /* fall through */ }
   }
 
-  // 4. Try Finnhub with circuit breaker and retry
+  // 5. Try Finnhub with circuit breaker and retry
   if (await finnhub.isAvailable()) {
     try {
       const quote = await finnhubBreaker.execute(() =>
@@ -365,7 +455,7 @@ export async function getQuote(symbol: string): Promise<QuoteResult | null> {
     } catch { /* fall through */ }
   }
 
-  // 5. Fallback to Yahoo with circuit breaker and retry
+  // 6. Fallback to Yahoo with circuit breaker and retry
   try {
     const quote = await yahooBreaker.execute(() =>
       withRetry(() => withTimeout(yahooQuote(symbol)), { maxRetries: 1, baseDelayMs: 300, maxDelayMs: 2000 })
@@ -458,10 +548,35 @@ export async function getBatchQuotes(
 
   if (stillMissing.length === 0) return results
 
-  // 3. Split symbols: some should skip Twelve Data (e.g. ^-prefix US indices)
+  // 3. Yahoo spark: every symbol, twenty per request (see the header of this file)
+  let pending = stillMissing
+  try {
+    const spark = await yahooBreaker.execute(() => withTimeout(yahooSparkQuotes(pending)))
+    for (const s of pending) {
+      const quote = spark[s.toUpperCase()]
+      if (quote?.price == null) continue
+      const entry = { ...quote, symbol: s }
+      setCache(s, entry)
+      sharePrice(s, entry)
+      results[s] = {
+        price: entry.price,
+        previousClose: entry.previousClose,
+        change: entry.change,
+        changePct: entry.changePct,
+        currency: entry.currency,
+        name: entry.name,
+        fetchedAt: new Date().toISOString(),
+      }
+    }
+    pending = pending.filter((s) => !results[s])
+  } catch { /* fall through to the keyed providers */ }
+
+  if (pending.length === 0) return results
+
+  // 4. Split symbols: some should skip Twelve Data (e.g. ^-prefix US indices)
   const tdSymbols: string[] = []
   const skipTdSymbols: string[] = []
-  for (const s of stillMissing) {
+  for (const s of pending) {
     if (shouldSkipTwelveData(s)) {
       skipTdSymbols.push(s)
     } else {
@@ -471,7 +586,7 @@ export async function getBatchQuotes(
 
   let unresolved = [...skipTdSymbols]
 
-  // 4. Try Twelve Data batch endpoint with circuit breaker (only compatible symbols)
+  // 5. Try Twelve Data batch endpoint with circuit breaker (only compatible symbols)
   if (tdSymbols.length > 0 && await twelveData.isAvailable()) {
     try {
       const mappedSymbols = tdSymbols.map(toTwelveDataSymbol)
@@ -496,7 +611,7 @@ export async function getBatchQuotes(
           }
           setCache(original, entry)
           if (entry.price != null) {
-            cacheBatchPrices({ [original]: { price: entry.price, previousClose: entry.previousClose, currency: entry.currency } }, 300)
+            cacheBatchPrices({ [original]: { price: entry.price, previousClose: entry.previousClose, currency: entry.currency } }, QUOTE_TTL_S)
           }
           results[original] = {
             price: entry.price,
@@ -522,7 +637,7 @@ export async function getBatchQuotes(
 
   if (unresolved.length === 0) return results
 
-  // 5. Try Finnhub for unresolved symbols
+  // 6. Try Finnhub for unresolved symbols
   if (await finnhub.isAvailable()) {
     try {
       await fetchFinnhubBatch(unresolved, results)
@@ -533,7 +648,7 @@ export async function getBatchQuotes(
 
   if (unresolved.length === 0) return results
 
-  // 6. Final fallback: Yahoo Finance for remaining unresolved symbols
+  // 7. Final fallback: Yahoo Finance for remaining unresolved symbols
   await fetchYahooBatch(unresolved, results)
   return results
 }

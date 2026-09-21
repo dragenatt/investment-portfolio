@@ -1,10 +1,15 @@
 // Live prices over Supabase Realtime (C2) — pure functions, no I/O.
 //
-// Every page that shows a portfolio polled /api/market/batch every 60 seconds,
-// per tab, per user, whether or not anything had moved. Streaming inverts it:
-// whoever fetches a fresh quote writes it to current_prices, Realtime pushes the
-// change to every client watching that symbol, and polling drops to a slow
-// heartbeat that only matters when nobody else is refreshing.
+// Whoever fetches a fresh quote writes it to current_prices, and Realtime
+// pushes the change to every client watching that symbol — another tab, another
+// user holding the same stock.
+//
+// Streaming was meant to replace polling, which dropped to a five-minute
+// heartbeat while the channel was up. But nothing writes current_prices except
+// those same polls (and the nightly job): the stream carried only what the
+// heartbeat fetched, so on a screen by itself prices moved every five minutes.
+// Polling is the update path again, every LIVE_POLL_MS, and the stream is what
+// it can actually be — the same prices, sooner, for everyone else watching.
 //
 // These functions decide what gets written, what a pushed row does to the
 // prices on screen, what a client subscribes to, and how often it still polls.
@@ -13,10 +18,17 @@ import type { BatchQuote } from './market'
 
 /** How long a stored quote is treated as current by the routes that read it. */
 export const QUOTE_TTL_MS = 5 * 60 * 1000
-/** Polling while the Realtime channel is up: a heartbeat, not the update path. */
-export const LIVE_POLL_MS = 5 * 60 * 1000
-/** Polling when the channel is down: what every page did before streaming. */
-export const FALLBACK_POLL_MS = 60 * 1000
+/**
+ * How long the server reuses a quote before asking a provider again, in memory
+ * and in Redis (market.ts). It was 60 seconds in memory and five minutes in
+ * Redis, which a screen polling for live prices would have been served for.
+ */
+export const LIVE_QUOTE_TTL_MS = 15 * 1000
+/**
+ * How often a visible screen asks for its prices, whatever the channel is doing.
+ * The same as the server's quote TTL: asking more often returns the same price.
+ */
+export const LIVE_POLL_MS = LIVE_QUOTE_TTL_MS
 /** Realtime's `in` filter accepts at most this many values. */
 export const MAX_FILTER_SYMBOLS = 100
 /**
@@ -167,10 +179,6 @@ export function realtimeSymbolFilter(symbols: string[]): string | null {
 }
 
 export type ChannelState = 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED' | 'CONNECTING'
-
-export function pollIntervalFor(state: ChannelState): number {
-  return state === 'SUBSCRIBED' ? LIVE_POLL_MS : FALLBACK_POLL_MS
-}
 
 /** 1s, 2s, 4s … capped at 30s between resubscription attempts. */
 export function reconnectDelayMs(attempt: number): number {

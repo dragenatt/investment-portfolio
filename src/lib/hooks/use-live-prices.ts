@@ -4,8 +4,8 @@ import { apiFetcher } from '@/lib/api/fetcher'
 import { createClient } from '@/lib/supabase/client'
 import type { BatchQuote } from '@/lib/services/market'
 import {
+  LIVE_POLL_MS,
   mergePriceUpdate,
-  pollIntervalFor,
   realtimeSymbolFilter,
   reconnectDelayMs,
   type ChannelState,
@@ -13,15 +13,16 @@ import {
 } from '@/lib/services/live-prices'
 
 /**
- * Prices for a set of symbols, pushed over Supabase Realtime (C2).
+ * Prices for a set of symbols: polled from /api/market/batch every
+ * LIVE_POLL_MS while the screen is visible, and pushed over Supabase Realtime
+ * (C2) whenever anyone else's poll writes a newer one to current_prices.
+ * Either way the price lands in the same SWR entry, so every component reading
+ * it — portfolio value, daily P&L, the price cells, the chart's last point —
+ * updates together.
  *
- * The first load still comes from /api/market/batch. After that, changes to
- * current_prices for these symbols arrive on a Realtime channel and are merged
- * into the same SWR entry, so every component reading the prices — portfolio
- * value, daily P&L, the price cells — updates without a request. Polling drops
- * to a five-minute heartbeat while the channel is up and returns to every 60
- * seconds if it goes down, so a broken socket degrades to the old behaviour
- * instead of to stale numbers.
+ * Polling used to drop to every five minutes while the channel was up. The
+ * channel only carries what polls write, so that was also how often prices
+ * moved (live-prices.ts).
  *
  * The subscription is filtered to these symbols. current_prices is shared market
  * data every signed-in user may read, so the filter — not RLS — is what keeps a
@@ -44,8 +45,12 @@ export function useLivePrices(symbols: string[]) {
     key ? `/api/market/batch?symbols=${encodeURIComponent(key)}` : null,
     apiFetcher,
     {
-      refreshInterval: pollIntervalFor(channelState),
-      dedupingInterval: 30_000,
+      // Paused while the tab is hidden (SWR's default); every poll is a
+      // provider call on the server once the quote cache expires.
+      refreshInterval: LIVE_POLL_MS,
+      // Below the poll interval: SWR skips a revalidation that falls inside
+      // it, and at 30 seconds it halved how often a 15-second poll happened.
+      dedupingInterval: 2_000,
       keepPreviousData: true,
     },
   )

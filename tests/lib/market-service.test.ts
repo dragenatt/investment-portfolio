@@ -56,6 +56,7 @@ import {
   clearHistoryCache,
   getActiveSource,
 } from '@/lib/services/market'
+import { LIVE_QUOTE_TTL_MS } from '@/lib/services/live-prices'
 import * as twelveData from '@/lib/services/twelve-data'
 import * as finnhub from '@/lib/services/finnhub'
 import * as cache from '@/lib/cache/redis'
@@ -597,7 +598,8 @@ describe('Market Service', () => {
       const result = await getQuote('AAPL')
 
       expect(result).toEqual(mockQuote)
-      expect(cache.cachePrice).toHaveBeenCalledWith('AAPL', 150, 300, { previousClose: 149, currency: 'USD' })
+      // Shared for as long as a quote counts as live — it was five minutes.
+      expect(cache.cachePrice).toHaveBeenCalledWith('AAPL', 150, LIVE_QUOTE_TTL_MS / 1000, { previousClose: 149, currency: 'USD' })
     })
   })
 })

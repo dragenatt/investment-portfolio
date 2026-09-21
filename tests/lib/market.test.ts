@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getQuote, searchSymbols, getHistory, clearQuoteCache, clearHistoryCache } from '@/lib/services/market'
+import { getQuote, getBatchQuotes, searchSymbols, getHistory, clearQuoteCache, clearHistoryCache } from '@/lib/services/market'
 
 // Mock the twelve-data module
 vi.mock('@/lib/services/twelve-data', () => ({
@@ -18,8 +18,72 @@ beforeEach(() => {
   clearHistoryCache()
 })
 
+/** Yahoo's spark endpoint answering that it knows none of the symbols asked for. */
+function sparkKnowsNothing() {
+  mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ spark: { result: [] } }) })
+}
+
+/** A spark answer for the given chart metas. */
+function sparkAnswer(metas: Array<Record<string, unknown>>) {
+  return {
+    ok: true,
+    json: async () => ({
+      spark: { result: metas.map((meta) => ({ symbol: meta.symbol, response: [{ meta }] })), error: null },
+    }),
+  }
+}
+
+describe('getQuote from Yahoo spark, the live source', () => {
+  it('reads the price and the previous session close from one spark request', async () => {
+    mockFetch.mockResolvedValueOnce(
+      sparkAnswer([{ symbol: 'AAPL', regularMarketPrice: 338.98, chartPreviousClose: 336.13, currency: 'USD', shortName: 'Apple Inc.' }]),
+    )
+
+    const quote = await getQuote('AAPL')
+
+    expect(quote).toMatchObject({ symbol: 'AAPL', price: 338.98, previousClose: 336.13, currency: 'USD', name: 'Apple Inc.' })
+    expect(quote!.change).toBeCloseTo(2.85, 2)
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(String(mockFetch.mock.calls[0][0])).toContain('/v7/finance/spark?symbols=AAPL')
+    // Live data never goes through Next's data cache, which serves stale copies.
+    expect(mockFetch.mock.calls[0][1]).toEqual({ cache: 'no-store' })
+  })
+})
+
+describe('getBatchQuotes from Yahoo spark', () => {
+  it('prices a whole book in one request per twenty symbols', async () => {
+    const symbols = Array.from({ length: 25 }, (_, i) => `S${i}`)
+    mockFetch.mockImplementation(async (url: string) => {
+      const asked = decodeURIComponent(new URL(url).searchParams.get('symbols') ?? '').split(',')
+      return sparkAnswer(asked.map((symbol) => ({ symbol, regularMarketPrice: 10, chartPreviousClose: 9, currency: 'USD' })))
+    })
+
+    const quotes = await getBatchQuotes(symbols)
+
+    expect(Object.keys(quotes)).toHaveLength(25)
+    expect(quotes.S0).toMatchObject({ price: 10, previousClose: 9, currency: 'USD' })
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('leaves a symbol spark does not know to the other providers', async () => {
+    mockFetch.mockImplementation(async (url: string) =>
+      url.includes('/v7/finance/spark')
+        ? sparkAnswer([{ symbol: 'AAPL', regularMarketPrice: 10, chartPreviousClose: 9, currency: 'USD' }])
+        : { ok: false },
+    )
+
+    const quotes = await getBatchQuotes(['AAPL', 'NOPE'])
+
+    expect(quotes.AAPL?.price).toBe(10)
+    expect(quotes.NOPE).toBeUndefined()
+    // The per-symbol chart fallback was still asked about the unknown one.
+    expect(mockFetch.mock.calls.some(([url]) => String(url).includes('/v8/finance/chart/NOPE'))).toBe(true)
+  })
+})
+
 describe('getQuote', () => {
   it('returns correct format from Yahoo fallback', async () => {
+    sparkKnowsNothing()
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -49,6 +113,7 @@ describe('getQuote', () => {
   })
 
   it('takes the daily change from chartPreviousClose, the field Yahoo sends today', async () => {
+    sparkKnowsNothing()
     // Recorded 2026-09-15: the chart meta has no previousClose at all.
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -92,6 +157,7 @@ describe('getQuote', () => {
   })
 
   it('handles missing price fields gracefully', async () => {
+    sparkKnowsNothing()
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -120,6 +186,7 @@ describe('getQuote with Twelve Data fallback', () => {
     const twelveData = await import('@/lib/services/twelve-data')
     vi.mocked(twelveData.isAvailable).mockResolvedValueOnce(true)
     vi.mocked(twelveData.getQuote).mockRejectedValueOnce(new Error('API error'))
+    sparkKnowsNothing()
 
     mockFetch.mockResolvedValueOnce({
       ok: true,

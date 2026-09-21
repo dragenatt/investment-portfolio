@@ -71,7 +71,8 @@ export async function getQuote(symbol: string): Promise<TwelveDataQuote | null> 
 
   const res = await fetch(
     `${BASE}/quote?symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`,
-    { next: { revalidate: 30 } } as RequestInit
+    // A quote is live data; freshness is market.ts's quote cache (LIVE_QUOTE_TTL_MS).
+    { cache: 'no-store' }
   )
   if (!res.ok) return null
 
@@ -183,7 +184,7 @@ export async function getBatchQuotes(
   const symbolStr = symbols.slice(0, 20).join(',')
   const res = await fetch(
     `${BASE}/quote?symbol=${encodeURIComponent(symbolStr)}&apikey=${apiKey}`,
-    { next: { revalidate: 30 } } as RequestInit
+    { cache: 'no-store' }
   )
   if (!res.ok) return {}
 

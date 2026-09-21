@@ -5,10 +5,9 @@ import {
   changedRows,
   mergePriceUpdate,
   realtimeSymbolFilter,
-  pollIntervalFor,
   reconnectDelayMs,
   LIVE_POLL_MS,
-  FALLBACK_POLL_MS,
+  LIVE_QUOTE_TTL_MS,
   QUOTE_TTL_MS,
   type CurrentPriceRow,
 } from '@/lib/services/live-prices'
@@ -184,12 +183,11 @@ describe('realtimeSymbolFilter', () => {
 })
 
 describe('polling and reconnection', () => {
-  it('polls rarely while the live channel is up, and normally when it is not', () => {
-    expect(pollIntervalFor('SUBSCRIBED')).toBe(LIVE_POLL_MS)
-    expect(pollIntervalFor('CHANNEL_ERROR')).toBe(FALLBACK_POLL_MS)
-    expect(pollIntervalFor('TIMED_OUT')).toBe(FALLBACK_POLL_MS)
-    expect(pollIntervalFor('CLOSED')).toBe(FALLBACK_POLL_MS)
-    expect(LIVE_POLL_MS).toBeGreaterThan(FALLBACK_POLL_MS)
+  it('polls as often as the server refreshes a quote, and no less', () => {
+    // The channel only carries what polls write; a slow heartbeat while it was
+    // up meant prices moved every five minutes.
+    expect(LIVE_POLL_MS).toBe(LIVE_QUOTE_TTL_MS)
+    expect(LIVE_POLL_MS).toBeLessThanOrEqual(15_000)
   })
 
   it('backs off reconnection attempts and caps the wait', () => {

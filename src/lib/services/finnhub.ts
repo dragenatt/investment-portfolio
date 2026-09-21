@@ -128,7 +128,8 @@ export async function getQuote(symbol: string): Promise<FinnhubQuote | null> {
 
   const res = await fetch(
     `${BASE}/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
-    { next: { revalidate: 30 } } as RequestInit
+    // A quote is live data; freshness is market.ts's quote cache (LIVE_QUOTE_TTL_MS).
+    { cache: 'no-store' }
   )
   if (!res.ok) return null
 
