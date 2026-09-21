@@ -8,6 +8,7 @@ import {
   publicPortfolioArgs,
   toPublicPortfolio,
   type LeaderboardSnapshot,
+  dailyMovers,
 } from '@/lib/services/discover'
 
 describe('publicPortfolioArgs', () => {
@@ -172,5 +173,59 @@ describe('user search', () => {
       { id: 'u1', username: 'ana', displayName: null, avatarUrl: null, followerCount: 0 },
       { id: 'u3', username: 'luis', displayName: 'Luis', avatarUrl: 'https://a/b.png', followerCount: 4 },
     ])
+  })
+})
+
+describe('dailyMovers', () => {
+  // Discover listed one public portfolio as the #1 winner AND the #1 loser of
+  // the same day — winners and losers were the two ends of one sorted list —
+  // and counted a deposit as a gain. Synthetic portfolios.
+  const names = { a: 'Alfa', b: 'Beta', c: 'Gamma' }
+  const snap = (portfolio_id: string, total_value: number, total_cost: number) => ({ portfolio_id, total_value, total_cost })
+
+  it('never lists a portfolio as both a winner and a loser', () => {
+    const { winners, losers } = dailyMovers([snap('a', 101, 100)], [snap('a', 100, 100)], names)
+
+    expect(winners.map((m) => m.portfolio_id)).toEqual(['a'])
+    expect(losers).toEqual([])
+  })
+
+  it('puts a rise in winners and a fall in losers, largest first', () => {
+    const { winners, losers } = dailyMovers(
+      [snap('a', 103, 100), snap('b', 98, 100), snap('c', 101, 100)],
+      [snap('a', 100, 100), snap('b', 100, 100), snap('c', 100, 100)],
+      names,
+    )
+
+    expect(winners.map((m) => m.name)).toEqual(['Alfa', 'Gamma'])
+    expect(losers.map((m) => m.name)).toEqual(['Beta'])
+    expect(losers[0].change_pct).toBeCloseTo(-2)
+  })
+
+  it('does not count a deposit as a gain', () => {
+    // 10,000 in the morning, 10,000 more bought in the afternoon, nothing
+    // moved: value doubled, the return is zero.
+    const { winners, losers } = dailyMovers([snap('a', 20_000, 20_000)], [snap('a', 10_000, 10_000)], names)
+
+    expect(winners).toEqual([])
+    expect(losers).toEqual([])
+  })
+
+  it('still sees the market move on top of a deposit', () => {
+    // Doubled the stake and the whole book rose 100 on the day.
+    const { winners } = dailyMovers([snap('a', 20_100, 20_000)], [snap('a', 10_000, 10_000)], names)
+
+    expect(winners[0].change).toBeCloseTo(100)
+    expect(winners[0].change_pct).toBeCloseTo(1)
+  })
+
+  it('leaves out portfolios that are not public or have no snapshot yesterday', () => {
+    const { winners } = dailyMovers(
+      [snap('a', 110, 100), snap('private', 150, 100), snap('b', 120, 100)],
+      [snap('a', 100, 100), snap('private', 100, 100)],
+      names,
+    )
+
+    expect(winners.map((m) => m.portfolio_id)).toEqual(['a'])
   })
 })

@@ -1,3 +1,4 @@
+import type { DailyMover } from '@/lib/services/discover'
 import useSWR from 'swr'
 import type { z } from 'zod'
 import type { Ranking } from '@/lib/services/discover'
@@ -152,9 +153,12 @@ export function usePortfolioAlerts(pid: string | null) {
 }
 
 // --- Winners/Losers ---
+// Portfolios, not assets: this type used to describe symbols and prices, which
+// the route has never returned, so every row rendered "--" and linked to
+// /market/undefined. It is the route's own type now.
 export type WinnersLosersData = {
-  winners: Array<{ symbol: string; name: string; daily_change_pct: number; current_price: number }>
-  losers: Array<{ symbol: string; name: string; daily_change_pct: number; current_price: number }>
+  winners: DailyMover[]
+  losers: DailyMover[]
 }
 
 export function useWinnersLosers() {

@@ -291,3 +291,64 @@ export function buildLeaderboards(
   }
   return boards
 }
+
+// ─── Movers of the day ──────────────────────────────────────────────────────
+
+type SnapshotPoint = { portfolio_id: string; total_value: number; total_cost: number | null }
+
+export type DailyMover = {
+  portfolio_id: string
+  name: string
+  /** The day's gain in the portfolio's own currency, net of money put in or taken out. */
+  change: number
+  /** As a percentage of yesterday's value. */
+  change_pct: number
+}
+
+/**
+ * The public portfolios that rose and fell most since yesterday's snapshot.
+ *
+ * Two things this used to get wrong, both visible on Discover:
+ *
+ * - Winners and losers were the two ends of ONE sorted list. With five or
+ *   fewer public portfolios every one of them was both, and with one it was
+ *   the #1 winner and the #1 loser of the same day. A winner went up; a loser
+ *   went down; a portfolio that did neither is in neither list.
+ * - The change was the difference in value, so a deposit was a gain: put in
+ *   as much again as you had and you were +100% "winner of the day". The
+ *   change in cost is taken off, which nets out money in and out at the price
+ *   it was invested at.
+ */
+export function dailyMovers(
+  today: SnapshotPoint[],
+  yesterday: SnapshotPoint[],
+  names: Record<string, string>,
+  limit = 5,
+): { winners: DailyMover[]; losers: DailyMover[] } {
+  const before = new Map(yesterday.map((s) => [s.portfolio_id, s]))
+  const movers: DailyMover[] = []
+
+  for (const now of today) {
+    const name = names[now.portfolio_id]
+    const prev = before.get(now.portfolio_id)
+    if (!name || !prev || !(prev.total_value > 0)) continue
+
+    const valueChange = now.total_value - prev.total_value
+    const costChange = (now.total_cost ?? 0) - (prev.total_cost ?? 0)
+    const change = valueChange - costChange
+    const changePct = (change / prev.total_value) * 100
+    if (!Number.isFinite(changePct)) continue
+
+    movers.push({
+      portfolio_id: now.portfolio_id,
+      name,
+      change: Math.round(change * 100) / 100,
+      change_pct: Math.round(changePct * 100) / 100,
+    })
+  }
+
+  return {
+    winners: movers.filter((m) => m.change_pct > 0).sort((a, b) => b.change_pct - a.change_pct).slice(0, limit),
+    losers: movers.filter((m) => m.change_pct < 0).sort((a, b) => a.change_pct - b.change_pct).slice(0, limit),
+  }
+}
