@@ -1,5 +1,6 @@
 import useSWR from 'swr'
 import { apiFetcher } from '@/lib/api/fetcher'
+import { LIVE_POLL_MS } from '@/lib/services/live-prices'
 
 export function useMarketSearch(query: string) {
   return useSWR(
@@ -9,11 +10,12 @@ export function useMarketSearch(query: string) {
   )
 }
 
+/** One symbol's live quote, asked for as often as the dashboard asks for its prices. */
 export function useQuote(symbol: string | null) {
   return useSWR(
     symbol ? `/api/market/${encodeURIComponent(symbol)}` : null,
     apiFetcher,
-    { refreshInterval: 30000 }
+    { refreshInterval: LIVE_POLL_MS, dedupingInterval: 2_000 }
   )
 }
 
