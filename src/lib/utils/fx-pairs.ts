@@ -66,3 +66,11 @@ export function currenciesToCover(rows: Array<{ currency?: string | null }>): st
   }
   return [...found].sort()
 }
+
+/**
+ * How long a stored exchange rate is reused before the provider is asked
+ * again, and how often a screen asks for the rates. A currency moves more
+ * slowly than a stock, and a minute is well inside what a portfolio total can
+ * show; an hour, which is what it was, is not.
+ */
+export const FX_RATE_TTL_MS = 60 * 1000

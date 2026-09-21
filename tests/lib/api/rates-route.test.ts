@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // trades in is a different question: a holding quoted in yen had no pair, so
 // no rate, so its value went into totals unconverted. Synthetic symbols.
 
-type PriceRow = { symbol: string; price: number; currency: string | null; expires_at: string | null }
+type PriceRow = { symbol: string; price: number; currency: string | null; expires_at: string | null; fetched_at?: string | null }
 
 const stored = vi.hoisted(() => ({ rows: [] as PriceRow[] }))
 const quoted = vi.hoisted(() => ({ prices: {} as Record<string, number | null>, asked: [] as string[] }))
@@ -91,6 +91,22 @@ describe('GET /api/rates', () => {
 
     expect(rates).toMatchObject({ MXN: 17.3, EUR: 0.88 })
     expect(quoted.asked).toEqual([])
+  })
+
+  it('asks again for a rate fetched more than a minute ago, whatever the row says', async () => {
+    // The quotes route writes every row with five minutes to live; a rate is
+    // judged by when it was fetched. It used to be kept for an hour.
+    const twoMinutesAgo = new Date(Date.now() - 120_000).toISOString()
+    stored.rows = [
+      { symbol: 'USDMXN=X', price: 17.3, currency: 'USD', fetched_at: twoMinutesAgo, expires_at: hour() },
+      { symbol: 'USDEUR=X', price: 0.88, currency: 'USD', fetched_at: new Date().toISOString(), expires_at: hour() },
+    ]
+    quoted.prices = { 'USDMXN=X': 17.41 }
+
+    const { rates } = await ask()
+
+    expect(rates).toMatchObject({ MXN: 17.41, EUR: 0.88 })
+    expect(quoted.asked).toEqual(['USDMXN=X'])
   })
 
   it('prefers the last rate it observed over a constant', async () => {
