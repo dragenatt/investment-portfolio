@@ -20,21 +20,7 @@ import { Loader2, ArrowRightLeft, TrendingUp, TrendingDown } from 'lucide-react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { useTranslation } from '@/lib/i18n'
-
-/** Auto-detect asset type from search result type field (Twelve Data instrument_type) */
-function detectAssetType(typeStr?: string, symbol?: string): string {
-  if (symbol?.startsWith('^')) return 'index'
-  if (!typeStr) return 'stock'
-  const t = typeStr.toLowerCase()
-  if (t.includes('index')) return 'index'
-  if (t.includes('etf') || t.includes('mutual fund')) return 'etf'
-  if (t.includes('crypto') || t.includes('digital currency')) return 'crypto'
-  if (t.includes('bond') || t.includes('debt') || t.includes('reit')) return 'bond'
-  if (t.includes('forex') || t.includes('currency')) return 'forex'
-  if (t.includes('commodity') || t.includes('futures')) return 'commodity'
-  if (t.includes('equity') || t.includes('stock') || t.includes('common')) return 'stock'
-  return 'stock'
-}
+import { detectAssetType } from '@/lib/utils/asset-type'
 
 /** Hook to detect mobile viewport (< 640px) */
 function useIsMobile() {
