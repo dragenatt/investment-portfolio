@@ -109,7 +109,7 @@ export function SymbolSearch() {
       if (data.error) toast.error(data.error)
       else { toast.success(`${symbol} agregado a "${defaultWatchlist.name}"`); mutate('/api/watchlist') }
     } catch {
-      toast.error('Error de conexion')
+      toast.error('Error de conexión')
     }
     setAddingSymbol(null)
   }, [defaultWatchlist, mutate])

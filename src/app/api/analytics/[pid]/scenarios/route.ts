@@ -96,7 +96,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       candidates.push({
         id: 'current',
         name: 'Tu cartera actual',
-        rationale: 'Tus posiciones valuadas al ultimo precio comun. Es la referencia contra la que se explica todo lo demas.',
+        rationale: 'Tus posiciones valuadas al último precio comun. Es la referencia contra la que se explica todo lo demas.',
         weights: currentWeights,
       })
     }
@@ -123,12 +123,12 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         id: 'minVariance',
         name: 'Minima varianza',
         rationale:
-          'El punto de menor volatilidad de la frontera eficiente. No usa ninguna estimacion de rendimiento, solo la covarianza.',
+          'El punto de menor volatilidad de la frontera eficiente. No usa ninguna estimación de rendimiento, solo la covarianza.',
         weights: byWeights(frontier.minimumVariance.weights),
       })
       candidates.push({
         id: 'maxSharpe',
-        name: 'Maximo Sharpe estimado',
+        name: 'Máximo Sharpe estimado',
         rationale:
           'El punto de la frontera con mejor rendimiento estimado por unidad de riesgo. Es el mas sensible a que las estimaciones de rendimiento esten mal, y suelen estarlo.',
         weights: byWeights(frontier.maxSharpe.weights),
@@ -160,7 +160,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       scenarios.push({
         id: 'custom',
         name: 'Personalizado',
-        rationale: 'La asignacion que elegiste.',
+        rationale: 'La asignación que elegiste.',
         weights: request.custom,
       })
       continue
@@ -201,7 +201,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       ...buildResultMetadata({
         model: 'scenarioComparison',
         data: { description: 'Rendimientos diarios de las posiciones en sus fechas comunes', symbols: inputs.symbols, excluded: inputs.excluded, priceSource: inputs.priceSource },
-        period: { from: inputs.fromDate, to: inputs.toDate, observations: inputs.observations, cadence: '1 dia' },
+        period: { from: inputs.fromDate, to: inputs.toDate, observations: inputs.observations, cadence: '1 día' },
         assumptions: [
           COMMON_ASSUMPTIONS.tradingDays,
           COMMON_ASSUMPTIONS.splitAdjusted,

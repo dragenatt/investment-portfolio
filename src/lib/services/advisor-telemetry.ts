@@ -89,7 +89,7 @@ export function revisarResultado(
   // below meaningless, and knowing where it is matters more than what else it
   // then trips.
   for (const ruta of findInvalidNumbers(outcome)) {
-    añadir('numero-invalido', 'error', 'Un numero del resultado no es finito.', ruta)
+    añadir('numero-invalido', 'error', 'Un número del resultado no es finito.', ruta)
   }
 
   // ── Probability ─────────────────────────────────────────────────────────
@@ -128,10 +128,10 @@ export function revisarResultado(
 
   // ── An empty Monte Carlo ────────────────────────────────────────────────
   if (outcome.modelo.simulaciones <= 0) {
-    añadir('monte-carlo-vacio', 'error', 'La simulacion no corrio ninguna trayectoria.', 'modelo')
+    añadir('monte-carlo-vacio', 'error', 'La simulación no corrio ninguna trayectoria.', 'modelo')
   }
   if (outcome.modelo.meses <= 0) {
-    añadir('monte-carlo-vacio', 'error', 'La simulacion no corrio ningun mes.', 'modelo')
+    añadir('monte-carlo-vacio', 'error', 'La simulación no corrio ningun mes.', 'modelo')
   }
 
   // ── A distribution that collapsed ───────────────────────────────────────

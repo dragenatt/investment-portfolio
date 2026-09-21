@@ -186,7 +186,7 @@ export function BenchmarkOverlay({
               className="text-sm"
               style={{ color: 'var(--muted-foreground)' }}
             >
-              Acumulando datos — el chart mejora cada dia
+              Acumulando datos — el chart mejora cada día
             </p>
           </div>
         ) : (

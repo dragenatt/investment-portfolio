@@ -40,7 +40,7 @@ const TERMS: Record<string, string> = {
   'Tracking Error': 'Desviación estándar de la diferencia de rendimientos entre tu portafolio y el benchmark.',
   'Information Ratio': 'Exceso de rendimiento por unidad de tracking error. Mayor = mejor rendimiento ajustado vs benchmark.',
   'Drawdown': 'Caída porcentual desde un máximo histórico hasta el punto más bajo antes de recuperarse.',
-  'Atribucion BHB': 'Modelo Brinson-Hood-Beebower — descompone el exceso de rendimiento en efecto de asignación (peso por sector) y selección (qué acciones elegiste).',
+  'Atribución BHB': 'Modelo Brinson-Hood-Beebower — descompone el exceso de rendimiento en efecto de asignación (peso por sector) y selección (qué acciones elegiste).',
   'Rendimiento Mensual': 'Retorno porcentual del portafolio en cada mes calendario.',
 }
 

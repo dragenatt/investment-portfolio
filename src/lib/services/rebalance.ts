@@ -480,6 +480,6 @@ function summariseSimulation(
     '.' +
     sharpe +
     concentration +
-    ' Ninguna operacion se ha ejecutado: esto es una simulacion.'
+    ' Ninguna operación se ha ejecutado: esto es una simulación.'
   )
 }

@@ -71,7 +71,7 @@ const METRICS: Array<{
     key: 'correlation',
     suffix: '',
     digits: 2,
-    description: 'Que tanto te mueves con el indice. Cerca de 1 = practicamente lo replicas.',
+    description: 'Que tanto te mueves con el índice. Cerca de 1 = prácticamente lo replicas.',
   },
 ]
 

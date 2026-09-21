@@ -240,7 +240,7 @@ describe('E3 — the explanation matches what the app actually computes', () => 
   })
 
   it('annualises volatility by periods per year, not by a hardcoded 252', () => {
-    expect(explainMetric('volatility', 18)!.formula).toMatch(/periodos por ano/)
+    expect(explainMetric('volatility', 18)!.formula).toMatch(/periodos por año/)
     expect(explainMetric('volatility', 18, { periodsPerYear: 52 })!.interpretation).toMatch(/semanal|52/)
   })
 
@@ -293,7 +293,7 @@ describe('E3 — readings found wanting on a real book', () => {
     // Seen on a real book: simple return 0.52%, XIRR 18.55% "a year", with most
     // of the money deposited weeks earlier. Annualising weeks multiplies them.
     const young = explainMetric('xirr', 18.55, { capitalAgeDays: 45 })!.interpretation
-    expect(young).toMatch(/45 dias/)
+    expect(young).toMatch(/45 días/)
     expect(young).toMatch(/extrapola/)
     const mature = explainMetric('xirr', 8, { capitalAgeDays: 800 })!.interpretation
     expect(mature).not.toMatch(/extrapola/)

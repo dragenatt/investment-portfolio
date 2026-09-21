@@ -148,7 +148,7 @@ async function markTimedOut(admin: SupabaseClient, job: JobRow, now: number): Pr
     .from(TABLE)
     .update({
       status: 'failed' satisfies JobStatus,
-      error: `Se agotaron los ${job.max_attempts} intentos sin que el calculo terminara.`,
+      error: `Se agotaron los ${job.max_attempts} intentos sin que el cálculo terminara.`,
       error_kind: 'timeout' satisfies JobErrorKind,
       updated_at: iso(now),
     })
@@ -261,7 +261,7 @@ export async function executeJob(
       admin,
       job,
       'timeout',
-      `No quedaba tiempo en esta invocacion para el calculo (${Math.max(0, Math.round(budgetMs))} ms).`,
+      `No quedaba tiempo en esta invocacion para el cálculo (${Math.max(0, Math.round(budgetMs))} ms).`,
       Date.now(),
       { budgetMs, elapsedMs, started: false },
     )

@@ -154,7 +154,7 @@ export function PnlCards({
     },
     // 5 — Mejor Posicion
     {
-      label: 'Mejor Posicion',
+      label: 'Mejor Posición',
       icon: Trophy,
       value: bestPosition ? (
         <span>{bestPosition.symbol}</span>
@@ -176,7 +176,7 @@ export function PnlCards({
     },
     // 6 — Peor Posicion
     {
-      label: 'Peor Posicion',
+      label: 'Peor Posición',
       icon: AlertTriangle,
       value: worstPosition ? (
         <span>{worstPosition.symbol}</span>

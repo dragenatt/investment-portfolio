@@ -145,7 +145,7 @@ export async function computeFactors(supabase: SupabaseClient, pid: string, _par
 
   if (aligned.length < MIN_REGRESSION_DAYS) {
     return {
-      message: `Se necesitan al menos ${MIN_REGRESSION_DAYS} dias en comun entre tu cartera y las series de factores; hay ${aligned.length}.`,
+      message: `Se necesitan al menos ${MIN_REGRESSION_DAYS} días en comun entre tu cartera y las series de factores; hay ${aligned.length}.`,
     }
   }
 
@@ -160,7 +160,7 @@ export async function computeFactors(supabase: SupabaseClient, pid: string, _par
   if (!regression) {
     return {
       message:
-        'La regresion no tiene solucion unica con estos datos, normalmente porque dos factores se mueven casi identico en el periodo disponible.',
+        'La regresion no tiene solucion única con estos datos, normalmente porque dos factores se mueven casi identico en el periodo disponible.',
     }
   }
 
@@ -190,7 +190,7 @@ export async function computeFactors(supabase: SupabaseClient, pid: string, _par
         excluded: series.excludedSymbols,
         priceSource: combinePriceSources(priceSource, source === 'stored' ? 'stored' : 'provider'),
       },
-      period: { from: aligned[0].date, to: aligned[aligned.length - 1].date, observations: aligned.length, cadence: '1 dia' },
+      period: { from: aligned[0].date, to: aligned[aligned.length - 1].date, observations: aligned.length, cadence: '1 día' },
       assumptions: [
         COMMON_ASSUMPTIONS.tradingDays,
         COMMON_ASSUMPTIONS.baseCurrencyToday(fx.base),

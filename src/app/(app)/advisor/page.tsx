@@ -790,7 +790,7 @@ export default function AdvisorPage() {
               volatility. Before the 2.1.0 shock-scaling fix the two were within
               a rounding error of each other, so nobody had to explain it. */}
           <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-            Esta tabla es la proyeccion sin aleatoriedad: lo que da una tabla de interes compuesto
+            Esta tabla es la proyección sin aleatoriedad: lo que da una tabla de interés compuesto
             si el rendimiento supuesto se cumpliera todos los meses. La mediana simulada de abajo es
             algo menor porque la volatilidad reduce el resultado compuesto aunque el rendimiento
             promedio sea el mismo.

@@ -35,7 +35,7 @@ export function PorQueEstaRecomendacion({ explicacion }: { explicacion: Explicac
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <HelpCircle className="h-4 w-4" />
-          ¿Por que recibi esta recomendacion?
+          ¿Por qué recibí esta recomendación?
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -82,14 +82,14 @@ export function ViabilidadCard({ viabilidad }: { viabilidad: Viabilidad | null }
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Wallet className="h-4 w-4" />
-          ¿Puedes sostener esta aportacion?
+          ¿Puedes sostener esta aportación?
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-border p-3">
             {/* Never hidden, whatever the verdict below says. */}
-            <p className="text-[11px] text-muted-foreground">Lo que pide el calculo</p>
+            <p className="text-[11px] text-muted-foreground">Lo que pide el cálculo</p>
             <p className="text-sm font-financial font-semibold text-foreground">
               {fmt.format(viabilidad.aportacionMatematica)} al mes
             </p>

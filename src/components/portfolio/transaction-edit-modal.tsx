@@ -55,7 +55,7 @@ export function TransactionEditModal({ transaction, open, onOpenChange }: Props)
       if (data.error) {
         toast.error(data.error)
       } else {
-        toast.success('Transaccion actualizada')
+        toast.success('Transacción actualizada')
         mutate(`/api/transaction?pid=${transaction.position.portfolio_id}`)
         mutate(`/api/portfolio/${transaction.position.portfolio_id}`)
         onOpenChange(false)

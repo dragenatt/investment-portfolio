@@ -202,7 +202,7 @@ export function IncomeDashboard({ totals, byPosition, monthlyHistory: monthlyInB
       {sortedPositions.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Ingresos por Posicion</CardTitle>
+            <CardTitle className="text-sm font-medium">Ingresos por Posición</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">

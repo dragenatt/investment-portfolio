@@ -34,7 +34,7 @@ async function postHandler(req: Request) {
   const body = (await req.json().catch(() => null)) as
     | { kind?: unknown; portfolio_id?: unknown; params?: unknown }
     | null
-  if (!body || !isJobKind(body.kind)) return error('Tipo de calculo desconocido.', 400)
+  if (!body || !isJobKind(body.kind)) return error('Tipo de cálculo desconocido.', 400)
   if (typeof body.portfolio_id !== 'string' || !UUID.test(body.portfolio_id)) {
     return error('portfolio_id no es valido.', 400)
   }
@@ -50,7 +50,7 @@ async function postHandler(req: Request) {
   if (!portfolio) return error('Portafolio no encontrado.', 404)
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return error('Los calculos en segundo plano no estan disponibles en este entorno.', 503)
+    return error('Los cálculos en segundo plano no estan disponibles en este entorno.', 503)
   }
 
   const admin = createAdminSupabase()

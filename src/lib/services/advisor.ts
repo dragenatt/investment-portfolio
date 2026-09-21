@@ -547,9 +547,9 @@ type Rule = {
 const RULES: Rule[] = [
   { field: 'edad', min: 18, max: 100, message: 'La edad debe estar entre 18 y 100 anios.' },
   { field: 'ingresos', min: 0, max: 1e12, message: 'El ingreso mensual no puede ser negativo.' },
-  { field: 'horizonte', min: 1, max: 100, message: 'El horizonte debe ser de al menos 1 anio y como maximo 100.' },
+  { field: 'horizonte', min: 1, max: 100, message: 'El horizonte debe ser de al menos 1 anio y como máximo 100.' },
   { field: 'capitalInicial', min: 0, max: 1e15, message: 'El capital inicial no puede ser negativo.' },
-  { field: 'aportacionMensual', min: 0, max: 1e15, message: 'La aportacion mensual no puede ser negativa.' },
+  { field: 'aportacionMensual', min: 0, max: 1e15, message: 'La aportación mensual no puede ser negativa.' },
   { field: 'meta', min: 0.01, max: 1e15, message: 'La meta debe ser mayor que cero.' },
   { field: 'porcentajeInversion', min: 0, max: 100, message: 'El porcentaje a invertir debe estar entre 0% y 100%.' },
   { field: 'riesgo', min: 1, max: 10, message: 'La tolerancia al riesgo se mide del 1 al 10.' },
@@ -597,9 +597,9 @@ export function validarEntradasAdvisor(entradas: EntradasAdvisor): ValidacionEnt
     warnings.push({
       field: 'aportacionMensual',
       message:
-        'Esa aportacion equivale al ' +
+        'Esa aportación equivale al ' +
         pct +
-        '% de tu ingreso mensual. El calculo es valido, pero conviene revisar si es sostenible.',
+        '% de tu ingreso mensual. El cálculo es valido, pero conviene revisar si es sostenible.',
     })
   }
 
@@ -942,7 +942,7 @@ export function proyectarFechaMeta(
 
   const advertencia =
     mesMediana === null
-      ? 'Menos de la mitad de los escenarios simulados alcanza esta meta en el plazo, asi que no hay una fecha central que reportar. Amplia el horizonte, sube la aportacion o ajusta la meta.'
+      ? 'Menos de la mitad de los escenarios simulados alcanza esta meta en el plazo, asi que no hay una fecha central que reportar. Amplia el horizonte, sube la aportación o ajusta la meta.'
       : 'Estas fechas son percentiles de escenarios simulados, no una prediccion: en 1 de cada 4 casos la meta llega antes de ' +
         addMonths(desde, mesP25 ?? 0) +
         ' y en 1 de cada 4 mas tarde de ' +
@@ -1000,7 +1000,7 @@ export function verificarConsistencia(input: ConsistencyInput): ConsistencyRepor
     input.rendimientoAnual,
   ]
   if (finite.some((v) => !Number.isFinite(v))) {
-    problems.push('Uno de los resultados no es un numero finito.')
+    problems.push('Uno de los resultados no es un número finito.')
   }
 
   if (Number.isFinite(input.probabilidadPct)) {

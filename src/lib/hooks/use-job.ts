@@ -94,7 +94,7 @@ export function useJob<T>(
   return {
     data: job?.status === 'completed' ? (job.result ?? undefined) : undefined,
     isLoading: !failed && !start.error && job?.status !== 'completed',
-    error: start.error ?? poll.error ?? (failed ? new Error(job?.error ?? 'El calculo fallo.') : undefined),
+    error: start.error ?? poll.error ?? (failed ? new Error(job?.error ?? 'El cálculo fallo.') : undefined),
     status: job?.status,
   }
 }

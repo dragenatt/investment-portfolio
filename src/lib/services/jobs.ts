@@ -223,7 +223,7 @@ export async function runAttempt(compute: () => Promise<unknown>, timeoutMs: num
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<AttemptOutcome>((resolve) => {
     timer = setTimeout(
-      () => resolve({ ok: false, errorKind: 'timeout', error: `El calculo no termino en ${timeoutMs} ms.` }),
+      () => resolve({ ok: false, errorKind: 'timeout', error: `El cálculo no termino en ${timeoutMs} ms.` }),
       timeoutMs,
     )
   })

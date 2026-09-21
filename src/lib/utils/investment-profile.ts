@@ -251,5 +251,5 @@ export function obtenerRecomendacion(
     return `El modelo estima ${p}% de probabilidad: la meta es alcanzable, pero con un margen estrecho. Aportar alrededor de ${pesos(aporteSugerido)} al mes reduciria esa dependencia del escenario favorable.`
   }
 
-  return `El modelo estima ${p}% de probabilidad de alcanzar la meta bajo los supuestos actuales. Recuerda que es una simulacion, no una garantia.`
+  return `El modelo estima ${p}% de probabilidad de alcanzar la meta bajo los supuestos actuales. Recuerda que es una simulación, no una garantía.`
 }

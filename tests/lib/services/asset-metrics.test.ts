@@ -215,7 +215,7 @@ describe('detectCadence', () => {
   it('recognises daily bars', () => {
     const cadence = detectCadence(daily())!
     expect(cadence.periodsPerYear).toBe(252)
-    expect(cadence.label).toMatch(/dia/i)
+    expect(cadence.label).toMatch(/día/i)
   })
 
   it('recognises monthly bars', () => {

@@ -62,7 +62,7 @@ export function alignCommonHistory(
 
   if (commonDates.length < options.minObservations + 1) {
     return {
-      message: `Se necesitan al menos ${options.minObservations} dias de historial comun; hay ${Math.max(0, commonDates.length - 1)}.`,
+      message: `Se necesitan al menos ${options.minObservations} días de historial comun; hay ${Math.max(0, commonDates.length - 1)}.`,
     }
   }
 

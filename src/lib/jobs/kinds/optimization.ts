@@ -56,12 +56,12 @@ export type OptimizationParams = {
 
 /** Why the request produced no curve, in words a reader can act on. */
 const INFEASIBLE_MESSAGES: Record<string, string> = {
-  'min-weight-exceeds-one': 'El peso minimo pedido no cabe: multiplicado por el numero de posiciones pasa del 100%.',
-  'max-weight-below-one': 'El peso maximo pedido no alcanza: aun con todas las posiciones en su tope no se llega al 100%.',
-  'bounds-crossed': 'El peso minimo pedido es mayor que el maximo.',
-  'sector-cap-below-its-minimums': 'Un tope sectorial es menor que lo que el peso minimo ya obliga a poner en ese sector.',
+  'min-weight-exceeds-one': 'El peso mínimo pedido no cabe: multiplicado por el número de posiciones pasa del 100%.',
+  'max-weight-below-one': 'El peso máximo pedido no alcanza: aun con todas las posiciones en su tope no se llega al 100%.',
+  'bounds-crossed': 'El peso mínimo pedido es mayor que el máximo.',
+  'sector-cap-below-its-minimums': 'Un tope sectorial es menor que lo que el peso mínimo ya obliga a poner en ese sector.',
   'sector-caps-cannot-reach-one': 'Los topes sectoriales sumados no permiten una cartera totalmente invertida.',
-  'min-return-unreachable': 'El rendimiento minimo pedido esta por encima de lo que cualquier cartera con estas posiciones y estos limites puede estimar.',
+  'min-return-unreachable': 'El rendimiento mínimo pedido esta por encima de lo que cualquier cartera con estas posiciones y estos limites puede estimar.',
 }
 
 /**
@@ -253,7 +253,7 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
       ? activeSymbols.map((symbol, i) => ({
           symbol,
           annual_pct: expected[i] * 100,
-          basis: 'media historica anualizada',
+          basis: 'media histórica anualizada',
         }))
       : null,
     efficient_frontier: frontier,
@@ -286,7 +286,7 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
           low_pct: r.low * 100,
           high_pct: r.high * 100,
           width_pp: (r.high - r.low) * 100,
-          basis: 'media historica +/- 1 error estandar (intervalo ~68%)',
+          basis: 'media histórica +/- 1 error estándar (intervalo ~68%)',
         }))
       : null,
     robust_optimization: robust,
@@ -304,7 +304,7 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
     _meta: buildResultMetadata({
       model: 'optimization',
       data: { description: 'Rendimientos diarios de las posiciones en sus fechas comunes, pesos al último cierre común', symbols: activeSymbols, excluded: symbols.filter((s) => !activeSymbols.includes(s)), priceSource },
-      period: { from: commonDates[0], to: lastDate, observations: commonDates.length - 1, cadence: '1 dia' },
+      period: { from: commonDates[0], to: lastDate, observations: commonDates.length - 1, cadence: '1 día' },
       assumptions: [
         COMMON_ASSUMPTIONS.tradingDays,
         COMMON_ASSUMPTIONS.splitAdjusted,

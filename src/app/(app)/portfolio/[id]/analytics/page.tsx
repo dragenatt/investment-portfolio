@@ -66,7 +66,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           Analytics
         </h1>
         <p className="text-sm text-muted-foreground font-semibold">
-          Analisis detallado de rendimiento, riesgo y atribucion
+          Análisis detallado de rendimiento, riesgo y atribución
         </p>
       </div>
 
@@ -83,7 +83,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           <TabsTrigger value="scenarios">Escenarios</TabsTrigger>
           <TabsTrigger value="backtesting">Backtesting</TabsTrigger>
           <TabsTrigger value="whatif">¿Qué pasaría si?</TabsTrigger>
-          <TabsTrigger value="metrics">Metricas explicadas</TabsTrigger>
+          <TabsTrigger value="metrics">Métricas explicadas</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -341,7 +341,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
                     </div>
                   ))}
                   {(!allocation?.bySymbol || allocation.bySymbol.length === 0) && (
-                    <p className="text-sm text-muted-foreground text-center py-4">Agrega posiciones para ver el analisis</p>
+                    <p className="text-sm text-muted-foreground text-center py-4">Agrega posiciones para ver el análisis</p>
                   )}
                 </div>
               </CardContent>

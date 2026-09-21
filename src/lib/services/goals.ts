@@ -171,8 +171,8 @@ export function classifyPace(deviationPct: number): { pace: Pace; message: strin
         'Vas ' +
         Math.abs(deviationPct).toFixed(1) +
         '% por debajo de lo que proyectaba el plan a estas alturas. Estar detras de una ' +
-        'proyeccion no es haber fallado: la proyeccion asumia un rendimiento promedio y el ' +
-        'mercado no entrega promedios ano con ano. Revisa si la diferencia viene de aportar ' +
+        'proyección no es haber fallado: la proyección asumia un rendimiento promedio y el ' +
+        'mercado no entrega promedios año con año. Revisa si la diferencia viene de aportar ' +
         'menos de lo planeado, que si esta en tus manos, o del rendimiento, que no.',
     }
   }
@@ -182,7 +182,7 @@ export function classifyPace(deviationPct: number): { pace: Pace; message: strin
     message:
       'Tu avance esta dentro de un margen de ' +
       ON_TRACK_BAND_PCT +
-      '% respecto al plan. Una proyeccion no es un calendario: diferencias de este tamano son ' +
+      '% respecto al plan. Una proyección no es un calendario: diferencias de este tamano son ' +
       'ruido normal y no piden ningun ajuste.',
   }
 }

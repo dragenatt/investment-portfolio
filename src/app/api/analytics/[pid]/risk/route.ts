@@ -125,7 +125,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pid: st
         detectCadence(dates.map((date, i) => ({ date, close: values[i] }))) ?? {
           daysPerBar: 1,
           periodsPerYear: TRADING_DAYS,
-          label: '1 dia',
+          label: '1 día',
         }
       const { periodsPerYear } = cadence
 

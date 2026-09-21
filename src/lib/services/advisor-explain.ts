@@ -77,7 +77,7 @@ export function explicarRecomendacion(
       params.años >= HORIZONTE_LARGO_AÑOS
         ? `Con ${params.años} años por delante, un mal año tiene tiempo de diluirse entre los buenos, y el interes compuesto tiene espacio para hacer la mayor parte del trabajo. Por eso el plan puede permitirse asumir riesgo.`
         : params.años <= HORIZONTE_CORTO_AÑOS
-          ? `Con solo ${params.años} años, una caida cerca del final no tiene de donde recuperarse. Ese es el argumento mas fuerte para no asumir mucho riesgo aqui, por bueno que parezca el rendimiento esperado.`
+          ? `Con solo ${params.años} años, una caida cerca del final no tiene de donde recuperarse. Ese es el argumento mas fuerte para no asumir mucho riesgo aquí, por bueno que parezca el rendimiento esperado.`
           : `${params.años} años es un plazo intermedio: hay algo de margen para recuperarse de un mal periodo, pero no tanto como para ignorarlo.`,
   })
 
@@ -89,7 +89,7 @@ export function explicarRecomendacion(
       params.volatilidadAnual >= VOLATILIDAD_ALTA
         ? `Una volatilidad del ${(params.volatilidadAnual * 100).toFixed(1)}% significa que los años malos pueden doler de verdad. El escenario pesimista de este plan (P10) termina en ${money(outcome.perdidaPotencial.escenarioP10)}, y eso es parte del trato, no una posibilidad remota.`
         : params.volatilidadAnual <= VOLATILIDAD_BAJA
-          ? `Una volatilidad del ${(params.volatilidadAnual * 100).toFixed(1)}% es baja: el camino sera relativamente tranquilo, y a cambio el rendimiento esperado tambien es modesto. Las dos cosas van juntas siempre.`
+          ? `Una volatilidad del ${(params.volatilidadAnual * 100).toFixed(1)}% es baja: el camino sera relativamente tranquilo, y a cambio el rendimiento esperado también es modesto. Las dos cosas van juntas siempre.`
           : `Con ${(params.volatilidadAnual * 100).toFixed(1)}% de volatilidad el camino tendra baches. El escenario pesimista termina en ${money(outcome.perdidaPotencial.escenarioP10)}.`,
   })
 
@@ -97,7 +97,7 @@ export function explicarRecomendacion(
     id: 'aportacion',
     etiqueta: 'Aportacion mensual',
     valor: `${money(params.aportacionMensual)} al mes`,
-    porque: `Sobre ${params.años} años eso suma ${money(outcome.proyeccionDeterminista.capitalAportado)} de tu bolsillo. Lo que aportas es la unica parte del plan que controlas por completo — el rendimiento no — y por eso suele mover el resultado mas que elegir bien los activos.`,
+    porque: `Sobre ${params.años} años eso suma ${money(outcome.proyeccionDeterminista.capitalAportado)} de tu bolsillo. Lo que aportas es la única parte del plan que controlas por completo — el rendimiento no — y por eso suele mover el resultado mas que elegir bien los activos.`,
   })
 
   factores.push({
@@ -106,7 +106,7 @@ export function explicarRecomendacion(
     valor: money(params.capitalInicial),
     porque:
       params.capitalInicial > 0
-        ? `Es el dinero que lleva mas tiempo compuesto, asi que cada peso inicial pesa mas que un peso aportado el ultimo año.`
+        ? `Es el dinero que lleva mas tiempo compuesto, asi que cada peso inicial pesa mas que un peso aportado el último año.`
         : 'Empiezas desde cero, asi que todo el resultado viene de tus aportaciones y del tiempo que las dejes trabajar.',
   })
 
@@ -120,7 +120,7 @@ export function explicarRecomendacion(
       meta === null || prob === null
         ? 'No definiste una meta, asi que no hay nada contra lo que medir la probabilidad. El plan se evalua solo por lo que produce.'
         : prob >= 80
-          ? `De ${outcome.modelo.simulaciones.toLocaleString('es-MX')} trayectorias simuladas, el ${prob.toFixed(0)}% llega a ${money(meta)}. Es una probabilidad alta, pero sobre un modelo: no es una garantia.`
+          ? `De ${outcome.modelo.simulaciones.toLocaleString('es-MX')} trayectorias simuladas, el ${prob.toFixed(0)}% llega a ${money(meta)}. Es una probabilidad alta, pero sobre un modelo: no es una garantía.`
           : prob >= 50
             ? `Solo el ${prob.toFixed(0)}% de las trayectorias simuladas llega a ${money(meta)}. Es una moneda razonablemente favorable, no un plan seguro.`
             : `Apenas el ${prob.toFixed(0)}% de las trayectorias llega a ${money(meta)}. Con estos parametros la meta es improbable, y conviene cambiar algo antes que confiar en la suerte.`,
@@ -133,7 +133,7 @@ export function explicarRecomendacion(
       simulaciones: outcome.modelo.simulaciones,
       seed: outcome.modelo.seed,
     },
-    nota: 'Esto explica de donde sale el resultado del modelo con TUS parametros. No es una recomendacion personalizada de inversion: no sabe nada de tu situacion fiscal, tus deudas, tu empleo ni tu tolerancia real a ver el numero bajar.',
+    nota: 'Esto explica de donde sale el resultado del modelo con TUS parametros. No es una recomendacion personalizada de inversión: no sabe nada de tu situación fiscal, tus deudas, tu empleo ni tu tolerancia real a ver el número bajar.',
   }
 }
 
@@ -230,8 +230,8 @@ export function viabilidadAportacion(
       : banda.nivel === 'exigente'
         ? `Aportar ${money(aportacionMensual)} al mes es el ${porcentaje.toFixed(0)}% de tu ingreso. Es sostenible para mucha gente, pero deja poco margen si algo se tuerce: revisa que tengas un fondo de emergencia antes de comprometerte.`
         : banda.nivel === 'muy_exigente'
-          ? `Aportar ${money(aportacionMensual)} al mes es el ${porcentaje.toFixed(0)}% de tu ingreso. Eso es mucho. El calculo es correcto, pero mantenerlo durante años requiere que casi nada salga mal.`
-          : `La matematica pide ${money(aportacionMensual)} al mes, el ${porcentaje.toFixed(0)}% de tu ingreso. No te lo escondo porque es la respuesta real a lo que preguntaste, pero una cifra asi no se sostiene: conviene cambiar la meta o el plazo antes que intentarlo.`
+          ? `Aportar ${money(aportacionMensual)} al mes es el ${porcentaje.toFixed(0)}% de tu ingreso. Eso es mucho. El cálculo es correcto, pero mantenerlo durante años requiere que casi nada salga mal.`
+          : `La matemática pide ${money(aportacionMensual)} al mes, el ${porcentaje.toFixed(0)}% de tu ingreso. No te lo escondo porque es la respuesta real a lo que preguntaste, pero una cifra asi no se sostiene: conviene cambiar la meta o el plazo antes que intentarlo.`
 
   // The four ways out, in the roadmap's own order. Offered together rather than
   // ranked, because which one is right depends on things this app cannot see.
@@ -241,8 +241,8 @@ export function viabilidadAportacion(
       : [
           'Ampliar el plazo: mas años significa menos dinero al mes para el mismo objetivo, y el interes compuesto hace mas del trabajo.',
           'Reducir la meta: un objetivo mas modesto que si se alcanza vale mas que uno ambicioso que se abandona en el segundo año.',
-          'Aumentar los ingresos: es la palanca mas dificil y la mas poderosa, porque no compite con nada de lo anterior.',
-          'Modificar la estrategia: mas rendimiento esperado pide menos aportacion, pero trae mas riesgo — no es dinero gratis, es un cambio de trato.',
+          'Aumentar los ingresos: es la palanca mas difícil y la mas poderosa, porque no compite con nada de lo anterior.',
+          'Modificar la estrategia: mas rendimiento esperado pide menos aportación, pero trae mas riesgo — no es dinero gratis, es un cambio de trato.',
         ]
 
   return {
@@ -323,7 +323,7 @@ export function invertirVsAhorrar(
     inversionPesimista !== null && inversionPesimista.valorFinal < ahorro.valorFinal
 
   const resumen = pesimistaPierde
-    ? `En el escenario medio, invertir termina en ${money(inversion.valorFinal)} frente a ${money(ahorro.valorFinal)} guardando el dinero sin mas: ${money(diferencia)} de diferencia, y esa diferencia es interes compuesto, no aportaciones. Pero en el escenario pesimista (P10) la inversion termina en ${money(inversionPesimista!.valorFinal)}, PEOR que simplemente ahorrar. Con estos parametros, invertir no es una mejora garantizada: es una apuesta con el viento a favor.`
+    ? `En el escenario medio, invertir termina en ${money(inversion.valorFinal)} frente a ${money(ahorro.valorFinal)} guardando el dinero sin mas: ${money(diferencia)} de diferencia, y esa diferencia es interes compuesto, no aportaciones. Pero en el escenario pesimista (P10) la inversión termina en ${money(inversionPesimista!.valorFinal)}, PEOR que simplemente ahorrar. Con estos parametros, invertir no es una mejora garantizada: es una apuesta con el viento a favor.`
     : `En el escenario medio, invertir termina en ${money(inversion.valorFinal)} frente a ${money(ahorro.valorFinal)} guardando el dinero sin mas. Son ${money(diferencia)} que no salieron de tu bolsillo: los produjo el interes compuesto sobre las mismas aportaciones.${
         inversionPesimista
           ? ` Incluso en el escenario pesimista (P10) terminarias en ${money(inversionPesimista.valorFinal)}, por encima de lo que habrias ahorrado.`
@@ -337,6 +337,6 @@ export function invertirVsAhorrar(
     diferencia,
     resumen,
     advertencia:
-      'Ahorrar sin invertir no tiene riesgo de mercado, pero si tiene inflacion: el dinero guardado pierde poder de compra cada año. Invertir introduce riesgo real — puedes terminar con menos de lo que pusiste — y el rendimiento usado aqui es una ESTIMACION, no una promesa. La comparacion sirve para ver la forma de la decision, no para prometerte el numero de la derecha.',
+      'Ahorrar sin invertir no tiene riesgo de mercado, pero si tiene inflacion: el dinero guardado pierde poder de compra cada año. Invertir introduce riesgo real — puedes terminar con menos de lo que pusiste — y el rendimiento usado aquí es una ESTIMACION, no una promesa. La comparacion sirve para ver la forma de la decisión, no para prometerte el número de la derecha.',
   }
 }

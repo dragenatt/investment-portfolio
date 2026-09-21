@@ -210,11 +210,11 @@ export function describeReturnDifference(
   if (!Number.isFinite(comparableTwr)) return null
 
   const basis = annualise
-    ? `El rendimiento ponderado por tiempo fue ${twr.toFixed(2)}% en ${Math.round(days!)} dias, ${comparableTwr.toFixed(2)}% anualizado, para compararlo con el ponderado por dinero, que ya es una tasa anual. `
+    ? `El rendimiento ponderado por tiempo fue ${twr.toFixed(2)}% en ${Math.round(days!)} días, ${comparableTwr.toFixed(2)}% anualizado, para compararlo con el ponderado por dinero, que ya es una tasa anual. `
     : ''
   const shortWindow =
     annualise && days! < 365
-      ? ' Con menos de un ano de historia, ambas cifras anuales extrapolan: sirven para comparar entre si, no como pronostico.'
+      ? ' Con menos de un año de historia, ambas cifras anuales extrapolan: sirven para comparar entre si, no como pronostico.'
       : ''
 
   const gap = mwr - comparableTwr
@@ -232,7 +232,7 @@ export function describeReturnDifference(
     return (
       basis +
       `Tu rendimiento ponderado por dinero es ${gap.toFixed(2)} puntos mayor que el ponderado por tiempo. ` +
-      'Tu cuenta rindio mas que la estrategia, y la diferencia es el momento: una parte mayor de tu ' +
+      'Tu cuenta rindió mas que la estrategia, y la diferencia es el momento: una parte mayor de tu ' +
       'capital estuvo invertida durante los tramos buenos.' +
       shortWindow
     )
@@ -241,7 +241,7 @@ export function describeReturnDifference(
   return (
     basis +
     `Tu rendimiento ponderado por dinero es ${Math.abs(gap).toFixed(2)} puntos menor que el ponderado por tiempo. ` +
-    'La estrategia rindio mas que tu cuenta, y la diferencia es el momento: una parte mayor de tu ' +
+    'La estrategia rindió mas que tu cuenta, y la diferencia es el momento: una parte mayor de tu ' +
     'capital llego tarde o antes de los tramos debiles. Es comun y no demuestra que la estrategia este mal.' +
     shortWindow
   )

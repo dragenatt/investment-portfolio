@@ -311,9 +311,9 @@ export function MonteCarloChart({
           </ResponsiveContainer>
         </ChartFigure>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          El 80% de las trayectorias simuladas termina entre P10 y P90. Es una simulacion sobre
+          El 80% de las trayectorias simuladas termina entre P10 y P90. Es una simulación sobre
           rendimientos pasados, no una prediccion: el 20% restante queda fuera del cono, y una
-          crisis real no pide permiso a ninguna distribucion.
+          crisis real no pide permiso a ninguna distribución.
         </p>
       </CardContent>
     </Card>

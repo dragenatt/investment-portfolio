@@ -25,7 +25,7 @@ const GROUPS: Array<{ title: string; ids: MetricId[] }> = [
   { title: 'Rendimiento', ids: ['return', 'twr', 'xirr'] },
   { title: 'Riesgo', ids: ['volatility', 'maxDrawdown', 'var', 'cvar'] },
   { title: 'Rendimiento ajustado por riesgo', ids: ['sharpe', 'sortino'] },
-  { title: 'Frente al indice de referencia', ids: ['beta', 'alpha', 'trackingError', 'informationRatio'] },
+  { title: 'Frente al índice de referencia', ids: ['beta', 'alpha', 'trackingError', 'informationRatio'] },
   { title: 'Concentracion y diversificacion', ids: ['hhi', 'effectiveBets'] },
 ]
 
@@ -80,7 +80,7 @@ export function MetricExplanationsCard({ pid }: { pid: string }) {
             Que significa cada metrica
           </CardTitle>
           <CardDescription className="text-xs leading-relaxed">
-            Cada metrica con su definicion, su formula, un ejemplo calculado con el mismo motor que
+            Cada metrica con su definición, su fórmula, un ejemplo calculado con el mismo motor que
             usa la app, y tu propio resultado con lo que significa. Tus resultados salen de{' '}
             {risk?.tail_risk?.observations ?? '—'} observaciones {cadenceAdjective(periodsPerYear)} de tu
             cartera.
@@ -147,7 +147,7 @@ function MetricCard({ explanation }: { explanation: MetricExplanation }) {
         </details>
 
         <div className="rounded-lg bg-primary/5 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-primary mb-1">Que significa tu numero</p>
+          <p className="text-[10px] uppercase tracking-wide text-primary mb-1">Que significa tu número</p>
           <p className="text-xs text-foreground leading-relaxed">{explanation.interpretation}</p>
         </div>
 

@@ -271,7 +271,7 @@ export function decomposeCurrencyReturn(
       fxEffectPct.toFixed(2) +
       ' puntos frente a ' +
       assetEffectPct.toFixed(2) +
-      ' del activo. Estas corriendo una posicion cambiaria, la hayas buscado o no.'
+      ' del activo. Estas corriendo una posición cambiaria, la hayas buscado o no.'
   } else {
     summary =
       'El activo explica la mayor parte de este resultado: aporto ' +
@@ -311,10 +311,10 @@ export function currencyExposure(
       : foreignPct === 0
         ? 'Todo el portafolio esta denominado en ' +
           base +
-          ', asi que no corres riesgo cambiario: no hay ninguna posicion cuyo valor dependa de un tipo de cambio.'
+          ', asi que no corres riesgo cambiario: no hay ninguna posición cuyo valor dependa de un tipo de cambio.'
         : foreignPct.toFixed(0) +
           '% del portafolio esta denominado en otra moneda. Ese porcentaje se mueve con el tipo de ' +
-          'cambio ademas de con el activo, y las dos cosas pueden ir en direcciones opuestas.'
+          'cambio además de con el activo, y las dos cosas pueden ir en direcciones opuestas.'
 
   return { buckets, basePct, foreignPct, summary }
 }

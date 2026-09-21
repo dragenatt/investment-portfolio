@@ -113,7 +113,7 @@ export function FactorExposure({ data, isLoading }: Props) {
             <Layers className="h-6 w-6 text-muted-foreground" />
           </div>
           <p className="text-sm text-muted-foreground text-center max-w-md">
-            {data?.message ?? 'Todavia no hay datos suficientes para descomponer tu cartera en factores.'}
+            {data?.message ?? 'Todavía no hay datos suficientes para descomponer tu cartera en factores.'}
           </p>
         </CardContent>
       </Card>

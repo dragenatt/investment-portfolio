@@ -182,7 +182,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         _meta: buildResultMetadata({
           model: 'returns',
           data: { description: basis, symbols: [...new Set(bookTransactions.map((t) => t.symbol))], priceSource },
-          period: { from: snaps[0]?.date ?? cutoff, to: snaps[snaps.length - 1]?.date ?? null, observations: snaps.length, cadence: '1 dia' },
+          period: { from: snaps[0]?.date ?? cutoff, to: snaps[snaps.length - 1]?.date ?? null, observations: snaps.length, cadence: '1 día' },
           assumptions: [
             COMMON_ASSUMPTIONS.priceReturn,
             { name: 'TWR', value: 'Libro antes de las operaciones del día; flujos valuados al cierre', source: 'returns.ts, portfolio-history.ts' },

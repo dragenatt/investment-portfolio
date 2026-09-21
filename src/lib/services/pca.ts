@@ -226,7 +226,7 @@ export function describeIndependence(holdings: number, effectiveBets: number): s
   const bets = effectiveBets.toFixed(1)
 
   if (holdings <= 1) {
-    return `Con una sola posicion hay exactamente una fuente de riesgo. El numero de apuestas independientes (${bets}) no puede decir mas que eso.`
+    return `Con una sola posición hay exactamente una fuente de riesgo. El número de apuestas independientes (${bets}) no puede decir mas que eso.`
   }
 
   const ratio = effectiveBets / holdings
@@ -234,8 +234,8 @@ export function describeIndependence(holdings: number, effectiveBets: number): s
   if (ratio < NOMINAL_DIVERSIFICATION) {
     return (
       `Tienes ${holdings} posiciones pero solo ${bets} apuestas realmente independientes: tus activos se ` +
-      'mueven en buena parte juntos, asi que repartir entre ellos reduce menos riesgo de lo que el numero ' +
-      'de posiciones sugiere. El HHI mide concentracion por PESO y aqui puede salir comodo; esta cifra mide ' +
+      'mueven en buena parte juntos, asi que repartir entre ellos reduce menos riesgo de lo que el número ' +
+      'de posiciones sugiere. El HHI mide concentracion por PESO y aquí puede salir comodo; esta cifra mide ' +
       'concentracion por COMPORTAMIENTO, y es la que se nota en una caida.'
     )
   }
@@ -243,7 +243,7 @@ export function describeIndependence(holdings: number, effectiveBets: number): s
   if (ratio < 0.7) {
     return (
       `Tus ${holdings} posiciones equivalen a unas ${bets} apuestas independientes. Hay solapamiento entre ` +
-      'ellas, pero la diversificacion es real. El HHI te dira si ademas el peso esta bien repartido: son ' +
+      'ellas, pero la diversificacion es real. El HHI te dira si además el peso esta bien repartido: son ' +
       'dos preguntas distintas y conviene mirar las dos.'
     )
   }
@@ -251,6 +251,6 @@ export function describeIndependence(holdings: number, effectiveBets: number): s
   return (
     `Tus ${holdings} posiciones equivalen a unas ${bets} apuestas independientes, es decir se mueven de forma ` +
     'bastante distinta entre si. Eso es diversificacion de la que sirve: no solo repartes el dinero, repartes ' +
-    'el riesgo. Revisa el HHI aparte para confirmar que el peso tambien esta repartido.'
+    'el riesgo. Revisa el HHI aparte para confirmar que el peso también esta repartido.'
   )
 }

@@ -96,7 +96,7 @@ function OperandEditor({
           <SelectValue>
             {(value) =>
               value === '__constant'
-                ? 'Un numero fijo'
+                ? 'Un número fijo'
                 : (INDICATOR_SPECS.find((s) => s.id === value)?.label ?? String(value))
             }
           </SelectValue>
@@ -107,7 +107,7 @@ function OperandEditor({
               {s.label}
             </SelectItem>
           ))}
-          <SelectItem value="__constant">Un numero fijo</SelectItem>
+          <SelectItem value="__constant">Un número fijo</SelectItem>
         </SelectContent>
       </Select>
 

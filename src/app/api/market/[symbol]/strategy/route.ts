@@ -132,7 +132,7 @@ async function postHandler(req: Request, { params }: { params: Promise<{ symbol:
     // Said once, here, rather than left for the reader to work out from a
     // green equity curve.
     caveat:
-      'Un backtest mide lo que habria pasado con ESTAS reglas sobre ESTE periodo, que ya ocurrio. No mide lo que va a pasar. Cuantas mas variantes pruebes, mas facil es encontrar una que gano por casualidad: eso se llama sobreajuste y es la forma mas comun de enganarse con una herramienta como esta.',
+      'Un backtest mide lo que habría pasado con ESTAS reglas sobre ESTE periodo, que ya ocurrio. No mide lo que va a pasar. Cuantas mas variantes pruebes, mas fácil es encontrar una que gano por casualidad: eso se llama sobreajuste y es la forma mas comun de enganarse con una herramienta como esta.',
   })
 }
 

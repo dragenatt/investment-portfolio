@@ -287,7 +287,7 @@ export function detectStressPeriods(series: RollingRiskSeries): StressPeriod[] {
         medianVolatilityPct: normal,
         multipleOfNormal: multiple,
         label:
-          `Del ${run[0].date} al ${run[run.length - 1].date} (${run.length} dias) la volatilidad ` +
+          `Del ${run[0].date} al ${run[run.length - 1].date} (${run.length} días) la volatilidad ` +
           `llego al ${peak.toFixed(1)}% anual, ${multiple.toFixed(1)} veces su nivel normal del ` +
           `${normal.toFixed(1)}%. Describe lo que ya paso; no dice nada sobre lo que viene.`,
       })

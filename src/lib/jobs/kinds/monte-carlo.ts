@@ -145,7 +145,7 @@ export async function computeMonteCarlo(supabase: SupabaseClient, pid: string, p
     _meta: buildResultMetadata({
       model: 'monteCarlo',
       data: { description: 'Rendimientos diarios de las posiciones en sus fechas comunes, pesos al último cierre común', symbols: covered, excluded: symbols.filter((s) => !covered.includes(s)), priceSource },
-      period: { from: dates[0], to: lastDate, observations: dates.length - 1, cadence: '1 dia' },
+      period: { from: dates[0], to: lastDate, observations: dates.length - 1, cadence: '1 día' },
       assumptions: [
         COMMON_ASSUMPTIONS.tradingDays,
         COMMON_ASSUMPTIONS.splitAdjusted,

@@ -95,7 +95,7 @@ export async function computeBacktest(supabase: SupabaseClient, pid: string, par
         from: results[0].equityCurve[0]?.date ?? null,
         to: results[0].equityCurve[results[0].equityCurve.length - 1]?.date ?? null,
         observations: results[0].equityCurve.length,
-        cadence: '1 dia',
+        cadence: '1 día',
       },
       assumptions: [
         COMMON_ASSUMPTIONS.splitAdjusted,

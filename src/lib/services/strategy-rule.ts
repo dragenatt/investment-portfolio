@@ -52,7 +52,7 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     hasPeriod: false,
     defaultPeriod: 0,
     explanation:
-      'El cierre del dia. Es la referencia contra la que se comparan casi todos los demas indicadores.',
+      'El cierre del día. Es la referencia contra la que se comparan casi todos los demas indicadores.',
   },
   {
     id: 'sma',
@@ -60,7 +60,7 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     hasPeriod: true,
     defaultPeriod: 20,
     explanation:
-      'El promedio de los ultimos N cierres, todos con el mismo peso. Suaviza el ruido diario para dejar ver la direccion de fondo.',
+      'El promedio de los últimos N cierres, todos con el mismo peso. Suaviza el ruido diario para dejar ver la dirección de fondo.',
   },
   {
     id: 'ema',
@@ -68,7 +68,7 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     hasPeriod: true,
     defaultPeriod: 20,
     explanation:
-      'Como la SMA pero dando mas peso a los dias recientes, asi que reacciona antes a un cambio de tendencia y tambien se equivoca antes.',
+      'Como la SMA pero dando mas peso a los días recientes, asi que reacciona antes a un cambio de tendencia y también se equivoca antes.',
   },
   {
     id: 'rsi',
@@ -84,7 +84,7 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     hasPeriod: true,
     defaultPeriod: 20,
     explanation:
-      'La media movil mas dos desviaciones estandar. El precio la toca cuando se mueve mucho mas de lo normal hacia arriba.',
+      'La media movil mas dos desviaciones estándar. El precio la toca cuando se mueve mucho mas de lo normal hacia arriba.',
   },
   {
     id: 'bollingerMiddle',
@@ -100,7 +100,7 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     hasPeriod: true,
     defaultPeriod: 20,
     explanation:
-      'La media movil menos dos desviaciones estandar. El precio la toca cuando cae mucho mas de lo normal.',
+      'La media movil menos dos desviaciones estándar. El precio la toca cuando cae mucho mas de lo normal.',
   },
 ]
 
@@ -119,27 +119,27 @@ export const OPERATORS: OperatorSpec[] = [
     id: 'gt',
     label: 'es mayor que',
     needsPrevious: false,
-    explanation: 'Se cumple mientras la condicion sea cierta, dia tras dia.',
+    explanation: 'Se cumple mientras la condición sea cierta, día tras día.',
   },
   {
     id: 'lt',
     label: 'es menor que',
     needsPrevious: false,
-    explanation: 'Se cumple mientras la condicion sea cierta, dia tras dia.',
+    explanation: 'Se cumple mientras la condición sea cierta, día tras día.',
   },
   {
     id: 'crossesAbove',
     label: 'cruza por encima de',
     needsPrevious: true,
     explanation:
-      'Se cumple SOLO el dia del cruce: ayer estaba por debajo y hoy esta por encima. Dispara una vez, no todos los dias que siga arriba.',
+      'Se cumple SOLO el día del cruce: ayer estaba por debajo y hoy esta por encima. Dispara una vez, no todos los días que siga arriba.',
   },
   {
     id: 'crossesBelow',
     label: 'cruza por debajo de',
     needsPrevious: true,
     explanation:
-      'Se cumple SOLO el dia del cruce: ayer estaba por encima y hoy esta por debajo.',
+      'Se cumple SOLO el día del cruce: ayer estaba por encima y hoy esta por debajo.',
   },
 ]
 
@@ -352,7 +352,7 @@ export function validateStrategy(strategy: Strategy): ValidationResult {
   }
 
   if (strategy.buy.conditions.length === 0) {
-    errors.push('Sin al menos una condicion de compra la estrategia nunca entraria al mercado.')
+    errors.push('Sin al menos una condición de compra la estrategia nunca entraria al mercado.')
   }
 
   const allConditions = [
@@ -364,14 +364,14 @@ export function validateStrategy(strategy: Strategy): ValidationResult {
     for (const operand of [condition.left, condition.right]) {
       if (operand.kind === 'constant') {
         if (!Number.isFinite(operand.value)) {
-          errors.push(`Una condicion de ${side} tiene un valor que no es un numero.`)
+          errors.push(`Una condición de ${side} tiene un valor que no es un número.`)
         }
         continue
       }
 
       const spec = INDICATOR_SPECS.find((s) => s.id === operand.indicator)
       if (!spec) {
-        errors.push(`Indicador desconocido en una condicion de ${side}.`)
+        errors.push(`Indicador desconocido en una condición de ${side}.`)
         continue
       }
       if (!spec.hasPeriod) continue
@@ -379,7 +379,7 @@ export function validateStrategy(strategy: Strategy): ValidationResult {
       const period = periodFor(operand)
       if (!Number.isInteger(period) || period < MIN_PERIOD || period > MAX_PERIOD) {
         errors.push(
-          `El periodo de ${spec.label} en una condicion de ${side} debe ser un numero entero entre ${MIN_PERIOD} y ${MAX_PERIOD}.`,
+          `El periodo de ${spec.label} en una condición de ${side} debe ser un número entero entre ${MIN_PERIOD} y ${MAX_PERIOD}.`,
         )
         continue
       }
@@ -388,7 +388,7 @@ export function validateStrategy(strategy: Strategy): ValidationResult {
 
     if (sameOperand(condition.left, condition.right)) {
       warnings.push(
-        `Una condicion de ${side} compara algo consigo mismo, asi que nunca se cumplira. El backtest saldria plano y parecera que la estrategia decidio no operar.`,
+        `Una condición de ${side} compara algo consigo mismo, asi que nunca se cumplira. El backtest saldria plano y parecera que la estrategia decidio no operar.`,
       )
     }
   }
@@ -411,7 +411,7 @@ export function validateStrategy(strategy: Strategy): ValidationResult {
 
     for (const [index, times] of counted) {
       warnings.push(
-        `La condicion de ${side} "${describeCondition(rule.conditions[index])}" esta repetida ${times} veces. ` +
+        `La condición de ${side} "${describeCondition(rule.conditions[index])}" esta repetida ${times} veces. ` +
           (rule.combinator === 'and'
             ? 'Con "todas (Y)" repetirla no cambia nada: la regla se comporta como si estuviera una sola vez.'
             : 'Con "cualquiera (O)" repetirla tampoco cambia nada.'),
@@ -421,7 +421,7 @@ export function validateStrategy(strategy: Strategy): ValidationResult {
 
   if (strategy.sell.conditions.length === 0) {
     warnings.push(
-      'Sin condicion de venta la estrategia compra y nunca sale, que es basicamente comprar y mantener. No es un error, pero conviene saberlo antes de leer el resultado.',
+      'Sin condición de venta la estrategia compra y nunca sale, que es basicamente comprar y mantener. No es un error, pero conviene saberlo antes de leer el resultado.',
     )
   }
 
@@ -485,7 +485,7 @@ export const EXAMPLE_STRATEGIES: ExampleStrategy[] = [
       },
     },
     description:
-      'La idea mas antigua del analisis tecnico: comprar cuando la media corta cruza por encima de la larga y vender cuando la cruza por debajo. Entra tarde y sale tarde por construccion, porque una media solo se mueve despues de que el precio ya lo hizo.',
+      'La idea mas antigua del análisis tecnico: comprar cuando la media corta cruza por encima de la larga y vender cuando la cruza por debajo. Entra tarde y sale tarde por construccion, porque una media solo se mueve después de que el precio ya lo hizo.',
   },
   {
     id: 'rsiReversion',
@@ -542,6 +542,6 @@ export const EXAMPLE_STRATEGIES: ExampleStrategy[] = [
       },
     },
     description:
-      'Estar dentro solo mientras el activo este por encima de su media de 200 dias y con fuerza. Es la regla que mas reduce las caidas grandes de esta lista, y la que mas rendimiento deja sobre la mesa cuando el mercado se recupera rapido.',
+      'Estar dentro solo mientras el activo este por encima de su media de 200 días y con fuerza. Es la regla que mas reduce las caidas grandes de esta lista, y la que mas rendimiento deja sobre la mesa cuando el mercado se recupera rápido.',
   },
 ]

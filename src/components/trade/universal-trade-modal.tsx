@@ -429,7 +429,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
           step="any"
           value={price}
           onChange={e => handlePriceChange(e.target.value)}
-          placeholder="Precio por accion/unidad"
+          placeholder="Precio por acción/unidad"
           required
           min="0.01"
         />

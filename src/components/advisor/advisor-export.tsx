@@ -40,7 +40,7 @@ export function ExportarPlan({ plan }: { plan: PlanExport | null }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          El archivo incluye tu perfil, la meta, el horizonte, el capital, la aportacion, la
+          El archivo incluye tu perfil, la meta, el horizonte, el capital, la aportación, la
           cartera, el rendimiento y la volatilidad supuestos, la probabilidad, los escenarios, la
           sensibilidad, las recomendaciones y la seccion de supuestos y limitaciones del modelo.
           Se genera en tu navegador; nada se envia a ningun servidor.
@@ -68,7 +68,7 @@ export function ExportarPlan({ plan }: { plan: PlanExport | null }) {
         </div>
 
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Lleva la fecha, la version del modelo y la semilla de la simulacion, asi que el mismo
+          Lleva la fecha, la version del modelo y la semilla de la simulación, así que el mismo
           plan se puede volver a reproducir exactamente.
         </p>
       </CardContent>

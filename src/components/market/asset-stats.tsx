@@ -68,9 +68,9 @@ export function AssetPerformance({ stats }: { stats: AssetStats }) {
           ))}
         </div>
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Los periodos de mas de un ano muestran tambien la tasa anual compuesta. Una ventana que
+          Los periodos de más de un año muestran también la tasa anual compuesta. Una ventana que
           el historial no alcanza aparece como {NOT_AVAILABLE} en vez de medirse desde el primer
-          dato disponible, que seria otra cosa.
+          dato disponible, que sería otra cosa.
         </p>
       </CardContent>
     </Card>
@@ -84,7 +84,7 @@ export function AssetRisk({ stats }: { stats: AssetStats }) {
   // VaR and CVaR are per BAR, and the bars are only daily when the provider
   // gave daily data. Labelling a monthly VaR "1 dia" understates the loss by
   // the square root of twenty-one.
-  const per = risk.cadence?.label ?? '1 dia'
+  const per = risk.cadence?.label ?? '1 día'
 
   const rows: Array<{ label: string; value: string; tooltip?: string; tone?: number | null }> = [
     // No sign: volatility has no direction, and a green "+70.7%" reads as a gain.
@@ -92,7 +92,7 @@ export function AssetRisk({ stats }: { stats: AssetStats }) {
     { label: 'Beta', value: num(risk.beta), tooltip: 'Beta' },
     { label: 'Sharpe', value: num(risk.sharpe), tooltip: 'Sharpe Ratio', tone: risk.sharpe },
     { label: 'Sortino', value: num(risk.sortino), tooltip: 'Sortino', tone: risk.sortino },
-    { label: 'Caida maxima', value: pct(-risk.maxDrawdownPct, 1), tooltip: 'Max Drawdown' },
+    { label: 'Caida máxima', value: pct(-risk.maxDrawdownPct, 1), tooltip: 'Max Drawdown' },
     { label: `VaR 95% (${per})`, value: pct(risk.var95Pct === null ? null : -risk.var95Pct, 2), tooltip: 'VaR' },
     { label: `CVaR 95% (${per})`, value: pct(risk.cvar95Pct === null ? null : -risk.cvar95Pct, 2), tooltip: 'CVaR' },
   ]
@@ -128,8 +128,8 @@ export function AssetRisk({ stats }: { stats: AssetStats }) {
         <p className="mt-3 text-[11px] text-muted-foreground">
           Calculado sobre {risk.observations} periodos de {per} de historial
           {risk.fromDate && risk.toDate ? ` (${risk.fromDate} a ${risk.toDate})` : ''}.
-          Beta se mide contra {stats.benchmark_symbol ?? 'el indice'} y queda en {NOT_AVAILABLE}{' '}
-          cuando no hay dias en comun suficientes: un 1 por defecto seria afirmar que el activo se
+          Beta se mide contra {stats.benchmark_symbol ?? 'el índice'} y queda en {NOT_AVAILABLE}{' '}
+          cuando no hay días en comun suficientes: un 1 por defecto sería afirmar que el activo se
           mueve exactamente con el mercado.
           {stats.risk_free_rate
             ? ` Sharpe y Sortino usan una tasa libre de riesgo de ${stats.risk_free_rate.annual_pct}% (${stats.risk_free_rate.source}).`

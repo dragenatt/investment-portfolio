@@ -186,7 +186,7 @@ export function AttributionWaterfall({ sectors, total, isLoading }: Props) {
           </CardTitle>
         </CardHeader>
         <CardContent className="py-8 text-center text-muted-foreground">
-          Se requieren datos suficientes para la atribucion
+          Se requieren datos suficientes para la atribución
         </CardContent>
       </Card>
     )

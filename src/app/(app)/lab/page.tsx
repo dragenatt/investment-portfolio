@@ -77,8 +77,8 @@ function Lab() {
         </h1>
         <p className="text-sm text-muted-foreground max-w-3xl">
           Experimentos para ver como funciona invertir, con supuestos que tu controlas. Nada de
-          lo que ves aqui es tu cartera ni un pronostico: son modelos simplificados para que la
-          forma de cada relacion se vuelva evidente.
+          lo que ves aquí es tu cartera ni un pronóstico: son modelos simplificados para que la
+          forma de cada relación se vuelva evidente.
         </p>
       </header>
 

@@ -284,28 +284,28 @@ const STRATEGY_COPY: Record<StrategyId, { name: string; rationale: string }> = {
   equalWeight: {
     name: 'Pesos iguales',
     rationale:
-      'Reparte lo mismo en cada posicion. No optimiza nada, y por eso mismo no depende de ningun ' +
-      'supuesto: es la referencia honesta contra la que hay que medir cualquier metodo mas elaborado. ' +
+      'Reparte lo mismo en cada posición. No optimiza nada, y por eso mismo no depende de ningun ' +
+      'supuesto: es la referencia honesta contra la que hay que medir cualquier método mas elaborado. ' +
       'Gana mas veces de lo que a la industria le gusta admitir.',
   },
   inverseVolatility: {
     name: 'Inverso de la volatilidad',
     rationale:
-      'Da mas peso a lo que se mueve menos. Ignora por completo la correlacion, asi que dos activos que ' +
+      'Da mas peso a lo que se mueve menos. Ignora por completo la correlación, asi que dos activos que ' +
       'suben y bajan juntos cuentan como dos apuestas separadas cuando en realidad son una. Se incluye ' +
       'para que se vea la diferencia con la paridad de riesgo real.',
   },
   riskParity: {
     name: 'Paridad de riesgo',
     rationale:
-      'Busca que cada posicion aporte la misma porcion del riesgo total, no del dinero total. Si un ' +
+      'Busca que cada posición aporte la misma porcion del riesgo total, no del dinero total. Si un ' +
       'activo se mueve junto con el resto, aporta mas riesgo del que su volatilidad sugiere y recibe ' +
       'menos peso. No necesita estimar rendimientos futuros.',
   },
   minCVaR: {
-    name: 'Minimo CVaR',
+    name: 'Mínimo CVaR',
     rationale:
-      'Minimiza la perdida promedio de los peores dias observados, en vez de la volatilidad. La ' +
+      'Minimiza la pérdida promedio de los peores días observados, en vez de la volatilidad. La ' +
       'volatilidad castiga igual las subidas y las bajadas; esto solo mira el lado que duele. Depende ' +
       'del historial disponible: no puede prever una caida peor que la peor ya vista.',
   },
@@ -313,10 +313,10 @@ const STRATEGY_COPY: Record<StrategyId, { name: string; rationale: string }> = {
 
 const STRATEGY_CAVEAT =
   'Ninguna de estas asignaciones es una recomendacion, y ninguna es "la correcta". Cada una optimiza una ' +
-  'cosa distinta y todas se calculan sobre el mismo historial, que es pasado y no promesa. Los numeros de ' +
-  'volatilidad y CVaR que acompanan a cada una describen como se habria comportado esa mezcla en ese ' +
-  'historial; un periodo distinto habria dado un ganador distinto. Compararlas sirve para entender que ' +
-  'esta optimizando cada metodo, no para elegir una y copiarla.'
+  'cosa distinta y todas se calculan sobre el mismo historial, que es pasado y no promesa. Los números de ' +
+  'volatilidad y CVaR que acompanan a cada una describen como se habría comportado esa mezcla en ese ' +
+  'historial; un periodo distinto habría dado un ganador distinto. Compararlas sirve para entender que ' +
+  'esta optimizando cada método, no para elegir una y copiarla.'
 
 function covarianceFrom(returnsMatrix: number[][]): number[][] {
   const n = returnsMatrix.length

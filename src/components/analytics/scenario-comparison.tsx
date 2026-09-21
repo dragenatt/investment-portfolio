@@ -54,9 +54,9 @@ function rowsFor(horizonYears: number): Row[] {
       label: `Peor 5% de los futuros a ${years}`,
       value: (s) => (s.var95Pct >= 0 ? `pierde ${pct(s.var95Pct)}` : `gana ${pct(-s.var95Pct)}`),
     },
-    { group: 'Drawdown', label: 'Caida maxima tipica', value: (s) => pct(s.maxDrawdownMedianPct) },
+    { group: 'Drawdown', label: 'Caida máxima típica', value: (s) => pct(s.maxDrawdownMedianPct) },
     { group: 'Drawdown', label: 'Caida en un camino malo (P90)', value: (s) => pct(s.maxDrawdownBadPct) },
-    { group: 'Probabilidad', label: `Terminar con perdida a ${years}`, value: (s) => pct(s.probabilityOfLoss * 100) },
+    { group: 'Probabilidad', label: `Terminar con pérdida a ${years}`, value: (s) => pct(s.probabilityOfLoss * 100) },
     { group: 'Probabilidad', label: 'Superar la tasa libre de riesgo', value: (s) => pct(s.probabilityBeatRiskFree * 100) },
     {
       group: 'Concentracion',
@@ -124,7 +124,7 @@ export function ScenarioComparisonCard({ pid }: { pid: string }) {
         <CardDescription className="text-xs">
           Tus mismas posiciones repartidas de distintas formas, viviendo exactamente los mismos
           {comparison ? ` ${comparison.simulations.toLocaleString('es-MX')}` : ''} futuros
-          simulados. Cualquier diferencia entre columnas viene de la asignacion, no de la suerte.
+          simulados. Cualquier diferencia entre columnas viene de la asignación, no de la suerte.
         </CardDescription>
       </CardHeader>
 
@@ -223,7 +223,7 @@ export function ScenarioComparisonCard({ pid }: { pid: string }) {
 
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               El rendimiento esperado simple suma el rendimiento diario promedio de cada activo, como la
-              frontera eficiente. La simulacion lo compone dia a dia, asi que cuando los rendimientos
+              frontera eficiente. La simulación lo compone día a día, así que cuando los rendimientos
               estimados son altos el crecimiento mediano compuesto puede quedar por encima del simple.
               No se contradicen: miden cosas distintas.
             </p>

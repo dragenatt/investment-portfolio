@@ -11,8 +11,8 @@ const features = [
   },
   {
     icon: BarChart3,
-    title: 'Analisis Inteligente',
-    description: 'Rendimiento historico, distribucion de activos, riesgo y benchmarks.',
+    title: 'Análisis Inteligente',
+    description: 'Rendimiento histórico, distribución de activos, riesgo y benchmarks.',
   },
   {
     icon: Bell,

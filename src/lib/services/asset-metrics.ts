@@ -60,7 +60,7 @@ export function detectCadence(bars: PriceBar[]): Cadence | null {
     gaps.length % 2 === 0 ? (gaps[middle - 1] + gaps[middle]) / 2 : gaps[middle]
 
   if (daysPerBar <= DAILY_MAX_SPACING) {
-    return { daysPerBar, periodsPerYear: TRADING_DAYS, label: '1 dia' }
+    return { daysPerBar, periodsPerYear: TRADING_DAYS, label: '1 día' }
   }
   if (daysPerBar <= WEEKLY_MAX_SPACING) {
     return { daysPerBar, periodsPerYear: 52, label: '1 semana' }
@@ -86,15 +86,15 @@ export type Horizon = {
 }
 
 export const HORIZONS: Horizon[] = [
-  { id: '1D', label: '1 dia', days: 1, years: null },
+  { id: '1D', label: '1 día', days: 1, years: null },
   { id: '1W', label: '1 semana', days: 7, years: null },
   { id: '1M', label: '1 mes', days: 30, years: null },
   { id: '3M', label: '3 meses', days: 91, years: null },
   { id: '6M', label: '6 meses', days: 182, years: null },
-  { id: 'YTD', label: 'En el ano', days: null, years: null },
-  { id: '1Y', label: '1 ano', days: 365, years: null },
-  { id: '3Y', label: '3 anos', days: 1095, years: 3 },
-  { id: '5Y', label: '5 anos', days: 1825, years: 5 },
+  { id: 'YTD', label: 'En el año', days: null, years: null },
+  { id: '1Y', label: '1 año', days: 365, years: null },
+  { id: '3Y', label: '3 años', days: 1095, years: 3 },
+  { id: '5Y', label: '5 años', days: 1825, years: 5 },
 ]
 
 /**

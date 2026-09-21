@@ -225,7 +225,7 @@ export function RiskDashboard({
             value={sortinoRatio === null ? 'n/d' : formatNumber(sortinoRatio)}
             sublabel={
               sortinoRatio === null
-                ? 'Sin dias a la baja: no hay desviacion que dividir'
+                ? 'Sin días a la baja: no hay desviación que dividir'
                 : 'Rendimiento / riesgo a la baja'
             }
           />
@@ -240,7 +240,7 @@ export function RiskDashboard({
             icon={BarChart2}
             label="Volatilidad"
             value={`${formatNumber(volatility)}%`}
-            sublabel="Desviacion estandar anualizada"
+            sublabel="Desviación estándar anualizada"
             tooltipTerm="Volatilidad"
           />
         </div>
@@ -280,7 +280,7 @@ export function RiskDashboard({
           <SecondaryMetric
             label="Tracking Error"
             value={`${formatNumber(trackingError)}%`}
-            sublabel="desviacion vs benchmark"
+            sublabel="desviación vs benchmark"
           />
           <SecondaryMetric
             label="Info Ratio"

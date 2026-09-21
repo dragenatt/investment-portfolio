@@ -79,7 +79,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         _meta: buildResultMetadata({
           model: 'performance',
           data: { description: 'Posiciones abiertas y sus precios de cierre diarios', symbols, priceSource: source },
-          period: { from: history[0]?.date ?? null, to: history[history.length - 1]?.date ?? null, observations: history.length, cadence: '1 dia' },
+          period: { from: history[0]?.date ?? null, to: history[history.length - 1]?.date ?? null, observations: history.length, cadence: '1 día' },
           assumptions: [COMMON_ASSUMPTIONS.priceReturn, { name: 'Precios', value: 'Tal como se guardaron, sin ajuste por splits en esta vista', source: 'performance route' }],
         }),
       }

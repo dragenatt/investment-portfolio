@@ -48,9 +48,9 @@ export const HISTORICAL_EPISODES: StressEpisode[] = [
     from: '2022-01-03',
     to: '2022-10-12',
     description:
-      'La inflacion mas alta en cuatro decadas obligo a la Reserva Federal a subir tasas al ritmo mas rapido desde 1980. Cayeron a la vez las acciones y los bonos, que es justo lo que una cartera 60/40 supone que no puede pasar.',
+      'La inflacion mas alta en cuatro decadas obligo a la Reserva Federal a subir tasas al ritmo mas rápido desde 1980. Cayeron a la vez las acciones y los bonos, que es justo lo que una cartera 60/40 supone que no puede pasar.',
     source:
-      'Pico y valle de cierre del S&P 500 segun S&P Dow Jones Indices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
+      'Pico y valle de cierre del S&P 500 según S&P Dow Jones Índices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
   },
   {
     id: 'covid2020',
@@ -58,9 +58,9 @@ export const HISTORICAL_EPISODES: StressEpisode[] = [
     from: '2020-02-19',
     to: '2020-03-23',
     description:
-      'La caida mas rapida desde un maximo historico que se haya registrado: 23 sesiones bursatiles. Tambien una de las recuperaciones mas rapidas, lo cual es parte de la leccion y no una nota al pie.',
+      'La caida mas rapida desde un máximo histórico que se haya registrado: 23 sesiones bursatiles. También una de las recuperaciones mas rapidas, lo cual es parte de la leccion y no una nota al pie.',
     source:
-      'Pico y valle de cierre del S&P 500 segun S&P Dow Jones Indices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
+      'Pico y valle de cierre del S&P 500 según S&P Dow Jones Índices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
   },
   {
     id: 'selloff2018',
@@ -68,9 +68,9 @@ export const HISTORICAL_EPISODES: StressEpisode[] = [
     from: '2018-09-20',
     to: '2018-12-24',
     description:
-      'Subidas de tasas y tension comercial produjeron una caida rapida sin recesion detras. Util precisamente porque no fue una crisis: los mercados tambien caen con fuerza sin que se rompa nada.',
+      'Subidas de tasas y tension comercial produjeron una caida rapida sin recesion detras. Util precisamente porque no fue una crisis: los mercados también caen con fuerza sin que se rompa nada.',
     source:
-      'Pico y valle de cierre del S&P 500 segun S&P Dow Jones Indices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
+      'Pico y valle de cierre del S&P 500 según S&P Dow Jones Índices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
   },
   {
     id: 'eurodebt2011',
@@ -80,7 +80,7 @@ export const HISTORICAL_EPISODES: StressEpisode[] = [
     description:
       'Standard & Poor’s bajo la calificacion crediticia de Estados Unidos por primera vez en la historia mientras la zona euro se acercaba a la ruptura. Los bonos del Tesoro SUBIERON tras la rebaja, que es lo contrario de lo que casi todos esperaban.',
     source:
-      'Pico y valle de cierre del S&P 500 segun S&P Dow Jones Indices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
+      'Pico y valle de cierre del S&P 500 según S&P Dow Jones Índices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
   },
   {
     id: 'gfc2008',
@@ -88,9 +88,9 @@ export const HISTORICAL_EPISODES: StressEpisode[] = [
     from: '2007-10-09',
     to: '2009-03-09',
     description:
-      'Diecisiete meses de caida, no un desplome de un dia. Esa duracion es lo que la hace distinta: la mayoria de quienes vendieron no lo hicieron en el peor dia, sino tras meses de ver el numero bajar.',
+      'Diecisiete meses de caida, no un desplome de un día. Esa duracion es lo que la hace distinta: la mayoria de quienes vendieron no lo hicieron en el peor día, sino tras meses de ver el número bajar.',
     source:
-      'Pico y valle de cierre del S&P 500 segun S&P Dow Jones Indices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
+      'Pico y valle de cierre del S&P 500 según S&P Dow Jones Índices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
   },
   {
     id: 'dotcom2000',
@@ -98,9 +98,9 @@ export const HISTORICAL_EPISODES: StressEpisode[] = [
     from: '2000-03-24',
     to: '2002-10-09',
     description:
-      'Dos anos y medio de descenso concentrados en tecnologia. El Nasdaq tardo quince anos en recuperar su maximo, lo que pone en contexto cualquier frase sobre que "el mercado siempre se recupera".',
+      'Dos años y medio de descenso concentrados en tecnologia. El Nasdaq tardo quince años en recuperar su máximo, lo que pone en contexto cualquier frase sobre que "el mercado siempre se recupera".',
     source:
-      'Pico y valle de cierre del S&P 500 segun S&P Dow Jones Indices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
+      'Pico y valle de cierre del S&P 500 según S&P Dow Jones Índices (serie SP500 en FRED, Federal Reserve Bank of St. Louis).',
   },
 ]
 
@@ -378,18 +378,18 @@ export function describeStressResult(
 
   const opening =
     move < 0
-      ? `Con tus posiciones actuales, ${result.episode.name} habria significado una caida de ${magnitude}%.`
-      : `Con tus posiciones actuales, ${result.episode.name} habria terminado con una subida de ${magnitude}%.`
+      ? `Con tus posiciones actuales, ${result.episode.name} habría significado una caida de ${magnitude}%.`
+      : `Con tus posiciones actuales, ${result.episode.name} habría terminado con una subida de ${magnitude}%.`
 
   let comparison = ''
   if (benchmark !== null) {
     const gap = move - benchmark
     comparison =
       gap > MATERIAL_GAP_PP
-        ? ` El mercado cayo ${Math.abs(benchmark).toFixed(1)}%, asi que tu mezcla habria aguantado ${gap.toFixed(1)} puntos mejor.`
+        ? ` El mercado cayo ${Math.abs(benchmark).toFixed(1)}%, asi que tu mezcla habría aguantado ${gap.toFixed(1)} puntos mejor.`
         : gap < -MATERIAL_GAP_PP
-          ? ` El mercado se movio ${benchmark.toFixed(1)}%, asi que tu mezcla habria sufrido ${Math.abs(gap).toFixed(1)} puntos mas que el.`
-          : ` Es practicamente lo mismo que hizo el mercado (${benchmark.toFixed(1)}%).`
+          ? ` El mercado se movio ${benchmark.toFixed(1)}%, asi que tu mezcla habría sufrido ${Math.abs(gap).toFixed(1)} puntos mas que el.`
+          : ` Es prácticamente lo mismo que hizo el mercado (${benchmark.toFixed(1)}%).`
   }
 
   const gap =
@@ -399,7 +399,7 @@ export function describeStressResult(
 
   const estimate =
     result.coverage === 'estimated'
-      ? ' Parte del calculo usa beta contra el indice en vez del historial propio del activo, porque ese activo todavia no existia; es una estimacion, no una medicion.'
+      ? ' Parte del cálculo usa beta contra el índice en vez del historial propio del activo, porque ese activo todavía no existia; es una estimación, no una medicion.'
       : ''
 
   return (

@@ -161,7 +161,7 @@ describe('compareScenarios', () => {
 
   it('says every scenario lived the same futures and the returns are estimates', () => {
     expect(result.caveat).toMatch(/mismos/i)
-    expect(result.caveat).toMatch(/estimad|estimacion/i)
+    expect(result.caveat).toMatch(/estimad|estimación/i)
     expect(result.caveat).toMatch(/no es una recomendacion/i)
   })
 })
@@ -198,7 +198,7 @@ describe('explaining the differences', () => {
     expect(text).toMatch(/sharpe/)
     expect(text).toMatch(/caida/)
     expect(text).toMatch(/var/)
-    expect(text).toMatch(/perdida/)
+    expect(text).toMatch(/pérdida/)
     expect(text).toMatch(/concentracion|posiciones/)
   })
 
@@ -207,7 +207,7 @@ describe('explaining the differences', () => {
       ...base,
       scenarios: [scenarios[0], { id: 'twin', name: 'Gemela', weights: [0.6, 0.3, 0.1] }],
     })!
-    expect(twin.explanations[0].headline).toMatch(/misma asignacion/i)
+    expect(twin.explanations[0].headline).toMatch(/misma asignación/i)
   })
 
   it("does not claim the baseline's riskiest holding explains a move it cannot explain", () => {

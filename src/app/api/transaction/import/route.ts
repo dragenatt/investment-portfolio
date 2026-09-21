@@ -99,7 +99,7 @@ async function postHandler(req: Request) {
     if (!position) {
       const firstRow = sortedRows[0]
       if (firstRow.type !== 'buy') {
-        errors.push(`${symbol}: la primera transaccion debe ser una compra (no se puede vender/dividendo sin posicion existente)`)
+        errors.push(`${symbol}: la primera transacción debe ser una compra (no se puede vender/dividendo sin posición existente)`)
         continue
       }
 
@@ -119,7 +119,7 @@ async function postHandler(req: Request) {
         .single()
 
       if (posErr) {
-        errors.push(`${symbol}: error al crear posicion — ${posErr.message}`)
+        errors.push(`${symbol}: error al crear posición — ${posErr.message}`)
         continue
       }
       position = newPos
@@ -127,7 +127,7 @@ async function postHandler(req: Request) {
     }
 
     if (!position) {
-      errors.push(`${symbol}: no se pudo resolver la posicion`)
+      errors.push(`${symbol}: no se pudo resolver la posición`)
       continue
     }
 

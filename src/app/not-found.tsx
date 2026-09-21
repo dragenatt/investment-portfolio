@@ -5,9 +5,9 @@ export default function NotFound() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="text-center max-w-md">
         <p className="text-6xl font-bold text-primary mb-4">404</p>
-        <h1 className="text-2xl font-bold mb-2">Pagina no encontrada</h1>
+        <h1 className="text-2xl font-bold mb-2">Página no encontrada</h1>
         <p className="text-muted-foreground mb-6">
-          La pagina que buscas no existe o fue movida.
+          La página que buscas no existe o fue movida.
         </p>
         <Link
           href="/dashboard"

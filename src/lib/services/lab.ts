@@ -152,13 +152,13 @@ function median(values: number[]): number {
 // ─── Parameters ─────────────────────────────────────────────────────────────
 
 const DIVERSIFICATION_PARAMS = [
-  param('assets', 'Numero de activos', 1, 30, 1, 10),
+  param('assets', 'Número de activos', 1, 30, 1, 10),
   param('volatility', 'Volatilidad de cada activo', 5, 60, 1, 20, 'percent'),
   // Not negative. One correlation shared by N assets cannot go below -1/(N-1):
   // at 30 assets and -0.5 the "covariance matrix" has negative variance, the
   // volatility comes back null, and the old `?? 0` drew it as a portfolio with
   // zero risk. Two-asset negative correlation is the next experiment's job.
-  param('correlation', 'Correlacion entre ellos', 0, 1, 0.05, 0.2),
+  param('correlation', 'Correlación entre ellos', 0, 1, 0.05, 0.2),
 ]
 
 const CORRELATION_PARAMS = [
@@ -179,7 +179,7 @@ const RISK_RETURN_PARAMS = [
   param('riskyVolatility', 'Volatilidad del activo riesgoso', 5, 60, 1, 25, 'percent'),
   param('safeReturn', 'Rendimiento del activo seguro', 0, 15, 0.5, 4, 'percent'),
   param('safeVolatility', 'Volatilidad del activo seguro', 0, 20, 0.5, 3, 'percent'),
-  param('correlation', 'Correlacion entre ambos', -1, 1, 0.1, 0.1),
+  param('correlation', 'Correlación entre ambos', -1, 1, 0.1, 0.1),
 ]
 
 const MONTE_CARLO_PARAMS = [
@@ -201,14 +201,14 @@ const BETA_PARAMS = [
   param('marketMove', 'Movimiento del mercado', -40, 40, 1, -20, 'percent'),
 ]
 
-const DRAWDOWN_PARAMS = [param('maxDrawdown', 'Caida maxima', 1, 95, 1, 40, 'percent')]
+const DRAWDOWN_PARAMS = [param('maxDrawdown', 'Caida máxima', 1, 95, 1, 40, 'percent')]
 
 const MARKOWITZ_PARAMS = [
   param('returnA', 'Rendimiento esperado del activo A', 0, 25, 0.5, 12, 'percent'),
   param('volatilityA', 'Volatilidad del activo A', 5, 60, 1, 25, 'percent'),
   param('returnB', 'Rendimiento esperado del activo B', 0, 25, 0.5, 6, 'percent'),
   param('volatilityB', 'Volatilidad del activo B', 2, 40, 1, 10, 'percent'),
-  param('correlation', 'Correlacion entre ambos', -1, 1, 0.1, 0.2),
+  param('correlation', 'Correlación entre ambos', -1, 1, 0.1, 0.2),
 ]
 
 const RISK_PARITY_PARAMS = [
@@ -216,24 +216,24 @@ const RISK_PARITY_PARAMS = [
   param('bondVolatility', 'Volatilidad de los bonos', 1, 20, 0.5, 5, 'percent'),
   param('commodityVolatility', 'Volatilidad de las materias primas', 5, 50, 1, 22, 'percent'),
   // Three assets sharing one correlation stay a valid matrix down to -0.5.
-  param('correlation', 'Correlacion entre los tres', -0.3, 0.9, 0.05, 0.2),
+  param('correlation', 'Correlación entre los tres', -0.3, 0.9, 0.05, 0.2),
 ]
 
 const STRESS_PARAMS = [
-  param('assets', 'Numero de activos', 2, 30, 1, 10),
+  param('assets', 'Número de activos', 2, 30, 1, 10),
   param('volatility', 'Volatilidad normal de cada activo', 5, 40, 1, 18, 'percent'),
-  param('calmCorrelation', 'Correlacion en calma', 0, 0.9, 0.05, 0.2),
-  param('crisisCorrelation', 'Correlacion en crisis', 0, 1, 0.05, 0.8),
+  param('calmCorrelation', 'Correlación en calma', 0, 0.9, 0.05, 0.2),
+  param('crisisCorrelation', 'Correlación en crisis', 0, 1, 0.05, 0.8),
   param('crisisMultiplier', 'Cuanto se multiplica la volatilidad en crisis', 1, 4, 0.25, 2),
 ]
 
 const BACKTEST_PARAMS = [
   param('paths', 'Caminos de precios simulados', 10, 60, 1, 30),
-  param('fastWindow', 'Media corta (dias)', 5, 50, 5, 20),
-  param('slowWindow', 'Media larga (dias)', 20, 200, 10, 50),
+  param('fastWindow', 'Media corta (días)', 5, 50, 5, 20),
+  param('slowWindow', 'Media larga (días)', 20, 200, 10, 50),
   param('drift', 'Tendencia anual del precio', -10, 20, 1, 7, 'percent'),
   param('volatility', 'Volatilidad anual del precio', 5, 60, 1, 20, 'percent'),
-  param('costPct', 'Costo por operacion', 0, 1, 0.05, 0.1, 'percent'),
+  param('costPct', 'Costo por operación', 0, 1, 0.05, 0.1, 'percent'),
 ]
 
 const FACTOR_PARAMS = [
@@ -242,7 +242,7 @@ const FACTOR_PARAMS = [
   param('alpha', 'Alfa real anual', -5, 5, 0.5, 0, 'percent'),
   param('idiosyncraticVolatility', 'Volatilidad propia (no explicada)', 2, 40, 1, 15, 'percent'),
   param('factorVolatility', 'Volatilidad de los factores', 5, 30, 1, 15, 'percent'),
-  param('years', 'Anos de historial', 1, 20, 1, 5, 'years'),
+  param('years', 'Años de historial', 1, 20, 1, 5, 'years'),
 ]
 
 const REBALANCING_PARAMS = [
@@ -273,10 +273,10 @@ const EXPERIMENTS: Experiment[] = [
       'El riesgo de un portafolio no es el promedio del riesgo de sus partes. Cuando los activos no se mueven exactamente igual, parte de sus movimientos se cancelan entre si. Lo que NO se cancela es el riesgo que comparten todos.',
     params: DIVERSIFICATION_PARAMS,
     simulation:
-      'Para cada numero de activos de 1 al maximo, se arma un portafolio con el mismo peso en cada uno, todos con la misma volatilidad y la misma correlacion entre si, y se calcula su volatilidad como la raiz de w·Σ·w.',
+      'Para cada número de activos de 1 al máximo, se arma un portafolio con el mismo peso en cada uno, todos con la misma volatilidad y la misma correlación entre si, y se calcula su volatilidad como la raiz de w·Σ·w.',
     questions: [
-      'Con correlacion 0, cuantos activos hacen falta para bajar el riesgo a la mitad?',
-      'Que pasa con la curva cuando pones la correlacion en 1? Por que?',
+      'Con correlación 0, cuantos activos hacen falta para bajar el riesgo a la mitad?',
+      'Que pasa con la curva cuando pones la correlación en 1? Por que?',
       'A partir de cuantos activos deja de notarse el beneficio de agregar uno mas?',
     ],
     available: true,
@@ -306,7 +306,7 @@ const EXPERIMENTS: Experiment[] = [
         chart: {
           kind: 'line',
           x: 'assets',
-          xLabel: 'Numero de activos',
+          xLabel: 'Número de activos',
           xUnit: 'number',
           series: [
             { key: 'portfolioVolatility', label: 'Riesgo del portafolio', unit: 'percent' },
@@ -316,12 +316,12 @@ const EXPERIMENTS: Experiment[] = [
         highlights: [
           { label: 'Riesgo de un solo activo', value: pct(vol * 100) },
           { label: `Riesgo con ${maxAssets} activos`, value: pct(last.portfolioVolatility) },
-          { label: 'Piso teorico', value: pct(floor) },
+          { label: 'Piso teórico', value: pct(floor) },
         ],
         interpretation:
           correlation >= 0.99
-            ? 'Con correlacion 1 la curva es plana: agregar activos no reduce nada, porque todos se mueven a la vez. Diversificar no es tener muchas cosas, es tener cosas que no se muevan juntas.'
-            : `Repartir entre ${maxAssets} activos baja el riesgo de ${pct(vol * 100)} a ${pct(last.portfolioVolatility)}, pero la curva se aplana rapido. Por mas activos que agregues no bajaras de ${pct(floor)}: ese piso es el riesgo que todos comparten y que ninguna diversificacion elimina.`,
+            ? 'Con correlación 1 la curva es plana: agregar activos no reduce nada, porque todos se mueven a la vez. Diversificar no es tener muchas cosas, es tener cosas que no se muevan juntas.'
+            : `Repartir entre ${maxAssets} activos baja el riesgo de ${pct(vol * 100)} a ${pct(last.portfolioVolatility)}, pero la curva se aplana rápido. Por mas activos que agregues no bajaras de ${pct(floor)}: ese piso es el riesgo que todos comparten y que ninguna diversificacion elimina.`,
       }
     },
   },
@@ -329,16 +329,16 @@ const EXPERIMENTS: Experiment[] = [
   {
     id: 'correlation',
     title: 'Correlacion',
-    objective: 'Ver que la correlacion, y no el numero de activos, es lo que decide el beneficio.',
+    objective: 'Ver que la correlación, y no el número de activos, es lo que decide el beneficio.',
     concept:
       'Dos activos con la misma volatilidad pueden dar un portafolio muy riesgoso o casi sin riesgo, dependiendo solo de como se muevan uno respecto al otro.',
     params: CORRELATION_PARAMS,
     simulation:
-      'Con los dos activos y los pesos fijos, se recorre la correlacion de -1 a +1 en pasos de 0.1 y en cada paso se calcula la volatilidad del portafolio. Se dibuja junto al promedio ponderado de las dos volatilidades, que es el riesgo si no hubiera ninguna diversificacion.',
+      'Con los dos activos y los pesos fijos, se recorre la correlación de -1 a +1 en pasos de 0.1 y en cada paso se calcula la volatilidad del portafolio. Se dibuja junto al promedio ponderado de las dos volatilidades, que es el riesgo si no hubiera ninguna diversificacion.',
     questions: [
-      'Con correlacion -1, que peso hace que el riesgo llegue a cero?',
+      'Con correlación -1, que peso hace que el riesgo llegue a cero?',
       'Por que la curva no es una linea recta entre -1 y 1?',
-      'En la practica, que tan facil es encontrar activos con correlacion negativa?',
+      'En la practica, que tan fácil es encontrar activos con correlación negativa?',
     ],
     available: true,
     run: (input) => {
@@ -374,12 +374,12 @@ const EXPERIMENTS: Experiment[] = [
           ],
         },
         highlights: [
-          { label: 'Riesgo con correlacion -1', value: pct(atMinusOne, 2) },
-          { label: 'Riesgo con correlacion +1', value: pct(atOne, 2) },
+          { label: 'Riesgo con correlación -1', value: pct(atMinusOne, 2) },
+          { label: 'Riesgo con correlación +1', value: pct(atOne, 2) },
           { label: 'Promedio ponderado', value: pct(series[0].weightedAverage, 2) },
         ],
         interpretation:
-          `Con los mismos dos activos y los mismos pesos, el riesgo del portafolio va de ${pct(atMinusOne, 2)} a ${pct(atOne, 2)} dependiendo unicamente de la correlacion. ` +
+          `Con los mismos dos activos y los mismos pesos, el riesgo del portafolio va de ${pct(atMinusOne, 2)} a ${pct(atOne, 2)} dependiendo unicamente de la correlación. ` +
           'En el extremo +1 el riesgo iguala al promedio ponderado: no hay ningun beneficio. Todo lo que ganas al diversificar sale de esa diferencia.',
       }
     },
@@ -391,13 +391,13 @@ const EXPERIMENTS: Experiment[] = [
     objective:
       'Ver que dos inversiones con el mismo rendimiento promedio terminan en lugares distintos si una se mueve mas.',
     concept:
-      'El rendimiento que se compone no es el promedio. Ganar 30% y luego perder 30% no te deja igual: te deja con 91 de cada 100, porque la perdida trabaja sobre un saldo mas grande que la ganancia. Cuanto mas oscila una inversion, mas se aleja lo que realmente crece de lo que promedia. A esa diferencia se le llama arrastre de la volatilidad.',
+      'El rendimiento que se compone no es el promedio. Ganar 30% y luego perder 30% no te deja igual: te deja con 91 de cada 100, porque la pérdida trabaja sobre un saldo mas grande que la ganancia. Cuanto mas oscila una inversión, mas se aleja lo que realmente crece de lo que promedia. A esa diferencia se le llama arrastre de la volatilidad.',
     params: VOLATILITY_PARAMS,
     simulation:
-      'Se invierten 100 en tres caminos que promedian exactamente el mismo rendimiento anual. Uno sube lo mismo cada ano. Los otros dos alternan un ano de promedio mas volatilidad y un ano de promedio menos volatilidad, uno con la volatilidad baja y otro con la alta. Sin azar: la unica diferencia entre los tres es cuanto oscilan.',
+      'Se invierten 100 en tres caminos que promedian exactamente el mismo rendimiento anual. Uno sube lo mismo cada año. Los otros dos alternan un año de promedio mas volatilidad y un año de promedio menos volatilidad, uno con la volatilidad baja y otro con la alta. Sin azar: la única diferencia entre los tres es cuanto oscilan.',
     questions: [
       'Si los tres promedian lo mismo, por que no terminan en el mismo lugar?',
-      'Cuanto rendimiento anual te "cuesta" la volatilidad alta? Crece mas rapido que la volatilidad?',
+      'Cuanto rendimiento anual te "cuesta" la volatilidad alta? Crece mas rápido que la volatilidad?',
       'Que significa esto al comparar dos fondos por su rendimiento promedio?',
     ],
     available: true,
@@ -448,14 +448,14 @@ const EXPERIMENTS: Experiment[] = [
           { label: 'Sin volatilidad, 100 terminan en', value: last.noVolatility.toFixed(1) },
           { label: `Con ${pct(low * 100, 0)} de volatilidad`, value: last.lowVolatility.toFixed(1) },
           { label: `Con ${pct(high * 100, 0)} de volatilidad`, value: last.highVolatility.toFixed(1) },
-          { label: 'Lo que realmente crece con la alta', value: `${pct(compound(high), 2)} al ano` },
-          { label: 'Arrastre de la volatilidad alta', value: `${dragHigh.toFixed(2)} puntos al ano` },
+          { label: 'Lo que realmente crece con la alta', value: `${pct(compound(high), 2)} al año` },
+          { label: 'Arrastre de la volatilidad alta', value: `${dragHigh.toFixed(2)} puntos al año` },
         ],
         interpretation:
           high <= 0 && low <= 0
             ? 'Sin ninguna volatilidad los tres caminos son el mismo. Sube cualquiera de las dos volatilidades y veras separarse las curvas aunque el promedio no cambie.'
-            : `Los tres caminos promedian ${pct(mu * 100)} al ano, y aun asi despues de ${years} anos 100 se convierten en ${last.noVolatility.toFixed(1)}, ${last.lowVolatility.toFixed(1)} o ${last.highVolatility.toFixed(1)}. ` +
-              `Con ${pct(high * 100, 0)} de volatilidad lo que de verdad crece es ${pct(compound(high), 2)} al ano, ${dragHigh.toFixed(2)} puntos menos que el promedio. ` +
+            : `Los tres caminos promedian ${pct(mu * 100)} al año, y aun asi después de ${years} años 100 se convierten en ${last.noVolatility.toFixed(1)}, ${last.lowVolatility.toFixed(1)} o ${last.highVolatility.toFixed(1)}. ` +
+              `Con ${pct(high * 100, 0)} de volatilidad lo que de verdad crece es ${pct(compound(high), 2)} al año, ${dragHigh.toFixed(2)} puntos menos que el promedio. ` +
               'El arrastre crece con el cuadrado de la volatilidad, no en proporcion: duplicarla cuadruplica aproximadamente el costo. Por eso un promedio alto con mucha oscilacion puede crecer menos que uno modesto y estable.',
       }
     },
@@ -464,12 +464,12 @@ const EXPERIMENTS: Experiment[] = [
   {
     id: 'monteCarlo',
     title: 'Monte Carlo',
-    objective: 'Ver que una proyeccion no es un numero, es un rango — y que tan ancho es ese rango.',
+    objective: 'Ver que una proyección no es un número, es un rango — y que tan ancho es ese rango.',
     concept:
-      'Una calculadora de interes compuesto te da una cifra. Esa cifra es el escenario promedio, y la probabilidad de caer exactamente ahi es practicamente cero. Simular muchos caminos muestra el abanico completo.',
+      'Una calculadora de interes compuesto te da una cifra. Esa cifra es el escenario promedio, y la probabilidad de caer exactamente ahi es prácticamente cero. Simular muchos caminos muestra el abanico completo.',
     params: MONTE_CARLO_PARAMS,
     simulation:
-      'Se generan 600 caminos mensuales con semilla fija en el motor de escenarios de la app, el mismo que usan el Asesor y las proyecciones de tu portafolio. Cada mes aplica el rendimiento esperado, un choque aleatorio de la volatilidad indicada (paso lognormal) y la aportacion. Se reportan los percentiles 10, 25, 50, 75 y 90 del valor final.',
+      'Se generan 600 caminos mensuales con semilla fija en el motor de escenarios de la app, el mismo que usan el Asesor y las proyecciones de tu portafolio. Cada mes aplica el rendimiento esperado, un choque aleatorio de la volatilidad indicada (paso lognormal) y la aportación. Se reportan los percentiles 10, 25, 50, 75 y 90 del valor final.',
     questions: [
       'Que tan lejos esta el P10 del P90? Te parece un rango aceptable?',
       'Si subes la volatilidad al doble, cuanto se ensancha el abanico?',
@@ -528,8 +528,8 @@ const EXPERIMENTS: Experiment[] = [
           { label: 'Rango P10 a P90', value: `${money(d.p10)} – ${money(d.p90)}` },
         ],
         interpretation:
-          `La calculadora de interes compuesto te daria ${money(deterministic.valorFinal)}. La simulacion dice que el resultado esta entre ${money(d.p10)} y ${money(d.p90)} en 8 de cada 10 escenarios — un abanico de ${spread.toFixed(0)}% de la mediana. ` +
-          'Planear con el numero unico es planear con el mejor caso de la mitad afortunada.',
+          `La calculadora de interes compuesto te daria ${money(deterministic.valorFinal)}. La simulación dice que el resultado esta entre ${money(d.p10)} y ${money(d.p90)} en 8 de cada 10 escenarios — un abanico de ${spread.toFixed(0)}% de la mediana. ` +
+          'Planear con el número único es planear con el mejor caso de la mitad afortunada.',
       }
     },
   },
@@ -542,7 +542,7 @@ const EXPERIMENTS: Experiment[] = [
       'La campana de Gauss dice que los movimientos extremos casi nunca pasan. Los mercados dicen otra cosa. Cuanto mas gordas las colas, mas se equivoca el modelo normal — y siempre se equivoca del lado optimista.',
     params: VAR_PARAMS,
     simulation:
-      'Para cinco niveles de confianza se calcula el VaR de un dia con dos modelos: el normal, que solo usa la volatilidad, y el de Cornish-Fisher, que corrige el cuantil normal con la asimetria y la curtosis que elegiste. Son las mismas funciones que usa el analisis de riesgo de tu cartera.',
+      'Para cinco niveles de confianza se calcula el VaR de un día con dos modelos: el normal, que solo usa la volatilidad, y el de Cornish-Fisher, que corrige el cuantil normal con la asimetria y la curtosis que elegiste. Son las mismas funciones que usa el análisis de riesgo de tu cartera.',
     questions: [
       'Con curtosis 0 y asimetria 0, por que coinciden los dos VaR?',
       'Que le pasa a la diferencia cuando subes la curtosis?',
@@ -585,8 +585,8 @@ const EXPERIMENTS: Experiment[] = [
         ],
         interpretation:
           gap > 0.05
-            ? `Con asimetria ${skew.toFixed(1)} y curtosis ${kurtosis.toFixed(1)}, el modelo normal dice que el peor 1% de los dias pierde ${pct(at99.normalVaR, 2)}, pero la forma real de esa distribucion lo pone en ${pct(at99.adjustedVaR, 2)}. La campana subestima el riesgo en ${gap.toFixed(2)} puntos, y lo hace justo en la cola que importa.`
-            : 'Con estos parametros la distribucion se parece bastante a una normal, asi que ambos modelos coinciden. Sube la curtosis para ver como se separan.',
+            ? `Con asimetria ${skew.toFixed(1)} y curtosis ${kurtosis.toFixed(1)}, el modelo normal dice que el peor 1% de los días pierde ${pct(at99.normalVaR, 2)}, pero la forma real de esa distribución lo pone en ${pct(at99.adjustedVaR, 2)}. La campana subestima el riesgo en ${gap.toFixed(2)} puntos, y lo hace justo en la cola que importa.`
+            : 'Con estos parametros la distribución se parece bastante a una normal, asi que ambos modelos coinciden. Sube la curtosis para ver como se separan.',
       }
     },
   },
@@ -653,11 +653,11 @@ const EXPERIMENTS: Experiment[] = [
       'Para cada nivel de riesgo hay una mezcla que maximiza el rendimiento esperado. El conjunto de esas mezclas forma una curva, y todo lo que queda por debajo esta dominado.',
     params: MARKOWITZ_PARAMS,
     simulation:
-      'Se recorren 41 mezclas de los dos activos, de 0% a 100% en A, y para cada una se calculan su volatilidad y su rendimiento esperado. El optimizador de la app encuentra ademas la mezcla de minima varianza exacta, y se compara con un 50/50.',
+      'Se recorren 41 mezclas de los dos activos, de 0% a 100% en A, y para cada una se calculan su volatilidad y su rendimiento esperado. El optimizador de la app encuentra además la mezcla de mínima varianza exacta, y se compara con un 50/50.',
     questions: [
       'Por que ninguna mezcla puede estar por encima de la frontera?',
       'Que significa que un portafolio quede muy por debajo de ella?',
-      'Baja la correlacion a -1: por que la curva se dobla tanto hacia la izquierda?',
+      'Baja la correlación a -1: por que la curva se dobla tanto hacia la izquierda?',
     ],
     available: true,
     run: (input) => {
@@ -726,8 +726,8 @@ const EXPERIMENTS: Experiment[] = [
         ],
         interpretation:
           minVar.volatilityPct < lowestVolAsset - 0.01
-            ? `Con correlacion ${correlation.toFixed(1)}, la mezcla de menor riesgo corre ${pct(minVar.volatilityPct, 2)} de volatilidad: MENOS que el activo mas tranquilo de los dos por separado (${pct(lowestVolAsset, 2)}). Eso no es magia ni un error: cuando dos cosas no se mueven igual, una amortigua a la otra. Es el unico almuerzo gratis que existe en finanzas, y desaparece a medida que la correlacion sube a 1.`
-            : `Con correlacion ${correlation.toFixed(1)} los dos activos se mueven casi igual, asi que mezclarlos ya no reduce el riesgo por debajo del activo mas tranquilo (${pct(lowestVolAsset, 2)}): la frontera se aplana hasta ser casi una linea recta entre los dos. Baja la correlacion y mira como se dobla hacia la izquierda — esa curvatura ES la diversificacion.`,
+            ? `Con correlación ${correlation.toFixed(1)}, la mezcla de menor riesgo corre ${pct(minVar.volatilityPct, 2)} de volatilidad: MENOS que el activo mas tranquilo de los dos por separado (${pct(lowestVolAsset, 2)}). Eso no es magia ni un error: cuando dos cosas no se mueven igual, una amortigua a la otra. Es el único almuerzo gratis que existe en finanzas, y desaparece a medida que la correlación sube a 1.`
+            : `Con correlación ${correlation.toFixed(1)} los dos activos se mueven casi igual, asi que mezclarlos ya no reduce el riesgo por debajo del activo mas tranquilo (${pct(lowestVolAsset, 2)}): la frontera se aplana hasta ser casi una linea recta entre los dos. Baja la correlación y mira como se dobla hacia la izquierda — esa curvatura ES la diversificacion.`,
       }
     },
   },
@@ -737,10 +737,10 @@ const EXPERIMENTS: Experiment[] = [
     title: 'Risk Parity',
     objective: 'Ver que repartir el dinero en partes iguales no reparte el riesgo en partes iguales.',
     concept:
-      'Si pones un tercio del dinero en acciones, bonos y materias primas, los activos volatiles aportan casi todo el riesgo y los bonos casi nada. Risk parity busca los pesos que hacen que cada activo aporte lo mismo al riesgo total: mas dinero en lo tranquilo, menos en lo volatil. El precio es que ese portafolio suele esperar menos rendimiento, y en la practica se le aplica apalancamiento para compensarlo, que trae riesgos propios (Asness, Frazzini y Pedersen, 2012, Financial Analysts Journal).',
+      'Si pones un tercio del dinero en acciones, bonos y materias primas, los activos volatiles aportan casi todo el riesgo y los bonos casi nada. Risk parity busca los pesos que hacen que cada activo aporte lo mismo al riesgo total: mas dinero en lo tranquilo, menos en lo volátil. El precio es que ese portafolio suele esperar menos rendimiento, y en la practica se le aplica apalancamiento para compensarlo, que trae riesgos propios (Asness, Frazzini y Pedersen, 2012, Financial Analysts Journal).',
     params: RISK_PARITY_PARAMS,
     simulation:
-      'Se arma la matriz de covarianzas de los tres activos con sus volatilidades y la correlacion comun. Se calcula cuanto aporta cada uno al riesgo con pesos iguales, y luego se buscan los pesos de risk parity con el mismo motor de asignacion que usa tu cartera, y se vuelve a medir.',
+      'Se arma la matriz de covarianzas de los tres activos con sus volatilidades y la correlación comun. Se calcula cuanto aporta cada uno al riesgo con pesos iguales, y luego se buscan los pesos de risk parity con el mismo motor de asignación que usa tu cartera, y se vuelve a medir.',
     questions: [
       'Con pesos iguales, que porcentaje del riesgo viene de los bonos? Por que tan poco?',
       'Que le pasa al peso de los bonos en risk parity si bajas su volatilidad?',
@@ -811,7 +811,7 @@ const EXPERIMENTS: Experiment[] = [
         interpretation:
           `Con un tercio del dinero en cada uno, ${names[riskiest.asset].toLowerCase()} aportan ${pct(riskiest.equalRisk)} del riesgo y los bonos solo ${pct(bonds.equalRisk)}: repartir el dinero no reparte el riesgo. ` +
           `Para que cada uno aporte un tercio, risk parity pone ${pct(bonds.parityMoney)} del dinero en bonos, y la volatilidad baja de ${pct(equal.volatility, 2)} a ${pct(parity.volatility, 2)}. ` +
-          'Ese portafolio mas tranquilo tambien espera menos rendimiento; no es una mejora gratis, es otra forma de decidir que riesgo quieres cargar.',
+          'Ese portafolio mas tranquilo también espera menos rendimiento; no es una mejora gratis, es otra forma de decidir que riesgo quieres cargar.',
       }
     },
   },
@@ -822,14 +822,14 @@ const EXPERIMENTS: Experiment[] = [
     objective:
       'Ver que el riesgo medido en tiempos tranquilos no es el riesgo de una crisis, porque en las crisis todo tiende a caer junto.',
     concept:
-      'La diversificacion depende de que los activos no se muevan igual. Los estudios sobre mercados accionarios internacionales encuentran que las correlaciones suben en los mercados bajistas, justo cuando mas haria falta que no subieran (Longin y Solnik, 2001, Journal of Finance). Un stress test no promedia esa posibilidad: la supone y mide que pasa. Aqui los choques los eliges tu; el stress test con crisis historicas reales sobre tus propias posiciones esta en el analisis de tu cartera.',
+      'La diversificacion depende de que los activos no se muevan igual. Los estudios sobre mercados accionarios internacionales encuentran que las correlaciones suben en los mercados bajistas, justo cuando mas haria falta que no subieran (Longin y Solnik, 2001, Journal of Finance). Un stress test no promedia esa posibilidad: la supone y mide que pasa. Aquí los choques los eliges tu; el stress test con crisis historicas reales sobre tus propias posiciones esta en el análisis de tu cartera.',
     params: STRESS_PARAMS,
     simulation:
-      'Para un portafolio con el mismo peso en cada activo, se calcula la volatilidad con correlaciones de 0 a 1, dos veces: con la volatilidad normal y con la volatilidad multiplicada por el factor de crisis. Luego se comparan tu escenario de calma y tu escenario de crisis, y el VaR de un dia al 99% de cada uno.',
+      'Para un portafolio con el mismo peso en cada activo, se calcula la volatilidad con correlaciones de 0 a 1, dos veces: con la volatilidad normal y con la volatilidad multiplicada por el factor de crisis. Luego se comparan tu escenario de calma y tu escenario de crisis, y el VaR de un día al 99% de cada uno.',
     questions: [
-      'Si solo sube la correlacion y no la volatilidad, cuanto aumenta el riesgo?',
+      'Si solo sube la correlación y no la volatilidad, cuanto aumenta el riesgo?',
       'Por que tener mas activos ayuda mucho en calma y poco en crisis?',
-      'Un VaR calculado con datos de un ano tranquilo, que tan util es en marzo de 2020?',
+      'Un VaR calculado con datos de un año tranquilo, que tan util es en marzo de 2020?',
     ],
     available: true,
     run: (input) => {
@@ -864,7 +864,7 @@ const EXPERIMENTS: Experiment[] = [
         chart: {
           kind: 'line',
           x: 'correlation',
-          xLabel: 'Correlacion entre los activos',
+          xLabel: 'Correlación entre los activos',
           xUnit: 'number',
           series: [
             { key: 'calmVolatility', label: 'Volatilidad normal', unit: 'percent' },
@@ -874,16 +874,16 @@ const EXPERIMENTS: Experiment[] = [
         highlights: [
           { label: 'Riesgo del portafolio en calma', value: pct(calmVol, 2) },
           { label: 'Riesgo del portafolio en crisis', value: pct(crisisVol, 2) },
-          { label: 'VaR de un dia al 99%, escenario tranquilo', value: pct(dailyVaR(calmVol), 2) },
-          { label: 'VaR de un dia al 99%, escenario de choque', value: pct(dailyVaR(crisisVol), 2) },
+          { label: 'VaR de un día al 99%, escenario tranquilo', value: pct(dailyVaR(calmVol), 2) },
+          { label: 'VaR de un día al 99%, escenario de choque', value: pct(dailyVaR(crisisVol), 2) },
           { label: 'Cuantas veces sube el riesgo', value: `${ratio.toFixed(2)}x` },
         ],
         interpretation:
           ratio <= 1.0001
-            ? 'Tu escenario de crisis es identico al de calma, asi que el riesgo no cambia. Sube la correlacion de crisis o el multiplicador para ver lo que un stress test existe para mostrar.'
+            ? 'Tu escenario de crisis es identico al de calma, asi que el riesgo no cambia. Sube la correlación de crisis o el multiplicador para ver lo que un stress test existe para mostrar.'
             : `Con ${n} activos, el portafolio corre ${pct(calmVol, 2)} de volatilidad en calma y ${pct(crisisVol, 2)} en tu escenario de crisis: ${ratio.toFixed(2)} veces mas. ` +
               `El VaR diario al 99% pasa de ${pct(dailyVaR(calmVol), 2)} a ${pct(dailyVaR(crisisVol), 2)}. ` +
-              'Un modelo de riesgo calibrado en calma te habria dado la primera cifra el dia antes de necesitar la segunda. Fijate tambien en la curva: con correlacion alta, agregar activos casi no ayuda, porque ya no hay movimientos que se cancelen.',
+              'Un modelo de riesgo calibrado en calma te habría dado la primera cifra el día antes de necesitar la segunda. Fijate también en la curva: con correlación alta, agregar activos casi no ayuda, porque ya no hay movimientos que se cancelen.',
       }
     },
   },
@@ -897,11 +897,11 @@ const EXPERIMENTS: Experiment[] = [
       'Un backtest ganador no prueba que una estrategia funcione. Si los precios son una caminata aleatoria, ninguna regla puede anticiparlos, y aun asi una parte de las pruebas sale ganadora por pura suerte. Si pruebas suficientes variantes y te quedas con la mejor, siempre encontraras una que parezca brillante en el pasado.',
     params: BACKTEST_PARAMS,
     simulation:
-      'Se generan caminos de precios diarios aleatorios de dos anos, con la tendencia y la volatilidad que elegiste y una semilla fija por camino. En cada uno se corre un cruce de medias moviles con el mismo motor de backtesting de la app, incluyendo el costo por operacion, y se compara contra comprar y mantener.',
+      'Se generan caminos de precios diarios aleatorios de dos años, con la tendencia y la volatilidad que elegiste y una semilla fija por camino. En cada uno se corre un cruce de medias moviles con el mismo motor de backtesting de la app, incluyendo el costo por operación, y se compara contra comprar y mantener.',
     questions: [
       'Los precios son aleatorios. Que significa entonces que la regla gane en algunos caminos?',
       'Si solo te mostraran el mejor camino, que concluirias sobre la estrategia?',
-      'Que pasa con la cantidad de caminos ganadores cuando subes el costo por operacion?',
+      'Que pasa con la cantidad de caminos ganadores cuando subes el costo por operación?',
     ],
     available: true,
     run: (input) => {
@@ -997,8 +997,8 @@ const EXPERIMENTS: Experiment[] = [
             : `En ${wins} de ${outcomes.length} caminos la regla ${fast}/${slow} le gano a comprar y mantener, y el mejor le gano por ${best.toFixed(1)} puntos. ` +
               'Estos precios son aleatorios: no hay tendencia oculta que una media pueda detectar, asi que cada victoria es suerte. ' +
               (wins > 0
-                ? `Si solo hubieras visto ese mejor camino, habrias creido que la regla funciona. Eso es lo que pasa cuando se prueban muchas reglas y se publica la ganadora.`
-                : 'Aqui ni la suerte alcanzo: estar fuera del mercado y pagar costos pesa mas que cualquier acierto casual.'),
+                ? `Si solo hubieras visto ese mejor camino, habrías creído que la regla funciona. Eso es lo que pasa cuando se prueban muchas reglas y se pública la ganadora.`
+                : 'Aquí ni la suerte alcanzo: estar fuera del mercado y pagar costos pesa mas que cualquier acierto casual.'),
       }
     },
   },
@@ -1008,13 +1008,13 @@ const EXPERIMENTS: Experiment[] = [
     title: 'Rebalanceo',
     objective: 'Ver que rebalancear es un intercambio, no una mejora gratuita.',
     concept:
-      'Cuando el activo riesgoso sube, pasa a pesar mas de lo planeado y el portafolio se vuelve mas riesgoso de lo que decidiste. Rebalancear devuelve el riesgo a su sitio, y al hacerlo devuelve tambien parte del rendimiento esperado.',
+      'Cuando el activo riesgoso sube, pasa a pesar mas de lo planeado y el portafolio se vuelve mas riesgoso de lo que decidiste. Rebalancear devuelve el riesgo a su sitio, y al hacerlo devuelve también parte del rendimiento esperado.',
     params: REBALANCING_PARAMS,
     simulation:
-      'Se calcula la volatilidad de todas las mezclas de 0% a 100% en el activo riesgoso, con una correlacion fija de 0.2 entre ambos, y se marcan dos puntos: el peso que elegiste y el peso al que se desvio.',
+      'Se calcula la volatilidad de todas las mezclas de 0% a 100% en el activo riesgoso, con una correlación fija de 0.2 entre ambos, y se marcan dos puntos: el peso que elegiste y el peso al que se desvio.',
     questions: [
       'Cuanto riesgo devuelve el rebalanceo, y cuanto rendimiento cuesta?',
-      'Si el activo riesgoso siguiera subiendo, habria sido mejor no rebalancear?',
+      'Si el activo riesgoso siguiera subiendo, habría sido mejor no rebalancear?',
       'Por que entonces se rebalancea?',
     ],
     available: true,
@@ -1053,7 +1053,7 @@ const EXPERIMENTS: Experiment[] = [
         ],
         interpretation:
           Math.abs(driftedVol - targetVol) < 0.01
-            ? 'Con esta desviacion el riesgo practicamente no cambia, asi que rebalancear no aportaria gran cosa.'
+            ? 'Con esta desviación el riesgo prácticamente no cambia, asi que rebalancear no aportaria gran cosa.'
             : `Al desviarse a ${pct(drifted * 100, 0)}, el portafolio corre ${pct(driftedVol, 2)} de volatilidad en lugar del ${pct(targetVol, 2)} que decidiste. Rebalancear devuelve ${Math.abs(driftedVol - targetVol).toFixed(2)} puntos de riesgo — y vende justamente lo que ha estado subiendo, que es la parte incomoda del intercambio.`,
       }
     },
@@ -1063,15 +1063,15 @@ const EXPERIMENTS: Experiment[] = [
     id: 'factors',
     title: 'Factores',
     objective:
-      'Ver que una exposicion a factores es una estimacion, y que con poco historial un alfa aparente puede ser puro ruido.',
+      'Ver que una exposicion a factores es una estimación, y que con poco historial un alfa aparente puede ser puro ruido.',
     concept:
-      'Una regresion de factores separa el rendimiento en lo que explica el mercado, lo que explican otros factores como el tamano, y un resto llamado alfa. Pero cada coeficiente sale con un error estandar. Si el intervalo alrededor del alfa incluye el cero, no se puede distinguir de no tener ninguna habilidad, por grande que se vea el numero.',
+      'Una regresion de factores separa el rendimiento en lo que explica el mercado, lo que explican otros factores como el tamano, y un resto llamado alfa. Pero cada coeficiente sale con un error estándar. Si el intervalo alrededor del alfa incluye el cero, no se puede distinguir de no tener ninguna habilidad, por grande que se vea el número.',
     params: FACTOR_PARAMS,
     simulation:
-      'Se simulan rendimientos diarios de dos factores sin premio (media cero) y de un activo construido con la beta, la exposicion a tamano y el alfa que elegiste, mas ruido propio. Luego se estima la regresion con el mismo motor que analiza tu cartera, usando cada vez mas historial, y se dibuja el alfa estimado con su banda de dos errores estandar.',
+      'Se simulan rendimientos diarios de dos factores sin premio (media cero) y de un activo construido con la beta, la exposicion a tamano y el alfa que elegiste, mas ruido propio. Luego se estima la regresion con el mismo motor que analiza tu cartera, usando cada vez mas historial, y se dibuja el alfa estimado con su banda de dos errores estándar.',
     questions: [
-      'Con un ano de historial, que tan ancha es la banda del alfa? Incluye el cero?',
-      'Pon el alfa real en 0. Cuanto historial hace falta para que la estimacion deje de "parecer" habilidad?',
+      'Con un año de historial, que tan ancha es la banda del alfa? Incluye el cero?',
+      'Pon el alfa real en 0. Cuanto historial hace falta para que la estimación deje de "parecer" habilidad?',
       'Por que la beta se estima bien mucho antes que el alfa?',
     ],
     available: true,
@@ -1126,7 +1126,7 @@ const EXPERIMENTS: Experiment[] = [
       const chart: ChartSpec = {
         kind: 'line',
         x: 'years',
-        xLabel: 'Anos de historial usados',
+        xLabel: 'Años de historial usados',
         xUnit: 'years',
         series: [
           { key: 'alphaEstimate', label: 'Alfa estimado', unit: 'percent' },
@@ -1166,18 +1166,18 @@ const EXPERIMENTS: Experiment[] = [
             label: 'Exposicion a tamano estimada',
             value: `${sizeLoading.coefficient.toFixed(2)} ± ${(2 * sizeLoading.standardError).toFixed(2)}`,
           },
-          { label: 'Alfa estimado', value: `${signed(full.alphaAnnualPct, 2)}% ± ${band.toFixed(2)}% al ano` },
+          { label: 'Alfa estimado', value: `${signed(full.alphaAnnualPct, 2)}% ± ${band.toFixed(2)}% al año` },
           { label: 'Alfa real (el que elegiste)', value: `${signed(alpha * 100, 2)}%` },
           { label: 'El intervalo incluye el cero', value: includesZero ? 'Si' : 'No' },
         ],
         interpretation:
           `Con ${years} ${years === 1 ? 'ano' : 'anos'} de historial la beta sale en ${marketLoading.coefficient.toFixed(2)} (la real es ${beta.toFixed(2)}), bastante precisa. ` +
-          `El alfa sale en ${signed(full.alphaAnnualPct, 2)}% al ano, pero su banda va de ${signed(lower, 2)}% a ${signed(upper, 2)}%` +
+          `El alfa sale en ${signed(full.alphaAnnualPct, 2)}% al año, pero su banda va de ${signed(lower, 2)}% a ${signed(upper, 2)}%` +
           (includesZero
             ? ', que incluye el cero: con estos datos no se puede distinguir de no tener ninguna habilidad. '
             : ', que no incluye el cero. ') +
           `Con solo ${shortest.years} ${shortest.years === 1 ? 'ano' : 'anos'} la banda media ${((shortest.alphaUpper - shortest.alphaLower) / 2).toFixed(1)} puntos a cada lado. ` +
-          'La banda se estrecha con la raiz del tiempo: para partirla a la mitad hace falta cuatro veces mas historial. Por eso un fondo con tres buenos anos no ha demostrado nada todavia.',
+          'La banda se estrecha con la raiz del tiempo: para partirla a la mitad hace falta cuatro veces mas historial. Por eso un fondo con tres buenos años no ha demostrado nada todavía.',
       }
     },
   },
@@ -1185,15 +1185,15 @@ const EXPERIMENTS: Experiment[] = [
   {
     id: 'riskReturn',
     title: 'Riesgo contra rendimiento',
-    objective: 'Ver que mas rendimiento esperado siempre viene acompanado de mas riesgo — y que la relacion no es recta.',
+    objective: 'Ver que mas rendimiento esperado siempre viene acompanado de mas riesgo — y que la relación no es recta.',
     concept:
-      'Al mezclar un activo riesgoso con uno seguro obtienes una curva, no una recta. Esa curvatura es la diversificacion trabajando, y es la razon por la que algunas mezclas dominan a otras.',
+      'Al mezclar un activo riesgoso con uno seguro obtienes una curva, no una recta. Esa curvatura es la diversificacion trabajando, y es la razón por la que algunas mezclas dominan a otras.',
     params: RISK_RETURN_PARAMS,
     simulation:
-      'Se recorren las mezclas de 0% a 100% en el activo riesgoso en pasos de 5%, y para cada una se calcula la volatilidad y el rendimiento esperado. Se marca la mezcla de minima varianza.',
+      'Se recorren las mezclas de 0% a 100% en el activo riesgoso en pasos de 5%, y para cada una se calcula la volatilidad y el rendimiento esperado. Se marca la mezcla de mínima varianza.',
     questions: [
       'Existe alguna mezcla con menos riesgo que el activo seguro solo? Cuando?',
-      'Que le pasa a la curva cuando la correlacion se acerca a 1?',
+      'Que le pasa a la curva cuando la correlación se acerca a 1?',
       'Si dos mezclas tienen el mismo riesgo, cual elegirias y por que?',
     ],
     available: true,
@@ -1230,31 +1230,31 @@ const EXPERIMENTS: Experiment[] = [
           series: [{ key: 'expectedReturn', label: 'Rendimiento esperado', unit: 'percent' }],
         },
         highlights: [
-          { label: 'Mezcla de minima varianza', value: `${minVolWeight}% en el riesgoso` },
+          { label: 'Mezcla de mínima varianza', value: `${minVolWeight}% en el riesgoso` },
           { label: 'Riesgo en ese punto', value: pct(minVol * 100, 2) },
           { label: 'Solo activo seguro', value: pct(safeVol * 100, 2) },
         ],
         interpretation:
           minVolWeight > 0
-            ? `La mezcla de minimo riesgo NO es 100% activo seguro: es ${minVolWeight}% en el riesgoso, con ${pct(minVol * 100, 2)} de volatilidad frente al ${pct(safeVol * 100, 2)} del seguro solo. Agregar un poco de riesgo bajo el riesgo total, porque los dos activos no se mueven igual.`
-            : 'Con esta correlacion, la mezcla de minimo riesgo es quedarse en el activo seguro. Baja la correlacion hacia -1 y veras aparecer el efecto contrario.',
+            ? `La mezcla de mínimo riesgo NO es 100% activo seguro: es ${minVolWeight}% en el riesgoso, con ${pct(minVol * 100, 2)} de volatilidad frente al ${pct(safeVol * 100, 2)} del seguro solo. Agregar un poco de riesgo bajo el riesgo total, porque los dos activos no se mueven igual.`
+            : 'Con esta correlación, la mezcla de mínimo riesgo es quedarse en el activo seguro. Baja la correlación hacia -1 y veras aparecer el efecto contrario.',
       }
     },
   },
 
   {
     id: 'drawdown',
-    title: 'La asimetria de las perdidas',
+    title: 'La asimetria de las pérdidas',
     objective: 'Ver por que recuperar cuesta siempre mas que caer.',
     concept:
-      'Una caida y su recuperacion no son simetricas, porque la subida trabaja sobre el saldo mas pequeno que dejo la caida. Es aritmetica, no psicologia, y es la razon por la que evitar las caidas grandes importa mas que capturar las subidas.',
+      'Una caida y su recuperacion no son simetricas, porque la subida trabaja sobre el saldo mas pequeño que dejo la caida. Es aritmetica, no psicologia, y es la razón por la que evitar las caidas grandes importa mas que capturar las subidas.',
     params: DRAWDOWN_PARAMS,
     simulation:
-      'Para caidas de 5% a 95% se calcula la ganancia necesaria para volver al punto de partida, que es la caida dividida entre lo que queda despues de ella.',
+      'Para caidas de 5% a 95% se calcula la ganancia necesaria para volver al punto de partida, que es la caida dividida entre lo que queda después de ella.',
     questions: [
       'Cuanto necesitas para recuperarte de una caida del 50%? Y del 90%?',
       'A partir de que caida la recuperacion necesaria se dispara?',
-      'Que dice esto sobre el valor de limitar las perdidas?',
+      'Que dice esto sobre el valor de limitar las pérdidas?',
     ],
     available: true,
     run: (input) => {

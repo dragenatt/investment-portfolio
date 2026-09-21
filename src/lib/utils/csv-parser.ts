@@ -202,30 +202,30 @@ export function parseCSV(text: string): ParseResult {
 
     // Date
     const date = normalizeDate(raw.date ?? '')
-    if (!date) rowErrors.push('fecha invalida')
+    if (!date) rowErrors.push('fecha inválida')
 
     // Symbol
     const symbol = (raw.symbol ?? '').toUpperCase().trim()
     if (!symbol) rowErrors.push('simbolo vacio')
-    if (symbol && !/^[A-Z0-9.\-:=^]+$/.test(symbol)) rowErrors.push(`simbolo invalido: ${symbol}`)
+    if (symbol && !/^[A-Z0-9.\-:=^]+$/.test(symbol)) rowErrors.push(`simbolo inválido: ${symbol}`)
 
     // Type
     const typeRaw = (raw.type ?? '').toLowerCase().trim()
     const type = TYPE_ALIASES[typeRaw]
-    if (!type) rowErrors.push(`tipo invalido: "${raw.type}"`)
+    if (!type) rowErrors.push(`tipo inválido: "${raw.type}"`)
 
     // Quantity
     const quantity = parseNumber(raw.quantity ?? '')
-    if (quantity === null || quantity <= 0) rowErrors.push('cantidad invalida')
+    if (quantity === null || quantity <= 0) rowErrors.push('cantidad inválida')
 
     // Price
     const price = parseNumber(raw.price ?? '')
-    if (price === null || price <= 0) rowErrors.push('precio invalido')
+    if (price === null || price <= 0) rowErrors.push('precio inválido')
 
     // Fees (optional, default 0)
     const feesRaw = raw.fees ?? '0'
     const fees = parseNumber(feesRaw)
-    if (fees === null || fees < 0) rowErrors.push('comision invalida')
+    if (fees === null || fees < 0) rowErrors.push('comisión inválida')
 
     // Currency (optional, default USD)
     const currency = (raw.currency ?? 'USD').toUpperCase().trim()

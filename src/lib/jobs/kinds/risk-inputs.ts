@@ -128,7 +128,7 @@ export async function loadRiskInputs(supabase: SupabaseClient, pid: string): Pro
   const cadence = detectCadence(common.commonDates.map((date) => ({ date, close: 1 }))) ?? {
     daysPerBar: 1,
     periodsPerYear: TRADING_DAYS,
-    label: '1 dia',
+    label: '1 día',
   }
 
   return {

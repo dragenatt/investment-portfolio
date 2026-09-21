@@ -38,7 +38,7 @@ export const FRONTIER_CAVEAT =
   'Esta frontera se construye con rendimientos esperados ESTIMADOS a partir del pasado, y esa es la ' +
   'entrada mas debil de todo el modelo: el pasado no se repite y el optimizador es extremadamente ' +
   'sensible a ese supuesto — cambiar un punto porcentual en un activo puede reordenar la cartera ' +
-  '"optima" entera. La matriz de covarianza es mas estable que los rendimientos, asi que la forma de ' +
+  '"óptima" entera. La matriz de covarianza es mas estable que los rendimientos, asi que la forma de ' +
   'la curva es mas confiable que el punto exacto que senala. Usala para entender el intercambio entre ' +
   'riesgo y rendimiento, no como una instruccion de compra.'
 
@@ -431,12 +431,12 @@ export function efficientFrontier(
         returnGainedPct: returnGained,
         summary:
           volatilitySaved < 0.1 && returnGained < 0.1
-            ? 'Tu cartera ya esta practicamente sobre la frontera para estos supuestos: reordenar los pesos ' +
+            ? 'Tu cartera ya esta prácticamente sobre la frontera para estos supuestos: reordenar los pesos ' +
               'no compraria una mejora apreciable. Recuerda que eso depende de los rendimientos esperados ' +
-              'estimados, que son la parte mas fragil del calculo.'
+              'estimados, que son la parte mas fragil del cálculo.'
             : `Con estos supuestos, el mismo rendimiento esperado (${current.expectedReturnPct.toFixed(1)}%) ` +
-              `podria obtenerse con ${sameReturnVolatilityPct.toFixed(1)}% de volatilidad en vez de ` +
-              `${current.volatilityPct.toFixed(1)}%, o el mismo riesgo podria rendir ` +
+              `podría obtenerse con ${sameReturnVolatilityPct.toFixed(1)}% de volatilidad en vez de ` +
+              `${current.volatilityPct.toFixed(1)}%, o el mismo riesgo podría rendir ` +
               `${sameRiskReturnPct.toFixed(1)}% en vez de ${current.expectedReturnPct.toFixed(1)}%. ` +
               'Es un ejercicio con supuestos estimados, no una recomendacion.',
       }

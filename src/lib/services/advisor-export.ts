@@ -118,7 +118,7 @@ export type PlanExportInput = {
  * impossible to omit.
  */
 export const ADVERTENCIA_PLAN =
-  'Esta proyeccion es el resultado de un modelo, no una garantia de resultados. Ninguna de las cifras de este documento esta asegurada, ninguna constituye asesoria de inversion personalizada, y el rendimiento pasado o simulado no predice el futuro.'
+  'Esta proyección es el resultado de un modelo, no una garantía de resultados. Ninguna de las cifras de este documento esta asegurada, ninguna constituye asesoria de inversión personalizada, y el rendimiento pasado o simulado no predice el futuro.'
 
 /**
  * What the model leaves out entirely.
@@ -130,8 +130,8 @@ export const LIMITACIONES_MODELO: readonly string[] = [
   'Inflacion: no modelada. Todas las cifras son nominales, en pesos del año en que ocurren. Un millon dentro de veinte años compra bastante menos que un millon hoy, y esta es la mayor omision del modelo.',
   'Comisiones, spreads y costos de fondo: no modelados. Los rendimientos son brutos, y los costos reales los reducen.',
   'Impuestos: no modelados. No se descuenta ISR sobre ganancias ni retencion sobre intereses o dividendos.',
-  'Dividendos: el motor mide rendimiento de precio, no rendimiento total, asi que para activos con dividendo alto el rendimiento historico queda subestimado.',
-  'Los rendimientos simulados se sortean de una distribucion normal. Los mercados reales tienen colas mas gruesas: los episodios extremos ocurren mas a menudo de lo que este modelo supone.',
+  'Dividendos: el motor mide rendimiento de precio, no rendimiento total, asi que para activos con dividendo alto el rendimiento histórico queda subestimado.',
+  'Los rendimientos simulados se sortean de una distribución normal. Los mercados reales tienen colas mas gruesas: los episodios extremos ocurren mas a menudo de lo que este modelo supone.',
   'El rendimiento y la volatilidad de cada perfil son supuestos de la cartera modelo, no mediciones de tus posiciones reales.',
 ]
 
@@ -239,7 +239,7 @@ function construirSupuestos(input: PlanExportInput): Supuesto[] {
       fuente: ref,
     },
     {
-      concepto: 'Semilla de la simulacion',
+      concepto: 'Semilla de la simulación',
       valor: String(outcome.modelo.seed),
       tipo: 'derivado de tus entradas',
       fuente: 'La misma entrada produce el mismo resultado',
@@ -251,7 +251,7 @@ function construirSupuestos(input: PlanExportInput): Supuesto[] {
       fuente: ref,
     },
     {
-      concepto: 'Distribucion de rendimientos',
+      concepto: 'Distribución de rendimientos',
       valor: 'Normal, con piso en -99% anual',
       tipo: 'supuesto',
       fuente: ref,
@@ -322,7 +322,7 @@ export function planAMarkdown(plan: PlanExport): string {
   l.push('')
   l.push(
     plan.objetivo.monto === null
-      ? 'No se definio una meta. La proyeccion describe a donde llega el plan, sin juzgarlo contra una cifra.'
+      ? 'No se definio una meta. La proyección describe a donde llega el plan, sin juzgarlo contra una cifra.'
       : `Alcanzar ${money(plan.objetivo.monto)}, con una probabilidad objetivo del ${plan.objetivo.probabilidadObjetivoPct}%.`,
   )
   l.push('')
@@ -332,7 +332,7 @@ export function planAMarkdown(plan: PlanExport): string {
   l.push(`${trim(plan.horizonte.años)} años (${plan.horizonte.meses} meses).`)
   l.push('')
 
-  l.push('## Capital y aportacion')
+  l.push('## Capital y aportación')
   l.push('')
   l.push(`- Capital inicial: ${money(plan.capital.inicial)}`)
   l.push(`- Aportacion mensual: ${money(plan.aportacion.mensual)}`)
