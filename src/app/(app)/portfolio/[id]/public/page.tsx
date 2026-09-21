@@ -24,6 +24,7 @@ import { useTranslation } from '@/lib/i18n'
 import { changeTone, formatSignedPercent, toneTextClass } from '@/lib/utils/change-tone'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { positionInDisplayCurrency } from '@/lib/services/pnl'
+import { publicDisplayName } from '@/lib/services/discover'
 
 type PortfolioData = {
   id: string
@@ -35,8 +36,8 @@ type PortfolioData = {
   show_positions: boolean
   show_allocation: boolean
   user_id: string
+  // No email: the API never sends it, and this page has no business showing it.
   owner?: {
-    email: string
     username?: string
     display_name?: string
     avatar_url?: string
@@ -163,7 +164,10 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
   const showAmounts = portfolio.show_amounts !== false
   const showPositions = portfolio.show_positions !== false
   const showAllocation = portfolio.show_allocation !== false
-  const ownerName = portfolio.owner?.display_name || portfolio.owner?.username || portfolio.owner?.email || t.sharing.anonymous
+  // Never the email, and never a display name that is one: sign-up used to
+  // fall back to the address as the name (migration 028). The same guard
+  // Discover and the profile page use.
+  const ownerName = publicDisplayName(portfolio.owner?.display_name) || portfolio.owner?.username || t.sharing.anonymous
 
   return (
     <div className="space-y-6">
@@ -186,12 +190,16 @@ export default function PublicPortfolioPage({ params }: { params: Promise<{ id: 
           </Avatar>
           <div>
             <h1 className="text-2xl font-bold">{portfolio.name}</h1>
-            <Link
-              href={`/profile/${portfolio.owner?.username || portfolio.owner?.email}`}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              {t.sharing.by} {ownerName}
-            </Link>
+            {portfolio.owner?.username ? (
+              <Link
+                href={`/profile/${encodeURIComponent(portfolio.owner.username)}`}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                {t.sharing.by} {ownerName}
+              </Link>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t.sharing.by} {ownerName}</p>
+            )}
             {portfolio.description && (
               <p className="text-sm text-muted-foreground mt-1">{portfolio.description}</p>
             )}
