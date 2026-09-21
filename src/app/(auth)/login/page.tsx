@@ -1,8 +1,8 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -56,6 +56,9 @@ export default function LoginPage() {
           <CardDescription>{t.auth.login_desc}</CardDescription>
         </CardHeader>
         <CardContent>
+          <Suspense fallback={null}>
+            <ExpiredLinkNotice message={t.account.link_invalid} />
+          </Suspense>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">{t.auth.email}</Label>
@@ -66,8 +69,11 @@ export default function LoginPage() {
               {/* autoComplete is what a password manager and a phone keyboard
                   read to offer the saved credentials for this site. */}
               <Input id="password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required />
+              <Link href="/forgot-password" className="inline-block text-sm text-primary underline underline-offset-4">
+                {t.account.forgot_link}
+              </Link>
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? t.auth.signing_in : t.auth.sign_in}
             </Button>
@@ -79,4 +85,15 @@ export default function LoginPage() {
       </Card>
     </main>
   )
+}
+
+/**
+ * /auth/callback sends an expired, used or foreign-browser email link here
+ * with ?error=link. Only this notice reads the query, inside its own Suspense
+ * boundary, so the rest of the page still prerenders.
+ */
+function ExpiredLinkNotice({ message }: { message: string }) {
+  const params = useSearchParams()
+  if (params.get('error') !== 'link') return null
+  return <p role="alert" className="mb-4 text-sm text-destructive">{message}</p>
 }

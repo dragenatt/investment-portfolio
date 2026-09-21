@@ -151,3 +151,24 @@ describe('a path that is not a page', () => {
     expect(unknown.response.status).toBe(200)
   })
 })
+
+describe('the pages for someone who cannot sign in', () => {
+  it('lets the recovery pages and the email-link route through without a session', async () => {
+    auth.getUser.mockResolvedValue({ data: { user: null } })
+
+    for (const path of ['/forgot-password', '/reset-password', '/auth/callback?code=abc']) {
+      const { response } = await updateSession(request(path, ''))
+      expect(response.headers.get('location'), path).toBeNull()
+    }
+  })
+
+  it('hands a code that landed on the Site URL to the route that exchanges it', async () => {
+    // Supabase falls back to the Site URL when a link's redirect is not
+    // allow-listed, and "/" has nothing that would exchange the code.
+    const { response } = await updateSession(request('/?code=one-time', ''))
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe('https://app.example/auth/callback?code=one-time')
+    expect(auth.getUser).not.toHaveBeenCalled()
+  })
+})

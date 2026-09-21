@@ -65,7 +65,7 @@ test.describe('public pages', () => {
 })
 
 test.describe('the public pages render cleanly', () => {
-  for (const path of ['/', '/login', '/register']) {
+  for (const path of ['/', '/login', '/register', '/forgot-password', '/reset-password']) {
     test(`${path} has no broken values and no console errors`, async ({ page }) => {
       await page.goto(path)
       await expectNoBrokenNumbers(page)
@@ -83,6 +83,7 @@ test.describe('the public pages are navigable', () => {
     ['/login', /Iniciar sesión · InvestTracker/],
     ['/register', /Crear cuenta · InvestTracker/],
     ['/offline', /^Sin conexión · InvestTracker$/],
+    ['/forgot-password', /^Recuperar contraseña · InvestTracker$/],
   ]
 
   for (const [path, title] of titles) {
@@ -94,7 +95,7 @@ test.describe('the public pages are navigable', () => {
     })
   }
 
-  for (const path of ['/', '/login', '/register']) {
+  for (const path of ['/', '/login', '/register', '/forgot-password']) {
     test(`${path} has one main landmark and one h1`, async ({ page }) => {
       await page.goto(path)
       await expect(page.locator('main')).toHaveCount(1)

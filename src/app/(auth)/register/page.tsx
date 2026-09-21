@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link'
 import { useTranslation } from '@/lib/i18n'
 import { clearOfflineUserData } from '@/lib/pwa/offline-data'
+import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password'
 
 export default function RegisterPage() {
   const { t } = useTranslation()
@@ -30,7 +31,13 @@ export default function RegisterPage() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { display_name: displayName } },
+      options: {
+        data: { display_name: displayName },
+        // The confirmation link comes back through /auth/callback, which signs
+        // the new account in. Without it the link landed on the Site URL with
+        // a code nothing exchanged, and the person still had to sign in.
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+      },
     })
 
     if (error) {
@@ -79,7 +86,7 @@ export default function RegisterPage() {
               <Label htmlFor="password">{t.auth.password}</Label>
               {/* new-password, not current-password: this is what tells a
                   password manager to offer to generate and save one. */}
-              <Input id="password" type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+              <Input id="password" type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} required minLength={MIN_PASSWORD_LENGTH} />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             {success && (

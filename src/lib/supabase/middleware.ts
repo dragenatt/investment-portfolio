@@ -6,9 +6,10 @@ import { safeNextPath, loginUrlFor } from '@/lib/utils/safe-redirect'
 /**
  * Pages anyone may open without a session. `/offline` is what the service
  * worker shows for a page it never saved; it is fetched at install time,
- * signed in or not.
+ * signed in or not. The password-recovery pages and the route email links come
+ * back to are for exactly the person who cannot sign in.
  */
-const PUBLIC_PATHS = ['/', '/login', '/register', '/offline']
+const PUBLIC_PATHS = ['/', '/login', '/register', '/offline', '/forgot-password', '/reset-password', '/auth/callback']
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.includes(pathname)
@@ -129,6 +130,15 @@ export async function updateSession(
       },
     }
   )
+
+  // An email link whose redirect Supabase did not accept lands on the Site URL
+  // — this page — with its one-time code, which nothing here would exchange.
+  // Hand it to the route that does; it tells a recovery link from the rest.
+  if (request.nextUrl.pathname === '/' && request.nextUrl.searchParams.has('code')) {
+    const callback = new URL('/auth/callback', request.url)
+    callback.searchParams.set('code', request.nextUrl.searchParams.get('code')!)
+    return { response: NextResponse.redirect(callback), userId: null }
+  }
 
   // Always refresh the session — this keeps the JWT token alive
   // for both page routes AND API routes
