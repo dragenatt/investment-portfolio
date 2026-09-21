@@ -333,6 +333,12 @@ export async function computePortfolioSnapshot(
     .from('positions')
     .select('id, symbol, asset_type, quantity, avg_cost, currency')
     .eq('portfolio_id', portfolioId)
+    // Open positions only, like every route that values a book. A closed one
+    // adds nothing to value or cost, but it was counted: production stored
+    // position_count 18 for a book of 11 holdings, which Discover shows and
+    // its "minimum positions" filter reads — and each night it cost a quote
+    // request for a symbol nobody holds.
+    .gt('quantity', 0)
 
   if (posErr) {
     console.error(`[snapshots] Positions fetch failed for ${portfolioId}:`, posErr)

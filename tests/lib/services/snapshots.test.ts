@@ -10,7 +10,7 @@ function recordingClient(result: { data?: unknown; error?: unknown } = { data: n
   const client = {
     from(table: string) {
       const query: Record<string, unknown> = {}
-      for (const method of ['select', 'update', 'eq', 'is', 'order', 'gte', 'single', 'maybeSingle', 'in']) {
+      for (const method of ['select', 'update', 'eq', 'is', 'order', 'gte', 'gt', 'single', 'maybeSingle', 'in']) {
         query[method] = (...args: unknown[]) => {
           calls.push({ table, method, args })
           return query
@@ -57,6 +57,34 @@ describe('computePortfolioSnapshot', () => {
 
     const select = calls.find((c) => c.table === 'portfolios' && c.method === 'select')!
     expect(select.args[0]).toBe('id, name, currency:base_currency, user_id')
+  })
+
+  it('counts open positions, not every row a closed one left behind', async () => {
+    // Production stored position_count 18 for a book of 11 holdings: the
+    // query read closed positions too. Synthetic ids.
+    const calls: Array<{ table: string; method: string; args: unknown[] }> = []
+    const results: Record<string, unknown> = {
+      portfolios: { data: { id: 'p1', name: 'x', currency: 'MXN', user_id: 'u1' }, error: null },
+      positions: { data: [], error: null },
+    }
+    const client = {
+      from(table: string) {
+        const query: Record<string, unknown> = {}
+        for (const method of ['select', 'eq', 'is', 'gt', 'single', 'maybeSingle']) {
+          query[method] = (...args: unknown[]) => {
+            calls.push({ table, method, args })
+            return query
+          }
+        }
+        query.then = (resolve: (value: unknown) => unknown) => Promise.resolve(results[table]).then(resolve)
+        return query
+      },
+    }
+
+    const snapshot = await computePortfolioSnapshot(client as never, 'p1', '2026-09-21')
+
+    expect(calls).toContainEqual({ table: 'positions', method: 'gt', args: ['quantity', 0] })
+    expect(snapshot?.position_count).toBe(0)
   })
 })
 
