@@ -5,6 +5,7 @@
  */
 
 import { type SupabaseClient } from '@supabase/supabase-js'
+import { realSector } from './sectors'
 
 const ASSET_TYPE_NAMES: Record<string, string> = {
   stock: 'acciones',
@@ -56,15 +57,22 @@ export function evaluateConcentration(
   }
 
   // Rule 2: Sector > 50%
+  //
+  // Only real sectors. "ETF" and "Index" arrive in the sector field too, and
+  // they are wrappers, not industries: six broad index funds hold thousands of
+  // companies across every sector. Counting them as one warned users that
+  // their book was "92% in the ETF sector" — which is Rule 3's job, stated
+  // correctly, as an asset type.
   if (sectorMap) {
     const sectorTotals: Record<string, number> = {}
     for (const pos of positions) {
-      const sector = sectorMap[pos.symbol] ?? 'Unknown'
+      const sector = realSector(sectorMap[pos.symbol])
+      if (!sector) continue
       sectorTotals[sector] = (sectorTotals[sector] || 0) + pos.value
     }
     for (const [sector, value] of Object.entries(sectorTotals)) {
       const weight = value / totalValue
-      if (weight > 0.50 && sector !== 'Unknown') {
+      if (weight > 0.50) {
         alerts.push({
           portfolio_id: portfolioId,
           alert_type: 'sector_concentration',

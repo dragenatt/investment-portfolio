@@ -29,6 +29,7 @@
 import { calculateCovarianceMatrix } from './covariance'
 import { effectiveIndependentBets, jacobiEigen } from './pca'
 import { runFactorRegression } from './factors'
+import { realSector } from './sectors'
 
 export type RiskSourcesInput = {
   symbols: string[]
@@ -148,15 +149,9 @@ const ASSET_TYPE_LABELS: Record<string, string> = {
   commodity: 'Materias primas',
 }
 
-/** Values some company data carries in the sector field that are asset classes, not sectors. */
-const NOT_SECTORS = new Set(['etf', 'etfs', 'fund', 'funds', 'index', 'indices', 'mutual fund', 'n/a', 'na', 'none', 'unknown', '-'])
-
-/** A company sector worth grouping by, or null for an empty value or an asset class posing as one. */
-export function realSector(value: string | null | undefined): string | null {
-  const sector = value?.trim()
-  if (!sector || NOT_SECTORS.has(sector.toLowerCase())) return null
-  return sector
-}
+// Moved to sectors.ts so the concentration rule can use it without pulling in
+// the covariance and factor machinery; re-exported here for existing callers.
+export { realSector }
 
 /** The sector a holding is grouped under: the company's, else its asset type, else unclassified. */
 export function sectorLabel(companySector: string | null | undefined, assetType: string | null | undefined): string {

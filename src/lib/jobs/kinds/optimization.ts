@@ -1,3 +1,4 @@
+import { realSector } from '@/lib/services/sectors'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAdjustedPriceHistory } from '@/lib/services/price-history'
 import { alignCommonHistory } from '@/lib/services/common-history'
@@ -121,7 +122,9 @@ export async function computeOptimization(supabase: SupabaseClient, pid: string,
       .from('company_data')
       .select('symbol, sector')
       .in('symbol', activeSymbols)
-    const bySymbol = new Map((companies ?? []).map((c) => [c.symbol as string, (c.sector as string | null) ?? UNKNOWN_SECTOR]))
+    // A fund's "sector" (ETF, Index) is its wrapper, not an industry; it is
+    // grouped with the unclassified rather than capped as if it were one.
+    const bySymbol = new Map((companies ?? []).map((c) => [c.symbol as string, realSector(c.sector as string | null) ?? UNKNOWN_SECTOR]))
     sectors = activeSymbols.map((symbol) => bySymbol.get(symbol) ?? UNKNOWN_SECTOR)
   }
 
