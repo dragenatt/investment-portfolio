@@ -16,6 +16,7 @@ import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
 import { PortfolioChart, AllocationDonut } from '@/components/charts/lazy-charts'
 import { DataGate } from '@/components/shared/data-gate'
 import { useCurrency } from '@/lib/hooks/use-currency'
+import { withLivePoint } from '@/lib/services/live-point'
 
 export default function DashboardPage() {
   const { data: portfolios, isLoading, error, mutate } = usePortfolios()
@@ -46,6 +47,17 @@ export default function DashboardPage() {
   }
   const todayReturn = stats.todayReturn ?? stickyToday.value
   const todayReturnPct = stats.todayReturnPct ?? stickyToday.pct
+
+  // The chart ends at the value the header shows, so it moves with the same
+  // live prices (live-point.ts). Only once those prices have arrived — before
+  // that the total is valued at cost — and only when both are in one currency.
+  const chartSeries = useMemo(
+    () =>
+      livePrices && chartCurrency === displayCurrency
+        ? withLivePoint(chartData ?? [], stats.totalValue)
+        : (chartData ?? []),
+    [livePrices, chartCurrency, displayCurrency, chartData, stats.totalValue],
+  )
 
   const hasPortfolio = (portfolios?.length ?? 0) > 0
   const hasPosition = allSymbols.length > 0
@@ -111,7 +123,7 @@ export default function DashboardPage() {
       <DataGate error={chartError} hasData={!!chartData} what="la evolución del portafolio">
         <ErrorBoundary>
           <PortfolioChart
-            data={chartData ?? []}
+            data={chartSeries}
             isLoading={chartLoading}
             onPeriodChange={setChartRange}
             currency={chartCurrency}
