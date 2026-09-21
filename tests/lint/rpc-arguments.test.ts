@@ -148,13 +148,12 @@ function keysReturnedBy(builder: string): string[] | null {
 /**
  * Functions the app calls that no migration in this repository creates.
  *
- * soft_delete_portfolio exists in production and is referenced by migration
- * 020 and by docs/SECURITY_AUDIT.md, but nothing here ever CREATEs it — the
- * migrations do not fully describe the schema. Its arguments cannot be checked
- * against anything, which is exactly why the gap is written down instead of
- * skipped quietly. Add the missing definition and delete the entry.
+ * A function made by hand in production can have its arguments checked against
+ * nothing, which is why a gap goes here in writing instead of being skipped
+ * quietly. soft_delete_portfolio was the one entry until 014b wrote it down.
+ * Keep this empty: add the missing definition rather than an entry.
  */
-const UNDECLARED_IN_REPO = new Set(['soft_delete_portfolio'])
+const UNDECLARED_IN_REPO = new Set<string>()
 
 const declared = declaredParameters()
 const calls = rpcCalls()
