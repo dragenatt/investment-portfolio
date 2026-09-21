@@ -244,6 +244,14 @@
     "have_account": "¿Ya tienes cuenta?",
     "login_link": "Inicia sesión"
   },
+  "account": {
+    "security_title": "Cuenta y seguridad",
+    "sign_out_everywhere": "Cerrar sesión en todos los dispositivos",
+    "sign_out_everywhere_desc": "Cierra tu sesión aquí y en cualquier otro navegador o teléfono donde hayas entrado. Úsalo si perdiste un dispositivo o entraste desde uno que no es tuyo. El botón de salir del menú cierra solo este.",
+    "sign_out_everywhere_confirm": "¿Cerrar sesión en todos tus dispositivos? Tendrás que volver a entrar en cada uno.",
+    "signing_out": "Cerrando sesión...",
+    "sign_out_failed": "No se pudo cerrar la sesión en los demás dispositivos. Inténtalo de nuevo."
+  },
   "advisor": {
     "title": "Asesor de Inversión",
     "description": "Responde estas preguntas para conocer tu perfil de inversionista y recibir recomendaciones personalizadas",

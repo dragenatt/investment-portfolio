@@ -34,7 +34,10 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   }, [supabase])
 
   async function handleLogout() {
-    await supabase.auth.signOut()
+    // This device only. Supabase's default scope is global, so signing out of a
+    // phone used to sign the laptop out too; ending every session is its own
+    // action, in Settings → Cuenta y seguridad.
+    await supabase.auth.signOut({ scope: 'local' })
     // The saved pages and API responses are this user's portfolio.
     await clearOfflineUserData()
     router.push('/login')

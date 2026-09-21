@@ -17,6 +17,7 @@ import { setKeyboardShortcutsEnabled, useKeyboardShortcutsEnabled } from '@/lib/
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { cn } from '@/lib/utils'
+import { AccountSecurity } from '@/components/settings/account-security'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(r => {
   if (r.error) throw new Error(r.error)
@@ -75,6 +76,8 @@ export default function SettingsPage() {
           <Button className="rounded-xl" onClick={saveProfile}>{t.settings.save_profile}</Button>
         </CardContent>
       </Card>
+
+      <AccountSecurity />
 
       <Card className="rounded-2xl border-border shadow-sm">
         <CardHeader><CardTitle className="text-xl">{t.settings.preferences}</CardTitle></CardHeader>

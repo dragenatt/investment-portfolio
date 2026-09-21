@@ -244,6 +244,14 @@
     "have_account": "Already have an account?",
     "login_link": "Sign in"
   },
+  "account": {
+    "security_title": "Account & security",
+    "sign_out_everywhere": "Sign out on every device",
+    "sign_out_everywhere_desc": "Ends your session here and in any other browser or phone you have signed in on. Use it if you lost a device or signed in on one that is not yours. The sign-out button in the menu only signs out this one.",
+    "sign_out_everywhere_confirm": "Sign out on all your devices? You will have to sign in again on each one.",
+    "signing_out": "Signing out...",
+    "sign_out_failed": "Could not sign out your other devices. Try again."
+  },
   "advisor": {
     "title": "Investment Advisor",
     "description": "Answer these questions to learn your investor profile and receive personalized recommendations",
