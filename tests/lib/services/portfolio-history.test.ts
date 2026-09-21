@@ -4,6 +4,8 @@ import {
   buildDailyTimeline,
   reconstructBookHistory,
   snapshotsCoverWindow,
+  chartCurrency,
+  snapshotsInCurrency,
   type BookTransaction,
 } from '@/lib/services/portfolio-history'
 import { calculateTWR, calculateMWR } from '@/lib/services/returns'
@@ -306,5 +308,32 @@ describe('snapshotsCoverWindow', () => {
   it('needs every portfolio, not just one', () => {
     expect(snapshotsCoverWindow(nights('a', ['2026-08-16']), ['a', 'b'], '2026-08-16')).toBe(false)
     expect(snapshotsCoverWindow([], [], '2026-08-16')).toBe(false)
+  })
+})
+
+describe('chartCurrency', () => {
+  it('draws the chart in the currency the screen asks for', () => {
+    expect(chartCurrency('usd', 'MXN', 'MXN')).toBe('USD')
+  })
+
+  it('falls back to the saved preference, then the book', () => {
+    expect(chartCurrency(null, 'EUR', 'MXN')).toBe('EUR')
+    expect(chartCurrency(null, null, 'mxn')).toBe('MXN')
+    expect(chartCurrency(undefined, undefined, undefined)).toBe('USD')
+  })
+
+  it('ignores something that is not a currency code', () => {
+    expect(chartCurrency('pesos', 'MXN', 'USD')).toBe('MXN')
+  })
+})
+
+describe('snapshotsInCurrency', () => {
+  it('sums stored snapshots only when every book is in the chart currency', () => {
+    expect(snapshotsInCurrency([{ base_currency: 'MXN' }, { base_currency: 'mxn' }], 'MXN')).toBe(true)
+    // A USD book and an MXN book added together are in no currency at all.
+    expect(snapshotsInCurrency([{ base_currency: 'MXN' }, { base_currency: 'USD' }], 'MXN')).toBe(false)
+    // One currency, but not the one the reader is looking at.
+    expect(snapshotsInCurrency([{ base_currency: 'MXN' }], 'USD')).toBe(false)
+    expect(snapshotsInCurrency([], 'USD')).toBe(false)
   })
 })

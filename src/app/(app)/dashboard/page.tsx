@@ -15,11 +15,13 @@ import { useMemo, useState } from 'react'
 import { usePortfolioHistory } from '@/lib/hooks/use-portfolio-history'
 import { PortfolioChart, AllocationDonut } from '@/components/charts/lazy-charts'
 import { DataGate } from '@/components/shared/data-gate'
+import { useCurrency } from '@/lib/hooks/use-currency'
 
 export default function DashboardPage() {
   const { data: portfolios, isLoading, error, mutate } = usePortfolios()
   const [chartRange, setChartRange] = useState('30')
-  const { data: chartData, isLoading: chartLoading, error: chartError, currency: chartCurrency, unconverted } = usePortfolioHistory(chartRange)
+  const { currency: displayCurrency } = useCurrency()
+  const { data: chartData, isLoading: chartLoading, error: chartError, currency: chartCurrency, unconverted } = usePortfolioHistory(chartRange, displayCurrency)
 
   const allSymbols = useMemo(() => {
     if (!portfolios) return []

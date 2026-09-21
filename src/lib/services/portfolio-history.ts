@@ -179,6 +179,40 @@ export function snapshotsCoverWindow(
   })
 }
 
+const CURRENCY_CODE = /^[A-Z]{3}$/
+
+/**
+ * The currency the value chart is drawn in: the one the reader is looking at.
+ *
+ * The screen says which (`requested`, from the display-currency selector),
+ * because the chart sits under a header already converted to it and the two
+ * must be the same unit. Without it, the saved preference; without that, the
+ * book's own currency. The route used to look the preference up by a column
+ * profiles does not have, so it always fell through to the book's currency and
+ * drew pesos under a header in dollars.
+ */
+export function chartCurrency(
+  requested: string | null | undefined,
+  savedPreference: string | null | undefined,
+  bookCurrency: string | null | undefined,
+): string {
+  const asked = requested?.trim().toUpperCase()
+  if (asked && CURRENCY_CODE.test(asked)) return asked
+  return String(savedPreference || bookCurrency || 'USD').toUpperCase()
+}
+
+/**
+ * Whether stored snapshots can be summed into a chart in `currency` as they are.
+ *
+ * Each snapshot is valued in its own portfolio's base currency (migration 024).
+ * Adding them up is only a sum in one unit when every portfolio shares that
+ * currency and it is the one the chart is drawn in; otherwise the book is
+ * rebuilt and converted date by date instead.
+ */
+export function snapshotsInCurrency(portfolios: Array<{ base_currency?: string | null }>, currency: string): boolean {
+  return portfolios.length > 0 && portfolios.every((p) => String(p.base_currency ?? 'USD').toUpperCase() === currency)
+}
+
 function findLastKnownPrice(prices: Record<string, number>, targetDate: string): number {
   const dates = Object.keys(prices).filter(d => d <= targetDate).sort()
   return dates.length > 0 ? prices[dates[dates.length - 1]] : 0

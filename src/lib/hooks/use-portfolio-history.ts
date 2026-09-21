@@ -9,9 +9,8 @@ export type HistoryDataPoint = { date: string; value: number; normalized?: numbe
  *
  * It did not, and the chart drew a sum of provider closes — dollars, pesos,
  * reais and yen added together — under a header already converted to the
- * reader's currency. `currency: null` means the figures were NOT converted,
- * which the nightly-snapshot branch is honest enough to say rather than claim
- * a unit nobody applied.
+ * reader's currency. `currency: null` would mean the figures were NOT
+ * converted; every branch now answers in the currency it was asked for.
  */
 export type PortfolioHistoryResponse = {
   timeline: Array<{ date: string; value: number; normalized?: number }>
@@ -25,9 +24,14 @@ export type PortfolioHistoryResponse = {
   unconverted?: string[] | null
 }
 
-export function usePortfolioHistory(range: string) {
+/**
+ * `currency` is the display currency the rest of the screen is in. It is part
+ * of the request, so the series comes back in the same unit as the header
+ * above it, and changing the currency asks for the series again.
+ */
+export function usePortfolioHistory(range: string, currency: string) {
   const { data, ...rest } = useSWR<PortfolioHistoryResponse>(
-    `/api/portfolio/history?range=${range}`,
+    `/api/portfolio/history?range=${range}&currency=${encodeURIComponent(currency)}`,
     apiFetcher,
     { refreshInterval: 60_000 }
   )

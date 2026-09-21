@@ -3,7 +3,14 @@ import { success, error } from '@/lib/api/response'
 import { rateLimit } from '@/lib/api/rate-limit'
 import { cacheGet, cacheSet } from '@/lib/cache/redis'
 import { getHistory } from '@/lib/services/market'
-import { computeDailyPositions, buildDailyTimeline, snapshotsCoverWindow, type DailySnapshot } from '@/lib/services/portfolio-history'
+import {
+  computeDailyPositions,
+  buildDailyTimeline,
+  snapshotsCoverWindow,
+  chartCurrency,
+  snapshotsInCurrency,
+  type DailySnapshot,
+} from '@/lib/services/portfolio-history'
 import { buildIntradayTimeline, MIN_INTRADAY_POINTS, type IntradayBar } from '@/lib/services/portfolio-intraday'
 import { lastSettledSession, topUpStoredHistory, writeThrough, isDailyRange } from '@/lib/services/price-history'
 import type { Conversion } from '@/lib/services/fx'
@@ -88,18 +95,25 @@ async function fetchIntradayBars(symbols: string[], range: string): Promise<Reco
   return bars
 }
 
-/** The currency the reader is looking at: their saved preference, else the book's. */
+/**
+ * The currency the reader is looking at (chartCurrency): the one the screen
+ * asks for, else the saved preference, else the book's. The preference used to
+ * be read with .eq('id', …) — profiles has no `id` column, so the read failed
+ * every time and the chart was always in the book's currency.
+ */
 async function displayCurrency(
   supabase: Awaited<ReturnType<typeof createServerSupabase>>,
   userId: string,
+  requested: string | null,
   portfolioCurrency: string | null,
 ): Promise<string> {
+  if (requested) return chartCurrency(requested, null, portfolioCurrency)
   const { data: profile } = await supabase
     .from('profiles')
     .select('base_currency')
-    .eq('id', userId)
+    .eq('user_id', userId)
     .maybeSingle()
-  return String(profile?.base_currency || portfolioCurrency || 'USD').toUpperCase()
+  return chartCurrency(null, profile?.base_currency, portfolioCurrency)
 }
 
 /** Today, UTC. */
@@ -132,11 +146,6 @@ async function getHandler(req: Request) {
   const url = new URL(req.url)
   const range = url.searchParams.get('range') || '30'
 
-  // Check Redis cache (5 min TTL — this is a heavy computation)
-  const cacheKey = `portfolio:history:${user.id}:${range}`
-  const cached = await cacheGet<Array<Record<string, unknown>>>(cacheKey)
-  if (cached) return success(cached)
-
   const { data: portfolios } = await supabase
     .from('portfolios')
     .select('id, base_currency')
@@ -145,7 +154,13 @@ async function getHandler(req: Request) {
   if (!portfolios || portfolios.length === 0) return success({ timeline: [], currency: 'USD', currencies: ['USD'], unconverted: null })
 
   const portfolioIds = portfolios.map(p => p.id)
-  const base = await displayCurrency(supabase, user.id, portfolios[0]?.base_currency ?? null)
+  const base = await displayCurrency(supabase, user.id, url.searchParams.get('currency'), portfolios[0]?.base_currency ?? null)
+
+  // Check Redis cache (5 min TTL — this is a heavy computation). Keyed by the
+  // currency too: switching the display currency served the other one's series.
+  const cacheKey = `portfolio:history:${user.id}:${range}:${base}`
+  const cached = await cacheGet<Array<Record<string, unknown>>>(cacheKey)
+  if (cached) return success(cached)
 
   // Compute cutoff date for range filtering
   const rangeDays = range === 'max' ? 3650 : (parseInt(range) || 30)
@@ -244,7 +259,9 @@ async function getHandler(req: Request) {
     .gte('valuation_version', SNAPSHOT_VALUATION_VERSION)
     .order('snapshot_date', { ascending: true })
 
-  if (snapshotData && snapshotsCoverWindow(snapshotData, portfolioIds, cutoffStr)) {
+  // Only when summing them is a sum in one unit, and that unit is the chart's:
+  // each snapshot is in its own portfolio's base currency.
+  if (snapshotData && snapshotsInCurrency(portfolios, base) && snapshotsCoverWindow(snapshotData, portfolioIds, cutoffStr)) {
     // Aggregate across portfolios by date
     const dateValues: Record<string, number> = {}
     for (const snap of snapshotData) {
@@ -277,12 +294,10 @@ async function getHandler(req: Request) {
       benchmark: benchmarkData,
       benchmarkSymbol: 'SPY',
       source: 'snapshots',
-      // Nightly snapshots are stored as computePortfolioSnapshot summed them,
-      // which does not convert either. Labelled `null` rather than guessed at
-      // the reader's currency: saying "MXN" over a figure nobody converted
-      // would be the very mistake this change exists to stop.
-      currency: null,
-      currencies: null,
+      // Every portfolio is valued in `base` (snapshotsInCurrency), so the sum
+      // is in it too.
+      currency: base,
+      currencies: [base],
       unconverted: null,
     }
 
