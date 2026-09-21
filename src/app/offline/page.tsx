@@ -9,7 +9,8 @@ import { RetryButton } from './retry-button'
 // page that was asked for, which is what "Reintentar" reloads.
 
 export const metadata: Metadata = {
-  title: 'Sin conexión — InvestTracker',
+  // The root template adds " · InvestTracker".
+  title: 'Sin conexión',
   robots: { index: false },
 }
 

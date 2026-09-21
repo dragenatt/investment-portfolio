@@ -9,7 +9,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const decodedSymbol = decodeURIComponent(symbol)
 
   return {
-    title: `${decodedSymbol} — InvestTracker`,
+    // The root layout's template adds " · InvestTracker"; the brand here would
+    // have read "VOO — InvestTracker · InvestTracker" in the tab. Open Graph and
+    // Twitter titles are not templated, so they keep it.
+    title: decodedSymbol,
     description: `Cotización en tiempo real de ${decodedSymbol}, gráficas históricas y análisis fundamental.`,
     openGraph: {
       type: 'website',

@@ -82,12 +82,15 @@ test.describe('the public pages are navigable', () => {
     ['/', /InvestTracker/],
     ['/login', /Iniciar sesión · InvestTracker/],
     ['/register', /Crear cuenta · InvestTracker/],
+    ['/offline', /^Sin conexión · InvestTracker$/],
   ]
 
   for (const [path, title] of titles) {
     test(`${path} says what page it is`, async ({ page }) => {
       await page.goto(path)
       await expect(page).toHaveTitle(title)
+      // A page that still names the brand itself gets it twice from the template.
+      await expect(page).not.toHaveTitle(/InvestTracker.*InvestTracker/)
     })
   }
 
