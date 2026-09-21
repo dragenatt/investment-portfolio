@@ -9,9 +9,10 @@ import { join } from 'node:path'
 // All three reported a ~94% loss on a healthy book, because seventeen is the
 // peso-dollar rate.
 //
-// positionValuation() takes three plain numbers and cannot know what they are
-// denominated in. UI code has to go through positionInDisplayCurrency(), which
-// takes the currencies and a converter. This keeps it that way.
+// positionValuation() and aggregatePositionValues() take plain numbers and
+// cannot know what they are denominated in. Screens go through
+// positionInDisplayCurrency() and routes through valueBookInBase(), which take
+// the currencies. This covers src/app — routes included — and src/components.
 
 const UI = [join(process.cwd(), 'src', 'app'), join(process.cwd(), 'src', 'components')]
 
@@ -31,12 +32,18 @@ describe('a screen never values a position in two currencies at once', () => {
     expect(files.length).toBeGreaterThan(50)
   })
 
-  it('leaves positionValuation to the code that knows the currencies', () => {
-    const offenders = files.filter((file) => readFileSync(file, 'utf8').includes('positionValuation('))
+  // Both take bare numbers and cannot know what they are denominated in.
+  // /api/dashboard/summary called the second one, summed dollars with pesos
+  // and answered −94% — which the first version of this guard, watching only
+  // positionValuation, let through.
+  for (const blind of ['positionValuation(', 'aggregatePositionValues(']) {
+    it(`leaves ${blind.slice(0, -1)} to the code that knows the currencies`, () => {
+      const offenders = files.filter((file) => readFileSync(file, 'utf8').includes(blind))
 
-    expect(
-      offenders.map((f) => f.replace(process.cwd(), '').split(String.fromCharCode(92)).join('/')),
-      'call positionInDisplayCurrency instead — it takes the cost and price currencies',
-    ).toEqual([])
-  })
+      expect(
+        offenders.map((f) => f.replace(process.cwd(), '').split(String.fromCharCode(92)).join('/')),
+        'value the book with positionInDisplayCurrency (screens) or valueBookInBase (routes)',
+      ).toEqual([])
+    })
+  }
 })
