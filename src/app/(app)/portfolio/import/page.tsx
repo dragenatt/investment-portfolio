@@ -21,10 +21,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Upload, FileText, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react'
+import { Upload, FileText, AlertCircle, AlertTriangle, CheckCircle2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { useTranslation } from '@/lib/i18n'
+import { checkSymbols, quoteCandidates, type SymbolCheck } from '@/lib/utils/symbol-check'
 
 type ImportState = 'upload' | 'preview' | 'importing' | 'done'
 
@@ -37,7 +38,50 @@ export default function ImportCSVPage() {
   const [parseErrors, setParseErrors] = useState<string[]>([])
   const [importResult, setImportResult] = useState<{ imported: number; errors: string[] } | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [symbolCheck, setSymbolCheck] = useState<SymbolCheck | null>(null)
+  const [checkingSymbols, setCheckingSymbols] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Before anything is written, ask the quote service about every symbol in
+  // the file (symbol-check.ts). A symbol no provider knows is imported and
+  // then valued at its cost forever, with nothing on screen saying why.
+  const verifySymbols = useCallback(async (parsed: CSVRow[]) => {
+    const symbols = [...new Set(parsed.map((row) => row.symbol))]
+    if (symbols.length === 0) {
+      setSymbolCheck(null)
+      return
+    }
+    setCheckingSymbols(true)
+    try {
+      const candidates = [...new Set(symbols.flatMap(quoteCandidates))]
+      const quotes: Record<string, { price: number | null }> = {}
+      // The batch route answers at most 100 symbols per request.
+      for (let i = 0; i < candidates.length; i += 100) {
+        const chunk = candidates.slice(i, i + 100)
+        const res = await fetch(`/api/market/batch?symbols=${encodeURIComponent(chunk.join(','))}`)
+        const json = await res.json()
+        Object.assign(quotes, json.data ?? {})
+      }
+      setSymbolCheck(checkSymbols(symbols, quotes))
+    } catch {
+      // A check that failed says nothing about the symbols, and the import is
+      // not held up by it.
+      setSymbolCheck(null)
+    } finally {
+      setCheckingSymbols(false)
+    }
+  }, [])
+
+  const applySuggestions = () => {
+    if (!symbolCheck) return
+    const { suggestions } = symbolCheck
+    setRows((current) => current.map((row) => (suggestions[row.symbol] ? { ...row, symbol: suggestions[row.symbol] } : row)))
+    setSymbolCheck({
+      quoted: [...symbolCheck.quoted, ...Object.values(suggestions)],
+      suggestions: {},
+      unknown: symbolCheck.unknown,
+    })
+  }
 
   const handleFile = useCallback((file: File) => {
     if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -52,12 +96,13 @@ export default function ImportCSVPage() {
       setRows(result.rows)
       setParseErrors(result.errors)
       setState('preview')
+      void verifySymbols(result.rows)
     }
     reader.onerror = () => {
       setParseErrors([t.common.error_occurred])
     }
     reader.readAsText(file, 'utf-8')
-  }, [t.portfolio.import_csv_title, t.common.error_occurred])
+  }, [t.portfolio.import_csv_title, t.common.error_occurred, verifySymbols])
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -108,6 +153,7 @@ export default function ImportCSVPage() {
     setRows([])
     setParseErrors([])
     setImportResult(null)
+    setSymbolCheck(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -233,6 +279,47 @@ export default function ImportCSVPage() {
                     <li key={i}>{err}</li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {/* Symbols no provider can price */}
+            {checkingSymbols && (
+              <p className="text-sm text-muted-foreground">Revisando que cada símbolo tenga cotización…</p>
+            )}
+            {symbolCheck && (Object.keys(symbolCheck.suggestions).length > 0 || symbolCheck.unknown.length > 0) && (
+              <div role="status" className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-300">
+                  <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                  Símbolos sin cotización ({Object.keys(symbolCheck.suggestions).length + symbolCheck.unknown.length})
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Ningún proveedor de precios los reconoce tal como vienen en el archivo. Importados así, se valúan a
+                  su costo para siempre: sin precio, sin rendimiento y sin gráfica.
+                </p>
+                {Object.keys(symbolCheck.suggestions).length > 0 && (
+                  <div className="space-y-2">
+                    <ul className="space-y-1 text-sm">
+                      {Object.entries(symbolCheck.suggestions).map(([from, to]) => (
+                        <li key={from}>
+                          <span className="font-medium">{from}</span> se encontró como{' '}
+                          <span className="font-medium">{to}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button size="sm" variant="outline" onClick={applySuggestions}>
+                      Usar los símbolos sugeridos
+                    </Button>
+                  </div>
+                )}
+                {symbolCheck.unknown.length > 0 && (
+                  <ul className="space-y-1 text-sm">
+                    {symbolCheck.unknown.map((symbol) => (
+                      <li key={symbol}>
+                        <span className="font-medium">{symbol}</span>: no se encontró en ningún mercado.
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
 
