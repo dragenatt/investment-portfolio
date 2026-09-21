@@ -277,6 +277,44 @@ export function capitalWeightedAgeDays(flows: CashFlow[], endDate: Date): number
   return Number.isFinite(age) ? age : null
 }
 
+/** A year, in the days capitalWeightedAgeDays measures in. */
+const DAYS_PER_YEAR = 365
+
+export type MwrDisplay = {
+  /** The figure to show, as a percentage. */
+  value: number
+  /** True when `value` is an annual rate; false when it covers `days` only. */
+  annualised: boolean
+  /** The span a non-annualised figure covers. Null when annualised. */
+  days: number | null
+}
+
+/**
+ * The money-weighted return as it should be shown.
+ *
+ * XIRR is always an annual rate. On capital that has been invested for a year
+ * or more that is the honest figure. On capital three days old it is three
+ * days' return raised to the power of a year: production showed a book up
+ * 0.63% as "MWR +115.67% — Tu rendimiento real", next to a simple return of
+ * +0.63% under the same "1Y" label. The global standard for performance
+ * reporting (GIPS) says it flatly: returns for periods under a year must not
+ * be annualised.
+ *
+ * So under a year the rate is taken back to the span the capital has actually
+ * been invested — the inverse of the annualisation XIRR applied — and labelled
+ * with that span. Null in, null out: no history is not a return of zero.
+ */
+export function mwrForDisplay(mwr: number | null | undefined, capitalAgeDays: number | null | undefined): MwrDisplay | null {
+  if (mwr == null || !Number.isFinite(mwr)) return null
+  if (capitalAgeDays == null || !(capitalAgeDays > 0) || capitalAgeDays >= DAYS_PER_YEAR) {
+    return { value: mwr, annualised: true, days: null }
+  }
+  const growth = 1 + mwr / 100
+  if (!(growth > 0)) return { value: mwr, annualised: true, days: null }
+  const periodReturn = (Math.pow(growth, capitalAgeDays / DAYS_PER_YEAR) - 1) * 100
+  return { value: periodReturn, annualised: false, days: capitalAgeDays }
+}
+
 // ─── Calendar returns ───────────────────────────────────────────────────────
 
 export type CalendarYear = {

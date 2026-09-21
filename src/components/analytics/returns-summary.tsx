@@ -2,17 +2,20 @@
 
 import { Card, CardContent } from '@/components/ui/card'
 import { FinanceTooltip } from '@/components/shared/finance-tooltip'
-import {} from '@/lib/utils/numbers'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Calculator, TrendingUp, Wallet } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { changeTone, formatSignedPercent, toneColor } from '@/lib/utils/change-tone'
+import { mwrForDisplay } from '@/lib/services/returns'
 
 type Props = {
   simple: number
-  twr: number
-  mwr: number
+  /** Null means "not enough history to say" — shown as such, never as 0.00%. */
+  twr: number | null
+  mwr: number | null
   period: string
+  /** How long the money has been invested, weighted by size (returns route). */
+  capitalAgeDays?: number | null
   isLoading?: boolean
 }
 
@@ -22,15 +25,19 @@ type MetricDef = {
   tooltipTerm: string
   subtitle: string
   icon: LucideIcon
-  value: number
+  value: number | null
+  /** What the small label under the figure says; the period by default. */
+  span?: string
 }
 
-// Zero and anything that rounds to 0.00% is neutral, not a gain (C9).
-function colorForValue(value: number) {
-  return toneColor(changeTone(value, 2))
+// Zero and anything that rounds to 0.00% is neutral, not a gain (C9). No
+// figure at all is neutral too.
+function colorForValue(value: number | null) {
+  return value == null ? 'var(--muted-foreground)' : toneColor(changeTone(value, 2))
 }
 
-function bgForValue(value: number) {
+function bgForValue(value: number | null) {
+  if (value == null) return 'color-mix(in srgb, var(--muted-foreground) 10%, transparent)'
   return value >= 0
     ? 'color-mix(in srgb, var(--good) 10%, transparent)'
     : 'color-mix(in srgb, var(--bad) 10%, transparent)'
@@ -52,7 +59,13 @@ function ReturnCardSkeleton() {
   )
 }
 
-export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
+/** A span in days, the way a reader says it. */
+function daysLabel(days: number): string {
+  const whole = Math.max(1, Math.round(days))
+  return whole === 1 ? '1 día' : `${whole} días`
+}
+
+export function ReturnsSummary({ simple, twr, mwr, period, capitalAgeDays, isLoading }: Props) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -63,12 +76,17 @@ export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
     )
   }
 
+  // Under a year the money-weighted return is shown for the span the capital
+  // has actually been invested, not raised to an annual rate (GIPS). The card
+  // said "+115.67%" for a book three days old and up 0.63%.
+  const moneyWeighted = mwrForDisplay(mwr, capitalAgeDays)
+
   const metrics: MetricDef[] = [
     {
       key: 'simple',
       label: 'Retorno Simple',
       tooltipTerm: 'Retorno Simple',
-      subtitle: 'Ganancia directa sobre tu inversion',
+      subtitle: 'Ganancia directa sobre tu inversión',
       icon: Calculator,
       value: simple,
     },
@@ -76,7 +94,7 @@ export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
       key: 'twr',
       label: 'TWR',
       tooltipTerm: 'TWR',
-      subtitle: 'Rendimiento de la estrategia, sin importar depositos',
+      subtitle: twr == null ? 'Aún no hay historia suficiente para medirlo' : 'Rendimiento de la estrategia, sin importar depósitos',
       icon: TrendingUp,
       value: twr,
     },
@@ -84,9 +102,16 @@ export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
       key: 'mwr',
       label: 'MWR',
       tooltipTerm: 'MWR',
-      subtitle: 'Tu rendimiento real, considerando timing de depositos',
+      subtitle:
+        moneyWeighted == null
+          ? 'Aún no hay historia suficiente para medirlo'
+          : 'Tu rendimiento real, considerando cuándo depositaste',
       icon: Wallet,
-      value: mwr,
+      value: moneyWeighted?.value ?? null,
+      span:
+        moneyWeighted && !moneyWeighted.annualised && moneyWeighted.days != null
+          ? `en ${daysLabel(moneyWeighted.days)} · sin anualizar`
+          : undefined,
     },
   ]
 
@@ -125,7 +150,7 @@ export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
                 className="font-bold font-financial"
                 style={{ fontSize: '22px', color }}
               >
-                {formatSignedPercent(metric.value, 2)}
+                {metric.value == null ? '--' : formatSignedPercent(metric.value, 2)}
               </p>
 
               <p
@@ -145,7 +170,7 @@ export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
                     color,
                   }}
                 >
-                  {formatSignedPercent(metric.value, 2)}
+                  {metric.value == null ? '--' : formatSignedPercent(metric.value, 2)}
                 </span>
               </div>
 
@@ -153,7 +178,7 @@ export function ReturnsSummary({ simple, twr, mwr, period, isLoading }: Props) {
                 className="mt-2"
                 style={{ fontSize: '11px', fontWeight: 500, color: 'var(--muted-foreground)' }}
               >
-                {period}
+                {metric.span ?? period}
               </p>
             </CardContent>
           </Card>

@@ -100,8 +100,12 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           <ErrorBoundary>
             <ReturnsSummary
               simple={returns?.summary?.simple ?? 0}
-              twr={returns?.summary?.twr ?? 0}
-              mwr={returns?.summary?.mwr ?? 0}
+              // Null is the route's way of saying "not enough history"; turning
+              // it into 0 showed a measured-looking 0.00% for a figure nobody
+              // could compute.
+              twr={returns?.summary?.twr ?? null}
+              mwr={returns?.summary?.mwr ?? null}
+              capitalAgeDays={returns?.summary?.capital_age_days ?? null}
               period={returns?.summary?.period ?? ''}
               isLoading={returnsLoading}
             />
