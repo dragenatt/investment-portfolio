@@ -112,7 +112,7 @@ export function TransactionEditModal({ transaction, open, onOpenChange }: Props)
             </div>
           </div>
           <div>
-            <Label htmlFor="tx-edit-executed-at">Fecha de ejecucion</Label>
+            <Label htmlFor="tx-edit-executed-at">Fecha de ejecución</Label>
             <Input id="tx-edit-executed-at" type="datetime-local" value={form.executed_at} onChange={e => setForm(f => ({ ...f, executed_at: e.target.value }))} />
           </div>
           <div>

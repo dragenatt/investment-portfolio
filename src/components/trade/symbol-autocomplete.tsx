@@ -178,7 +178,7 @@ export function SymbolAutocomplete({ value, onSelect, placeholder, autoFocus, id
         }}
         onFocus={() => setIsDropdownOpen(true)}
         onKeyDown={handleKeyDown}
-        placeholder={placeholder ?? 'Buscar por nombre o simbolo...'}
+        placeholder={placeholder ?? 'Buscar por nombre o símbolo...'}
         autoFocus={autoFocus}
         className="h-11 text-base"
       />

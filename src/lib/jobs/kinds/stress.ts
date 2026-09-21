@@ -135,7 +135,7 @@ export async function computeStress(supabase: SupabaseClient, pid: string, _para
     // measured on month boundaries and understates the true extreme
     // slightly. Said out loud rather than left for someone to discover.
     granularity_note:
-      'Los episodios anteriores a 2020 se miden con barras mensuales, que es lo mas fino que entrega el proveedor para rangos de decadas. La caida real entre el pico y el valle exactos fue algo mayor que la que se muestra.',
+      'Los episodios anteriores a 2020 se miden con barras mensuales, que es lo más fino que entrega el proveedor para rangos de décadas. La caída real entre el pico y el valle exactos fue algo mayor que la que se muestra.',
     results: results.map((result) => ({
       ...result,
       summary: describeStressResult(result),

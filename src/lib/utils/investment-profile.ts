@@ -236,19 +236,19 @@ export function obtenerRecomendacion(
   const p = prob.toFixed(0)
 
   if (aporteSugerido === null) {
-    return `Bajo estos supuestos el modelo estima ${p}% de probabilidad, y ningun aporte razonable alcanza la meta en este plazo. Considera ampliar el horizonte o ajustar la meta.`
+    return `Bajo estos supuestos el modelo estima ${p}% de probabilidad, y ningún aporte razonable alcanza la meta en este plazo. Considera ampliar el horizonte o ajustar la meta.`
   }
 
   if (aporteSugerido <= aporteActual) {
-    return `Con tu aporte actual el modelo estima ${p}% de probabilidad de alcanzar la meta. Ya es suficiente para el objetivo de confianza: no necesitas aportar mas.`
+    return `Con tu aporte actual el modelo estima ${p}% de probabilidad de alcanzar la meta. Ya es suficiente para el objetivo de confianza: no necesitas aportar más.`
   }
 
   if (prob < 50) {
-    return `El modelo estima ${p}% de probabilidad bajo los supuestos actuales, que es baja. Aportar alrededor de ${pesos(aporteSugerido)} al mes llevaria esa probabilidad al objetivo; extender el plazo o ajustar la meta tiene el mismo efecto.`
+    return `El modelo estima ${p}% de probabilidad bajo los supuestos actuales, que es baja. Aportar alrededor de ${pesos(aporteSugerido)} al mes llevaría esa probabilidad al objetivo; extender el plazo o ajustar la meta tiene el mismo efecto.`
   }
 
   if (prob < 75) {
-    return `El modelo estima ${p}% de probabilidad: la meta es alcanzable, pero con un margen estrecho. Aportar alrededor de ${pesos(aporteSugerido)} al mes reduciria esa dependencia del escenario favorable.`
+    return `El modelo estima ${p}% de probabilidad: la meta es alcanzable, pero con un margen estrecho. Aportar alrededor de ${pesos(aporteSugerido)} al mes reduciría esa dependencia del escenario favorable.`
   }
 
   return `El modelo estima ${p}% de probabilidad de alcanzar la meta bajo los supuestos actuales. Recuerda que es una simulación, no una garantía.`

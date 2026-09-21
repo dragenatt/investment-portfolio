@@ -261,7 +261,7 @@ export async function executeJob(
       admin,
       job,
       'timeout',
-      `No quedaba tiempo en esta invocacion para el cálculo (${Math.max(0, Math.round(budgetMs))} ms).`,
+      `No quedaba tiempo en esta invocación para el cálculo (${Math.max(0, Math.round(budgetMs))} ms).`,
       Date.now(),
       { budgetMs, elapsedMs, started: false },
     )
@@ -355,7 +355,7 @@ export async function sweepJobs(admin: SupabaseClient, now = Date.now()): Promis
     .from(TABLE)
     .update({
       status: 'failed' satisfies JobStatus,
-      error: 'El job quedo sin terminar y nadie volvio a consultarlo.',
+      error: 'El job quedó sin terminar y nadie volvió a consultarlo.',
       error_kind: 'timeout' satisfies JobErrorKind,
       updated_at: iso(now),
     })

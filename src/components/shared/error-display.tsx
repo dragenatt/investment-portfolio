@@ -10,7 +10,7 @@ type Props = {
 
 function getMessage(error: Error | string): string {
   if (typeof error === 'string') return error
-  return error.message || 'Ocurrio un error inesperado'
+  return error.message || 'Ocurrió un error inesperado'
 }
 
 export function ErrorDisplay({ error, onRetry, compact }: Props) {

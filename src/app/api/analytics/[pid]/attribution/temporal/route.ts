@@ -50,7 +50,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         assumptions: [
           COMMON_ASSUMPTIONS.priceReturn,
           { name: 'Moneda', value: `En ${base}: cada operación y cada cierre al tipo de cambio de su propia fecha, como la pestaña de rendimientos`, source: 'book-currency.ts' },
-          { name: 'Enlace entre periodos', value: 'Carino (1999), suavizado logarítmico', source: 'Journal of Performance Measurement 3(4)' },
+          { name: 'Enlace entre periodos', value: 'Cariño (1999), suavizado logarítmico', source: 'Journal of Performance Measurement 3(4)' },
           { name: 'Convención', value: 'La del rendimiento ponderado por tiempo: comprar más no cuenta como ganancia', source: 'temporal-attribution.ts' },
         ],
       }),

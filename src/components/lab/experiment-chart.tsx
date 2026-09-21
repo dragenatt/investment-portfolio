@@ -39,7 +39,7 @@ export function ExperimentChart({
   if (series.length === 0) {
     return (
       <div className="h-[260px] flex items-center justify-center text-xs text-muted-foreground">
-        Sin datos que graficar con estos parametros.
+        Sin datos que graficar con estos parámetros.
       </div>
     )
   }

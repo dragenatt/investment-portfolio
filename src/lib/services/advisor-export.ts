@@ -118,7 +118,7 @@ export type PlanExportInput = {
  * impossible to omit.
  */
 export const ADVERTENCIA_PLAN =
-  'Esta proyección es el resultado de un modelo, no una garantía de resultados. Ninguna de las cifras de este documento esta asegurada, ninguna constituye asesoria de inversión personalizada, y el rendimiento pasado o simulado no predice el futuro.'
+  'Esta proyección es el resultado de un modelo, no una garantía de resultados. Ninguna de las cifras de este documento está asegurada, ninguna constituye asesoría de inversión personalizada, y el rendimiento pasado o simulado no predice el futuro.'
 
 /**
  * What the model leaves out entirely.
@@ -127,11 +127,11 @@ export const ADVERTENCIA_PLAN =
  * exported document and the register cannot drift apart.
  */
 export const LIMITACIONES_MODELO: readonly string[] = [
-  'Inflacion: no modelada. Todas las cifras son nominales, en pesos del año en que ocurren. Un millon dentro de veinte años compra bastante menos que un millon hoy, y esta es la mayor omision del modelo.',
+  'Inflación: no modelada. Todas las cifras son nominales, en pesos del año en que ocurren. Un millón dentro de veinte años compra bastante menos que un millón hoy, y esta es la mayor omisión del modelo.',
   'Comisiones, spreads y costos de fondo: no modelados. Los rendimientos son brutos, y los costos reales los reducen.',
-  'Impuestos: no modelados. No se descuenta ISR sobre ganancias ni retencion sobre intereses o dividendos.',
-  'Dividendos: el motor mide rendimiento de precio, no rendimiento total, asi que para activos con dividendo alto el rendimiento histórico queda subestimado.',
-  'Los rendimientos simulados se sortean de una distribución normal. Los mercados reales tienen colas mas gruesas: los episodios extremos ocurren mas a menudo de lo que este modelo supone.',
+  'Impuestos: no modelados. No se descuenta ISR sobre ganancias ni retención sobre intereses o dividendos.',
+  'Dividendos: el motor mide rendimiento de precio, no rendimiento total, así que para activos con dividendo alto el rendimiento histórico queda subestimado.',
+  'Los rendimientos simulados se sortean de una distribución normal. Los mercados reales tienen colas más gruesas: los episodios extremos ocurren más a menudo de lo que este modelo supone.',
   'El rendimiento y la volatilidad de cada perfil son supuestos de la cartera modelo, no mediciones de tus posiciones reales.',
 ]
 
@@ -198,7 +198,7 @@ export function construirPlanExportable(input: PlanExportInput): PlanExport {
     },
     probabilidad: {
       alcanzarMetaPct: meta === null ? null : outcome.probabilidadMetaPct,
-      base: `Fraccion de ${outcome.modelo.simulaciones.toLocaleString('es-MX')} trayectorias simuladas que terminan en la meta o por encima`,
+      base: `Fracción de ${outcome.modelo.simulaciones.toLocaleString('es-MX')} trayectorias simuladas que terminan en la meta o por encima`,
     },
     escenarios,
     sensibilidad: input.sensibilidad ? aplanarSensibilidad(input.sensibilidad) : null,
@@ -257,7 +257,7 @@ function construirSupuestos(input: PlanExportInput): Supuesto[] {
       fuente: ref,
     },
     {
-      concepto: 'Version del modelo',
+      concepto: 'Versión del modelo',
       valor: outcome.modelo.version,
       tipo: 'observado',
       fuente: 'docs/ADVISOR_MODEL_VERSIONING.md',
@@ -279,7 +279,7 @@ function soloFecha(iso: string): string {
 }
 
 const ETIQUETA_VARIABLE: Record<string, string> = {
-  aportacion: 'Aportacion mensual',
+  aportacion: 'Aportación mensual',
   horizonte: 'Horizonte (años)',
   capital: 'Capital inicial',
   meta: 'Meta',
@@ -322,7 +322,7 @@ export function planAMarkdown(plan: PlanExport): string {
   l.push('')
   l.push(
     plan.objetivo.monto === null
-      ? 'No se definio una meta. La proyección describe a donde llega el plan, sin juzgarlo contra una cifra.'
+      ? 'No se definió una meta. La proyección describe a dónde llega el plan, sin juzgarlo contra una cifra.'
       : `Alcanzar ${money(plan.objetivo.monto)}, con una probabilidad objetivo del ${plan.objetivo.probabilidadObjetivoPct}%.`,
   )
   l.push('')
@@ -335,18 +335,18 @@ export function planAMarkdown(plan: PlanExport): string {
   l.push('## Capital y aportación')
   l.push('')
   l.push(`- Capital inicial: ${money(plan.capital.inicial)}`)
-  l.push(`- Aportacion mensual: ${money(plan.aportacion.mensual)}`)
+  l.push(`- Aportación mensual: ${money(plan.aportacion.mensual)}`)
   l.push(`- Total aportado a lo largo del plan: ${money(plan.capital.aportadoTotal)}`)
   if (plan.aportacion.necesariaParaObjetivo !== null) {
     l.push(
-      `- Aportacion necesaria para el ${plan.objetivo.probabilidadObjetivoPct}% de probabilidad: ${money(plan.aportacion.necesariaParaObjetivo)}`,
+      `- Aportación necesaria para el ${plan.objetivo.probabilidadObjetivoPct}% de probabilidad: ${money(plan.aportacion.necesariaParaObjetivo)}`,
     )
   }
   l.push('')
 
   l.push('## Cartera sugerida')
   l.push('')
-  l.push('| Activo | Peso | Monto inicial | Aportacion mensual |')
+  l.push('| Activo | Peso | Monto inicial | Aportación mensual |')
   l.push('|---|---:|---:|---:|')
   for (const fila of plan.cartera) {
     l.push(
@@ -388,7 +388,7 @@ export function planAMarkdown(plan: PlanExport): string {
     l.push('La sensibilidad se calcula contra una meta, y este plan no tiene una.')
   } else {
     l.push(
-      'Cuanto cambia la probabilidad si se mueve una sola entrada. La fila marcada es el plan tal como esta.',
+      'Cuánto cambia la probabilidad si se mueve una sola entrada. La fila marcada es el plan tal como esta.',
     )
     l.push('')
     for (const bloque of plan.sensibilidad) {

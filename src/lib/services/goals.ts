@@ -160,7 +160,7 @@ export function classifyPace(deviationPct: number): { pace: Pace; message: strin
         deviationPct.toFixed(1) +
         '% por encima de lo que proyectaba el plan a estas alturas. Eso no significa que puedas ' +
         'bajar el ritmo: la ventaja viene en buena parte del mercado, y el mercado la puede ' +
-        'devolver. Lo que si puedes hacer es revisar si la meta se quedo corta.',
+        'devolver. Lo que sí puedes hacer es revisar si la meta se quedó corta.',
     }
   }
 
@@ -170,19 +170,19 @@ export function classifyPace(deviationPct: number): { pace: Pace; message: strin
       message:
         'Vas ' +
         Math.abs(deviationPct).toFixed(1) +
-        '% por debajo de lo que proyectaba el plan a estas alturas. Estar detras de una ' +
-        'proyección no es haber fallado: la proyección asumia un rendimiento promedio y el ' +
+        '% por debajo de lo que proyectaba el plan a estas alturas. Estar detrás de una ' +
+        'proyección no es haber fallado: la proyección asumía un rendimiento promedio y el ' +
         'mercado no entrega promedios año con año. Revisa si la diferencia viene de aportar ' +
-        'menos de lo planeado, que si esta en tus manos, o del rendimiento, que no.',
+        'menos de lo planeado, que sí está en tus manos, o del rendimiento, que no.',
     }
   }
 
   return {
     pace: 'on-track',
     message:
-      'Tu avance esta dentro de un margen de ' +
+      'Tu avance está dentro de un margen de ' +
       ON_TRACK_BAND_PCT +
-      '% respecto al plan. Una proyección no es un calendario: diferencias de este tamano son ' +
-      'ruido normal y no piden ningun ajuste.',
+      '% respecto al plan. Una proyección no es un calendario: diferencias de este tamaño son ' +
+      'ruido normal y no piden ningún ajuste.',
   }
 }

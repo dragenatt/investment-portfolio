@@ -7,7 +7,7 @@ const features = [
   {
     icon: TrendingUp,
     title: 'Mercados en Vivo',
-    description: 'Precios actualizados de NYSE, NASDAQ y BMV con graficos interactivos.',
+    description: 'Precios actualizados de NYSE, NASDAQ y BMV con gráficos interactivos.',
   },
   {
     icon: BarChart3,
@@ -118,7 +118,7 @@ export default function LandingPage() {
         <div className="bg-card rounded-2xl border border-border p-8">
           <FileSpreadsheet className="h-10 w-10 text-primary mx-auto mb-4" />
           <h3 className="font-bold text-lg mb-2 text-foreground">Importa desde GBM+</h3>
-          <p className="text-sm text-muted-foreground mb-4">Sube tu estado de cuenta CSV y tus transacciones se importan automaticamente.</p>
+          <p className="text-sm text-muted-foreground mb-4">Sube tu estado de cuenta CSV y tus transacciones se importan automáticamente.</p>
           <div className="flex gap-3 justify-center text-xs text-muted-foreground">
             <span className="bg-secondary px-3 py-1 rounded-full">BMV</span>
             <span className="bg-secondary px-3 py-1 rounded-full">NYSE</span>

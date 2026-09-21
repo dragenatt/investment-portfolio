@@ -770,7 +770,7 @@ export default function AdvisorPage() {
             volatilidad {(VOLATILIDADES[results.nivel] * 100).toFixed(0)}% anual, ambos supuestos de
             la cartera modelo del perfil {results.nombre} y no mediciones de tus posiciones;{' '}
             {ADVISOR_SIMULATIONS.toLocaleString('es-MX')} trayectorias con rendimientos normales; sin
-            inflacion, comisiones ni impuestos. La banda ancha deja fuera 1 de cada 10 escenarios
+            inflación, comisiones ni impuestos. La banda ancha deja fuera 1 de cada 10 escenarios
             por abajo y 1 de cada 10 por arriba.
           </p>
         </div>

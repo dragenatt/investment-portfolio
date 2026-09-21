@@ -171,7 +171,7 @@ export function compareStrategies(
     if (usable < warmup + 2) {
       skipped.push({
         name: strategy.name,
-        reason: `Necesita ${warmup} barras de calentamiento y solo hay ${usable} en total. Su indicador mas largo es de ${validation.longestPeriod} periodos.`,
+        reason: `Necesita ${warmup} barras de calentamiento y solo hay ${usable} en total. Su indicador más largo es de ${validation.longestPeriod} periodos.`,
       })
       continue
     }
@@ -189,7 +189,7 @@ export function compareStrategies(
     if (!run) {
       skipped.push({
         name: strategy.name,
-        reason: `El historial no alcanza para la ventana compartida de ${sharedWarmup} barras que impone la estrategia mas exigente de la comparacion.`,
+        reason: `El historial no alcanza para la ventana compartida de ${sharedWarmup} barras que impone la estrategia más exigente de la comparación.`,
       })
       continue
     }
@@ -208,8 +208,8 @@ export function compareStrategies(
 
   const summary =
     beatCount === 0
-      ? `Ninguna de las ${results.length} estrategias supero a comprar y mantener, que rindió ${buyAndHoldReturnPct.toFixed(1)}% en este periodo. La menos mala fue "${best.name}", ${Math.abs(best.versusBuyAndHoldPp).toFixed(1)} puntos por debajo. Esto es lo normal y no significa que el backtest este mal: operar cuesta dinero y estar fuera del mercado cuesta las subidas.`
-      : `${beatCount} de ${results.length} estrategias superaron a comprar y mantener (${buyAndHoldReturnPct.toFixed(1)}%). La mejor fue "${best.name}", ${best.versusBuyAndHoldPp.toFixed(1)} puntos por encima. Ojo: haber ganado en ESTE periodo no dice que vaya a repetirse, y cuantas mas reglas pruebes, mas fácil es que alguna gane por casualidad.`
+      ? `Ninguna de las ${results.length} estrategias superó a comprar y mantener, que rindió ${buyAndHoldReturnPct.toFixed(1)}% en este periodo. La menos mala fue "${best.name}", ${Math.abs(best.versusBuyAndHoldPp).toFixed(1)} puntos por debajo. Esto es lo normal y no significa que el backtest esté mal: operar cuesta dinero y estar fuera del mercado cuesta las subidas.`
+      : `${beatCount} de ${results.length} estrategias superaron a comprar y mantener (${buyAndHoldReturnPct.toFixed(1)}%). La mejor fue "${best.name}", ${best.versusBuyAndHoldPp.toFixed(1)} puntos por encima. Ojo: haber ganado en ESTE periodo no dice que vaya a repetirse, y cuantas más reglas pruebes, más fácil es que alguna gane por casualidad.`
 
   return {
     results,

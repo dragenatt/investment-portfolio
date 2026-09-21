@@ -48,7 +48,7 @@ async function postHandler(req: Request, { params }: { params: Promise<{ symbol:
   try {
     body = (await req.json()) as Body
   } catch {
-    return error('El cuerpo de la peticion no es JSON valido.', 400)
+    return error('El cuerpo de la petición no es JSON válido.', 400)
   }
 
   const upper = symbol.toUpperCase()
@@ -79,7 +79,7 @@ async function postHandler(req: Request, { params }: { params: Promise<{ symbol:
   if (bars.length < 30) {
     return success({
       symbol: upper,
-      message: 'No hay suficiente historial diario para probar una estrategia sobre este simbolo.',
+      message: 'No hay suficiente historial diario para probar una estrategia sobre este símbolo.',
     })
   }
 
@@ -132,7 +132,7 @@ async function postHandler(req: Request, { params }: { params: Promise<{ symbol:
     // Said once, here, rather than left for the reader to work out from a
     // green equity curve.
     caveat:
-      'Un backtest mide lo que habría pasado con ESTAS reglas sobre ESTE periodo, que ya ocurrio. No mide lo que va a pasar. Cuantas mas variantes pruebes, mas fácil es encontrar una que gano por casualidad: eso se llama sobreajuste y es la forma mas comun de enganarse con una herramienta como esta.',
+      'Un backtest mide lo que habría pasado con ESTAS reglas sobre ESTE periodo, que ya ocurrió. No mide lo que va a pasar. Cuantas más variantes pruebes, más fácil es encontrar una que ganó por casualidad: eso se llama sobreajuste y es la forma más común de engañarse con una herramienta como esta.',
   })
 }
 

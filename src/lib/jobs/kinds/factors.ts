@@ -104,14 +104,14 @@ export async function computeFactors(supabase: SupabaseClient, pid: string, _par
   const fx = await todaysSymbolFactors(supabase, symbols, portfolio?.currency ?? 'USD')
   const history = closesInBase(quoted, fx.factors)
   if (history.length < MIN_REGRESSION_DAYS) {
-    return { message: 'No hay suficiente historial para una regresion de factores.' }
+    return { message: 'No hay suficiente historial para una regresión de factores.' }
   }
 
   // Same construction the risk endpoint uses, so the two agree on what "the
   // portfolio" means — including skipping dates where a holding is unpriced.
   const series = portfolioValueSeries(history, positions)
   if (!series) {
-    return { message: 'No hay suficiente historial para una regresion de factores.' }
+    return { message: 'No hay suficiente historial para una regresión de factores.' }
   }
 
   const portfolioDates = series.dates
@@ -145,7 +145,7 @@ export async function computeFactors(supabase: SupabaseClient, pid: string, _par
 
   if (aligned.length < MIN_REGRESSION_DAYS) {
     return {
-      message: `Se necesitan al menos ${MIN_REGRESSION_DAYS} días en comun entre tu cartera y las series de factores; hay ${aligned.length}.`,
+      message: `Se necesitan al menos ${MIN_REGRESSION_DAYS} días en común entre tu cartera y las series de factores; hay ${aligned.length}.`,
     }
   }
 
@@ -160,7 +160,7 @@ export async function computeFactors(supabase: SupabaseClient, pid: string, _par
   if (!regression) {
     return {
       message:
-        'La regresion no tiene solucion única con estos datos, normalmente porque dos factores se mueven casi identico en el periodo disponible.',
+        'La regresión no tiene solución única con estos datos, normalmente porque dos factores se mueven casi idéntico en el periodo disponible.',
     }
   }
 

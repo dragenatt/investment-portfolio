@@ -235,7 +235,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
     e.preventDefault()
 
     if (!selectedSymbol) {
-      toast.error('Selecciona un simbolo')
+      toast.error('Selecciona un símbolo')
       return
     }
     if (!portfolioId) {
@@ -308,7 +308,7 @@ function TradeForm({ onClose }: { onClose: () => void }) {
           id="trade-symbol"
           value={symbolInput}
           onSelect={handleSymbolSelect}
-          placeholder="Buscar por nombre o simbolo..."
+          placeholder="Buscar por nombre o símbolo..."
           autoFocus
         />
       </div>

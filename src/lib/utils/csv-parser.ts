@@ -206,8 +206,8 @@ export function parseCSV(text: string): ParseResult {
 
     // Symbol
     const symbol = (raw.symbol ?? '').toUpperCase().trim()
-    if (!symbol) rowErrors.push('simbolo vacio')
-    if (symbol && !/^[A-Z0-9.\-:=^]+$/.test(symbol)) rowErrors.push(`simbolo inválido: ${symbol}`)
+    if (!symbol) rowErrors.push('símbolo vacío')
+    if (symbol && !/^[A-Z0-9.\-:=^]+$/.test(symbol)) rowErrors.push(`símbolo inválido: ${symbol}`)
 
     // Type
     const typeRaw = (raw.type ?? '').toLowerCase().trim()

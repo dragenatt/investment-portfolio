@@ -92,7 +92,7 @@ export function AssetRisk({ stats }: { stats: AssetStats }) {
     { label: 'Beta', value: num(risk.beta), tooltip: 'Beta' },
     { label: 'Sharpe', value: num(risk.sharpe), tooltip: 'Sharpe Ratio', tone: risk.sharpe },
     { label: 'Sortino', value: num(risk.sortino), tooltip: 'Sortino', tone: risk.sortino },
-    { label: 'Caida máxima', value: pct(-risk.maxDrawdownPct, 1), tooltip: 'Max Drawdown' },
+    { label: 'Caída máxima', value: pct(-risk.maxDrawdownPct, 1), tooltip: 'Max Drawdown' },
     { label: `VaR 95% (${per})`, value: pct(risk.var95Pct === null ? null : -risk.var95Pct, 2), tooltip: 'VaR' },
     { label: `CVaR 95% (${per})`, value: pct(risk.cvar95Pct === null ? null : -risk.cvar95Pct, 2), tooltip: 'CVaR' },
   ]
@@ -129,7 +129,7 @@ export function AssetRisk({ stats }: { stats: AssetStats }) {
           Calculado sobre {risk.observations} periodos de {per} de historial
           {risk.fromDate && risk.toDate ? ` (${risk.fromDate} a ${risk.toDate})` : ''}.
           Beta se mide contra {stats.benchmark_symbol ?? 'el índice'} y queda en {NOT_AVAILABLE}{' '}
-          cuando no hay días en comun suficientes: un 1 por defecto sería afirmar que el activo se
+          cuando no hay días en común suficientes: un 1 por defecto sería afirmar que el activo se
           mueve exactamente con el mercado.
           {stats.risk_free_rate
             ? ` Sharpe y Sortino usan una tasa libre de riesgo de ${stats.risk_free_rate.annual_pct}% (${stats.risk_free_rate.source}).`

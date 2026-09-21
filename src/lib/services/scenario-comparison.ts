@@ -115,9 +115,9 @@ export type ScenarioComparison = {
 }
 
 export const SCENARIO_CAVEAT =
-  'Todos los escenarios viven exactamente los mismos futuros simulados, asi que las diferencias entre ellos vienen de la asignación y no de la suerte. ' +
-  'Aun asi, el rendimiento esperado de cada activo es una estimación a partir de su historia reciente, con un margen de error enorme: las diferencias de rendimiento entre escenarios son mucho menos confiables que las de riesgo. ' +
-  'Se asume comprar y mantener desde hoy, sin costos, impuestos ni rebalanceo. No es una recomendacion.'
+  'Todos los escenarios viven exactamente los mismos futuros simulados, así que las diferencias entre ellos vienen de la asignación y no de la suerte. ' +
+  'Aun así, el rendimiento esperado de cada activo es una estimación a partir de su historia reciente, con un margen de error enorme: las diferencias de rendimiento entre escenarios son mucho menos confiables que las de riesgo. ' +
+  'Se asume comprar y mantener desde hoy, sin costos, impuestos ni rebalanceo. No es una recomendación.'
 
 const pct1 = (value: number) => `${value.toFixed(1)}%`
 const pp = (fraction: number) => `${Math.round(Math.abs(fraction) * 100)} pp`
@@ -126,9 +126,9 @@ function checkScenario(scenario: Scenario, assetCount: number): string | null {
   if (scenario.weights.length !== assetCount) {
     return `Tiene ${scenario.weights.length} pesos para ${assetCount} posiciones.`
   }
-  if (!scenario.weights.every(Number.isFinite)) return 'Algun peso no es un número.'
+  if (!scenario.weights.every(Number.isFinite)) return 'Algún peso no es un número.'
   if (scenario.weights.some((w) => w < 0)) {
-    return 'Tiene un peso negativo, lo que implicaria vender en corto.'
+    return 'Tiene un peso negativo, lo que implicaría vender en corto.'
   }
   if (!(scenario.weights.reduce((a, b) => a + b, 0) > 0)) return 'Todos los pesos son cero.'
   return null
@@ -206,7 +206,7 @@ export function compareScenarios(input: ScenarioInput): ScenarioComparison | nul
     const probabilityOfLoss = finals.filter((v) => v < 1).length / simulations
     const probabilityBeatRiskFree = finals.filter((v) => v > riskFreeGrowth).length / simulations
     if (!validateProbability(probabilityOfLoss).valid || !validateProbability(probabilityBeatRiskFree).valid) {
-      rejected.push({ id: scenario.id, name: scenario.name, reason: 'Una probabilidad salio fuera de 0 a 1.' })
+      rejected.push({ id: scenario.id, name: scenario.name, reason: 'Una probabilidad salió fuera de 0 a 1.' })
       continue
     }
 
@@ -287,7 +287,7 @@ function explainAgainst(
     return {
       scenarioId: other.id,
       versusId: base.id,
-      headline: `${other.name} es prácticamente la misma asignación que ${base.name}, asi que en los mismos futuros simulados da los mismos resultados.`,
+      headline: `${other.name} es prácticamente la misma asignación que ${base.name}, así que en los mismos futuros simulados da los mismos resultados.`,
       reasons: [],
     }
   }
@@ -306,7 +306,7 @@ function explainAgainst(
   const moves: string[] = []
   if (cut) moves.push(`quita ${pp(cut.delta)} a ${cut.symbol} (${pct1(cut.from * 100)} → ${pct1(cut.to * 100)})`)
   if (added) moves.push(`agrega ${pp(added.delta)} a ${added.symbol} (${pct1(added.from * 100)} → ${pct1(added.to * 100)})`)
-  reasons.push(`El cambio principal: ${moves.join(' y ')}. Todo lo demas se sigue de ahi.`)
+  reasons.push(`El cambio principal: ${moves.join(' y ')}. Todo lo demás se sigue de ahí.`)
 
   // 2. Risk — where it comes from on each side, stated rather than inferred.
   // An earlier version said "X carried 54% of the risk and now carries 11%, so
@@ -342,14 +342,14 @@ function explainAgainst(
     reasons.push(
       `Sharpe: ${other.sharpe.toFixed(2)} frente a ${base.sharpe.toFixed(2)}. ` +
         (other.sharpe > base.sharpe
-          ? 'Obtiene mas rendimiento estimado por cada punto de volatilidad, aunque eso depende sobre todo de estimaciones de rendimiento poco confiables.'
-          : 'Obtiene menos rendimiento estimado por cada punto de volatilidad; ojo, esa comparacion depende sobre todo de estimaciones de rendimiento poco confiables.'),
+          ? 'Obtiene más rendimiento estimado por cada punto de volatilidad, aunque eso depende sobre todo de estimaciones de rendimiento poco confiables.'
+          : 'Obtiene menos rendimiento estimado por cada punto de volatilidad; ojo, esa comparación depende sobre todo de estimaciones de rendimiento poco confiables.'),
     )
   }
 
   // 5. Drawdown and VaR — consequences of the risk, on the same futures.
   reasons.push(
-    `Caidas: en los mismos futuros simulados, su caida máxima típica es ${pct1(other.maxDrawdownMedianPct)} frente a ${pct1(base.maxDrawdownMedianPct)}, ` +
+    `Caídas: en los mismos futuros simulados, su caída máxima típica es ${pct1(other.maxDrawdownMedianPct)} frente a ${pct1(base.maxDrawdownMedianPct)}, ` +
       `y en un camino malo (percentil 90) ${pct1(other.maxDrawdownBadPct)} frente a ${pct1(base.maxDrawdownBadPct)}. ` +
       `En el 5% de los peores futuros (VaR al 95%) termina con ${describeVar(other.var95Pct)}; ${base.name}, con ${describeVar(base.var95Pct)}.`,
   )
@@ -362,8 +362,8 @@ function explainAgainst(
 
   // 7. Concentration.
   reasons.push(
-    `Concentracion: su HHI es ${other.hhi.toFixed(2)} frente a ${base.hhi.toFixed(2)}, equivalente a tener ${other.effectiveHoldings.toFixed(1)} posiciones del mismo tamano en vez de ${base.effectiveHoldings.toFixed(1)}. ` +
-      `Su posición mas grande es ${other.largestWeight.symbol} con ${pct1(other.largestWeight.weight * 100)}.`,
+    `Concentración: su HHI es ${other.hhi.toFixed(2)} frente a ${base.hhi.toFixed(2)}, equivalente a tener ${other.effectiveHoldings.toFixed(1)} posiciones del mismo tamaño en vez de ${base.effectiveHoldings.toFixed(1)}. ` +
+      `Su posición más grande es ${other.largestWeight.symbol} con ${pct1(other.largestWeight.weight * 100)}.`,
   )
 
   return { scenarioId: other.id, versusId: base.id, headline, reasons }
@@ -434,14 +434,14 @@ export function parseScenarioRequest(params: URLSearchParams, symbols: string[])
         errors.push(`${symbol || '(vacio)'} no es una posición de esta cartera.`)
         ok = false
       } else if (!Number.isFinite(weight) || weight < 0) {
-        errors.push(`El peso de ${symbol} no es valido.`)
+        errors.push(`El peso de ${symbol} no es válido.`)
         ok = false
       } else {
         weights[index] = weight
       }
     }
     if (ok && !(weights.reduce((a, b) => a + b, 0) > 0)) {
-      errors.push('La asignación personalizada no tiene ningun peso.')
+      errors.push('La asignación personalizada no tiene ningún peso.')
       ok = false
     }
     if (ok) {

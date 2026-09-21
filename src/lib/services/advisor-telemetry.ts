@@ -166,7 +166,7 @@ export function revisarResultado(
       añadir(
         'tiempo-anormal',
         'aviso',
-        `La ejecucion tardo mas de ${UMBRAL_LENTO_MS} ms.`,
+        `La ejecución tardó más de ${UMBRAL_LENTO_MS} ms.`,
       )
     }
   }
@@ -219,7 +219,7 @@ export function construirDiagnostico(entrada: EntradaDiagnostico): DiagnosticoAd
       hallazgos.push({
         codigo: 'etapa-fallida',
         severidad: 'error',
-        detalle: `La etapa ${etapa.id} no termino.`,
+        detalle: `La etapa ${etapa.id} no terminó.`,
         ruta: etapa.id,
       })
     }

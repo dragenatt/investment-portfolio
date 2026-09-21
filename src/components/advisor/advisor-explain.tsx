@@ -184,7 +184,7 @@ export function InvertirVsAhorrarCard({
                 <th className="text-left font-normal py-1">Camino</th>
                 <th className="text-right font-normal py-1">Aportado</th>
                 <th className="text-right font-normal py-1">Valor final</th>
-                <th className="text-right font-normal py-1">Lo puso el interes</th>
+                <th className="text-right font-normal py-1">Lo puso el interés</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

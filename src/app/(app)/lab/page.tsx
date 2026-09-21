@@ -76,7 +76,7 @@ function Lab() {
           Laboratorio financiero
         </h1>
         <p className="text-sm text-muted-foreground max-w-3xl">
-          Experimentos para ver como funciona invertir, con supuestos que tu controlas. Nada de
+          Experimentos para ver cómo funciona invertir, con supuestos que tú controlas. Nada de
           lo que ves aquí es tu cartera ni un pronóstico: son modelos simplificados para que la
           forma de cada relación se vuelva evidente.
         </p>

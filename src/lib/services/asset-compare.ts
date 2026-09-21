@@ -199,8 +199,8 @@ export function compareAssets(
     excluded,
     note:
       'Todo se mide sobre las mismas fechas para todos los activos. Comparar cada uno sobre su ' +
-      'propia historia sería comparar periodos distintos, no activos. El que mas subio no es ' +
-      'necesariamente el que valia la pena tener: mira también la caida máxima y cuanto tardo en ' +
+      'propia historia sería comparar periodos distintos, no activos. El que más subió no es ' +
+      'necesariamente el que valía la pena tener: mira también la caída máxima y cuánto tardó en ' +
       'recuperarse.',
   }
 }

@@ -115,7 +115,7 @@ export function EfficientFrontierChart({ data, isLoading }: Props) {
             <Spline className="h-6 w-6 text-muted-foreground" />
           </div>
           <p className="text-sm text-muted-foreground text-center max-w-md">
-            {data?.message ?? 'Hacen falta al menos dos posiciones con historial comun para trazar una frontera.'}
+            {data?.message ?? 'Hacen falta al menos dos posiciones con historial común para trazar una frontera.'}
           </p>
         </CardContent>
       </Card>

@@ -36,7 +36,7 @@ async function postHandler(req: Request) {
     | null
   if (!body || !isJobKind(body.kind)) return error('Tipo de cálculo desconocido.', 400)
   if (typeof body.portfolio_id !== 'string' || !UUID.test(body.portfolio_id)) {
-    return error('portfolio_id no es valido.', 400)
+    return error('portfolio_id no es válido.', 400)
   }
 
   // Row-level security decides whether this user may see the portfolio at all.
@@ -50,7 +50,7 @@ async function postHandler(req: Request) {
   if (!portfolio) return error('Portafolio no encontrado.', 404)
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return error('Los cálculos en segundo plano no estan disponibles en este entorno.', 503)
+    return error('Los cálculos en segundo plano no están disponibles en este entorno.', 503)
   }
 
   const admin = createAdminSupabase()

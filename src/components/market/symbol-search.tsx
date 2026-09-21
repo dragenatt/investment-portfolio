@@ -128,7 +128,7 @@ export function SymbolSearch() {
 
         {/* Recent searches when query is empty */}
         {!query && recentSearches.length > 0 && (
-          <CommandGroup heading="Busquedas recientes">
+          <CommandGroup heading="Búsquedas recientes">
             {recentSearches.map(sym => (
               <CommandItem key={sym} value={sym} onSelect={() => handleSelect(sym)}>
                 <Clock className="h-3.5 w-3.5 mr-2 text-muted-foreground" />

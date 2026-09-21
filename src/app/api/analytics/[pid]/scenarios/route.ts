@@ -96,7 +96,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       candidates.push({
         id: 'current',
         name: 'Tu cartera actual',
-        rationale: 'Tus posiciones valuadas al último precio comun. Es la referencia contra la que se explica todo lo demas.',
+        rationale: 'Tus posiciones valuadas al último precio común. Es la referencia contra la que se explica todo lo demás.',
         weights: currentWeights,
       })
     }
@@ -130,7 +130,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
         id: 'maxSharpe',
         name: 'Máximo Sharpe estimado',
         rationale:
-          'El punto de la frontera con mejor rendimiento estimado por unidad de riesgo. Es el mas sensible a que las estimaciones de rendimiento esten mal, y suelen estarlo.',
+          'El punto de la frontera con mejor rendimiento estimado por unidad de riesgo. Es el más sensible a que las estimaciones de rendimiento estén mal, y suelen estarlo.',
         weights: byWeights(frontier.maxSharpe.weights),
       })
     }

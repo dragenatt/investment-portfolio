@@ -96,7 +96,7 @@ export type MetricExplanation = {
   source: string | null
 }
 
-const NO_VALUE = 'Todavía no hay datos suficientes para calcular esta metrica.'
+const NO_VALUE = 'Todavía no hay datos suficientes para calcular esta métrica.'
 const EMPTY = '—'
 
 function fmt(value: number, decimals = 2): string {
@@ -176,7 +176,7 @@ const EXAMPLE_HHI = 0.5 ** 2 + 0.3 ** 2 + 0.2 ** 2
 
 const EXAMPLES: Record<MetricId, WorkedExample> = {
   return: example(
-    'Inviertes 10,000 y un anio después valen 11,200.',
+    'Inviertes 10,000 y un año después valen 11,200.',
     '(11,200 - 10,000) / 10,000 = 0.12',
     ((11200 - 10000) / 10000) * 100,
     'percent',
@@ -185,13 +185,13 @@ const EXAMPLES: Record<MetricId, WorkedExample> = {
   volatility: example(
     'Diez rendimientos diarios: +1.2%, -0.8%, +0.5%, -1.5%, +0.9%, +0.3%, -0.4%, +1.1%, -0.7%, +0.2%.',
     // Computed too: this line once said 0.87% by hand. The real figure is 0.90%.
-    `Desviación estándar muestral de los diez = ${fmt((calculateVolatility(EXAMPLE_DAILY) / Math.sqrt(TRADING_DAYS_PER_YEAR)) * 100)}% diario; x raiz(${TRADING_DAYS_PER_YEAR}) para anualizar`,
+    `Desviación estándar muestral de los diez = ${fmt((calculateVolatility(EXAMPLE_DAILY) / Math.sqrt(TRADING_DAYS_PER_YEAR)) * 100)}% diario; x raíz(${TRADING_DAYS_PER_YEAR}) para anualizar`,
     calculateVolatility(EXAMPLE_DAILY) * 100,
     'percent',
     (v) => `La volatilidad anualizada es ${v}.`,
   ),
   sharpe: example(
-    'Un portafolio rinde 10% al anio con 15% de volatilidad; la tasa libre de riesgo es 4%.',
+    'Un portafolio rinde 10% al año con 15% de volatilidad; la tasa libre de riesgo es 4%.',
     '(10 - 4) / 15',
     EXAMPLE_SHARPE,
     'ratio',
@@ -212,7 +212,7 @@ const EXAMPLES: Record<MetricId, WorkedExample> = {
     (v) => `La beta es ${v}: cuando el índice se mueve 1%, el portafolio tiende a moverse 1.25%.`,
   ),
   alpha: example(
-    'Un portafolio con beta 1.2 rinde 14% en un anio en que el índice rinde 10%.',
+    'Un portafolio con beta 1.2 rinde 14% en un año en que el índice rinde 10%.',
     '14 - 1.2 x 10 = 14 - 12',
     14 - 1.2 * 10,
     'ratio',
@@ -223,14 +223,14 @@ const EXAMPLES: Record<MetricId, WorkedExample> = {
     'Se ordenan de peor a mejor y se toma el percentil 5',
     (historicalVaR(EXAMPLE_TAIL_DAYS, 95) ?? 0) * 100,
     'percent',
-    (v) => `El VaR al 95% es ${v}: en 19 de cada 20 días la pérdida no supero esa cifra.`,
+    (v) => `El VaR al 95% es ${v}: en 19 de cada 20 días la pérdida no superó esa cifra.`,
   ),
   cvar: example(
     'Los mismos veinte días del ejemplo del VaR.',
     'Promedio de los rendimientos que quedan por debajo del VaR al 95%',
     (conditionalVaR(EXAMPLE_TAIL_DAYS, 95) ?? 0) * 100,
     'percent',
-    (v) => `El CVaR al 95% es ${v}: lo que en promedio se perdio los días que si rompieron el umbral.`,
+    (v) => `El CVaR al 95% es ${v}: lo que en promedio se perdió los días que sí rompieron el umbral.`,
   ),
   maxDrawdown: example(
     'Un portafolio vale 100, sube a 130, cae a 91 y termina en 120.',
@@ -241,27 +241,27 @@ const EXAMPLES: Record<MetricId, WorkedExample> = {
   ),
   trackingError: example(
     `La diferencia diaria entre el portafolio y el índice oscila con una desviación estándar de ${EXAMPLE_TE_DAILY_PCT}%.`,
-    `${EXAMPLE_TE_DAILY_PCT} x raiz(${TRADING_DAYS_PER_YEAR})`,
+    `${EXAMPLE_TE_DAILY_PCT} x raíz(${TRADING_DAYS_PER_YEAR})`,
     EXAMPLE_TE_DAILY_PCT * Math.sqrt(TRADING_DAYS_PER_YEAR),
     'percent',
-    (v) => `El tracking error es ${v}: en un anio típico el portafolio se separa del índice mas o menos esa cantidad.`,
+    (v) => `El tracking error es ${v}: en un año típico el portafolio se separa del índice más o menos esa cantidad.`,
   ),
   informationRatio: example(
     `El portafolio tiene 2 puntos de alpha y un tracking error de ${fmt(EXAMPLE_TE_DAILY_PCT * Math.sqrt(TRADING_DAYS_PER_YEAR))}%.`,
     `2 / ${fmt(EXAMPLE_TE_DAILY_PCT * Math.sqrt(TRADING_DAYS_PER_YEAR))}`,
     2 / (EXAMPLE_TE_DAILY_PCT * Math.sqrt(TRADING_DAYS_PER_YEAR)),
     'ratio',
-    (v) => `El information ratio es ${v}: cada punto de separacion del índice pago esa fraccion de punto de alpha.`,
+    (v) => `El information ratio es ${v}: cada punto de separación del índice pagó esa fracción de punto de alpha.`,
   ),
   hhi: example(
     'Un portafolio con 50% en una posición, 30% en otra y 20% en una tercera.',
     '0.5² + 0.3² + 0.2² = 0.25 + 0.09 + 0.04',
     EXAMPLE_HHI,
     'hhi',
-    (v) => `El HHI es ${v}, equivalente a ${fmt(1 / EXAMPLE_HHI, 1)} posiciones del mismo tamano aunque haya 3.`,
+    (v) => `El HHI es ${v}, equivalente a ${fmt(1 / EXAMPLE_HHI, 1)} posiciones del mismo tamaño aunque haya 3.`,
   ),
   effectiveBets: example(
-    'Tres activos con la misma volatilidad: dos con correlación 0.9 entre si y un tercero independiente.',
+    'Tres activos con la misma volatilidad: dos con correlación 0.9 entre sí y un tercero independiente.',
     'Autovalores de la covarianza -> proporciones p -> exp(-suma p x ln p)',
     effectiveIndependentBets(EXAMPLE_COV) ?? 0,
     'count',
@@ -272,10 +272,10 @@ const EXAMPLES: Record<MetricId, WorkedExample> = {
     'Se busca la tasa r que hace -10,000 - 5,000/(1+r)^0.5 + 16,200/(1+r)^1 = 0',
     calculateXIRR(EXAMPLE_FLOWS) ?? 0,
     'percent',
-    (v) => `El XIRR es ${v} anual. Ganaste 1,200 sobre 15,000, pero 5,000 solo estuvieron medio anio invertidos.`,
+    (v) => `El XIRR es ${v} anual. Ganaste 1,200 sobre 15,000, pero 5,000 solo estuvieron medio año invertidos.`,
   ),
   twr: example(
-    'Un primer periodo rinde +10% y el segundo -5%, sin importar cuanto dinero entro en cada uno.',
+    'Un primer periodo rinde +10% y el segundo -5%, sin importar cuánto dinero entró en cada uno.',
     '(1.10 x 0.95) - 1',
     (1.1 * 0.95 - 1) * 100,
     'percent',
@@ -291,7 +291,7 @@ const DEFINITIONS: Record<MetricId, Definition> = {
     unit: 'percent',
     formula: () => '(Valor final - Valor inicial) / Valor inicial',
     definition:
-      'Cuanto crecio o cayo el valor de la inversión en el periodo, expresado como porcentaje de lo que valia al principio.',
+      'Cuánto creció o cayó el valor de la inversión en el periodo, expresado como porcentaje de lo que valía al principio.',
     source: null,
     read: (v) =>
       v >= 0
@@ -302,15 +302,15 @@ const DEFINITIONS: Record<MetricId, Definition> = {
   volatility: {
     name: 'Volatilidad',
     unit: 'percent',
-    formula: () => 'sigma = desviación estándar de los rendimientos x raiz(periodos por año)',
+    formula: () => 'sigma = desviación estándar de los rendimientos x raíz(periodos por año)',
     definition:
-      'Que tanto se mueve el valor de la inversión, hacia arriba y hacia abajo. No mide pérdidas: mide inestabilidad, y una subida brusca cuenta igual que una caida.',
+      'Qué tanto se mueve el valor de la inversión, hacia arriba y hacia abajo. No mide pérdidas: mide inestabilidad, y una subida brusca cuenta igual que una caída.',
     source: null,
     read: (v, ctx) => {
       const { adjective, q } = cadence(ctx.periodsPerYear)
       return (
-        `Tu ${fmt(v)}% anual sale de rendimientos ${adjective} (x raiz(${q})). ` +
-        `Si los rendimientos fueran normales, en unos 2 de cada 3 anios el resultado quedaria a menos de ${fmt(v)} puntos del promedio; en la practica las colas son mas gordas y los anios extremos llegan mas seguido de lo que eso sugiere.`
+        `Tu ${fmt(v)}% anual sale de rendimientos ${adjective} (x raíz(${q})). ` +
+        `Si los rendimientos fueran normales, en unos 2 de cada 3 años el resultado quedaría a menos de ${fmt(v)} puntos del promedio; en la práctica las colas son más gordas y los años extremos llegan más seguido de lo que eso sugiere.`
       )
     },
   },
@@ -320,13 +320,13 @@ const DEFINITIONS: Record<MetricId, Definition> = {
     unit: 'ratio',
     formula: () => 'Sharpe = (Rp - Rf) / sigma, con Rp y sigma anualizados',
     definition:
-      'Cuanto rendimiento obtienes por encima de la tasa libre de riesgo por cada unidad de volatilidad que corres.',
+      'Cuánto rendimiento obtienes por encima de la tasa libre de riesgo por cada unidad de volatilidad que corres.',
     source: 'Sharpe (1994), Journal of Portfolio Management; error estándar según Lo (2002), Financial Analysts Journal',
     read: (v, ctx) => {
       const rf = ctx.riskFreeRatePct !== undefined ? ` (tasa libre de riesgo: ${fmt(ctx.riskFreeRatePct)}%)` : ''
       const literal =
         v < 0
-          ? `Tu ${fmt(v)} es negativo${rf}: el portafolio rindió menos que la tasa libre de riesgo, asi que el riesgo que corriste no se pago.`
+          ? `Tu ${fmt(v)} es negativo${rf}: el portafolio rindió menos que la tasa libre de riesgo, así que el riesgo que corriste no se pagó.`
           : `Tu ${fmt(v)} significa que obtuviste ${fmt(v)} puntos de rendimiento por encima de la tasa libre${rf} por cada punto de volatilidad.`
 
       // Lo (2002): for IID returns the standard error of an annualised Sharpe
@@ -334,15 +334,15 @@ const DEFINITIONS: Record<MetricId, Definition> = {
       const q = ctx.periodsPerYear
       const T = ctx.observations
       if (!q || !T || q <= 0 || T < 2) {
-        return `${literal} Sin saber cuanto historial lo respalda no se puede decir que tan preciso es.`
+        return `${literal} Sin saber cuánto historial lo respalda no se puede decir qué tan preciso es.`
       }
       const se = Math.sqrt((q + (v * v) / 2) / T)
       const years = T / q
       return (
-        `${literal} Con ${T} observaciones (${fmt(years, 1)} anios), su error estándar es ${fmt(se)} (Lo, 2002): ` +
+        `${literal} Con ${T} observaciones (${fmt(years, 1)} años), su error estándar es ${fmt(se)} (Lo, 2002): ` +
         `el intervalo de 95% va de ${fmt(v - 1.96 * se)} a ${fmt(v + 1.96 * se)}. ` +
         (v - 1.96 * se <= 0 && v + 1.96 * se >= 0
-          ? 'Ese intervalo incluye el cero, asi que con este historial no se distingue de un portafolio sin ninguna ventaja sobre la tasa libre.'
+          ? 'Ese intervalo incluye el cero, así que con este historial no se distingue de un portafolio sin ninguna ventaja sobre la tasa libre.'
           : 'Ese intervalo no incluye el cero.')
       )
     },
@@ -351,17 +351,17 @@ const DEFINITIONS: Record<MetricId, Definition> = {
   sortino: {
     name: 'Sortino',
     unit: 'ratio',
-    formula: () => 'Sortino = (Rp - Rf) / sigma_bajista, con sigma_bajista = raiz(promedio de min(0, r - objetivo)²)',
+    formula: () => 'Sortino = (Rp - Rf) / sigma_bajista, con sigma_bajista = raíz(promedio de min(0, r - objetivo)²)',
     definition:
       'Como el Sharpe, pero solo cuenta como riesgo los movimientos por debajo del objetivo. Parte de la idea de que la volatilidad al alza no es un problema que haga falta penalizar.',
     source: 'Sortino y Price (1994), Journal of Investing',
     read: (v, ctx) => {
       if (v < 0) {
-        return `Tu ${fmt(v)} negativo indica que el portafolio no supero la tasa libre de riesgo aun contando solo las caidas.`
+        return `Tu ${fmt(v)} negativo indica que el portafolio no superó la tasa libre de riesgo aun contando solo las caídas.`
       }
       const sharpe = ctx.sharpe
       if (sharpe === undefined || !Number.isFinite(sharpe) || sharpe <= 0) {
-        return `Tu ${fmt(v)} mide el rendimiento por unidad de riesgo a la baja. Si es notablemente mayor que tu Sharpe, tus movimientos bruscos han sido mas al alza que a la baja.`
+        return `Tu ${fmt(v)} mide el rendimiento por unidad de riesgo a la baja. Si es notablemente mayor que tu Sharpe, tus movimientos bruscos han sido más al alza que a la baja.`
       }
       // Same numerator, so the ratio of the two is the ratio of the two risks:
       // total volatility over downside deviation.
@@ -370,7 +370,7 @@ const DEFINITIONS: Record<MetricId, Definition> = {
         `Tu ${fmt(v)} es ${fmt(ratio)} veces tu Sharpe de ${fmt(sharpe)}. Como ambos tienen el mismo numerador, eso significa que tu volatilidad total es ${fmt(ratio)} veces tu volatilidad a la baja: ` +
         (ratio > 1
           ? 'una parte de lo que la volatilidad castiga fueron subidas.'
-          : 'tus caidas pesan tanto como toda tu volatilidad.')
+          : 'tus caídas pesan tanto como toda tu volatilidad.')
       )
     },
   },
@@ -380,12 +380,12 @@ const DEFINITIONS: Record<MetricId, Definition> = {
     unit: 'ratio',
     formula: () => 'Beta = Cov(Rp, Rb) / Var(Rb)',
     definition:
-      'Cuanto se mueve tu portafolio cuando se mueve el índice de referencia. Es sensibilidad, no calidad: una beta alta no es mejor ni peor, es mas movimiento.',
+      'Cuánto se mueve tu portafolio cuando se mueve el índice de referencia. Es sensibilidad, no calidad: una beta alta no es mejor ni peor, es más movimiento.',
     source: null,
     read: (v, ctx) => {
       const bench = ctx.benchmarkName ?? 'el benchmark'
       if (v > 1.1) {
-        return `Tu ${fmt(v)} amplifica ${bench}: cuando sube 1%, tu portafolio ha tendido a subir cerca de ${fmt(v)}% — y cuando baja, también baja mas.`
+        return `Tu ${fmt(v)} amplifica ${bench}: cuando sube 1%, tu portafolio ha tendido a subir cerca de ${fmt(v)}% — y cuando baja, también baja más.`
       }
       if (v < 0.9) {
         return `Tu ${fmt(v)} amortigua ${bench}: cuando se mueve 1%, tu portafolio ha tendido a moverse ${fmt(v)}%, en ambas direcciones.`
@@ -419,17 +419,17 @@ const DEFINITIONS: Record<MetricId, Definition> = {
   var: {
     name: 'VaR (Valor en Riesgo)',
     unit: 'percent',
-    formula: () => 'VaR_95 = pérdida en el percentil 5 de los rendimientos historicos',
+    formula: () => 'VaR_95 = pérdida en el percentil 5 de los rendimientos históricos',
     definition:
-      'La pérdida que no se supero en 95 de cada 100 periodos observados. Es un umbral, no un techo: no dice nada sobre que tan mal fue el 5% restante.',
+      'La pérdida que no se superó en 95 de cada 100 periodos observados. Es un umbral, no un techo: no dice nada sobre qué tan mal fue el 5% restante.',
     source: null,
     read: (v, ctx) => {
       const { bars } = cadence(ctx.periodsPerYear)
       if (ctx.portfolioValue && ctx.portfolioValue > 0) {
         const amount = (ctx.portfolioValue * v) / 100
-        return `Tu ${fmt(v)}% equivale a unos ${money(amount, ctx.currency)} sobre el valor actual. En 1 de cada 20 ${bars} la pérdida supero esa cifra.`
+        return `Tu ${fmt(v)}% equivale a unos ${money(amount, ctx.currency)} sobre el valor actual. En 1 de cada 20 ${bars} la pérdida superó esa cifra.`
       }
-      return `Tu ${fmt(v)}% es la pérdida que no se supero en 19 de cada 20 ${bars}. Mira también el CVaR: este número no dice que tan mal fue el vigesimo.`
+      return `Tu ${fmt(v)}% es la pérdida que no se superó en 19 de cada 20 ${bars}. Mira también el CVaR: este número no dice qué tan mal fue el vigésimo.`
     },
   },
 
@@ -438,15 +438,15 @@ const DEFINITIONS: Record<MetricId, Definition> = {
     unit: 'percent',
     formula: () => 'CVaR_95 = promedio de los rendimientos peores que el VaR_95',
     definition:
-      'El promedio de las pérdidas en los periodos que si superan el VaR. Si el VaR dice a que distancia esta el borde del acantilado, el CVaR dice que tan honda es la caida.',
+      'El promedio de las pérdidas en los periodos que sí superan el VaR. Si el VaR dice a qué distancia está el borde del acantilado, el CVaR dice qué tan honda es la caída.',
     source: 'Rockafellar y Uryasev (2000), Journal of Risk',
     read: (v, ctx) => {
       const { bars } = cadence(ctx.periodsPerYear)
       if (ctx.portfolioValue && ctx.portfolioValue > 0) {
         const amount = (ctx.portfolioValue * v) / 100
-        return `Tu ${fmt(v)}% equivale a unos ${money(amount, ctx.currency)}: es lo que en promedio se perdio en los peores ${bars}, y es la cifra con la que conviene planear.`
+        return `Tu ${fmt(v)}% equivale a unos ${money(amount, ctx.currency)}: es lo que en promedio se perdió en los peores ${bars}, y es la cifra con la que conviene planear.`
       }
-      return `Tu ${fmt(v)}% es la pérdida promedio en los peores ${bars}. Siempre es igual o mayor que el VaR, por definicion.`
+      return `Tu ${fmt(v)}% es la pérdida promedio en los peores ${bars}. Siempre es igual o mayor que el VaR, por definición.`
     },
   },
 
@@ -455,27 +455,27 @@ const DEFINITIONS: Record<MetricId, Definition> = {
     unit: 'percent',
     formula: () => 'max((Pico - Valle) / Pico)',
     definition:
-      'La peor caida desde un máximo hasta el fondo siguiente. Mide lo que un inversionista habría tenido que aguantar sin vender.',
+      'La peor caída desde un máximo hasta el fondo siguiente. Mide lo que un inversionista habría tenido que aguantar sin vender.',
     source: null,
     read: (v) => {
       const recovery = recoveryRequired(Math.abs(v))
       if (recovery === null) {
         return `Tu ${fmt(v)}% describe una pérdida total o cercana: no hay ganancia que la recupere.`
       }
-      return `Tu ${fmt(Math.abs(v))}% necesita una ganancia de ${fmt(recovery)}% para volver al punto de partida, no de ${fmt(Math.abs(v))}%: la subida trabaja sobre el saldo mas pequeño que dejo la caida.`
+      return `Tu ${fmt(Math.abs(v))}% necesita una ganancia de ${fmt(recovery)}% para volver al punto de partida, no de ${fmt(Math.abs(v))}%: la subida trabaja sobre el saldo más pequeño que dejó la caída.`
     },
   },
 
   trackingError: {
     name: 'Tracking error',
     unit: 'percent',
-    formula: () => 'TE = desviación estándar(Rp - Rb) x raiz(periodos por año)',
+    formula: () => 'TE = desviación estándar(Rp - Rb) x raíz(periodos por año)',
     definition:
-      'Que tanto se separa tu portafolio del índice en un anio típico. No es un error que estes cometiendo: un tracking error pequeño solo significa que te pareces al índice.',
+      'Qué tanto se separa tu portafolio del índice en un año típico. No es un error que estés cometiendo: un tracking error pequeño solo significa que te pareces al índice.',
     source: null,
     read: (v, ctx) => {
       const bench = ctx.benchmarkName ?? 'el benchmark'
-      return `Tu ${fmt(v)}% significa que, en un anio típico, tu rendimiento queda a mas o menos ${fmt(v)} puntos del de ${bench}. Mayor no es peor: es cuanto te separas, para bien o para mal.`
+      return `Tu ${fmt(v)}% significa que, en un año típico, tu rendimiento queda a más o menos ${fmt(v)} puntos del de ${bench}. Mayor no es peor: es cuánto te separas, para bien o para mal.`
     },
   },
 
@@ -484,30 +484,30 @@ const DEFINITIONS: Record<MetricId, Definition> = {
     unit: 'ratio',
     formula: () => 'IR = Alpha / Tracking error',
     definition:
-      'Si el tracking error mide cuanto te alejas del índice, el information ratio responde si alejarte valio la pena. Aquí se usa el alpha en el numerador; otras fuentes usan el rendimiento activo (Rp - Rb).',
+      'Si el tracking error mide cuánto te alejas del índice, el information ratio responde si alejarte valió la pena. Aquí se usa el alpha en el numerador; otras fuentes usan el rendimiento activo (Rp - Rb).',
     source: null,
     read: (v) =>
       v > 0
-        ? `Tu ${fmt(v)} significa que cada punto de separacion del índice te dio ${fmt(v)} puntos de alpha.`
+        ? `Tu ${fmt(v)} significa que cada punto de separación del índice te dio ${fmt(v)} puntos de alpha.`
         : v < 0
-          ? `Tu ${fmt(v)} significa que separarte del índice te costo: cada punto de separacion resto ${fmt(Math.abs(v))} puntos de alpha.`
-          : `Tu ${fmt(v)} significa que separarte del índice no te dio ni te quito alpha.`,
+          ? `Tu ${fmt(v)} significa que separarte del índice te costó: cada punto de separación restó ${fmt(Math.abs(v))} puntos de alpha.`
+          : `Tu ${fmt(v)} significa que separarte del índice no te dio ni te quitó alpha.`,
   },
 
   hhi: {
-    name: 'HHI (concentracion)',
+    name: 'HHI (concentración)',
     unit: 'hhi',
     formula: () => 'HHI = suma de los pesos al cuadrado',
     definition:
-      'Que tan concentrado esta el portafolio por peso. Vale 1 si todo esta en una sola posición y 1/N si esta repartido en partes iguales entre N.',
+      'Qué tan concentrado está el portafolio por peso. Vale 1 si todo está en una sola posición y 1/N si está repartido en partes iguales entre N.',
     source: null,
     read: (v, ctx) => {
       const equivalent = v > 0 ? 1 / v : 0
-      const reading = `Tu ${fmt(v, 3)} significa que tu dinero se concentra como si tuvieras ${fmt(equivalent, 1)} posiciones del mismo tamano.`
+      const reading = `Tu ${fmt(v, 3)} significa que tu dinero se concentra como si tuvieras ${fmt(equivalent, 1)} posiciones del mismo tamaño.`
       if (!ctx.holdings || ctx.holdings <= 0) return reading
       // Literal, not graded: the share of the positions held that the weights
       // are "worth". No threshold decides what counts as concentrated.
-      return `${reading} Tienes ${ctx.holdings} posiciones, asi que por peso tu cartera equivale al ${fmt((equivalent / ctx.holdings) * 100, 0)}% de ellas.`
+      return `${reading} Tienes ${ctx.holdings} posiciones, así que por peso tu cartera equivale al ${fmt((equivalent / ctx.holdings) * 100, 0)}% de ellas.`
     },
   },
 
@@ -516,7 +516,7 @@ const DEFINITIONS: Record<MetricId, Definition> = {
     unit: 'count',
     formula: () => 'N_eff = exp(-suma p_i x ln p_i), con p_i = autovalor_i / suma de autovalores de la covarianza',
     definition:
-      'Cuantas fuentes de riesgo realmente distintas tienes. Diez posiciones que se mueven juntas son una sola apuesta repetida diez veces, y el HHI no lo detecta porque solo mira pesos.',
+      'Cuántas fuentes de riesgo realmente distintas tienes. Diez posiciones que se mueven juntas son una sola apuesta repetida diez veces, y el HHI no lo detecta porque solo mira pesos.',
     source: 'Meucci (2009), Risk',
     read: (v, ctx) => {
       const lead =
@@ -524,8 +524,8 @@ const DEFINITIONS: Record<MetricId, Definition> = {
           ? `Con ${ctx.holdings} posiciones tienes unas ${fmt(v, 1)} apuestas realmente independientes`
           : `Tienes unas ${fmt(v, 1)} apuestas realmente independientes`
       return v < 2
-        ? `${lead}: en la practica, casi todo tu riesgo viene de una sola fuente.`
-        : `${lead}. La diferencia entre las dos cifras es cuanto se mueven juntos tus activos.`
+        ? `${lead}: en la práctica, casi todo tu riesgo viene de una sola fuente.`
+        : `${lead}. La diferencia entre las dos cifras es cuánto se mueven juntos tus activos.`
     },
   },
 
@@ -534,17 +534,17 @@ const DEFINITIONS: Record<MetricId, Definition> = {
     unit: 'percent',
     formula: () => 'La tasa r que hace que la suma de flujo / (1+r)^t sea cero',
     definition:
-      'Tu rendimiento real considerando cuando y cuanto aportaste. Si metiste mas dinero justo antes de una buena racha, este número lo recoge; el momento de cada aportación importa aquí.',
+      'Tu rendimiento real considerando cuándo y cuánto aportaste. Si metiste más dinero justo antes de una buena racha, este número lo recoge; el momento de cada aportación importa aquí.',
     source: null,
     read: (v, ctx) => {
-      const base = `Tu ${fmt(v)}% anual es lo que efectivamente rindió TU dinero, dado el momento en que lo pusiste. Comparalo con el TWR: si son distintos, la diferencia es el efecto del timing de tus aportaciones.`
+      const base = `Tu ${fmt(v)}% anual es lo que efectivamente rindió TU dinero, dado el momento en que lo pusiste. Compáralo con el TWR: si son distintos, la diferencia es el efecto del timing de tus aportaciones.`
       const age = ctx.capitalAgeDays
       if (age === undefined || !Number.isFinite(age) || age >= 365) return base
       // No threshold here beyond "less than the year the rate is quoted for":
       // below that, the figure is a shorter return raised to a year.
       return (
         `${base} Pero tu dinero lleva en promedio ${Math.round(age)} días invertido, y una tasa anual sobre menos de un año extrapola: ` +
-        `supone que lo ocurrido en esos ${Math.round(age)} días se repite hasta completar el año. Tomalo como velocidad, no como resultado.`
+        `supone que lo ocurrido en esos ${Math.round(age)} días se repite hasta completar el año. Tómalo como velocidad, no como resultado.`
       )
     },
   },

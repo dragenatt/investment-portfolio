@@ -267,14 +267,14 @@ export function decomposeCurrencyReturn(
     summary = 'Ni el activo ni el tipo de cambio se movieron en este periodo.'
   } else if (fxShare > assetShare) {
     summary =
-      'El tipo de cambio explica la mayor parte de este resultado: aporto ' +
+      'El tipo de cambio explica la mayor parte de este resultado: aportó ' +
       fxEffectPct.toFixed(2) +
       ' puntos frente a ' +
       assetEffectPct.toFixed(2) +
-      ' del activo. Estas corriendo una posición cambiaria, la hayas buscado o no.'
+      ' del activo. Estás corriendo una posición cambiaria, la hayas buscado o no.'
   } else {
     summary =
-      'El activo explica la mayor parte de este resultado: aporto ' +
+      'El activo explica la mayor parte de este resultado: aportó ' +
       assetEffectPct.toFixed(2) +
       ' puntos frente a ' +
       fxEffectPct.toFixed(2) +
@@ -307,13 +307,13 @@ export function currencyExposure(
 
   const summary =
     buckets.length === 0
-      ? 'No hay posiciones para medir exposicion cambiaria.'
+      ? 'No hay posiciones para medir exposición cambiaria.'
       : foreignPct === 0
-        ? 'Todo el portafolio esta denominado en ' +
+        ? 'Todo el portafolio está denominado en ' +
           base +
-          ', asi que no corres riesgo cambiario: no hay ninguna posición cuyo valor dependa de un tipo de cambio.'
+          ', así que no corres riesgo cambiario: no hay ninguna posición cuyo valor dependa de un tipo de cambio.'
         : foreignPct.toFixed(0) +
-          '% del portafolio esta denominado en otra moneda. Ese porcentaje se mueve con el tipo de ' +
+          '% del portafolio está denominado en otra moneda. Ese porcentaje se mueve con el tipo de ' +
           'cambio además de con el activo, y las dos cosas pueden ir en direcciones opuestas.'
 
   return { buckets, basePct, foreignPct, summary }

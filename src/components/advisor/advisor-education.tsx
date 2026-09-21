@@ -95,7 +95,7 @@ export function ModoEducativo({ educacion }: { educacion: Educacion | null }) {
                       {concepto.definicion}
                     </p>
                     <div>
-                      <p className="text-[10px] font-medium text-foreground/70">Por que importa</p>
+                      <p className="text-[10px] font-medium text-foreground/70">Por qué importa</p>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
                         {concepto.porQueImporta}
                       </p>

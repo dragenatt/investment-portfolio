@@ -186,7 +186,7 @@ function RuleEditor({
       {rule.conditions.length === 0 && (
         <p className="text-[11px] text-muted-foreground">
           Sin condiciones. {title.toLowerCase().includes('compra')
-            ? 'Sin al menos una, la estrategia nunca entraria al mercado.'
+            ? 'Sin al menos una, la estrategia nunca entraría al mercado.'
             : 'Sin ninguna, la estrategia compra y no sale nunca, que es comprar y mantener.'}
         </p>
       )}
@@ -432,7 +432,7 @@ export function StrategyBuilder({ symbol }: { symbol: string }) {
                     <th className="text-right font-normal py-1">Rendimiento</th>
                     <th className="text-right font-normal py-1">vs mantener</th>
                     <th className="text-right font-normal py-1">Operaciones</th>
-                    <th className="text-right font-normal py-1">Caida max.</th>
+                    <th className="text-right font-normal py-1">Caída max.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">

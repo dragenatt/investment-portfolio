@@ -162,7 +162,7 @@ describe('compareScenarios', () => {
   it('says every scenario lived the same futures and the returns are estimates', () => {
     expect(result.caveat).toMatch(/mismos/i)
     expect(result.caveat).toMatch(/estimad|estimación/i)
-    expect(result.caveat).toMatch(/no es una recomendacion/i)
+    expect(result.caveat).toMatch(/no es una recomendación/i)
   })
 })
 
@@ -196,7 +196,7 @@ describe('explaining the differences', () => {
     expect(text).toMatch(/riesgo/)
     expect(text).toMatch(/rendimiento/)
     expect(text).toMatch(/sharpe/)
-    expect(text).toMatch(/caida/)
+    expect(text).toMatch(/caída/)
     expect(text).toMatch(/var/)
     expect(text).toMatch(/pérdida/)
     expect(text).toMatch(/concentracion|posiciones/)

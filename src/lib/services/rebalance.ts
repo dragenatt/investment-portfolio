@@ -462,12 +462,12 @@ function summariseSimulation(
     delta.sharpe === null
       ? ''
       : delta.sharpe > 0
-        ? ' El Sharpe mejora ' + delta.sharpe.toFixed(3) + ', asi que el intercambio sale a favor bajo estos supuestos.'
-        : ' El Sharpe empeora ' + Math.abs(delta.sharpe).toFixed(3) + ', asi que estas pagando mas rendimiento del que ahorras en riesgo.'
+        ? ' El Sharpe mejora ' + delta.sharpe.toFixed(3) + ', así que el intercambio sale a favor bajo estos supuestos.'
+        : ' El Sharpe empeora ' + Math.abs(delta.sharpe).toFixed(3) + ', así que estás pagando más rendimiento del que ahorras en riesgo.'
 
   const concentration =
     delta.hhi < 0
-      ? ' La concentracion cae de ' + (delta.hhi < 0 ? '' : '') + 'forma medible (HHI ' + delta.hhi.toFixed(3) + ').'
+      ? ' La concentración cae de ' + (delta.hhi < 0 ? '' : '') + 'forma medible (HHI ' + delta.hhi.toFixed(3) + ').'
       : ''
 
   return (

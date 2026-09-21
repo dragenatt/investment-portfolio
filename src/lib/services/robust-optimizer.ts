@@ -44,10 +44,10 @@ export type RobustOptions = {
 }
 
 export const ROBUST_CAVEAT =
-  'La optimizacion robusta no adivina mejor que la clasica: asume lo peor dentro del rango que TU declaraste. ' +
-  'Si el rango esta mal puesto, el resultado también lo estara — solo que ahora el error es explicito en vez ' +
-  'de estar escondido en un número único. Su virtud no es acertar mas, es castigar a los activos sobre los ' +
-  'que tienes menos certeza, que es exactamente lo que la media-varianza clasica no sabe hacer.'
+  'La optimización robusta no adivina mejor que la clásica: asume lo peor dentro del rango que TU declaraste. ' +
+  'Si el rango está mal puesto, el resultado también lo estará — solo que ahora el error es explícito en vez ' +
+  'de estar escondido en un número único. Su virtud no es acertar más, es castigar a los activos sobre los ' +
+  'que tienes menos certeza, que es exactamente lo que la media-varianza clásica no sabe hacer.'
 
 function usableRanges(ranges: ReturnRange[]): boolean {
   if (ranges.length === 0) return false
@@ -132,7 +132,7 @@ export function compareRobustVsClassic(
 
   const summary =
     moved.length === 0
-      ? `Ser pesimista no cambia nada aquí: con los rangos que diste, la cartera óptima es prácticamente la misma (${weightShifts.length} pesos, ninguno se mueve mas de un punto). Eso pasa cuando todos los activos tienen incertidumbres parecidas — el castigo cae igual sobre todos y el orden no cambia.`
+      ? `Ser pesimista no cambia nada aquí: con los rangos que diste, la cartera óptima es prácticamente la misma (${weightShifts.length} pesos, ninguno se mueve más de un punto). Eso pasa cuando todos los activos tienen incertidumbres parecidas — el castigo cae igual sobre todos y el orden no cambia.`
       : `Asumir lo peor de cada rango mueve ${moved.length} de ${weightShifts.length} pesos. El mayor cambio es ` +
         moved
           .slice(0, 3)
@@ -141,7 +141,7 @@ export function compareRobustVsClassic(
               `${s.symbol} ${s.deltaPp >= 0 ? '+' : ''}${s.deltaPp.toFixed(1)} puntos (${(s.classicWeight * 100).toFixed(0)}% a ${(s.robustWeight * 100).toFixed(0)}%)`,
           )
           .join(', ') +
-        `. El rango mas ancho que declaraste es el de ${widest.symbol}, ${widthPp.toFixed(1)} puntos de amplitud, y por eso es el que mas peso pierde: la version robusta no penaliza el riesgo del activo, penaliza tu falta de certeza sobre el.`
+        `. El rango más ancho que declaraste es el de ${widest.symbol}, ${widthPp.toFixed(1)} puntos de amplitud, y por eso es el que más peso pierde: la versión robusta no penaliza el riesgo del activo, penaliza tu falta de certeza sobre él.`
 
   return { classic, robust, weightShifts, summary, caveat: ROBUST_CAVEAT }
 }
@@ -237,8 +237,8 @@ export function weightSensitivity(
 
   const summary =
     worst.spreadPp >= FRAGILE_SPREAD_PP
-      ? `Dentro de los rangos que tu mismo declaraste, el peso óptimo de ${worst.symbol} va del ${(worst.minWeight * 100).toFixed(0)}% al ${(worst.maxWeight * 100).toFixed(0)}% — ${worst.spreadPp.toFixed(0)} puntos de diferencia sin salirte de tus propios supuestos. Un número que se mueve tanto por dentro de tu margen de error no es una respuesta, es una moneda al aire. Asi de fragil es la media-varianza cuando los rendimientos esperados no se conocen bien.`
-      : `El peso que mas se mueve es el de ${worst.symbol}, ${worst.spreadPp.toFixed(0)} puntos de un extremo a otro de tus rangos. Es poco: con estos supuestos la cartera óptima es razonablemente estable, y eso suele significar que la matriz de covarianza manda mas que los rendimientos esperados. Es la mejor situación posible, porque la covarianza se estima mucho mejor.`
+      ? `Dentro de los rangos que tú mismo declaraste, el peso óptimo de ${worst.symbol} va del ${(worst.minWeight * 100).toFixed(0)}% al ${(worst.maxWeight * 100).toFixed(0)}% — ${worst.spreadPp.toFixed(0)} puntos de diferencia sin salirte de tus propios supuestos. Un número que se mueve tanto por dentro de tu margen de error no es una respuesta, es una moneda al aire. Así de frágil es la media-varianza cuando los rendimientos esperados no se conocen bien.`
+      : `El peso que más se mueve es el de ${worst.symbol}, ${worst.spreadPp.toFixed(0)} puntos de un extremo a otro de tus rangos. Es poco: con estos supuestos la cartera óptima es razonablemente estable, y eso suele significar que la matriz de covarianza manda más que los rendimientos esperados. Es la mejor situación posible, porque la covarianza se estima mucho mejor.`
 
   return { samples: evaluated, perAsset, mostSensitive: worst.symbol, summary }
 }

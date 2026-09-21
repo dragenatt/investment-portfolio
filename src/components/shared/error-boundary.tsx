@@ -19,7 +19,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return this.props.fallback || (
         <div className="flex flex-col items-center justify-center p-8 text-center gap-3">
           <AlertCircle className="h-8 w-8 text-destructive" />
-          <p className="text-sm text-muted-foreground">Algo salio mal</p>
+          <p className="text-sm text-muted-foreground">Algo salió mal</p>
           <Button size="sm" variant="outline" onClick={() => this.setState({ hasError: false })}>
             Reintentar
           </Button>

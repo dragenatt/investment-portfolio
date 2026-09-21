@@ -140,7 +140,7 @@ describe('sensibilidad', () => {
     const bloque = (titulo: string) =>
       md.slice(md.indexOf(`### ${titulo}`), md.indexOf(`### ${titulo}`) + 400)
 
-    expect(bloque('Aportacion mensual')).toContain('$4,000')
+    expect(bloque('Aportación mensual')).toContain('$4,000')
     expect(bloque('Capital inicial')).toContain('$50,000')
     expect(bloque('Meta')).toContain('$3,000,000')
     expect(bloque('Horizonte (años)')).toMatch(/20 años/)
@@ -186,7 +186,7 @@ describe('supuestos y limitaciones', () => {
     // paragraph: "garantia" with the "no" three sentences away is not a
     // disclaimer.
     expect(plan.advertencia.toLowerCase()).toMatch(/no .{0,20}garant/)
-    expect(plan.advertencia.toLowerCase()).toMatch(/(no|ninguna) .{0,30}asesoria/)
+    expect(plan.advertencia.toLowerCase()).toMatch(/(no|ninguna) .{0,30}asesoría/)
   })
 })
 

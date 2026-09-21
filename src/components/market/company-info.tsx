@@ -37,7 +37,7 @@ export function CompanyInfo({ name, description, ceo, employees, hq, website, se
                 onClick={() => setExpanded(!expanded)}
                 className="text-xs text-primary font-medium mt-1 hover:underline"
               >
-                {expanded ? 'Ver menos' : 'Ver mas'}
+                {expanded ? 'Ver menos' : 'Ver más'}
               </button>
             )}
           </div>

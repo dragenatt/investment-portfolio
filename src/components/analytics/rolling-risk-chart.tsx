@@ -55,7 +55,7 @@ const METRICS: Array<{
     key: 'volatility_pct',
     suffix: '%',
     digits: 1,
-    description: 'Cuanto se mueve tu cartera, anualizado. Subiendo = periodo mas agitado.',
+    description: 'Cuánto se mueve tu cartera, anualizado. Subiendo = periodo más agitado.',
   },
   {
     id: 'sharpe',
@@ -71,7 +71,7 @@ const METRICS: Array<{
     key: 'correlation',
     suffix: '',
     digits: 2,
-    description: 'Que tanto te mueves con el índice. Cerca de 1 = prácticamente lo replicas.',
+    description: 'Qué tanto te mueves con el índice. Cerca de 1 = prácticamente lo replicas.',
   },
 ]
 
@@ -174,7 +174,7 @@ export function RollingRiskChart({ rolling, isLoading }: Props) {
             <Activity className="h-6 w-6 text-muted-foreground" />
           </div>
           <p className="text-sm text-muted-foreground text-center max-w-md">
-            Hacen falta al menos unos meses de historial para medir el riesgo con una ventana movil.
+            Hacen falta al menos unos meses de historial para medir el riesgo con una ventana móvil.
           </p>
         </CardContent>
       </Card>

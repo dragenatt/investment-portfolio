@@ -36,11 +36,11 @@ const MIN_RETURN_OBSERVATIONS = 30
 
 export const FRONTIER_CAVEAT =
   'Esta frontera se construye con rendimientos esperados ESTIMADOS a partir del pasado, y esa es la ' +
-  'entrada mas debil de todo el modelo: el pasado no se repite y el optimizador es extremadamente ' +
+  'entrada más débil de todo el modelo: el pasado no se repite y el optimizador es extremadamente ' +
   'sensible a ese supuesto — cambiar un punto porcentual en un activo puede reordenar la cartera ' +
-  '"óptima" entera. La matriz de covarianza es mas estable que los rendimientos, asi que la forma de ' +
-  'la curva es mas confiable que el punto exacto que senala. Usala para entender el intercambio entre ' +
-  'riesgo y rendimiento, no como una instruccion de compra.'
+  '"óptima" entera. La matriz de covarianza es más estable que los rendimientos, así que la forma de ' +
+  'la curva es más confiable que el punto exacto que señala. Úsala para entender el intercambio entre ' +
+  'riesgo y rendimiento, no como una instrucción de compra.'
 
 /**
  * Euclidean projection of a vector onto the probability simplex.
@@ -432,13 +432,13 @@ export function efficientFrontier(
         summary:
           volatilitySaved < 0.1 && returnGained < 0.1
             ? 'Tu cartera ya esta prácticamente sobre la frontera para estos supuestos: reordenar los pesos ' +
-              'no compraria una mejora apreciable. Recuerda que eso depende de los rendimientos esperados ' +
-              'estimados, que son la parte mas fragil del cálculo.'
+              'no compraría una mejora apreciable. Recuerda que eso depende de los rendimientos esperados ' +
+              'estimados, que son la parte más frágil del cálculo.'
             : `Con estos supuestos, el mismo rendimiento esperado (${current.expectedReturnPct.toFixed(1)}%) ` +
               `podría obtenerse con ${sameReturnVolatilityPct.toFixed(1)}% de volatilidad en vez de ` +
               `${current.volatilityPct.toFixed(1)}%, o el mismo riesgo podría rendir ` +
               `${sameRiskReturnPct.toFixed(1)}% en vez de ${current.expectedReturnPct.toFixed(1)}%. ` +
-              'Es un ejercicio con supuestos estimados, no una recomendacion.',
+              'Es un ejercicio con supuestos estimados, no una recomendación.',
       }
     }
   }

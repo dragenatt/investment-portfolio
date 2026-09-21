@@ -26,7 +26,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ job_id:
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return error('Unauthorized', 401)
-  if (!UUID.test(jobId)) return error('job_id no es valido.', 400)
+  if (!UUID.test(jobId)) return error('job_id no es válido.', 400)
 
   // Read through the user's client: RLS only returns the user's own jobs, so a
   // guessed id belonging to someone else is simply not found.

@@ -11,10 +11,19 @@ import { join } from 'node:path'
 // "perdida"/"pérdida", "publica"/"pública" — need a reader and are left alone.
 
 const ROOTS = ['src/app', 'src/components', 'src/lib'].map((dir) => join(process.cwd(), dir))
+// The Spanish dictionary is text people read more than any component — the
+// sidebar, every toast, every empty state — and the first pass, reading only
+// .ts and .tsx, never opened it: "Configuracion" sat in the navigation.
+const DICTIONARY = join(process.cwd(), 'src', 'app', 'dictionaries', 'es.json')
 
 const NEVER_WITHOUT_ACCENT = [
   'ano', 'anos', 'dia', 'dias', 'posicion', 'inversion', 'analisis', 'atribucion', 'asignacion',
   'metricas', 'tambien', 'aqui', 'segun', 'ademas', 'rindio', 'pagina', 'informacion', 'transaccion',
+  'accion', 'configuracion', 'descripcion', 'simbolo', 'simbolos', 'estadisticas', 'calificacion',
+  'importacion', 'recomendacion', 'busquedas', 'proximamente', 'podras', 'estaran', 'ocurrio', 'salio',
+  'rapidas', 'caida', 'caidas', 'raiz', 'tension', 'version', 'util', 'detras', 'ningun', 'algun', 'asi',
+  'parametros', 'regresion', 'recesion', 'millon', 'decada', 'decadas', 'tecnologia', 'teoria', 'historicos',
+  'historicas', 'debil', 'volatiles', 'movil', 'tamano', 'pequenas', 'anio', 'anios', 'ocurrio', 'volvio',
 ]
 
 const word = new RegExp(`\\b(${NEVER_WITHOUT_ACCENT.join('|')})\\b`)
@@ -93,8 +102,26 @@ function offenders(): string[] {
   return found
 }
 
+function dictionaryOffenders(): string[] {
+  const found: string[] = []
+  const visit = (value: unknown, path: string) => {
+    if (typeof value === 'string') {
+      const hit = word.exec(value)
+      if (hit) found.push(`${path} "${hit[1]}"`)
+    } else if (value && typeof value === 'object') {
+      for (const [key, child] of Object.entries(value)) visit(child, path ? `${path}.${key}` : key)
+    }
+  }
+  visit(JSON.parse(readFileSync(DICTIONARY, 'utf8')), '')
+  return found
+}
+
 describe('text people read keeps its accents', () => {
   it('has no word that is only ever written with one, written without it', () => {
     expect(offenders()).toEqual([])
+  })
+
+  it('holds the Spanish dictionary to the same rule', () => {
+    expect(dictionaryOffenders()).toEqual([])
   })
 })

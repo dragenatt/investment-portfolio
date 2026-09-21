@@ -126,49 +126,49 @@ const ENSENANZAS: Record<ConceptoId, Ensenanza> = {
     id: 'rendimiento-esperado',
     termino: 'Rendimiento esperado',
     definicion:
-      'El promedio anual que se supone que ganara el dinero invertido. Es un punto de partida del modelo, no una medicion de lo que ya paso ni una promesa de lo que pasara.',
+      'El promedio anual que se supone que ganará el dinero invertido. Es un punto de partida del modelo, no una medición de lo que ya pasó ni una promesa de lo que pasará.',
     porQueImporta:
-      'Es la palanca mas fuerte de toda la proyección. Mover un solo punto porcentual cambia el resultado a largo plazo mucho mas que subir la aportación, y por eso importa de donde sale la cifra.',
+      'Es la palanca más fuerte de toda la proyección. Mover un solo punto porcentual cambia el resultado a largo plazo mucho más que subir la aportación, y por eso importa de dónde sale la cifra.',
     errorComun:
-      'Leerlo como el rendimiento de cada año. Un promedio admite años muy buenos y años muy malos; casi ningun año se parece al promedio, y esa diferencia es justamente la volatilidad.',
+      'Leerlo como el rendimiento de cada año. Un promedio admite años muy buenos y años muy malos; casi ningún año se parece al promedio, y esa diferencia es justamente la volatilidad.',
   },
   volatilidad: {
     id: 'volatilidad',
     termino: 'Volatilidad',
     definicion:
-      'Cuanto se aparta el rendimiento real de su promedio, medida como desviación estándar anual. Describe el tamaño típico del vaiven, no su dirección.',
+      'Cuánto se aparta el rendimiento real de su promedio, medida como desviación estándar anual. Describe el tamaño típico del vaivén, no su dirección.',
     porQueImporta:
-      'Dos planes con el mismo rendimiento esperado y distinta volatilidad no son el mismo plan: el mas volátil tiene una cola de resultados malos mucho mas larga, y esa cola decide si el plan se aguanta.',
+      'Dos planes con el mismo rendimiento esperado y distinta volatilidad no son el mismo plan: el más volátil tiene una cola de resultados malos mucho más larga, y esa cola decide si el plan se aguanta.',
     errorComun:
       'Confundirla con pérdida. Volatilidad alta significa movimientos grandes en las dos direcciones; lo que la vuelve peligrosa es que empuja a vender en el peor momento.',
   },
   'interes-compuesto': {
     id: 'interes-compuesto',
-    termino: 'Interes compuesto',
+    termino: 'Interés compuesto',
     definicion:
-      'El rendimiento se calcula sobre el dinero ya acumulado, no solo sobre lo aportado. Cada periodo arranca desde una base mayor, asi que el crecimiento se acelera con el tiempo.',
+      'El rendimiento se calcula sobre el dinero ya acumulado, no solo sobre lo aportado. Cada periodo arranca desde una base mayor, así que el crecimiento se acelera con el tiempo.',
     porQueImporta:
-      'Es la razón por la que el plazo pesa mas que el monto. Los últimos tramos de un horizonte largo aportan mucho mas valor que los primeros, aunque la aportación mensual sea la misma.',
+      'Es la razón por la que el plazo pesa más que el monto. Los últimos tramos de un horizonte largo aportan mucho más valor que los primeros, aunque la aportación mensual sea la misma.',
     errorComun:
-      'Suponer que el efecto es lineal, y que solo funciona hacia arriba. Una caida también compone, y recuperarla exige un porcentaje mayor que el que se perdio.',
+      'Suponer que el efecto es lineal, y que solo funciona hacia arriba. Una caída también compone, y recuperarla exige un porcentaje mayor que el que se perdió.',
   },
   'monte-carlo': {
     id: 'monte-carlo',
     termino: 'Simulación de Monte Carlo',
     definicion:
-      'En lugar de proyectar un único camino, el modelo sortea miles de secuencias de rendimientos y observa como termina cada una. El resultado es un abanico de finales posibles, no una linea.',
+      'En lugar de proyectar un único camino, el modelo sortea miles de secuencias de rendimientos y observa cómo termina cada una. El resultado es un abanico de finales posibles, no una línea.',
     porQueImporta:
-      'Un solo camino esconde el rango. El abanico muestra cuanto puede separarse el mejor caso del peor bajo los mismos supuestos, que es la información que hace falta para decidir.',
+      'Un solo camino esconde el rango. El abanico muestra cuánto puede separarse el mejor caso del peor bajo los mismos supuestos, que es la información que hace falta para decidir.',
     errorComun:
-      'Tomar el abanico por todo lo que puede pasar. Solo contiene lo que los supuestos permiten: si el rendimiento o la volatilidad supuestos estan mal, todas las trayectorias lo estan a la vez.',
+      'Tomar el abanico por todo lo que puede pasar. Solo contiene lo que los supuestos permiten: si el rendimiento o la volatilidad supuestos están mal, todas las trayectorias lo están a la vez.',
   },
   probabilidad: {
     id: 'probabilidad',
     termino: 'Probabilidad de alcanzar la meta',
     definicion:
-      'La fraccion de trayectorias simuladas que terminan en la meta o por encima. Se mide dentro del modelo, contando escenarios, no observando el mercado.',
+      'La fracción de trayectorias simuladas que terminan en la meta o por encima. Se mide dentro del modelo, contando escenarios, no observando el mercado.',
     porQueImporta:
-      'Convierte una meta en algo comparable: permite juzgar dos planes por cuantas veces funcionan y no por lo bien que se ven en su caso medio.',
+      'Convierte una meta en algo comparable: permite juzgar dos planes por cuántas veces funcionan y no por lo bien que se ven en su caso medio.',
     errorComun:
       'Leerla como una probabilidad del mundo real. Es condicional a los supuestos; si el rendimiento supuesto no se cumple, la cifra tampoco.',
   },
@@ -176,21 +176,21 @@ const ENSENANZAS: Record<ConceptoId, Ensenanza> = {
     id: 'percentiles',
     termino: 'Percentiles',
     definicion:
-      'Cortes del abanico ordenado de peor a mejor. El corte bajo deja por debajo a la decima parte de las trayectorias; la mediana lo parte por la mitad.',
+      'Cortes del abanico ordenado de peor a mejor. El corte bajo deja por debajo a la décima parte de las trayectorias; la mediana lo parte por la mitad.',
     porQueImporta:
       'Describen la forma del resultado y no solo su centro. La distancia entre el corte bajo y el alto es la incertidumbre del plan, expresada en dinero.',
     errorComun:
-      'Tratar el corte bajo como el peor caso posible. Es solo el limite de la zona desfavorable que se simulo; por debajo queda una fraccion de trayectorias todavía peores.',
+      'Tratar el corte bajo como el peor caso posible. Es solo el límite de la zona desfavorable que se simuló; por debajo queda una fracción de trayectorias todavía peores.',
   },
   diversificacion: {
     id: 'diversificacion',
     termino: 'Diversificacion',
     definicion:
-      'Repartir el dinero entre activos que no se mueven al mismo tiempo. Lo que reduce no es el rendimiento esperado, sino la magnitud del vaiven conjunto.',
+      'Repartir el dinero entre activos que no se mueven al mismo tiempo. Lo que reduce no es el rendimiento esperado, sino la magnitud del vaivén conjunto.',
     porQueImporta:
-      'Es la única forma conocida de bajar el riesgo sin renunciar en la misma proporcion al rendimiento, y depende de como se relacionan entre si los activos, no de cuantos hay.',
+      'Es la única forma conocida de bajar el riesgo sin renunciar en la misma proporción al rendimiento, y depende de cómo se relacionan entre sí los activos, no de cuántos hay.',
     errorComun:
-      'Contar posiciones. Varios fondos del mismo índice son una sola apuesta repetida; dos activos que suelen moverse al reves diversifican mucho mas que diez que se mueven juntos.',
+      'Contar posiciones. Varios fondos del mismo índice son una sola apuesta repetida; dos activos que suelen moverse al revés diversifican mucho más que diez que se mueven juntos.',
   },
   horizonte: {
     id: 'horizonte',
@@ -198,7 +198,7 @@ const ENSENANZAS: Record<ConceptoId, Ensenanza> = {
     definicion:
       'El tiempo que el dinero puede quedarse invertido sin que haga falta retirarlo. Se cuenta hasta el momento en que se necesita, no hasta que se pierde la paciencia.',
     porQueImporta:
-      'Fija cuanto puede trabajar el interes compuesto y cuanto margen hay para recuperarse de un mal tramo. Es lo que decide que nivel de riesgo tiene sentido asumir.',
+      'Fija cuánto puede trabajar el interés compuesto y cuánto margen hay para recuperarse de un mal tramo. Es lo que decide que nivel de riesgo tiene sentido asumir.',
     errorComun:
       'Dar por hecho que un plazo largo elimina el riesgo. Reduce la probabilidad de terminar en pérdida, pero agranda la desviación posible medida en dinero.',
   },
@@ -208,19 +208,19 @@ const ENSENANZAS: Record<ConceptoId, Ensenanza> = {
     definicion:
       'La posibilidad de terminar con menos de lo que hacia falta, y el tamaño de ese faltante. No es lo mismo que la volatilidad: la volatilidad lo describe, el riesgo lo valora.',
     porQueImporta:
-      'Un plan solo es viable si su rama mala sigue siendo soportable. Mirar unicamente el caso medio deja fuera justo la parte que puede obligar a abandonarlo a mitad de camino.',
+      'Un plan solo es viable si su rama mala sigue siendo soportable. Mirar únicamente el caso medio deja fuera justo la parte que puede obligar a abandonarlo a mitad de camino.',
     errorComun:
-      'Medirlo por lo que se siente en un mes malo. El riesgo que cuenta es el de no llegar, y a veces la decisión mas arriesgada resulta ser quedarse fuera.',
+      'Medirlo por lo que se siente en un mes malo. El riesgo que cuenta es el de no llegar, y a veces la decisión más arriesgada resulta ser quedarse fuera.',
   },
   'tasa-libre': {
     id: 'tasa-libre',
     termino: 'Tasa libre de riesgo',
     definicion:
-      'El rendimiento que se obtiene sin asumir riesgo de mercado, tipicamente deuda pública de corto plazo. Es la referencia contra la que se juzga cualquier otro rendimiento.',
+      'El rendimiento que se obtiene sin asumir riesgo de mercado, típicamente deuda pública de corto plazo. Es la referencia contra la que se juzga cualquier otro rendimiento.',
     porQueImporta:
       'Solo la parte que supera esa referencia es paga por asumir riesgo. En esta app la tasa libre entra en las métricas de riesgo de tu cartera, como el Sharpe y el Sortino, no en este proyector.',
     errorComun:
-      'Tomarla por cero. Cuando la tasa sin riesgo es alta, buena parte del rendimiento de una cartera no es merito de la estrategia sino del entorno.',
+      'Tomarla por cero. Cuando la tasa sin riesgo es alta, buena parte del rendimiento de una cartera no es mérito de la estrategia sino del entorno.',
   },
   aportacion: {
     id: 'aportacion',
@@ -228,7 +228,7 @@ const ENSENANZAS: Record<ConceptoId, Ensenanza> = {
     definicion:
       'El dinero nuevo que entra cada periodo. Es la única variable del plan que se controla por completo, a diferencia del rendimiento.',
     porQueImporta:
-      'En los primeros tramos del plan aporta mas al saldo que el rendimiento, y no depende de que el mercado coopere. Es también la palanca que primero se rompe si no se puede sostener.',
+      'En los primeros tramos del plan aporta más al saldo que el rendimiento, y no depende de que el mercado coopere. Es también la palanca que primero se rompe si no se puede sostener.',
     errorComun:
       'Subirla hasta que la proyección muestre la cifra deseada. La aportación que hace cuadrar el número solo sirve si se puede pagar todos los meses del horizonte.',
   },
@@ -265,7 +265,7 @@ export function explicacionEducativa(
     },
     'interes-compuesto': {
       // Both halves named. Showing only the growth would flatter the plan.
-      valor: `Aportas ${money(proyeccionDeterminista.capitalAportado)} · el interes pone ${money(proyeccionDeterminista.ganancia)}`,
+      valor: `Aportas ${money(proyeccionDeterminista.capitalAportado)} · el interés pone ${money(proyeccionDeterminista.ganancia)}`,
       procedencia: 'resultado',
     },
     'monte-carlo': {
@@ -311,18 +311,18 @@ export function explicacionEducativa(
       enTuPlan: enTuPlan[id],
     })),
     aviso:
-      'Esta seccion explica los conceptos que usa el proyector. Es material educativo: no cambia ninguna cifra de las de arriba, y ninguna de estas definiciones es una recomendacion de inversión.',
+      'Esta sección explica los conceptos que usa el proyector. Es material educativo: no cambia ninguna cifra de las de arriba, y ninguna de estas definiciones es una recomendación de inversión.',
   }
 }
 
 function describirCartera(cartera: Record<string, number> | null): EnTuPlan {
   if (!cartera) {
-    return { valor: 'No se indico una cartera para este plan', procedencia: 'no-aplica' }
+    return { valor: 'No se indicó una cartera para este plan', procedencia: 'no-aplica' }
   }
 
   const pesos = Object.values(cartera).filter((peso) => Number.isFinite(peso) && peso > 0)
   if (pesos.length === 0) {
-    return { valor: 'No se indico una cartera para este plan', procedencia: 'no-aplica' }
+    return { valor: 'No se indicó una cartera para este plan', procedencia: 'no-aplica' }
   }
 
   const total = pesos.reduce((sum, peso) => sum + peso, 0)

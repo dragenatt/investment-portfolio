@@ -56,19 +56,19 @@ export const FACTOR_DEFINITIONS: FactorDefinition[] = [
     name: 'Mercado',
     symbols: ['SPY'],
     construction:
-      'Rendimiento diario del SPY (S&P 500) menos la tasa libre de riesgo diaria. Es el factor de mercado clasico: lo que ganas simplemente por estar invertido.',
+      'Rendimiento diario del SPY (S&P 500) menos la tasa libre de riesgo diaria. Es el factor de mercado clásico: lo que ganas simplemente por estar invertido.',
     meaning:
       'Una carga cercana a 1 significa que te mueves como el mercado. Por encima de 1, amplificas sus movimientos en ambas direcciones; por debajo, los amortiguas.',
     isProxy: true,
   },
   {
     id: 'size',
-    name: 'Tamano (pequenas menos grandes)',
+    name: 'Tamaño (pequeñas menos grandes)',
     symbols: ['IWM', 'SPY'],
     construction:
-      'Rendimiento del IWM (Russell 2000, empresas pequenas) menos el del SPY (empresas grandes). Aproxima el factor SMB de Fama-French con dos ETF en vez de miles de acciones.',
+      'Rendimiento del IWM (Russell 2000, empresas pequeñas) menos el del SPY (empresas grandes). Aproxima el factor SMB de Fama-French con dos ETF en vez de miles de acciones.',
     meaning:
-      'Carga positiva: tu cartera se comporta como empresas pequenas, que historicamente rinden mas y caen mas fuerte. Carga negativa: te pareces a las grandes.',
+      'Carga positiva: tu cartera se comporta como empresas pequeñas, que históricamente rinden más y caen más fuerte. Carga negativa: te pareces a las grandes.',
     isProxy: true,
   },
   {
@@ -78,7 +78,7 @@ export const FACTOR_DEFINITIONS: FactorDefinition[] = [
     construction:
       'Rendimiento del IWD (Russell 1000 Value) menos el del IWF (Russell 1000 Growth). Aproxima el factor HML de Fama-French.',
     meaning:
-      'Carga positiva: tu cartera se comporta como acciones baratas respecto a sus fundamentales. Carga negativa: te inclinas a crecimiento, que es donde ha estado la última decada.',
+      'Carga positiva: tu cartera se comporta como acciones baratas respecto a sus fundamentales. Carga negativa: te inclinas a crecimiento, que es donde ha estado la última década.',
     isProxy: true,
   },
   {
@@ -88,7 +88,7 @@ export const FACTOR_DEFINITIONS: FactorDefinition[] = [
     construction:
       'Rendimiento del MTUM (MSCI USA Momentum) menos el del SPY. Aproxima el factor WML: comprar lo que viene subiendo.',
     meaning:
-      'Carga positiva: tu cartera tiende a llevar lo que ya venia ganando. Es un factor con buen historial y caidas bruscas cuando el mercado gira.',
+      'Carga positiva: tu cartera tiende a llevar lo que ya venía ganando. Es un factor con buen historial y caídas bruscas cuando el mercado gira.',
     isProxy: true,
   },
   {
@@ -96,9 +96,9 @@ export const FACTOR_DEFINITIONS: FactorDefinition[] = [
     name: 'Calidad',
     symbols: ['QUAL', 'SPY'],
     construction:
-      'Rendimiento del QUAL (MSCI USA Quality) menos el del SPY. Empresas con balances solidos y beneficios estables frente al mercado general.',
+      'Rendimiento del QUAL (MSCI USA Quality) menos el del SPY. Empresas con balances sólidos y beneficios estables frente al mercado general.',
     meaning:
-      'Carga positiva: tu cartera se parece a empresas rentables y poco endeudadas, que suelen aguantar mejor en las caidas.',
+      'Carga positiva: tu cartera se parece a empresas rentables y poco endeudadas, que suelen aguantar mejor en las caídas.',
     isProxy: true,
   },
   {
@@ -108,7 +108,7 @@ export const FACTOR_DEFINITIONS: FactorDefinition[] = [
     construction:
       'Rendimiento del USMV (MSCI USA Minimum Volatility) menos el del SPY. Acciones que se mueven poco frente al mercado general.',
     meaning:
-      'Carga positiva: tu cartera se comporta como acciones tranquilas. Historicamente han dado un rendimiento ajustado por riesgo mejor de lo que la teoria predice.',
+      'Carga positiva: tu cartera se comporta como acciones tranquilas. Históricamente han dado un rendimiento ajustado por riesgo mejor de lo que la teoría predice.',
     isProxy: true,
   },
 ]
@@ -422,10 +422,10 @@ export function describeFactorExposure(regression: FactorRegression): string {
 
   const fit =
     regression.rSquared >= WELL_EXPLAINED
-      ? `Estos factores explican el ${explained}% de como se mueve tu cartera. Es mucho: la mayor parte de lo que hace tu dinero no es selección de activos, es exposicion a estos riesgos conocidos.`
+      ? `Estos factores explican el ${explained}% de cómo se mueve tu cartera. Es mucho: la mayor parte de lo que hace tu dinero no es selección de activos, es exposición a estos riesgos conocidos.`
       : regression.rSquared <= POORLY_EXPLAINED
-        ? `Estos factores solo explican el ${explained}% de como se mueve tu cartera. O tienes algo genuinamente distinto, o tienes muy pocas posiciones y domina el ruido de cada una.`
-        : `Estos factores explican el ${explained}% de como se mueve tu cartera; el resto viene de lo especifico de tus posiciones.`
+        ? `Estos factores solo explican el ${explained}% de cómo se mueve tu cartera. O tienes algo genuinamente distinto, o tienes muy pocas posiciones y domina el ruido de cada una.`
+        : `Estos factores explican el ${explained}% de cómo se mueve tu cartera; el resto viene de lo específico de tus posiciones.`
 
   const tilts = real.length
     ? ` Tus inclinaciones reales son: ${real
@@ -440,13 +440,13 @@ export function describeFactorExposure(regression: FactorRegression): string {
       : Math.abs(regression.alphaTStat) >= T_SIGNIFICANCE
 
   const alpha = alphaSignificant
-    ? ` Tras descontar esas exposiciones queda un alfa de ${alphaValue}% anual que SI se distingue estadisticamente de cero en este periodo.`
-    : ` Queda un alfa de ${alphaValue}% anual, pero no se distingue estadisticamente de cero: con estos datos es indistinguible de la casualidad, y tratarlo como habilidad sería leer ruido.`
+    ? ` Tras descontar esas exposiciones queda un alfa de ${alphaValue}% anual que SI se distingue estadísticamente de cero en este periodo.`
+    : ` Queda un alfa de ${alphaValue}% anual, pero no se distingue estadísticamente de cero: con estos datos es indistinguible de la casualidad, y tratarlo como habilidad sería leer ruido.`
 
-  const residual = ` Lo que los factores no explican se mueve un ${regression.residualVolatilityPct.toFixed(1)}% anual: ese es el riesgo que asumes sin que ningun factor conocido te pague por el.`
+  const residual = ` Lo que los factores no explican se mueve un ${regression.residualVolatilityPct.toFixed(1)}% anual: ese es el riesgo que asumes sin que ningún factor conocido te pague por él.`
 
   const proxy =
-    ' Nota: estos factores se aproximan con ETF cotizados, no son las series academicas de Fama-French. Sirven para ver la forma de tus exposiciones, no para publicar un paper.'
+    ' Nota: estos factores se aproximan con ETF cotizados, no son las series académicas de Fama-French. Sirven para ver la forma de tus exposiciones, no para publicar un paper.'
 
   return fit + tilts + alpha + residual + proxy
 }

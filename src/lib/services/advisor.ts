@@ -599,7 +599,7 @@ export function validarEntradasAdvisor(entradas: EntradasAdvisor): ValidacionEnt
       message:
         'Esa aportación equivale al ' +
         pct +
-        '% de tu ingreso mensual. El cálculo es valido, pero conviene revisar si es sostenible.',
+        '% de tu ingreso mensual. El cálculo es válido, pero conviene revisar si es sostenible.',
     })
   }
 
@@ -942,10 +942,10 @@ export function proyectarFechaMeta(
 
   const advertencia =
     mesMediana === null
-      ? 'Menos de la mitad de los escenarios simulados alcanza esta meta en el plazo, asi que no hay una fecha central que reportar. Amplia el horizonte, sube la aportación o ajusta la meta.'
-      : 'Estas fechas son percentiles de escenarios simulados, no una prediccion: en 1 de cada 4 casos la meta llega antes de ' +
+      ? 'Menos de la mitad de los escenarios simulados alcanza esta meta en el plazo, así que no hay una fecha central que reportar. Amplia el horizonte, sube la aportación o ajusta la meta.'
+      : 'Estas fechas son percentiles de escenarios simulados, no una predicción: en 1 de cada 4 casos la meta llega antes de ' +
         addMonths(desde, mesP25 ?? 0) +
-        ' y en 1 de cada 4 mas tarde de ' +
+        ' y en 1 de cada 4 más tarde de ' +
         addMonths(desde, mesP75 ?? 0) +
         '. ' +
         never +
@@ -1019,7 +1019,7 @@ export function verificarConsistencia(input: ConsistencyInput): ConsistencyRepor
     input.aporteSugerido < input.aporteActual
   ) {
     problems.push(
-      'El aporte sugerido es menor que el actual pero la probabilidad esta por debajo del objetivo: ' +
+      'El aporte sugerido es menor que el actual pero la probabilidad está por debajo del objetivo: ' +
         'las dos cosas no pueden ser ciertas a la vez.',
     )
   }
@@ -1033,7 +1033,7 @@ export function verificarConsistencia(input: ConsistencyInput): ConsistencyRepor
   ) {
     problems.push(
       'El escenario mediano supera la meta pero la probabilidad reportada es menor al 50%: por ' +
-        'definicion la mitad de los escenarios queda por encima de la mediana.',
+        'definición la mitad de los escenarios queda por encima de la mediana.',
     )
   }
 
@@ -1053,7 +1053,7 @@ export function verificarConsistencia(input: ConsistencyInput): ConsistencyRepor
     problems.push(
       'El rendimiento anual esperado (' +
         (input.rendimientoAnual * 100).toFixed(0) +
-        '%) esta fuera de cualquier rango razonable; revisa las unidades.',
+        '%) está fuera de cualquier rango razonable; revisa las unidades.',
     )
   }
 

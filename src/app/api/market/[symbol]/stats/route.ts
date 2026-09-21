@@ -68,7 +68,7 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ symbol:
       ])
 
       if (ownDaily.length < 2 && ownLong.length < 2) {
-        return { symbol: upper, message: 'No hay historial suficiente para este simbolo.' }
+        return { symbol: upper, message: 'No hay historial suficiente para este símbolo.' }
       }
 
       const riskFree = await getRiskFreeRate('USD')

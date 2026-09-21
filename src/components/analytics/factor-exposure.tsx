@@ -69,7 +69,7 @@ function FactorTooltip({
       <p className="text-[11px] text-muted-foreground">
         {row.significant
           ? `Se distingue del ruido (t = ${row.tStat?.toFixed(1) ?? 'n/d'}).`
-          : `NO se distingue del ruido (t = ${row.tStat?.toFixed(1) ?? 'n/d'}): con estos datos no se puede afirmar que tengas esta inclinacion.`}
+          : `NO se distingue del ruido (t = ${row.tStat?.toFixed(1) ?? 'n/d'}): con estos datos no se puede afirmar que tengas esta inclinación.`}
       </p>
     </div>
   )
@@ -238,7 +238,7 @@ export function FactorExposure({ data, isLoading }: Props) {
         {data.definitions && data.definitions.length > 0 && (
           <details className="text-[11px] text-muted-foreground">
             <summary className="cursor-pointer text-foreground/80 hover:text-foreground">
-              Que es cada factor y como se construye
+              Qué es cada factor y cómo se construye
             </summary>
             <dl className="mt-2 space-y-2">
               {data.definitions.map((definition) => (

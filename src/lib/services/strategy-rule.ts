@@ -52,11 +52,11 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     hasPeriod: false,
     defaultPeriod: 0,
     explanation:
-      'El cierre del día. Es la referencia contra la que se comparan casi todos los demas indicadores.',
+      'El cierre del día. Es la referencia contra la que se comparan casi todos los demás indicadores.',
   },
   {
     id: 'sma',
-    label: 'Media movil simple (SMA)',
+    label: 'Media móvil simple (SMA)',
     hasPeriod: true,
     defaultPeriod: 20,
     explanation:
@@ -64,11 +64,11 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
   },
   {
     id: 'ema',
-    label: 'Media movil exponencial (EMA)',
+    label: 'Media móvil exponencial (EMA)',
     hasPeriod: true,
     defaultPeriod: 20,
     explanation:
-      'Como la SMA pero dando mas peso a los días recientes, asi que reacciona antes a un cambio de tendencia y también se equivoca antes.',
+      'Como la SMA pero dando más peso a los días recientes, así que reacciona antes a un cambio de tendencia y también se equivoca antes.',
   },
   {
     id: 'rsi',
@@ -84,7 +84,7 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     hasPeriod: true,
     defaultPeriod: 20,
     explanation:
-      'La media movil mas dos desviaciones estándar. El precio la toca cuando se mueve mucho mas de lo normal hacia arriba.',
+      'La media móvil más dos desviaciones estándar. El precio la toca cuando se mueve mucho más de lo normal hacia arriba.',
   },
   {
     id: 'bollingerMiddle',
@@ -92,7 +92,7 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     hasPeriod: true,
     defaultPeriod: 20,
     explanation:
-      'La media movil sobre la que se construyen las bandas. Sirve como objetivo cuando el precio vuelve a su nivel habitual.',
+      'La media móvil sobre la que se construyen las bandas. Sirve como objetivo cuando el precio vuelve a su nivel habitual.',
   },
   {
     id: 'bollingerLower',
@@ -100,7 +100,7 @@ export const INDICATOR_SPECS: IndicatorSpec[] = [
     hasPeriod: true,
     defaultPeriod: 20,
     explanation:
-      'La media movil menos dos desviaciones estándar. El precio la toca cuando cae mucho mas de lo normal.',
+      'La media móvil menos dos desviaciones estándar. El precio la toca cuando cae mucho más de lo normal.',
   },
 ]
 
@@ -132,14 +132,14 @@ export const OPERATORS: OperatorSpec[] = [
     label: 'cruza por encima de',
     needsPrevious: true,
     explanation:
-      'Se cumple SOLO el día del cruce: ayer estaba por debajo y hoy esta por encima. Dispara una vez, no todos los días que siga arriba.',
+      'Se cumple SOLO el día del cruce: ayer estaba por debajo y hoy está por encima. Dispara una vez, no todos los días que siga arriba.',
   },
   {
     id: 'crossesBelow',
     label: 'cruza por debajo de',
     needsPrevious: true,
     explanation:
-      'Se cumple SOLO el día del cruce: ayer estaba por encima y hoy esta por debajo.',
+      'Se cumple SOLO el día del cruce: ayer estaba por encima y hoy está por debajo.',
   },
 ]
 
@@ -352,7 +352,7 @@ export function validateStrategy(strategy: Strategy): ValidationResult {
   }
 
   if (strategy.buy.conditions.length === 0) {
-    errors.push('Sin al menos una condición de compra la estrategia nunca entraria al mercado.')
+    errors.push('Sin al menos una condición de compra la estrategia nunca entraría al mercado.')
   }
 
   const allConditions = [
@@ -388,7 +388,7 @@ export function validateStrategy(strategy: Strategy): ValidationResult {
 
     if (sameOperand(condition.left, condition.right)) {
       warnings.push(
-        `Una condición de ${side} compara algo consigo mismo, asi que nunca se cumplira. El backtest saldria plano y parecera que la estrategia decidio no operar.`,
+        `Una condición de ${side} compara algo consigo mismo, así que nunca se cumplirá. El backtest saldría plano y parecerá que la estrategia decidió no operar.`,
       )
     }
   }
@@ -411,7 +411,7 @@ export function validateStrategy(strategy: Strategy): ValidationResult {
 
     for (const [index, times] of counted) {
       warnings.push(
-        `La condición de ${side} "${describeCondition(rule.conditions[index])}" esta repetida ${times} veces. ` +
+        `La condición de ${side} "${describeCondition(rule.conditions[index])}" está repetida ${times} veces. ` +
           (rule.combinator === 'and'
             ? 'Con "todas (Y)" repetirla no cambia nada: la regla se comporta como si estuviera una sola vez.'
             : 'Con "cualquiera (O)" repetirla tampoco cambia nada.'),
@@ -421,7 +421,7 @@ export function validateStrategy(strategy: Strategy): ValidationResult {
 
   if (strategy.sell.conditions.length === 0) {
     warnings.push(
-      'Sin condición de venta la estrategia compra y nunca sale, que es basicamente comprar y mantener. No es un error, pero conviene saberlo antes de leer el resultado.',
+      'Sin condición de venta la estrategia compra y nunca sale, que es básicamente comprar y mantener. No es un error, pero conviene saberlo antes de leer el resultado.',
     )
   }
 
@@ -485,7 +485,7 @@ export const EXAMPLE_STRATEGIES: ExampleStrategy[] = [
       },
     },
     description:
-      'La idea mas antigua del análisis tecnico: comprar cuando la media corta cruza por encima de la larga y vender cuando la cruza por debajo. Entra tarde y sale tarde por construccion, porque una media solo se mueve después de que el precio ya lo hizo.',
+      'La idea más antigua del análisis técnico: comprar cuando la media corta cruza por encima de la larga y vender cuando la cruza por debajo. Entra tarde y sale tarde por construcción, porque una media solo se mueve después de que el precio ya lo hizo.',
   },
   {
     id: 'rsiReversion',
@@ -521,7 +521,7 @@ export const EXAMPLE_STRATEGIES: ExampleStrategy[] = [
       },
     },
     description:
-      'Lo contrario de la anterior: asume que salirse de la banda superior es señal de fuerza, no de exceso. Compra la ruptura y sale al volver a la media. Las dos ideas son incompatibles y las dos tienen defensores, que es justamente la leccion.',
+      'Lo contrario de la anterior: asume que salirse de la banda superior es señal de fuerza, no de exceso. Compra la ruptura y sale al volver a la media. Las dos ideas son incompatibles y las dos tienen defensores, que es justamente la lección.',
   },
   {
     id: 'momentum',
@@ -542,6 +542,6 @@ export const EXAMPLE_STRATEGIES: ExampleStrategy[] = [
       },
     },
     description:
-      'Estar dentro solo mientras el activo este por encima de su media de 200 días y con fuerza. Es la regla que mas reduce las caidas grandes de esta lista, y la que mas rendimiento deja sobre la mesa cuando el mercado se recupera rápido.',
+      'Estar dentro solo mientras el activo esté por encima de su media de 200 días y con fuerza. Es la regla que más reduce las caídas grandes de esta lista, y la que más rendimiento deja sobre la mesa cuando el mercado se recupera rápido.',
   },
 ]

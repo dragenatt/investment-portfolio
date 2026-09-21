@@ -214,7 +214,7 @@ export function describeReturnDifference(
     : ''
   const shortWindow =
     annualise && days! < 365
-      ? ' Con menos de un año de historia, ambas cifras anuales extrapolan: sirven para comparar entre si, no como pronostico.'
+      ? ' Con menos de un año de historia, ambas cifras anuales extrapolan: sirven para comparar entre sí, no como pronóstico.'
       : ''
 
   const gap = mwr - comparableTwr
@@ -222,8 +222,8 @@ export function describeReturnDifference(
   if (Math.abs(gap) < AGREEMENT_THRESHOLD_PCT) {
     return (
       basis +
-      'Ambas medidas coinciden, asi que el momento de tus aportaciones ni ayudo ni perjudico: ' +
-      'tu dinero vivio el mismo rendimiento que produjo la estrategia.' +
+      'Ambas medidas coinciden, así que el momento de tus aportaciones ni ayudó ni perjudicó: ' +
+      'tu dinero vivió el mismo rendimiento que produjo la estrategia.' +
       shortWindow
     )
   }
@@ -232,7 +232,7 @@ export function describeReturnDifference(
     return (
       basis +
       `Tu rendimiento ponderado por dinero es ${gap.toFixed(2)} puntos mayor que el ponderado por tiempo. ` +
-      'Tu cuenta rindió mas que la estrategia, y la diferencia es el momento: una parte mayor de tu ' +
+      'Tu cuenta rindió más que la estrategia, y la diferencia es el momento: una parte mayor de tu ' +
       'capital estuvo invertida durante los tramos buenos.' +
       shortWindow
     )
@@ -241,8 +241,8 @@ export function describeReturnDifference(
   return (
     basis +
     `Tu rendimiento ponderado por dinero es ${Math.abs(gap).toFixed(2)} puntos menor que el ponderado por tiempo. ` +
-    'La estrategia rindió mas que tu cuenta, y la diferencia es el momento: una parte mayor de tu ' +
-    'capital llego tarde o antes de los tramos debiles. Es comun y no demuestra que la estrategia este mal.' +
+    'La estrategia rindió más que tu cuenta, y la diferencia es el momento: una parte mayor de tu ' +
+    'capital llegó tarde o antes de los tramos débiles. Es común y no demuestra que la estrategia esté mal.' +
     shortWindow
   )
 }
