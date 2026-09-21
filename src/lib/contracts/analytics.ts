@@ -95,6 +95,8 @@ export const ReturnsSummarySchema = z.object({
   period: z.string(),
   /** Size-weighted average age of the invested capital, in days. */
   capital_age_days: z.number().nullable().optional(),
+  /** Days the TWR spans when fewer than the period's; null when it covers it. */
+  twr_days: z.number().nullable().optional(),
   /** The currency every figure is in: the portfolio's base currency. */
   currency: z.string().optional(),
   /** Holdings whose exchange rate was unknown and were left unconverted. */

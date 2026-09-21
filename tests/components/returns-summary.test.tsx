@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReturnsSummary } from '@/components/analytics/returns-summary'
-import { mwrForDisplay } from '@/lib/services/returns'
+import { mwrForDisplay, snapshotsCoverWindow, measuredSpanDays } from '@/lib/services/returns'
 
 // Production, 2026-09-21: a book three days old and up 0.63% showed
 // "MWR +115.67% — Tu rendimiento real" next to "Retorno Simple +0.63%", both
@@ -64,5 +64,56 @@ describe('ReturnsSummary', () => {
 
     expect(screen.getAllByText('+8.20%').length).toBeGreaterThan(0)
     expect(screen.queryByText(/sin anualizar/)).not.toBeInTheDocument()
+  })
+})
+
+// The TWR on the same card came from nightly snapshots, which exist from the
+// night migration 024 shipped. For every older book they began mid-window, so
+// the TWR measured the last day or two and was labelled "1Y" — next to a
+// simple return covering every day since the first purchase.
+
+describe('snapshotsCoverWindow', () => {
+  const nightly = (from: string, days: number) =>
+    Array.from({ length: days }, (_, i) => ({ date: new Date(Date.parse(from) + i * 86_400_000).toISOString().slice(0, 10) }))
+
+  it('accepts a nightly series that starts with the window', () => {
+    expect(snapshotsCoverWindow(nightly('2026-01-02', 10), '2026-01-01')).toBe(true)
+  })
+
+  it('rejects a series that begins well after the window does', () => {
+    // A year's window, snapshots from the last three nights only.
+    expect(snapshotsCoverWindow(nightly('2026-09-19', 3), '2025-09-21')).toBe(false)
+  })
+
+  it('rejects a series too short to measure anything', () => {
+    expect(snapshotsCoverWindow(nightly('2026-01-01', 1), '2026-01-01')).toBe(false)
+  })
+})
+
+describe('measuredSpanDays', () => {
+  it('is null when the series covers the period, allowing for a long weekend', () => {
+    // Cutoff on a Friday holiday; the first trading day is the Tuesday after.
+    expect(measuredSpanDays([{ date: '2026-04-07' }, { date: '2026-09-21' }], '2026-04-03')).toBeNull()
+  })
+
+  it('is the span of a series younger than the period', () => {
+    expect(measuredSpanDays([{ date: '2026-09-18' }, { date: '2026-09-21' }], '2025-09-21')).toBe(3)
+  })
+})
+
+describe('ReturnsSummary labels each figure with what it covers', () => {
+  it('says how many days a short TWR measured instead of naming the period', () => {
+    render(<ReturnsSummary simple={0.63} twr={0.6} mwr={null} twrDays={3} period="1Y" />)
+
+    expect(screen.getByText('en 3 días')).toBeInTheDocument()
+  })
+
+  it('does not label the simple return with a period it does not cover', () => {
+    render(<ReturnsSummary simple={0.63} twr={7.4} mwr={null} period="1Y" />)
+
+    expect(screen.getByText('desde la compra')).toBeInTheDocument()
+    // The TWR covers the period, so it keeps the period's name; so does the
+    // MWR, which has no figure here. The simple return no longer does.
+    expect(screen.getAllByText('1Y')).toHaveLength(2)
   })
 })

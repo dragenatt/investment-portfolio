@@ -16,6 +16,11 @@ type Props = {
   period: string
   /** How long the money has been invested, weighted by size (returns route). */
   capitalAgeDays?: number | null
+  /**
+   * The days the TWR measured when that is less than the period (returns
+   * route, twr_days). Null or absent when it covers the period.
+   */
+  twrDays?: number | null
   isLoading?: boolean
 }
 
@@ -65,7 +70,7 @@ function daysLabel(days: number): string {
   return whole === 1 ? '1 día' : `${whole} días`
 }
 
-export function ReturnsSummary({ simple, twr, mwr, period, capitalAgeDays, isLoading }: Props) {
+export function ReturnsSummary({ simple, twr, mwr, period, capitalAgeDays, twrDays, isLoading }: Props) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -89,6 +94,9 @@ export function ReturnsSummary({ simple, twr, mwr, period, capitalAgeDays, isLoa
       subtitle: 'Ganancia directa sobre tu inversión',
       icon: Calculator,
       value: simple,
+      // Unrealised, on what is still held, against what it cost: it runs from
+      // each purchase, not over the period chosen above, and said "1Y" anyway.
+      span: 'desde la compra',
     },
     {
       key: 'twr',
@@ -97,6 +105,9 @@ export function ReturnsSummary({ simple, twr, mwr, period, capitalAgeDays, isLoa
       subtitle: twr == null ? 'Aún no hay historia suficiente para medirlo' : 'Rendimiento de la estrategia, sin importar depósitos',
       icon: TrendingUp,
       value: twr,
+      // Labelled with the period, a TWR over the last two days of a young book
+      // read as a year's return beside a simple return covering all of it.
+      span: twr != null && twrDays != null ? `en ${daysLabel(twrDays)}` : undefined,
     },
     {
       key: 'mwr',

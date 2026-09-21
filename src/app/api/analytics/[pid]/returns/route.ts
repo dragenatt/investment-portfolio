@@ -10,6 +10,8 @@ import {
   describeReturnDifference,
   capitalWeightedAgeDays,
   calendarReturns,
+  snapshotsCoverWindow,
+  measuredSpanDays,
 } from '@/lib/services/returns'
 import { reconstructBookHistory } from '@/lib/services/portfolio-history'
 import { loadBookTransactions, loadPriceMapWithSource, periodCutoff } from '@/lib/services/book-inputs'
@@ -30,8 +32,9 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
 
   const data = await withAuditedCache(
     // v2: every figure in the portfolio's base currency. Results cached before
-    // mixed pesos and dollars and must not be served.
-    `${CACHE_KEYS.ANALYTICS_RETURNS}${user.id}:${pid}:${period}:v2`,
+    // mixed pesos and dollars and must not be served. v3: a TWR from stored
+    // snapshots that begin mid-window is no longer served as the period's.
+    `${CACHE_KEYS.ANALYTICS_RETURNS}${user.id}:${pid}:${period}:v3`,
     600,
     async () => {
       const cutoff = periodCutoff(period)
@@ -100,37 +103,49 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
       let priceSource: PriceSource = 'stored'
       let basis = 'Fotos nocturnas del valor del portafolio y sus operaciones'
 
-      // FALLBACK: no stored snapshots, so rebuild the book from the transactions
-      // and price history.
-      if (snaps.length < 2) {
+      // The window starts at the cutoff, or at the first trade for a book
+      // younger than the period.
+      const windowStart = firstTrade > cutoff ? firstTrade : cutoff
+
+      // FALLBACK: stored snapshots that do not reach back to the start of the
+      // window — none at all, or ones that began mid-window (they exist from
+      // the night 024 shipped) — so rebuild the book from the transactions and
+      // price history. A TWR from the fragment measured a day or two and was
+      // labelled with the whole period.
+      if (!snapshotsCoverWindow(snaps, windowStart)) {
         const loaded = await loadPriceMapWithSource(supabase, symbols, cutoff, period)
         const converted = bookInBase([], loaded.prices, fx.conversion, fx.cashFactor)
-        converted.unconverted.forEach((s) => unconverted.add(s))
-        const priceMap = converted.prices
-        priceSource = loaded.source
-        basis = 'Portafolio reconstruido de sus operaciones y precios de cierre diarios'
 
         // The book as it stood on each date — not today's holdings carried
         // backwards — with flows valued at the same closes. See
         // reconstructBookHistory for why the flows use the close.
-        const book = reconstructBookHistory(bookTransactions, priceMap, { from: cutoff })
-        snaps = book.snapshots
-        twrFlows = book.flows
+        const book = reconstructBookHistory(bookTransactions, converted.prices, { from: cutoff })
 
-        // What the current holdings are worth at their latest close, in the
-        // base currency at today's rate. The rebuilt last snapshot cannot stand
-        // in for it — it is the book BEFORE that day's trades.
-        if (positions && positions.length > 0) {
-          const latest: Record<string, number> = {}
-          for (const [symbol, closes] of Object.entries(loaded.prices)) {
-            const dates = Object.keys(closes).sort()
-            if (dates.length > 0) latest[symbol] = closes[dates[dates.length - 1]]
+        // A fragment of stored history is still better than a rebuild with
+        // nothing in it (no closes for these symbols); the card then says how
+        // many days it covers instead of claiming the period.
+        if (book.snapshots.length >= 2 || snaps.length < 2) {
+          converted.unconverted.forEach((s) => unconverted.add(s))
+          priceSource = loaded.source
+          basis = 'Portafolio reconstruido de sus operaciones y precios de cierre diarios'
+          snaps = book.snapshots
+          twrFlows = book.flows
+
+          // What the current holdings are worth at their latest close, in the
+          // base currency at today's rate. The rebuilt last snapshot cannot
+          // stand in for it — it is the book BEFORE that day's trades.
+          if (positions && positions.length > 0) {
+            const latest: Record<string, number> = {}
+            for (const [symbol, closes] of Object.entries(loaded.prices)) {
+              const dates = Object.keys(closes).sort()
+              if (dates.length > 0) latest[symbol] = closes[dates[dates.length - 1]]
+            }
+            const valuation = await valueBookInBase(supabase, positions, latest, base)
+            valuation.unconverted.forEach((s) => unconverted.add(s))
+            currentValue = valuation.total
+          } else {
+            currentValue = null
           }
-          const valuation = await valueBookInBase(supabase, positions, latest, base)
-          valuation.unconverted.forEach((s) => unconverted.add(s))
-          currentValue = valuation.total
-        } else {
-          currentValue = null
         }
       }
 
@@ -172,6 +187,11 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
                 ? (Date.parse(snaps[snaps.length - 1].date) - Date.parse(snaps[0].date)) / 86_400_000
                 : undefined,
           }),
+          // The days the TWR's series spans when that is less than the period —
+          // a book younger than it, or a partial history — and null when it
+          // covers the period. The card labels the TWR with this instead of the
+          // period's name.
+          twr_days: measuredSpanDays(snaps, cutoff),
           // How long the money has been invested on average, weighted by size.
           // An annual MWR on capital that is weeks old is an extrapolation, and
           // this is what lets the explanation say so.

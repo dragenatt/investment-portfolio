@@ -106,6 +106,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
               twr={returns?.summary?.twr ?? null}
               mwr={returns?.summary?.mwr ?? null}
               capitalAgeDays={returns?.summary?.capital_age_days ?? null}
+              twrDays={returns?.summary?.twr_days ?? null}
               period={returns?.summary?.period ?? ''}
               isLoading={returnsLoading}
             />

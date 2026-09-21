@@ -315,6 +315,41 @@ export function mwrForDisplay(mwr: number | null | undefined, capitalAgeDays: nu
   return { value: periodReturn, annualised: false, days: capitalAgeDays }
 }
 
+// ─── The window a TWR measured ──────────────────────────────────────────────
+
+function daysBetween(from: string, to: string): number {
+  return (Date.parse(to) - Date.parse(from)) / 86_400_000
+}
+
+/**
+ * Whether stored nightly snapshots can stand for a window starting on
+ * `windowStart` (the later of the period's cutoff and the first trade).
+ *
+ * Snapshots valued in the base currency exist from the night migration 024
+ * shipped. For every book older than that they begin mid-window, and a TWR
+ * computed from them measured the last day or two while the card labelled it
+ * "1Y" — beside a simple return covering every day since the first purchase.
+ * The job runs every night, so a series that covers the window starts within
+ * a day of it; one that starts later is a fragment, and the book is rebuilt
+ * from its transactions instead.
+ */
+export function snapshotsCoverWindow(snapshots: Array<{ date: string }>, windowStart: string): boolean {
+  return snapshots.length >= 2 && daysBetween(windowStart, snapshots[0].date) <= 1
+}
+
+/**
+ * The days a TWR series actually spans when that is shorter than the period
+ * asked for — a book younger than the period, or one whose history could only
+ * be rebuilt in part — and null when it covers the period. A rebuilt series
+ * has trading days only, so a start up to four days after the cutoff (a
+ * weekend plus a holiday) still counts as covering it.
+ */
+export function measuredSpanDays(snapshots: Array<{ date: string }>, cutoff: string): number | null {
+  if (snapshots.length < 2) return null
+  if (daysBetween(cutoff, snapshots[0].date) <= 4) return null
+  return daysBetween(snapshots[0].date, snapshots[snapshots.length - 1].date)
+}
+
 // ─── Calendar returns ───────────────────────────────────────────────────────
 
 export type CalendarYear = {
