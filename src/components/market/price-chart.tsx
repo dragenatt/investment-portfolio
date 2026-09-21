@@ -24,6 +24,8 @@ import {
 import { ChartFigure } from '@/components/charts/chart-figure'
 import { describeChange, formatChartDate, formatChartMoney, formatChartNumber, seriesTable } from '@/lib/utils/chart-accessibility'
 import { ChartEmpty } from '@/components/charts/chart-state'
+import { FormattedAmount } from '@/components/shared/formatted-amount'
+import { useCurrency } from '@/lib/hooks/use-currency'
 
 const rangeMap: Record<string, string> = {
   '1D': '1d', '1S': '5d', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1A': '1y', '5A': 'max',
@@ -49,11 +51,13 @@ function HoverTooltip({
   payload,
   label,
   onHoverRef,
+  currency,
 }: {
   active?: boolean
   payload?: Array<{ value?: number }>
   label?: string
   onHoverRef: React.RefObject<((price: number | null) => void) | null>
+  currency?: string | null
 }) {
   const price = active && payload?.[0]?.value != null ? payload[0].value : null
 
@@ -65,7 +69,14 @@ function HoverTooltip({
   return (
     <div className="chart-tooltip">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold font-financial">${payload[0].value?.toFixed(2)}</p>
+      {/* The same conversion as the price above the chart, which this hover
+          also drives: it used to read "$230.12" (dollars) here while the
+          header showed the same point in pesos. */}
+      {currency ? (
+        <FormattedAmount value={payload[0].value} from={currency} className="text-sm font-semibold" />
+      ) : (
+        <p className="text-sm font-semibold font-financial">{payload[0].value?.toFixed(2)}</p>
+      )}
     </div>
   )
 }
@@ -85,10 +96,20 @@ const INDICATOR_CONFIG: Record<IndicatorKey, { label: string; tooltip: string; c
 
 type PriceChartProps = {
   symbol: string
+  /**
+   * The currency the history is quoted in — the quote's. The page's header
+   * converts the price into the display currency; with this the chart does the
+   * same, so the tooltip, the range change and the header are one figure in one
+   * currency. Unknown while the quote loads, and then nothing is labelled.
+   */
+  currency?: string | null
   onPriceHover?: (price: number | null) => void
 }
 
-export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
+export function PriceChart({ symbol, currency, onPriceHover }: PriceChartProps) {
+  const { convert, currency: displayCurrency } = useCurrency()
+  const toDisplay = (value: number) => (currency ? convert(value, currency) : value)
+  const moneyLabel = currency ? displayCurrency : ''
   const [range, setRange] = useState('1M')
   const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorKey>>(new Set())
   const { data, isLoading, error, mutate } = usePriceHistory(symbol, rangeMap[range])
@@ -188,7 +209,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
       ? `Precio de ${symbol} en ${range}: ${describeChange(
           { label: formatChartDate(chartData[0].rawDate), value: firstPrice },
           { label: formatChartDate(chartData[chartData.length - 1].rawDate), value: lastPrice },
-          (v) => formatChartMoney(v, ''),
+          (v) => formatChartMoney(toDisplay(v), moneyLabel),
         )}.${indicatorColumns.length > 0 ? ` Indicadores activos: ${indicatorColumns.map((k) => INDICATOR_CONFIG[k].label).join(', ')}.` : ''}`
       : `Precio de ${symbol}: sin datos para ${range}.`
   const table = seriesTable<{ point: Record<string, unknown>; rsi: number | null }>(
@@ -197,7 +218,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
     ['Fecha', 'Cierre', ...indicatorColumns.map((k) => INDICATOR_CONFIG[k].label)],
     ({ point, rsi }) => [
       formatChartDate(String(point.rawDate)),
-      formatChartMoney(Number(point.price), ''),
+      formatChartMoney(toDisplay(Number(point.price)), moneyLabel),
       ...indicatorColumns.map((k) => {
         const value = k === 'rsi' ? rsi : (point[k] as number | null | undefined)
         return value == null ? '—' : formatChartNumber(value)
@@ -211,7 +232,12 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
       {hasHistory && (
       <div className="flex items-center gap-2 mb-2 px-1">
         <span className={cn('text-xs font-medium font-financial', isPositive ? 'text-gain' : 'text-loss')}>
-          {rangeChange >= 0 ? '+' : ''}{rangeChange.toFixed(2)} ({rangeChangePct >= 0 ? '+' : ''}{rangeChangePct.toFixed(2)}%) en {range}
+          {currency ? (
+            <FormattedAmount value={rangeChange} from={currency} showSign />
+          ) : (
+            <>{rangeChange >= 0 ? '+' : ''}{rangeChange.toFixed(2)}</>
+          )}{' '}
+          ({rangeChangePct >= 0 ? '+' : ''}{rangeChangePct.toFixed(2)}%) en {range}
         </span>
       </div>
       )}
@@ -250,7 +276,7 @@ export function PriceChart({ symbol, onPriceHover }: PriceChartProps) {
                 hide
               />
               <Tooltip
-                content={<HoverTooltip onHoverRef={onHoverRef} />}
+                content={<HoverTooltip onHoverRef={onHoverRef} currency={currency} />}
                 cursor={theme.crosshair}
               />
 

@@ -187,7 +187,7 @@ export default function SymbolDetailPage({ params }: { params: Promise<{ symbol:
           2. INTERACTIVE CHART
           ═══════════════════════════════════════════════════════════════ */}
       <ErrorBoundary>
-        <PriceChart symbol={decodedSymbol} onPriceHover={setHoverPrice} />
+        <PriceChart symbol={decodedSymbol} currency={quote?.currency ?? null} onPriceHover={setHoverPrice} />
       </ErrorBoundary>
 
       {/* ═══════════════════════════════════════════════════════════════
