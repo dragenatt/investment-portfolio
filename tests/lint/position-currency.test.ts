@@ -9,8 +9,8 @@ import { join } from 'node:path'
 // All three reported a ~94% loss on a healthy book, because seventeen is the
 // peso-dollar rate.
 //
-// positionValuation() and aggregatePositionValues() take plain numbers and
-// cannot know what they are denominated in. Screens go through
+// positionValuation() takes plain numbers and cannot know what they are
+// denominated in. Screens go through
 // positionInDisplayCurrency() and routes through valueBookInBase(), which take
 // the currencies. This covers src/app — routes included — and src/components.
 
@@ -32,10 +32,9 @@ describe('a screen never values a position in two currencies at once', () => {
     expect(files.length).toBeGreaterThan(50)
   })
 
-  // Both take bare numbers and cannot know what they are denominated in.
-  // /api/dashboard/summary called the second one, summed dollars with pesos
-  // and answered −94% — which the first version of this guard, watching only
-  // positionValuation, let through.
+  // aggregatePositionValues() was the other blind function: /api/dashboard/summary
+  // called it, summed dollars with pesos and answered −94%. Nothing else ever
+  // called it, and it is gone; this list is where a new one would go.
   for (const blind of ['positionValuation(', 'aggregatePositionValues(']) {
     it(`leaves ${blind.slice(0, -1)} to the code that knows the currencies`, () => {
       const offenders = files.filter((file) => readFileSync(file, 'utf8').includes(blind))

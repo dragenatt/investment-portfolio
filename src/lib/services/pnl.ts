@@ -143,34 +143,3 @@ export function positionInDisplayCurrency(
     currency: displayCurrency,
   }
 }
-
-export type PortfolioTotals = {
-  totalValue: number
-  totalCost: number
-  totalReturn: number
-  totalReturnPct: number
-}
-
-/**
- * Roll a book of positions up into portfolio totals. Each position is valued
- * once, in cents, and the cents are summed, so the total is the exact sum of
- * the per-position figures the user sees rather than a float that drifts a cent
- * away from them.
- */
-export function aggregatePositionValues(
-  positions: Array<{ quantity: number; currentPrice: number; avgCost: number }>,
-): PortfolioTotals {
-  let valueCents = 0
-  let costCents = 0
-  for (const pos of positions) {
-    valueCents += toCents(pos.quantity * pos.currentPrice)
-    costCents += toCents(pos.quantity * pos.avgCost)
-  }
-  const returnCents = valueCents - costCents
-  return {
-    totalValue: fromCents(valueCents),
-    totalCost: fromCents(costCents),
-    totalReturn: fromCents(returnCents),
-    totalReturnPct: costCents > 0 ? (returnCents / costCents) * 100 : 0,
-  }
-}

@@ -4,7 +4,6 @@ import {
   aggregateDailyChange,
   positionValuation,
   positionInDisplayCurrency,
-  aggregatePositionValues,
   dailyChangeFromPct,
 } from '@/lib/services/pnl'
 
@@ -134,45 +133,6 @@ describe('positionValuation', () => {
     expect(v.pnlAbsolute).toBe(0)
   })
 })
-
-describe('aggregatePositionValues', () => {
-  it('aggregates value and cost to the cent across positions', () => {
-    // Three 0.1 values sum to 0.30000000000000004 with plain addition
-    const totals = aggregatePositionValues(
-      Array(3).fill({ quantity: 1, currentPrice: 0.1, avgCost: 0.05 }),
-    )
-    expect(totals.totalValue).toBe(0.3)
-    expect(totals.totalCost).toBe(0.15)
-    expect(totals.totalReturn).toBe(0.15)
-  })
-
-  it('measures return against total cost', () => {
-    const totals = aggregatePositionValues([
-      { quantity: 10, currentPrice: 150, avgCost: 100 },
-      { quantity: 5, currentPrice: 80, avgCost: 100 },
-    ])
-    expect(totals.totalValue).toBe(1900) // 1500 + 400
-    expect(totals.totalCost).toBe(1500) // 1000 + 500
-    expect(totals.totalReturn).toBe(400)
-    expect(totals.totalReturnPct).toBeCloseTo(26.6667)
-  })
-
-  it('reports zero percent when nothing was invested', () => {
-    const totals = aggregatePositionValues([{ quantity: 1, currentPrice: 10, avgCost: 0 }])
-    expect(totals.totalCost).toBe(0)
-    expect(totals.totalReturnPct).toBe(0)
-  })
-
-  it('handles an empty book', () => {
-    expect(aggregatePositionValues([])).toEqual({
-      totalValue: 0,
-      totalCost: 0,
-      totalReturn: 0,
-      totalReturnPct: 0,
-    })
-  })
-})
-
 describe('positionInDisplayCurrency', () => {
   // The portfolio detail page showed every holding at a 94% loss with an
   // average cost seventeen times too high, under a header that said +0.64%.
