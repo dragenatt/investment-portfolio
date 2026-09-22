@@ -224,7 +224,10 @@
     "save_preferences": "Guardar preferencias",
     "tutorial": "Tutorial",
     "tutorial_desc": "Vuelve a ver el recorrido de bienvenida para conocer las funciones principales de la plataforma.",
-    "view_tutorial": "Ver tutorial"
+    "view_tutorial": "Ver tutorial",
+    "language": "Idioma",
+    "english_partial": "English (traducción parcial)",
+    "english_partial_note": "La traducción al inglés está incompleta: los menús y botones principales están traducidos, pero buena parte de las explicaciones, análisis y avisos sigue en español."
   },
   "auth": {
     "login_title": "Iniciar Sesión",

@@ -105,14 +105,20 @@ export default function SettingsPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="settings-language">{locale === 'es' ? 'Idioma' : 'Language'}</Label>
+            <Label htmlFor="settings-language">{t.settings.language}</Label>
             <Select value={locale} onValueChange={(v) => { if (v) { setLocaleCookie(v as Locale); window.location.reload() } }}>
-              <SelectTrigger id="settings-language" className="rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="settings-language" className="rounded-xl" aria-describedby={locale === 'en' ? 'settings-language-note' : undefined}><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="es">Español</SelectItem>
-                <SelectItem value="en">English</SelectItem>
+                {/* Most of the app's text is still written in Spanish in the
+                    components, not in the dictionaries; choosing English
+                    translates the menus and little else. Said up front. */}
+                <SelectItem value="en">{t.settings.english_partial}</SelectItem>
               </SelectContent>
             </Select>
+            {locale === 'en' && (
+              <p id="settings-language-note" className="text-sm text-muted-foreground">{t.settings.english_partial_note}</p>
+            )}
           </div>
           <Button className="rounded-xl" onClick={savePreferences}>{t.settings.save_preferences}</Button>
         </CardContent>

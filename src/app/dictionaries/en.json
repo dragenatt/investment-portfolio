@@ -224,7 +224,10 @@
     "save_preferences": "Save preferences",
     "tutorial": "Tutorial",
     "tutorial_desc": "Watch the welcome tour again to learn about the main features of the platform.",
-    "view_tutorial": "View tutorial"
+    "view_tutorial": "View tutorial",
+    "language": "Language",
+    "english_partial": "English (partial translation)",
+    "english_partial_note": "The English translation is incomplete: the main menus and buttons are translated, but much of the explanations, analysis and notices are still in Spanish."
   },
   "auth": {
     "login_title": "Sign In",
