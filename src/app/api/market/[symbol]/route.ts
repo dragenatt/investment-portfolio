@@ -26,8 +26,9 @@ async function getHandler(_req: Request, { params }: { params: Promise<{ symbol:
   const quote = await getQuote(symbol)
   if (!quote) return error('Symbol not found', 404)
 
+  // Not in a shared cache, for the reasons given in /api/market/batch.
   const res = NextResponse.json({ data: quote, error: null }, { status: 200 })
-  res.headers.set('Cache-Control', 's-maxage=30, stale-while-revalidate=60')
+  res.headers.set('Cache-Control', 'private, no-store')
   return res
 }
 

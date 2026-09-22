@@ -37,9 +37,12 @@ async function getHandler(req: Request) {
     if (writer) await publishQuotes(writer, results)
   })
 
-  // Cache-Control: serve cached for 30s, allow stale for 60s while revalidating
+  // Not in a shared cache. `s-maxage=30, stale-while-revalidate=60` let the
+  // CDN answer a screen polling every LIVE_POLL_MS with a copy up to ninety
+  // seconds old, and answer it without running the session check. How often a
+  // provider is asked is the quote cache's job (LIVE_QUOTE_TTL_MS), not the CDN's.
   const res = NextResponse.json({ data: results, error: null }, { status: 200 })
-  res.headers.set('Cache-Control', 's-maxage=30, stale-while-revalidate=60')
+  res.headers.set('Cache-Control', 'private, no-store')
   return res
 }
 

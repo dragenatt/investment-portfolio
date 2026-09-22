@@ -18,9 +18,10 @@ export type ApiResponse<T = unknown> = {
  * invitation for a proxy or a CDN to keep a copy and hand it to somebody else;
  * `must-revalidate` is not a promise that it will ask.
  *
- * The two market routes that DO want an edge cache build their own
- * NextResponse and set `s-maxage` themselves — quotes are the same for
- * everyone and are meant to be shared. They do not come through here.
+ * The two market routes build their own NextResponse and used to set
+ * `s-maxage` on the grounds that quotes are the same for everyone. A shared
+ * copy up to ninety seconds old is not a live price, and the CDN served it
+ * without the session check; they now send `private, no-store` too.
  */
 const PRIVATE_CACHE = 'private, no-store'
 

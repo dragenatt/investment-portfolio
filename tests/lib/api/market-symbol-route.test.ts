@@ -59,3 +59,14 @@ describe('GET /api/market/[symbol]', () => {
     expect(quotes.asked).toEqual([])
   })
 })
+
+describe('the quote routes and shared caches', () => {
+  it('keeps a live quote out of the CDN', async () => {
+    quotes.bySymbol.VOO = { symbol: 'VOO', price: 712.78, change: 11, changePct: 1.567, currency: 'USD' }
+    const response = await GET(new Request('http://test/api/market/VOO'), { params: Promise.resolve({ symbol: 'VOO' }) })
+
+    // s-maxage=30 plus stale-while-revalidate=60 let a 15-second poll get a
+    // copy ninety seconds old.
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+  })
+})
