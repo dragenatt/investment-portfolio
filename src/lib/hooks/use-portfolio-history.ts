@@ -33,7 +33,11 @@ export function usePortfolioHistory(range: string, currency: string) {
   const { data, ...rest } = useSWR<PortfolioHistoryResponse>(
     `/api/portfolio/history?range=${range}&currency=${encodeURIComponent(currency)}`,
     apiFetcher,
-    { refreshInterval: 60_000 }
+    // 1D and 1W are drawn from intraday bars that land every few minutes;
+    // the longer ranges from daily closes that change once a day. The line's
+    // present comes from the live prices either way (live-point.ts), so asking
+    // for a daily series every minute, as this did, recomputed it for nothing.
+    { refreshInterval: range === '1' || range === '7' ? 60_000 : 10 * 60_000 }
   )
 
   const timeline = data?.timeline ?? []

@@ -179,6 +179,36 @@ export function snapshotsCoverWindow(
   })
 }
 
+/**
+ * A short fingerprint of everything a value chart is computed from on the
+ * book's side: which portfolios, and every transaction in them — what, which
+ * symbol, how many, at what price, when.
+ *
+ * Transactions carry no updated_at, so an edit changes nothing a timestamp
+ * could see; the fingerprint changes with any trade added, edited, deleted or
+ * moved to another symbol. As part of a cache key it makes a cached chart
+ * impossible to serve for a book that has changed, on any server instance.
+ */
+export function bookFingerprint(
+  portfolioIds: string[],
+  transactions: Array<{ executed_at: string; type: string; symbol: string; quantity: number; price: number }>,
+): string {
+  const text = [
+    [...portfolioIds].sort().join(','),
+    ...transactions.map((t) => `${t.executed_at}|${t.type}|${t.symbol}|${t.quantity}|${t.price}`),
+  ].join('\n')
+  // FNV-1a, 32 bits, twice with different offsets: short, and more than enough
+  // to tell one version of a user's own book from the next.
+  let a = 0x811c9dc5
+  let b = 0x01000193 ^ text.length
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i)
+    a = Math.imul(a ^ c, 0x01000193) >>> 0
+    b = Math.imul(b ^ c, 0x01000193 + 2) >>> 0
+  }
+  return `${transactions.length}-${a.toString(36)}${b.toString(36)}`
+}
+
 const CURRENCY_CODE = /^[A-Z]{3}$/
 
 /**

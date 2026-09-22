@@ -9,8 +9,10 @@ import {
   snapshotsCoverWindow,
   chartCurrency,
   snapshotsInCurrency,
+  bookFingerprint,
   type DailySnapshot,
 } from '@/lib/services/portfolio-history'
+import { createMemoryCache } from '@/lib/cache/memory'
 import { buildIntradayTimeline, MIN_INTRADAY_POINTS, type IntradayBar } from '@/lib/services/portfolio-intraday'
 import { lastSettledSession, topUpStoredHistory, writeThrough, isDailyRange } from '@/lib/services/price-history'
 import type { Conversion } from '@/lib/services/fx'
@@ -45,6 +47,15 @@ const INTRADAY_RANGE: Record<string, string> = {
   '1': '1d',
   '7': '5d',
 }
+
+/**
+ * Computed charts, per server instance, keyed by what they were computed from
+ * (see the cache key in the handler). Redis is off in production, so the
+ * cacheGet/cacheSet below did nothing and every 60-second refresh of every
+ * open dashboard rebuilt the whole series: the transactions, the stored
+ * closes, a provider call per stale symbol, the exchange-rate history.
+ */
+const computed = createMemoryCache<Record<string, unknown>>(300)
 
 /** Days of stored closes to read for the price each intraday window opens at. */
 const PREVIOUS_CLOSE_LOOKBACK_DAYS = 12
@@ -119,6 +130,27 @@ async function displayCurrency(
 /** Today, UTC. */
 const today = () => new Date().toISOString().slice(0, 10)
 
+/** Every transaction in these portfolios, in the order the book replays them. */
+async function loadTransactions(
+  supabase: Awaited<ReturnType<typeof createServerSupabase>>,
+  portfolioIds: string[],
+): Promise<FlatTransaction[]> {
+  const { data } = await supabase
+    .from('transactions')
+    .select('executed_at, type, quantity, price, position:positions!inner(portfolio_id, symbol)')
+    .in('position.portfolio_id', portfolioIds)
+    .order('executed_at', { ascending: true })
+    // Ties on executed_at (the modal records a date, not a time) replay in entry order.
+    .order('created_at', { ascending: true })
+  return (data ?? []).map((t: Record<string, unknown>) => ({
+    executed_at: t.executed_at as string,
+    type: t.type as FlatTransaction['type'],
+    symbol: (t.position as { symbol: string }).symbol,
+    quantity: t.quantity as number,
+    price: t.price as number,
+  }))
+}
+
 /**
  * What the conversion could not do, in the payload rather than in a log.
  *
@@ -156,42 +188,40 @@ async function getHandler(req: Request) {
   const portfolioIds = portfolios.map(p => p.id)
   const base = await displayCurrency(supabase, user.id, url.searchParams.get('currency'), portfolios[0]?.base_currency ?? null)
 
-  // Check Redis cache (5 min TTL — this is a heavy computation). Keyed by the
-  // currency too: switching the display currency served the other one's series.
-  const cacheKey = `portfolio:history:${user.id}:${range}:${base}`
-  const cached = await cacheGet<Array<Record<string, unknown>>>(cacheKey)
-  if (cached) return success(cached)
-
   // Compute cutoff date for range filtering
   const rangeDays = range === 'max' ? 3650 : (parseInt(range) || 30)
   const cutoffDate = new Date()
   cutoffDate.setDate(cutoffDate.getDate() - rangeDays)
   const cutoffStr = cutoffDate.toISOString().slice(0, 10)
 
-  const loadTransactions = async (): Promise<FlatTransaction[]> => {
-    const { data } = await supabase
-      .from('transactions')
-      .select('executed_at, type, quantity, price, position:positions!inner(portfolio_id, symbol)')
-      .in('position.portfolio_id', portfolioIds)
-      .order('executed_at', { ascending: true })
-      // Ties on executed_at (the modal records a date, not a time) replay in entry order.
-      .order('created_at', { ascending: true })
-    return (data ?? []).map((t: Record<string, unknown>) => ({
-      executed_at: t.executed_at as string,
-      type: t.type as FlatTransaction['type'],
-      symbol: (t.position as { symbol: string }).symbol,
-      quantity: t.quantity as number,
-      price: t.price as number,
-    }))
-  }
+  // The book first: one query, and what the cache key is made of.
+  const transactions = await loadTransactions(supabase, portfolioIds)
 
-  let transactions: FlatTransaction[] | null = null
+  // A chart is keyed by everything it is computed from — the reader, the
+  // range, the currency, the day, and a fingerprint of the portfolios and
+  // every trade in them — so a trade added, edited or deleted is never served
+  // a chart from before it, whichever instance computed that chart. It was
+  // keyed by user and range only (and the currency, since 43cd366).
+  const cacheKey = `portfolio:history:${user.id}:${range}:${base}:${today()}:${bookFingerprint(portfolioIds, transactions)}`
+  const inMemory = computed.get(cacheKey)
+  if (inMemory) return success(inMemory)
+  // Only a copy fetched from Redis is re-stored here, briefly. Re-storing a
+  // memory hit would push its expiry back on every read, and a 1D chart
+  // refreshed every minute would never be recomputed.
+  const fromRedis = await cacheGet<Record<string, unknown>>(cacheKey)
+  if (fromRedis) {
+    computed.set(cacheKey, fromRedis, 60_000)
+    return success(fromRedis)
+  }
+  const remember = async (payload: Record<string, unknown>, ttlSeconds: number) => {
+    computed.set(cacheKey, payload, ttlSeconds * 1000)
+    await cacheSet(cacheKey, payload, ttlSeconds)
+  }
 
   // ── 1D and 1W: the session itself ────────────────────────────────────────
   // Before the nightly-snapshot branch, which has one point per night and so
   // has nothing to say about a window measured in hours.
   if (INTRADAY_RANGE[range]) {
-    transactions = await loadTransactions()
     const snapshots = computeDailyPositions(transactions)
     const symbols = symbolsHeldSince(snapshots, cutoffStr)
 
@@ -243,7 +273,7 @@ async function getHandler(req: Request) {
       if (points.length >= MIN_INTRADAY_POINTS) {
         const payload = { timeline: points, currency: base, ...conversionNotes(convert) }
         // Short: these are the ranges that move while the reader is watching.
-        await cacheSet(cacheKey, payload, 60)
+        await remember(payload, 60)
         return success(payload)
       }
       // Too few bars to be a chart — the daily path below still covers the book.
@@ -301,13 +331,13 @@ async function getHandler(req: Request) {
       unconverted: null,
     }
 
-    await cacheSet(cacheKey, result, range === 'max' || parseInt(range) > 30 ? 600 : 120)
+    await remember(result, range === 'max' || parseInt(range) > 30 ? 600 : 300)
     return success(result)
   }
 
   // FALLBACK: Reconstruct from transactions + price_history (existing code below)
 
-  const flatTxns = transactions ?? (await loadTransactions())
+  const flatTxns = transactions
   if (flatTxns.length === 0) return success({ timeline: [], currency: base, currencies: [base], unconverted: null })
 
   const snapshots = computeDailyPositions(flatTxns)
@@ -414,8 +444,9 @@ async function getHandler(req: Request) {
 
   const payload = { timeline: filtered, currency: base, ...conversionNotes(convert) }
 
-  // Cache the computed result for 5 minutes
-  await cacheSet(cacheKey, payload, 300)
+  // Daily closes only change when a session settles; the chart's present comes
+  // from the live prices on the screen (live-point.ts), not from here.
+  await remember(payload, 600)
 
   return success(payload)
 }
