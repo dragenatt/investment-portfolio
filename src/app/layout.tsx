@@ -1,3 +1,4 @@
+import { TITLE_TEMPLATE } from '@/lib/metadata'
 import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
 import { Plus_Jakarta_Sans, JetBrains_Mono, Fraunces } from 'next/font/google'
@@ -31,7 +32,7 @@ export const metadata: Metadata = {
   // landing page; `template` lets a page say what it is.
   title: {
     default: 'InvestTracker — Tu Portafolio de Inversión',
-    template: '%s · InvestTracker',
+    template: TITLE_TEMPLATE,
   },
   description: 'Plataforma profesional para trackear y analizar tus inversiones en tiempo real.',
   manifest: '/manifest.json',

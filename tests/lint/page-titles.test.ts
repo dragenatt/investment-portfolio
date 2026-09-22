@@ -49,4 +49,20 @@ describe('every page in the app says what it is in the tab', () => {
 
     expect(untitled, 'add a layout.tsx beside the page that exports metadata with a title').toEqual([])
   })
+
+  // A layout whose title is a plain string ends the root's " · InvestTracker"
+  // template for every page below it: /market/VOO read just "VOO". Static
+  // section titles go through sectionTitle, which passes the template on.
+  it('passes the brand template on from every section layout', () => {
+    const plain = found
+      .map((page) => join(dirname(page), 'layout.tsx'))
+      .filter((layout) => existsSync(layout))
+      .filter((layout) => {
+        const source = readFileSync(layout, 'utf8')
+        return /export\s+const\s+metadata/.test(source) && !source.includes('sectionTitle(')
+      })
+      .map((layout) => dirname(layout).replace(APP, '').split(String.fromCharCode(92)).join('/'))
+
+    expect(plain, "use title: sectionTitle('…') from @/lib/metadata").toEqual([])
+  })
 })
