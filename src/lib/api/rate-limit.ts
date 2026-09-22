@@ -17,8 +17,22 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
   }
 }
 
+/**
+ * Whether the user is under their limit for this tier.
+ *
+ * Fails open. Upstash answers an exhausted free quota, or a pay-as-you-go
+ * database at its budget cap, by rate limiting the database, and the SDK
+ * throws; uncaught, that was a 500 on every route that asks — the dashboard's
+ * history, trading, importing, deleting an account. The proxy's in-memory
+ * ceiling still stands in front of all of them.
+ */
 export async function rateLimit(userId: string, tier: Tier = 'general') {
   if (!limiters) return true
-  const { success } = await limiters[tier].limit(userId)
-  return success
+  try {
+    const { success } = await limiters[tier].limit(userId)
+    return success
+  } catch (err) {
+    console.warn(`[rate-limit] Upstash did not answer (${tier}); letting the request through:`, err instanceof Error ? err.message : err)
+    return true
+  }
 }
