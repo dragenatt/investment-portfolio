@@ -67,7 +67,17 @@
     "invested_value": "Valor Invertido",
     "positions_count": "posiciones",
     "today_gain": "Ganancia Hoy",
-    "total_gain": "Ganancia Total"
+    "total_gain": "Ganancia Total",
+    "us_market_open": "Mercado de EE.UU. abierto",
+    "us_market_closed": "Mercado de EE.UU. cerrado",
+    "us_market_weekend": "Mercado de EE.UU. cerrado (fin de semana)",
+    "us_market_holiday": "Mercado de EE.UU. cerrado (feriado)",
+    "prices_checked": "precios revisados {ago}",
+    "prices_loading": "cargando precios…",
+    "prices_stale": "los precios no se actualizan desde {ago}",
+    "ago_s": "hace {n} s",
+    "ago_min": "hace {n} min",
+    "ago_h": "hace {n} h"
   },
   "portfolio": {
     "title": "Portafolios",

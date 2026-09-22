@@ -67,7 +67,17 @@
     "invested_value": "Invested Value",
     "positions_count": "positions",
     "today_gain": "Today's Gain",
-    "total_gain": "Total Gain"
+    "total_gain": "Total Gain",
+    "us_market_open": "US market open",
+    "us_market_closed": "US market closed",
+    "us_market_weekend": "US market closed (weekend)",
+    "us_market_holiday": "US market closed (holiday)",
+    "prices_checked": "prices checked {ago}",
+    "prices_loading": "loading prices…",
+    "prices_stale": "prices have not updated since {ago}",
+    "ago_s": "{n} s ago",
+    "ago_min": "{n} min ago",
+    "ago_h": "{n} h ago"
   },
   "portfolio": {
     "title": "Portfolios",

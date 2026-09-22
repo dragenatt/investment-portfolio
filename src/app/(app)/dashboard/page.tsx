@@ -17,6 +17,7 @@ import { PortfolioChart, AllocationDonut } from '@/components/charts/lazy-charts
 import { DataGate } from '@/components/shared/data-gate'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { withLivePoint } from '@/lib/services/live-point'
+import { LiveStatus } from '@/components/dashboard/live-status'
 
 export default function DashboardPage() {
   const { data: portfolios, isLoading, error, mutate } = usePortfolios()
@@ -116,6 +117,7 @@ export default function DashboardPage() {
           totalCost={stats.totalCost}
           unconverted={stats.unconverted}
         />
+        <LiveStatus quotes={livePrices} />
       </ErrorBoundary>
 
       {/* Chart */}
