@@ -1,13 +1,10 @@
 {
-  "name": "price-engine",
+  "name": "investtracker-scheduler",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2"
   },
   "devDependencies": {
     "wrangler": "^3",

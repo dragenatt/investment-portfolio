@@ -231,6 +231,21 @@ export async function runNightlyNotifications(admin: SupabaseClient, asOf: Date 
   return { ...delivery, portfolios: portfolios?.length ?? 0, priceAlertsFired, errors }
 }
 
+/**
+ * Only the price alerts, every five minutes (/api/cron/alerts, which the
+ * Cloudflare worker calls). The nightly run still evaluates them too; an
+ * alert is deactivated when it fires, with a conditional update, so two runs
+ * that overlap announce it once.
+ *
+ * They used to be evaluated only at night: an alert on a price touched at
+ * 11:05 was acted on after the close, if the price was still past the line.
+ */
+export async function runPriceAlerts(admin: SupabaseClient, asOf: Date = new Date()): Promise<DeliveryResult & { fired: number }> {
+  const fired = await evaluatePriceAlerts(admin)
+  const delivery = await deliverNotifications(fired, { writer: admin, now: asOf })
+  return { ...delivery, fired: fired.length }
+}
+
 async function evaluateStoredPortfolio(
   admin: SupabaseClient,
   portfolio: { id: string; user_id: string; name: string; base_currency: string | null },
