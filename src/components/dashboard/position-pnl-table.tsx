@@ -210,7 +210,7 @@ export function PositionPnLTable({ positions, portfolioId, onPositionChanged }: 
       <div className="hidden md:block">
         <div className="flex items-center justify-between px-1 mb-2">
           <p className="text-sm font-medium text-muted-foreground">
-            {positionCount} {positionCount === 1 ? 'posicion' : 'posiciones'}
+            {positionCount} {positionCount === 1 ? 'posición' : 'posiciones'}
           </p>
         </div>
         <Table>
@@ -317,7 +317,7 @@ export function PositionPnLTable({ positions, portfolioId, onPositionChanged }: 
       {/* Mobile cards */}
       <div className="md:hidden space-y-2">
         <p className="text-sm font-medium text-muted-foreground px-1">
-          {positionCount} {positionCount === 1 ? 'posicion' : 'posiciones'}
+          {positionCount} {positionCount === 1 ? 'posición' : 'posiciones'}
         </p>
         {sorted.map(pos => (
           <div key={pos.id}>

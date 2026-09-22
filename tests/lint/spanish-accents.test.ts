@@ -102,11 +102,16 @@ function offenders(): string[] {
   return found
 }
 
+// Case-insensitive here: a dictionary entry is a whole sentence, so the word
+// that lost its accent is often the first one — "Ocurrio un error inesperado"
+// passed the case-sensitive check twice.
+const anyCase = new RegExp(word.source, 'i')
+
 function dictionaryOffenders(): string[] {
   const found: string[] = []
   const visit = (value: unknown, path: string) => {
     if (typeof value === 'string') {
-      const hit = word.exec(value)
+      const hit = anyCase.exec(value)
       if (hit) found.push(`${path} "${hit[1]}"`)
     } else if (value && typeof value === 'object') {
       for (const [key, child] of Object.entries(value)) visit(child, path ? `${path}.${key}` : key)

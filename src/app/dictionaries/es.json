@@ -16,7 +16,7 @@
     "results": "Resultados",
     "noResults": "No se encontraron resultados",
     "loading_data": "Cargando datos...",
-    "error_occurred": "Ocurrio un error inesperado",
+    "error_occurred": "Ocurrió un error inesperado",
     "something_went_wrong": "Algo salió mal",
     "retry": "Reintentar",
     "currency_mxn": "MXN",
@@ -487,7 +487,7 @@
     "dismiss": "Ocultar"
   },
   "errors": {
-    "unexpected_error": "Ocurrio un error inesperado",
+    "unexpected_error": "Ocurrió un error inesperado",
     "something_wrong": "Algo salió mal",
     "retry": "Reintentar",
     "loading_failed": "Error al cargar portafolios. Intenta recargar la página.",
