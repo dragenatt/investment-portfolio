@@ -43,7 +43,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
   const { t } = useTranslation()
   const { id } = use(params)
   const { openTrade } = useTrade()
-  const { data: portfolio, isLoading, error: portfolioError } = usePortfolio(id)
+  const { data: portfolio, isLoading, error: portfolioError, mutate: mutatePortfolio } = usePortfolio(id)
   const { data: transactions } = useTransactions(id)
   const { data: alerts, mutate: mutateAlerts } = usePortfolioAlerts(id)
   const { convert, currency: displayCurrency } = useCurrency()
@@ -382,7 +382,7 @@ export default function PortfolioDetailPage({ params }: { params: Promise<{ id: 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <ErrorBoundary>
-            <PositionPnLTable positions={enrichedPositions} />
+            <PositionPnLTable positions={enrichedPositions} portfolioId={id} onPositionChanged={() => mutatePortfolio()} />
           </ErrorBoundary>
         </div>
         <ErrorBoundary>

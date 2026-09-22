@@ -150,7 +150,16 @@
     "portfolio_deleted": "Portafolio eliminado",
     "saving": "Guardando...",
     "deleting": "Eliminando...",
-    "manage": "Administrar"
+    "manage": "Administrar",
+    "no_price": "Sin cotización",
+    "fix_symbol": "Corregir símbolo",
+    "fix_symbol_title": "Corregir el símbolo de {symbol}",
+    "fix_symbol_desc": "Ningún proveedor de precios reconoce «{symbol}», así que esta posición está valuada a su costo. Escribe el símbolo como lo cotiza el mercado; tus operaciones se conservan.",
+    "fix_symbol_label": "Símbolo correcto",
+    "fix_symbol_checking": "Buscando el símbolo…",
+    "fix_symbol_found": "Se encontró como {symbol}: {price} {currency}",
+    "fix_symbol_save": "Guardar símbolo",
+    "fix_symbol_saved": "Símbolo actualizado a {symbol}"
   },
   "market": {
     "title": "Mercado",

@@ -41,6 +41,7 @@ export const AUDIT_FIELD_NAMES: Record<string, string> = {
   price: 'precio',
   fees: 'comisiones',
   currency: 'moneda',
+  symbol: 'símbolo',
   type: 'tipo',
   executed_at: 'fecha',
   notes: 'notas',

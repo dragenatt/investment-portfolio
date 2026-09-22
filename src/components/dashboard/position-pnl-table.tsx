@@ -10,6 +10,8 @@ import { PercentageChange } from '@/components/shared/percentage-change'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/utils/numbers'
 import { FRESHNESS_STATUS_LABELS, type Freshness, type FreshnessStatus } from '@/lib/services/freshness'
+import { FixSymbolDialog } from '@/components/portfolio/fix-symbol-dialog'
+import { useTranslation } from '@/lib/i18n'
 
 type PositionWithPnL = {
   id: string
@@ -32,6 +34,18 @@ type PositionWithPnL = {
 
 type Props = {
   positions: PositionWithPnL[]
+  /**
+   * The portfolio these positions belong to, on its owner's screen. With it, a
+   * position no provider can price offers to correct its symbol.
+   */
+  portfolioId?: string
+  /** Called after a position's symbol was corrected, to reload the portfolio. */
+  onPositionChanged?: () => void
+}
+
+/** A position nothing prices: no quote and no stored price, valued at cost. */
+function needsSymbolFix(pos: PositionWithPnL): boolean {
+  return pos.freshness?.status === 'unavailable'
 }
 
 type SortKey =
@@ -137,8 +151,27 @@ function SortHeader({ k, children, className, sortKey, sortDir, onToggle }: {
   )
 }
 
-export function PositionPnLTable({ positions }: Props) {
+export function PositionPnLTable({ positions, portfolioId, onPositionChanged }: Props) {
   const router = useRouter()
+  const { t } = useTranslation()
+  const [fixing, setFixing] = useState<{ id: string; symbol: string } | null>(null)
+  // Only when something else on the screen priced: with every position
+  // unpriced, the provider is down, and the symbols are not the problem.
+  const anyPriced = positions.some((p) => p.freshness && p.freshness.status !== 'unavailable')
+  const canFix = (pos: PositionWithPnL) => Boolean(portfolioId) && anyPriced && needsSymbolFix(pos)
+  const fixButton = (pos: PositionWithPnL) => (
+    <button
+      type="button"
+      className="mt-1 text-xs text-amber-700 underline underline-offset-2 hover:no-underline dark:text-amber-300"
+      onClick={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        setFixing({ id: pos.id, symbol: pos.symbol })
+      }}
+    >
+      {t.portfolio.no_price} · {t.portfolio.fix_symbol}
+    </button>
+  )
   const [sortKey, setSortKey] = useState<SortKey>('market_value')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const positionCount = positions.length
@@ -245,6 +278,7 @@ export function PositionPnLTable({ positions }: Props) {
                     {pos.name && (
                       <p className="text-xs text-muted-foreground truncate max-w-[160px]">{pos.name}</p>
                     )}
+                    {canFix(pos) && <div>{fixButton(pos)}</div>}
                   </div>
                 </TableCell>
                 <TableCell className="text-right font-financial">{formatNumber(pos.quantity, 4)}</TableCell>
@@ -286,8 +320,8 @@ export function PositionPnLTable({ positions }: Props) {
           {positionCount} {positionCount === 1 ? 'posicion' : 'posiciones'}
         </p>
         {sorted.map(pos => (
+          <div key={pos.id}>
           <Link
-            key={pos.id}
             href={`/market/${encodeURIComponent(pos.symbol)}`}
             className="block border border-border rounded-2xl p-3 hover:bg-muted/50 active:scale-[0.99] transition-all"
           >
@@ -318,8 +352,24 @@ export function PositionPnLTable({ positions }: Props) {
               </div>
             </div>
           </Link>
+          {/* Outside the card: a button inside a link is not valid HTML. */}
+          {canFix(pos) && <div className="px-3">{fixButton(pos)}</div>}
+          </div>
         ))}
       </div>
+
+      {fixing && portfolioId && (
+        <FixSymbolDialog
+          portfolioId={portfolioId}
+          positionId={fixing.id}
+          symbol={fixing.symbol}
+          open
+          onOpenChange={(open) => {
+            if (!open) setFixing(null)
+          }}
+          onFixed={() => onPositionChanged?.()}
+        />
+      )}
     </>
   )
 }

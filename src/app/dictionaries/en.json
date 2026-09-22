@@ -150,7 +150,16 @@
     "portfolio_deleted": "Portfolio deleted",
     "saving": "Saving...",
     "deleting": "Deleting...",
-    "manage": "Manage"
+    "manage": "Manage",
+    "no_price": "No quote",
+    "fix_symbol": "Fix symbol",
+    "fix_symbol_title": "Fix the symbol of {symbol}",
+    "fix_symbol_desc": "No price provider recognises \"{symbol}\", so this position is valued at cost. Type the symbol as the market quotes it; your trades are kept.",
+    "fix_symbol_label": "Correct symbol",
+    "fix_symbol_checking": "Looking the symbol up…",
+    "fix_symbol_found": "Found as {symbol}: {price} {currency}",
+    "fix_symbol_save": "Save symbol",
+    "fix_symbol_saved": "Symbol updated to {symbol}"
   },
   "market": {
     "title": "Market",
