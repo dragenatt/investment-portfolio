@@ -11,6 +11,7 @@ One line each, so a reader can find the right page without opening six.
 | [ADVISOR_MODEL_VERSIONING.md](ADVISOR_MODEL_VERSIONING.md) | What a saved projection carries, when to bump the model version, and the history of the changes that moved the numbers. |
 | [RESULT_METADATA.md](RESULT_METADATA.md) | The `_meta` every result carries, the model versions, and which route answers what. |
 | [BACKTEST_RESULTS.md](BACKTEST_RESULTS.md) | What the strategy backtests actually produced, including the strategies that lost. |
+| [BIBLIOGRAFIA.md](BIBLIOGRAFIA.md) | The ten references (in Spanish, APA 7) behind the financial models, each tied to the code that implements it. |
 | [DATA_QUALITY.md](DATA_QUALITY.md) | Where prices come from, how splits and bad prints are handled, and how a stored quote is refreshed. |
 
 ## Testing and verification
