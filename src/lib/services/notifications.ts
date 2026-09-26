@@ -294,6 +294,36 @@ export function staleDataNotification(
 }
 
 /**
+ * A holding nothing has ever priced.
+ *
+ * Not the same as a stale price: there is no price at all, under any spelling
+ * tried, so the position sits at what it cost with no return and no chart for
+ * as long as it exists. Six holdings in production have been in that state
+ * since they were imported, and nothing ever said so — the owner sees a
+ * position that simply never moves.
+ *
+ * The portfolio comes with it, because the notification links there and that
+ * is where the symbol can be corrected.
+ */
+export function unpricedSymbolNotification(
+  userId: string,
+  portfolioId: string,
+  symbol: string,
+  portfolioName: string,
+): NotificationInput {
+  return {
+    userId,
+    portfolioId,
+    category: 'data',
+    kind: `no_price:${symbol}`,
+    severity: 'warning',
+    title: `Ningún proveedor cotiza ${symbol}`,
+    body: `Esa posición de ${portfolioName} está valuada a su costo, sin rendimiento ni gráfica. Ábrela y usa «Corregir símbolo»: casi siempre es el mismo activo escrito como lo nombra su mercado.`,
+    details: { symbol },
+  }
+}
+
+/**
  * A holding moved far outside its own normal range.
  *
  * Judged against the asset's own recent volatility rather than a fixed

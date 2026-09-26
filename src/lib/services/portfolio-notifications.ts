@@ -24,6 +24,7 @@ import {
   extraordinaryMoveNotification,
   priceAlertNotification,
   staleDataNotification,
+  unpricedSymbolNotification,
   type DeliveryResult,
   type NotificationInput,
   type PriceAlertCondition,
@@ -150,9 +151,21 @@ export function evaluatePortfolio(input: PortfolioEvaluationInput): Notification
     out.push(concentrationNotification(input.userId, input.portfolioId, finding, input.portfolioName))
   }
 
+  const held = Object.keys(input.units).filter((symbol) => input.units[symbol] > 0)
+  const anyPriced = held.some((symbol) => (input.closes[symbol]?.length ?? 0) > 0)
+
   for (const symbol of Object.keys(input.units)) {
     const bars = input.closes[symbol]
-    if (!bars || bars.length === 0) continue
+    if (!bars || bars.length === 0) {
+      // Nothing has ever priced this one. Said only when the rest of the book
+      // is priced: a night where no holding has history is the provider's
+      // problem, and blaming every symbol for it would be six notices for one
+      // outage.
+      if (anyPriced && input.units[symbol] > 0) {
+        out.push(unpricedSymbolNotification(input.userId, input.portfolioId, symbol, input.portfolioName))
+      }
+      continue
+    }
     const move = extraordinaryMove(symbol, bars, input.asOf)
     if (move) out.push(extraordinaryMoveNotification(input.userId, input.portfolioId, move))
 

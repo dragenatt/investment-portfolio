@@ -136,6 +136,33 @@ describe('evaluatePortfolio', () => {
     expect(out.map((n) => n.kind)).toContain('concentration:position_concentration:A')
   })
 
+  it('tells the owner about a holding nothing has ever priced', () => {
+    // Six holdings in production have sat at cost since they were imported,
+    // with no price, no return and no chart, and nothing said why.
+    const out = evaluatePortfolio({ ...base, closes: { OK: wiggle(30) }, units: { OK: 1, NOPRICE: 4 } })
+
+    const notice = out.find((n) => n.kind === 'no_price:NOPRICE')!
+    expect(notice.title).toContain('NOPRICE')
+    expect(notice.severity).toBe('warning')
+    // The notification links to the portfolio, which is where the symbol is corrected.
+    expect(notice.portfolioId).toBe('p')
+    expect(notice.body).toContain('Corregir símbolo')
+    expect(out.some((n) => n.kind === 'no_price:OK')).toBe(false)
+  })
+
+  it('blames no symbol on a night when the whole book has no history', () => {
+    // A provider outage is not six broken symbols.
+    const out = evaluatePortfolio({ ...base, closes: {}, units: { A: 1, B: 2 } })
+
+    expect(out.filter((n) => n.kind.startsWith('no_price:'))).toEqual([])
+  })
+
+  it('says nothing about a symbol that is no longer held', () => {
+    const out = evaluatePortfolio({ ...base, closes: { OK: wiggle(30) }, units: { OK: 1, SOLD: 0 } })
+
+    expect(out.some((n) => n.kind === 'no_price:SOLD')).toBe(false)
+  })
+
   it('flags a holding whose history stopped updating, and only past the threshold', () => {
     const stale = wiggle(30, 0, 100, '2026-09-01')
     const fresh = wiggle(30)
