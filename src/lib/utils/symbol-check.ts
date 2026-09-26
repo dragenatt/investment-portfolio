@@ -8,18 +8,30 @@
  * ("FEMSAUBD" for FEMSAUBD.MX), a broker's own names for funds, a test symbol.
  *
  * The import preview asks the quote service about every symbol before
- * anything is written, and about the BMV spelling of every bare ticker, so it
- * can say which ones will never have a price and offer the one that will.
+ * anything is written, and about the other spellings of every bare ticker, so
+ * it can say which ones will never have a price and offer the one that will.
+ * The same candidates are what the fix-symbol dialog suggests for a holding
+ * that is already stored (fix-symbol-dialog.tsx).
  */
 
 type Quote = { price: number | null } | undefined
 
+/**
+ * A ticker on the Brazilian exchange: four letters and a number, where the
+ * number says what the paper is — 3 ordinary, 4 preferred, 34 and 35 a BDR, a
+ * receipt for a foreign share. Providers only know them with ".SA".
+ */
+const B3_TICKER = /^[A-Z]{4}\d{1,2}$/
+
 /** What to ask a provider about for a symbol as a file wrote it. */
 export function quoteCandidates(symbol: string): string[] {
   const s = symbol.trim().toUpperCase()
-  // A bare ticker may be a BMV one, which providers only know with ".MX".
   // Anything with a suffix, a prefix or a separator already names its market.
-  return /^[A-Z0-9]+$/.test(s) ? [s, `${s}.MX`] : [s]
+  if (!/^[A-Z0-9]+$/.test(s)) return [s]
+  // A bare ticker may be a BMV one, which providers only know with ".MX", or a
+  // Brazilian one. The suffixes are tried in that order: this is a Mexican app,
+  // and only the first spelling that prices is ever offered.
+  return B3_TICKER.test(s) ? [s, `${s}.MX`, `${s}.SA`] : [s, `${s}.MX`]
 }
 
 export type SymbolCheck = {

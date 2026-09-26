@@ -10,6 +10,13 @@ describe('quoteCandidates', () => {
     expect(quoteCandidates('femsaubd')).toEqual(['FEMSAUBD', 'FEMSAUBD.MX'])
   })
 
+  it('also tries the Brazilian spelling of a ticker shaped like a B3 one', () => {
+    // Four letters and a number: an ordinary share, a preferred one or a BDR.
+    expect(quoteCandidates('abcd34')).toEqual(['ABCD34', 'ABCD34.MX', 'ABCD34.SA'])
+    // Any other bare ticker is asked about on the BMV only.
+    expect(quoteCandidates('ABCDEF12')).toEqual(['ABCDEF12', 'ABCDEF12.MX'])
+  })
+
   it('leaves a symbol that already names its market alone', () => {
     expect(quoteCandidates('WALMEX.MX')).toEqual(['WALMEX.MX'])
     expect(quoteCandidates('BTC-USD')).toEqual(['BTC-USD'])
@@ -34,6 +41,14 @@ describe('checkSymbols', () => {
 
   it('reports each symbol once however many rows carry it', () => {
     expect(checkSymbols(['CCC', 'CCC', 'CCC'], quotes).unknown).toEqual(['CCC'])
+  })
+
+  it('suggests the Brazilian spelling when the BMV one does not price', () => {
+    expect(checkSymbols(['ABCD34'], { 'ABCD34.SA': { price: 30 } })).toEqual({
+      quoted: [],
+      suggestions: { ABCD34: 'ABCD34.SA' },
+      unknown: [],
+    })
   })
 
   it('prefers the symbol as written when it already prices', () => {
