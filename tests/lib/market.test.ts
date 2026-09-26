@@ -50,6 +50,82 @@ describe('getQuote from Yahoo spark, the live source', () => {
   })
 })
 
+describe('a share class, which Yahoo spells with a dash', () => {
+  it('asks spark for BRK-B when the position says BRK.B, and answers as asked', async () => {
+    mockFetch.mockResolvedValueOnce(
+      sparkAnswer([{ symbol: 'BRK-B', regularMarketPrice: 505.48, chartPreviousClose: 500, currency: 'USD', shortName: 'Berkshire Hathaway Inc.' }]),
+    )
+
+    const quote = await getQuote('BRK.B')
+
+    // Asked in Yahoo's spelling: the dotted one is left out of the answer.
+    expect(String(mockFetch.mock.calls[0][0])).toContain('symbols=BRK-B')
+    // Answered in the caller's, so nothing downstream has to know about this.
+    expect(quote).toMatchObject({ symbol: 'BRK.B', price: 505.48, previousClose: 500 })
+  })
+
+  it('prices a book that mixes both spellings in one request', async () => {
+    mockFetch.mockResolvedValueOnce(
+      sparkAnswer([
+        { symbol: 'AAPL', regularMarketPrice: 340, chartPreviousClose: 335, currency: 'USD' },
+        { symbol: 'HEI-A', regularMarketPrice: 200, chartPreviousClose: 198, currency: 'USD' },
+      ]),
+    )
+
+    const quotes = await getBatchQuotes(['AAPL', 'HEI.A'])
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(quotes['AAPL']?.price).toBe(340)
+    expect(quotes['HEI.A']?.price).toBe(200)
+  })
+
+  it('keeps the dot of an exchange suffix, which is not a share class', async () => {
+    mockFetch.mockResolvedValueOnce(
+      sparkAnswer([{ symbol: 'BP.L', regularMarketPrice: 4.2, chartPreviousClose: 4.1, currency: 'GBP' }]),
+    )
+
+    const quote = await getQuote('BP.L')
+
+    expect(String(mockFetch.mock.calls[0][0])).toContain('symbols=BP.L')
+    expect(quote).toMatchObject({ symbol: 'BP.L', price: 4.2 })
+  })
+
+  it('uses the dash in the per-symbol chart fallback too', async () => {
+    sparkKnowsNothing()
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        chart: { result: [{ meta: { symbol: 'BRK-B', regularMarketPrice: 505.48, chartPreviousClose: 500, currency: 'USD', exchangeName: 'NYQ' } }] },
+      }),
+    })
+
+    const quote = await getQuote('BRK.B')
+
+    expect(String(mockFetch.mock.calls[1][0])).toContain('/v8/finance/chart/BRK-B')
+    expect(quote).toMatchObject({ symbol: 'BRK.B', price: 505.48 })
+  })
+
+  it('uses the dash for history, so the chart is not empty either', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        chart: {
+          result: [{
+            meta: { currency: 'USD' },
+            timestamp: [1700000000],
+            indicators: { quote: [{ open: [1], high: [2], low: [1], close: [2], volume: [10] }] },
+          }],
+        },
+      }),
+    })
+
+    const history = await getHistory('BRK.B', '1mo')
+
+    expect(String(mockFetch.mock.calls[0][0])).toContain('/v8/finance/chart/BRK-B')
+    expect(history).toHaveLength(1)
+  })
+})
+
 describe('getBatchQuotes from Yahoo spark', () => {
   it('prices a whole book in one request per twenty symbols', async () => {
     const symbols = Array.from({ length: 25 }, (_, i) => `S${i}`)

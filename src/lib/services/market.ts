@@ -45,6 +45,23 @@ function toTwelveDataSymbol(symbol: string): string {
   return TWELVE_DATA_SYMBOL_MAP[symbol] || symbol
 }
 
+// ─── Yahoo symbol spelling ──────────────────────────────────────────────────
+// Yahoo writes a share class with a dash: BRK-B, HEI-A. Asked for the spelling
+// brokers, statements and CSV files use — BRK.B — the chart endpoint answers
+// "Not Found" and the batch endpoint simply leaves the symbol out, so such a
+// holding had no price, no daily change and no history for as long as it
+// existed, and nothing said why.
+//
+// Only the class letters A, B and C are translated: a single-letter suffix is
+// also how Yahoo names some exchanges, and London's ".L" (BP.L) must keep its
+// dot. Nothing stored changes — the position keeps the symbol its owner typed,
+// and every quote comes back under that spelling.
+const YAHOO_CLASS_SHARE = /^([A-Z]{1,5})\.([ABC])$/
+
+function toYahooSymbol(symbol: string): string {
+  return symbol.toUpperCase().replace(YAHOO_CLASS_SHARE, '$1-$2')
+}
+
 // ─── Circuit Breakers (for resilience) ──────────────────────────────────────
 
 const twelveDataBreaker = new CircuitBreaker({
@@ -205,8 +222,9 @@ async function yahooSearch(query: string) {
 const LIVE: RequestInit = { cache: 'no-store' }
 
 async function yahooQuote(symbol: string): Promise<QuoteResult | null> {
+  const asked = toYahooSymbol(symbol)
   const res = await fetch(
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`,
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(asked)}?interval=1d&range=1d`,
     LIVE,
   )
   if (!res.ok) return null
@@ -224,7 +242,8 @@ async function yahooQuote(symbol: string): Promise<QuoteResult | null> {
   const change = (price != null && previousClose != null) ? price - previousClose : null
   const changePct = (change != null && previousClose && previousClose !== 0) ? (change / previousClose) * 100 : null
   return {
-    symbol: meta.symbol,
+    // Under the spelling the caller asked about, not Yahoo's.
+    symbol: asked === symbol.toUpperCase() ? meta.symbol : symbol,
     price,
     previousClose,
     change,
@@ -259,8 +278,13 @@ type SparkMeta = {
  * failed request throws, so the breaker counts it and the caller falls back.
  */
 async function yahooSparkQuotes(symbols: string[]): Promise<Record<string, QuoteResult>> {
+  // Yahoo's spelling → the caller's, so a share class comes back as asked.
+  const asked = new Map<string, string>()
+  for (const symbol of symbols) asked.set(toYahooSymbol(symbol), symbol.toUpperCase())
+
   const chunks: string[][] = []
-  for (let i = 0; i < symbols.length; i += SPARK_BATCH) chunks.push(symbols.slice(i, i + SPARK_BATCH))
+  const spellings = [...asked.keys()]
+  for (let i = 0; i < spellings.length; i += SPARK_BATCH) chunks.push(spellings.slice(i, i + SPARK_BATCH))
 
   const answers = await Promise.all(
     chunks.map(async (chunk) => {
@@ -277,7 +301,8 @@ async function yahooSparkQuotes(symbols: string[]): Promise<Record<string, Quote
   const quotes: Record<string, QuoteResult> = {}
   for (const item of answers.flat()) {
     const meta = item.response?.[0]?.meta
-    const symbol = (item.symbol ?? meta?.symbol ?? '').toUpperCase()
+    const answered = (item.symbol ?? meta?.symbol ?? '').toUpperCase()
+    const symbol = asked.get(answered) ?? answered
     const price = typeof meta?.regularMarketPrice === 'number' && Number.isFinite(meta.regularMarketPrice) ? meta.regularMarketPrice : null
     if (!symbol || !meta || price == null) continue
     const previousClose = meta.previousClose ?? meta.chartPreviousClose ?? null
@@ -304,7 +329,7 @@ async function yahooHistory(symbol: string, range: string = '1mo') {
   const interval = intervalMap[range] || '1d'
 
   const res = await fetch(
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}`,
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(toYahooSymbol(symbol))}?interval=${interval}&range=${range}`,
     { next: { revalidate: 300 } } as RequestInit
   )
   if (!res.ok) return []
