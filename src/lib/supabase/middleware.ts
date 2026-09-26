@@ -65,6 +65,29 @@ function clearAuthCookies(response: NextResponse, request: NextRequest) {
 }
 
 /**
+ * The auth errors that prove the cookie will never work again: the project has
+ * no such refresh token, session or user. Only these are worth clearing the
+ * cookie over.
+ *
+ * Every other auth error is something the session can come back from, and two
+ * of them are ordinary. Refresh tokens rotate, so when a dashboard fires
+ * several requests at once and the token has just expired, one of them
+ * refreshes it and the others arrive with the copy it replaced: Supabase
+ * answers 'conflict' (too many concurrent refreshes) or
+ * 'refresh_token_already_used'. Production recorded 44 of those. Treating them
+ * as a spent session signed the reader out in the middle of their own page —
+ * and worse, it deleted the cookie the request that won the race had just set,
+ * so a session that was alive was destroyed by the one request that lost.
+ */
+const UNRECOVERABLE_AUTH_CODES = new Set([
+  'refresh_token_not_found',
+  'session_not_found',
+  'session_expired',
+  'user_not_found',
+  'bad_jwt',
+])
+
+/**
  * The signed-in user, or null — never a thrown error.
  *
  * `getUser()` rejects when the refresh token in the cookie is expired, revoked
@@ -72,11 +95,12 @@ function clearAuthCookies(response: NextResponse, request: NextRequest) {
  * raises AuthApiError. Production recorded ten of those across four users,
  * each one a 500 for someone whose only mistake was leaving a tab open. An
  * unusable session is the same situation as no session at all, so it is
- * reported that way, and `expired` says the cookie itself is spent.
+ * reported that way, and `expired` says the cookie itself is spent — which is
+ * true of an unrecoverable code, and not of a race between two refreshes.
  *
- * A network failure reaching Supabase is a different thing. It also leaves the
- * request without a user, but it proves nothing about the cookie, so the
- * session is left intact to be retried rather than signed out over one bad
+ * A network failure reaching Supabase is a different thing again. It also
+ * leaves the request without a user, but it proves nothing about the cookie, so
+ * the session is left intact to be retried rather than signed out over one bad
  * minute of connectivity.
  */
 async function readUser(
@@ -86,7 +110,13 @@ async function readUser(
     const { data: { user } } = await supabase.auth.getUser()
     return { user: user ?? null, expired: false }
   } catch (err) {
-    if (isAuthApiError(err)) return { user: null, expired: true }
+    if (isAuthApiError(err)) {
+      const spent = UNRECOVERABLE_AUTH_CODES.has(err.code ?? '')
+      // Not an error when the session can recover: this request goes on without
+      // a user, and the next one carries whichever cookie won.
+      if (!spent) console.warn(`[proxy] session not refreshed this time (${err.code ?? err.status})`)
+      return { user: null, expired: spent }
+    }
     console.error('[proxy] could not refresh the session:', err)
     return { user: null, expired: false }
   }

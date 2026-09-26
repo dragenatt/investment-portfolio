@@ -32,6 +32,7 @@ function setCookie(response: { headers: Headers }): string {
 beforeEach(() => {
   auth.getUser.mockReset()
   vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
 describe('updateSession with an unusable session', () => {
@@ -81,6 +82,46 @@ describe('updateSession with an unusable session', () => {
     const { response } = await updateSession(request('/'))
 
     expect(response.status).toBe(200)
+  })
+})
+
+describe('updateSession when two requests refresh the same session at once', () => {
+  // Refresh tokens rotate. A dashboard opens several requests at once, one of
+  // them refreshes the token, and the others arrive holding the copy it
+  // replaced. Supabase answers 'conflict' or 'refresh_token_already_used' —
+  // 44 times in production — and clearing the cookie over it deleted the one
+  // the winning request had just set, ending a session that was alive.
+  for (const [code, status] of [['conflict', 409], ['refresh_token_already_used', 400]] as const) {
+    it(`keeps the cookie when the answer is ${code}`, async () => {
+      auth.getUser.mockRejectedValue(new AuthApiError('Race', status, code))
+
+      const { response, userId } = await updateSession(request('/dashboard'))
+
+      // This request has no user of its own, so the page still goes to login…
+      expect(response.status).toBe(307)
+      expect(userId).toBeNull()
+      // …but nothing is signed out: the next request carries the cookie that won.
+      expect(setCookie(response)).not.toMatch(EXPIRED)
+    })
+  }
+
+  it('leaves an API request to answer for itself with the session intact', async () => {
+    auth.getUser.mockRejectedValue(new AuthApiError('Race', 409, 'conflict'))
+
+    const { response } = await updateSession(request('/api/portfolio'))
+
+    expect(response.status).toBe(200)
+    expect(setCookie(response)).not.toMatch(EXPIRED)
+  })
+
+  it('still drops the cookie for a session that cannot come back', async () => {
+    for (const code of ['session_not_found', 'user_not_found', 'session_expired', 'bad_jwt']) {
+      auth.getUser.mockRejectedValue(new AuthApiError('Gone', 400, code))
+
+      const { response } = await updateSession(request('/dashboard'))
+
+      expect(setCookie(response), code).toMatch(EXPIRED)
+    }
   })
 })
 
