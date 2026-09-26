@@ -73,12 +73,18 @@ denominated in.
 | USD | [US Treasury Fiscal Data](https://fiscaldata.treasury.gov/) | Average interest rate, Treasury Bills | none | monthly |
 | EUR | [ECB Data Portal](https://data.ecb.europa.eu/) | Euro short-term rate (€STR) | none | daily |
 | MXN | [Banxico SIE](https://www.banxico.org.mx/SieAPIRest/) | CETES 28 días (series `SF43936`) | `BANXICO_API_TOKEN` | daily |
+| MXN | [FRED graph CSV](https://fred.stlouisfed.org/series/IR3TIB01MXM156N) | Mexico 3-month interbank rate (`IR3TIB01MXM156N`) | none | monthly |
 | MXN | [OECD SDMX](https://sdmx.oecd.org/) | Mexico 3-month interbank rate (`IR3TIB`) | none | monthly |
 
 CETES is the rate Mexican investors actually price against, so Banxico goes
-first — but it requires a free token. Without one the chain falls through to
-OECD, which publishes the same country's short-term rate with no credentials, so
-a peso portfolio still gets a peso rate out of the box.
+first — but it requires a free token. Without one the chain falls through to two
+publishers of the same country's short-term rate, neither needing credentials,
+so a peso portfolio still gets a peso rate out of the box.
+
+FRED is asked before OECD, although OECD is where the series originates,
+because OECD refuses this app in production: see **When a publisher is down**.
+The St. Louis Fed's `fredgraph.csv` needs no key and answers from a datacentre,
+and it carries OECD's own figure — the same 6.79% for 2026-08.
 
 ### Fallbacks
 
@@ -136,11 +142,20 @@ and not asking costs nothing when the answer changes once a day. A skipped
 provider answers `null`, the same as one with nothing to say, so the chain
 walks past it without logging a failure that never happened.
 
-And the MXN chain should not depend on one publisher. `BANXICO_API_TOKEN` is
-free — register at [Banxico SIE](https://www.banxico.org.mx/SieAPIRest/) — and
-`banxicoProvider()` is already written and waiting for it. With the token set,
-CETES answers first and an OECD outage stops mattering. Without it, the chain
-for MXN is one link long.
+And the MXN chain should not depend on one publisher. It had one link, and that
+link kept failing: by 2026-09-26 the same error stood at **146 requests across
+fourteen users**, still arriving, ten days after it started — so it is not an
+outage, it is how OECD treats requests from a cloud provider. The same URL, with
+the same headers, answers 200 from a laptop.
+
+The chain now asks FRED first, which publishes OECD's series and answers from a
+datacentre. OECD stays behind it: if it comes back, nothing has to change.
+
+`BANXICO_API_TOKEN` is still worth setting. It is free — register at
+[Banxico SIE](https://www.banxico.org.mx/SieAPIRest/) — and `banxicoProvider()`
+is written and waiting for it. With the token, a peso portfolio is measured
+against CETES 28, published daily, instead of an interbank rate published
+monthly and a month behind.
 
 For the record, during this outage the fallback and the live figure were the
 same number: OECD's latest observation on 2026-09-20 was still 2026-08 at

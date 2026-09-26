@@ -137,6 +137,22 @@ export function parseOecdShortTermRate(payload: unknown): RateReading | null {
 }
 
 /**
+ * FRED's public graph CSV — `observation_date,VALUE` rows, oldest first, with a
+ * lone "." for a period the publisher has not filled in. The last row that
+ * carries a number is the reading.
+ */
+export function parseFredCsvRate(payload: unknown): RateReading | null {
+  if (typeof payload !== 'string') return null
+  const rows = payload.trim().split(/\r?\n/).slice(1)
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const [date, value] = rows[i].split(',')
+    const rate = percentToFraction(value?.trim())
+    if (rate !== null) return { rate, asOf: /^\d{4}-\d{2}-\d{2}$/.test(date?.trim() ?? '') ? date.trim() : null }
+  }
+  return null
+}
+
+/**
  * Banxico SIE — CETES 28 dias (series SF43936). Dates arrive as dd/mm/yyyy and
  * periods without a quote arrive as the literal "N/E", which parses to null.
  */
@@ -203,6 +219,15 @@ async function fetchJson(url: string, headers: Record<string, string> = {}): Pro
   return response.json()
 }
 
+async function fetchText(url: string): Promise<string> {
+  const response = await fetch(url, {
+    headers: { Accept: 'text/csv' },
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+  })
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
+  return response.text()
+}
+
 const TREASURY_URL =
   'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/avg_interest_rates' +
   '?fields=record_date,security_desc,avg_interest_rate_amt' +
@@ -214,6 +239,10 @@ const ECB_ESTR_URL =
 const OECD_MEX_3M_URL =
   'https://sdmx.oecd.org/public/rest/data/OECD.SDD.STES,DSD_STES@DF_FINMARK,4.0/' +
   'MEX.M.IR3TIB......?lastNObservations=1&dimensionAtObservation=AllDimensions'
+
+// The same series OECD publishes, mirrored by the St. Louis Fed, whose graph
+// CSV needs no key: IR3TIB01MXM156N is Mexico's 3-month interbank rate.
+const FRED_MEX_3M_URL = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=IR3TIB01MXM156N'
 
 const BANXICO_CETES_28_URL =
   'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43936/datos/oportuno'
@@ -305,8 +334,19 @@ function liveProvidersFor(currency: RiskFreeCurrency): RateProvider[] {
       return [{ id: 'ecb:estr', load: async () => parseEcbEstrRate(await fetchJson(ECB_ESTR_URL)) }]
     case 'MXN': {
       // CETES is the rate Mexican investors actually price against, but Banxico
-      // requires a free token. Without one, OECD publishes the same country's
-      // 3-month interbank rate with no credentials.
+      // requires a free token. Without one, two publishers carry the same
+      // country's 3-month interbank rate with no credentials.
+      //
+      // FRED comes before OECD, which publishes the series, because OECD has
+      // answered 500 to this app in production 146 times since 16 September
+      // while answering 200 to everything else — including the same request
+      // from a laptop, so the URL is right and it is their side refusing the
+      // datacentre. Every one of those was a Mexican portfolio measuring its
+      // Sharpe against a rate compiled into this file.
+      const fred: RateProvider = {
+        id: 'fred:mex-3m-interbank',
+        load: async () => parseFredCsvRate(await fetchText(FRED_MEX_3M_URL)),
+      }
       const oecd: RateProvider = {
         id: 'oecd:mex-3m-interbank',
         load: async () =>
@@ -317,7 +357,7 @@ function liveProvidersFor(currency: RiskFreeCurrency): RateProvider[] {
           ),
       }
       const banxico = banxicoProvider()
-      return banxico ? [banxico, oecd] : [oecd]
+      return banxico ? [banxico, fred, oecd] : [fred, oecd]
     }
   }
 }

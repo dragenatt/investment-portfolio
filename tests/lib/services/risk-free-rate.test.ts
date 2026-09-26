@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   parseTreasuryBillsRate,
   parseEcbEstrRate,
   parseOecdShortTermRate,
+  parseFredCsvRate,
   parseBanxicoCetesRate,
   resolveRiskFreeRate,
   getRiskFreeRate,
@@ -12,6 +15,8 @@ import {
 import treasuryFixture from '../../fixtures/us-treasury-bills.json'
 import ecbFixture from '../../fixtures/ecb-estr.json'
 import oecdFixture from '../../fixtures/oecd-mex-3m.json'
+
+const fredFixture = readFileSync(join(process.cwd(), 'tests/fixtures/fred-mex-3m.csv'), 'utf8')
 
 describe('parseTreasuryBillsRate', () => {
   it('reads the published Treasury Bills rate as a fraction', () => {
@@ -53,6 +58,27 @@ describe('parseOecdShortTermRate', () => {
 
   it('returns null for an empty result set', () => {
     expect(parseOecdShortTermRate({ data: { dataSets: [] } })).toBeNull()
+  })
+})
+
+describe('parseFredCsvRate', () => {
+  it('reads the last published observation of the graph CSV', () => {
+    // Live response captured 2026-09-26: 6.79% for August, the same figure OECD
+    // publishes for the same series.
+    expect(parseFredCsvRate(fredFixture)).toEqual({ rate: 0.0679, asOf: '2026-08-01' })
+  })
+
+  it('walks back past the months the publisher has not filled in', () => {
+    // FRED writes a lone "." for a period with no value.
+    const csv = 'observation_date,IR3TIB01MXM156N\r\n2026-07-01,6.80\r\n2026-08-01,.\r\n'
+    expect(parseFredCsvRate(csv)).toEqual({ rate: 0.068, asOf: '2026-07-01' })
+  })
+
+  it('returns null for a body that is not a CSV of observations', () => {
+    expect(parseFredCsvRate('observation_date,VALUE')).toBeNull()
+    expect(parseFredCsvRate('<html>service unavailable</html>')).toBeNull()
+    expect(parseFredCsvRate(null)).toBeNull()
+    expect(parseFredCsvRate({ data: [] })).toBeNull()
   })
 })
 
@@ -155,10 +181,12 @@ describe('resolveRiskFreeRate', () => {
   })
 })
 
-describe('a publisher that is down', () => {
+describe('publishers that are down', () => {
   // OECD answered 500 to production 99 times in four days, once per analytics
   // request, each costing up to four seconds of waiting before the chain could
-  // fall through — and writing one more identical line to the log.
+  // fall through — and writing one more identical line to the log. Without a
+  // Banxico token the MXN chain has two providers, FRED and OECD, so a run of
+  // failures costs three calls each: the breakers are per provider.
   const originalToken = process.env.BANXICO_API_TOKEN
   let fetchMock: ReturnType<typeof vi.fn>
 
@@ -182,8 +210,8 @@ describe('a publisher that is down', () => {
   it('stops asking after a few failures instead of once per request', async () => {
     for (let i = 0; i < 10; i++) await getRiskFreeRate('MXN')
 
-    // Three failures open the breaker; the other seven requests never left.
-    expect(fetchMock).toHaveBeenCalledTimes(3)
+    // Three failures open each breaker; the other seven requests never left.
+    expect(fetchMock).toHaveBeenCalledTimes(6)
   })
 
   it('still answers, with the fallback labelled as one', async () => {
@@ -201,12 +229,12 @@ describe('a publisher that is down', () => {
     vi.useFakeTimers()
     try {
       for (let i = 0; i < 5; i++) await getRiskFreeRate('MXN')
-      expect(fetchMock).toHaveBeenCalledTimes(3)
+      expect(fetchMock).toHaveBeenCalledTimes(6)
 
       vi.advanceTimersByTime(15 * 60_000 + 1)
       await getRiskFreeRate('MXN')
 
-      expect(fetchMock).toHaveBeenCalledTimes(4)
+      expect(fetchMock).toHaveBeenCalledTimes(8)
     } finally {
       vi.useRealTimers()
     }
@@ -214,14 +242,27 @@ describe('a publisher that is down', () => {
 
   it('a publisher that recovers is used again', async () => {
     for (let i = 0; i < 5; i++) await getRiskFreeRate('MXN')
-    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock).toHaveBeenCalledTimes(6)
 
     resetRateBreakers()
-    fetchMock.mockResolvedValue({ ok: true, json: async () => oecdFixture })
+    fetchMock.mockResolvedValue({ ok: true, text: async () => fredFixture })
 
     const recovered = await getRiskFreeRate('MXN')
 
     expect(recovered.isFallback).toBe(false)
-    expect(recovered.source).toBe('oecd:mex-3m-interbank')
+    expect(recovered.source).toBe('fred:mex-3m-interbank')
+  })
+
+  it('falls through to OECD when the first publisher is the one that is down', async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      String(url).includes('fred.stlouisfed.org')
+        ? { ok: false, status: 500, statusText: 'Internal Server Error' }
+        : { ok: true, json: async () => oecdFixture },
+    )
+
+    const reading = await getRiskFreeRate('MXN')
+
+    expect(reading.source).toBe('oecd:mex-3m-interbank')
+    expect(reading.isFallback).toBe(false)
   })
 })
