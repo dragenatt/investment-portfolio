@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          node-version: 24.x
           cache: 'npm'
 
       # Against the lockfile, without installing: what CI and Vercel would install.
@@ -32,9 +32,13 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # The runtime Vercel builds and runs this app on (project setting: 24.x).
+    # It used to be 20.x, which went end-of-life in April 2026: the suite was
+    # green on a runtime nothing shipped on, so anything that behaves
+    # differently on 24 was tested nowhere.
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [24.x]
 
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +78,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          node-version: 24.x
           cache: 'npm'
 
       - name: Install dependencies
