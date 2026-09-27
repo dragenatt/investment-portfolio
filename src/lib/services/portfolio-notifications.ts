@@ -114,6 +114,23 @@ export function extraordinaryMove(
 /** Calendar days since a holding's last stored close before it counts as stopped. */
 export const STALE_HISTORY_DAYS = 7
 
+/**
+ * Days the newest close in the whole store may lag before the store itself is
+ * the suspect rather than any one symbol. Four covers a long weekend: Friday's
+ * close is the newest thing there is until Monday evening.
+ */
+export const PRICE_STORE_STALE_DAYS = 4
+
+/**
+ * Whether the stored history as a whole is current — the app is pricing things,
+ * whatever it cannot price. `null` means the store is empty, which is not
+ * evidence about any symbol.
+ */
+export function priceStoreIsCurrent(newestStoredDate: string | null, asOf: Date): boolean {
+  if (!newestStoredDate) return false
+  return historyAgeDays(newestStoredDate, asOf) <= PRICE_STORE_STALE_DAYS
+}
+
 /** Whole days between a close's date and `asOf`. */
 export function historyAgeDays(lastDate: string, asOf: Date): number {
   return Math.floor((asOf.getTime() - Date.parse(`${lastDate}T00:00:00Z`)) / DAY_MS)
@@ -128,6 +145,11 @@ export type PortfolioEvaluationInput = {
   factor: Conversion['factor']
   concentration: ConcentrationAlert[]
   asOf: Date
+  /**
+   * Whether the stored history as a whole is current (priceStoreIsCurrent).
+   * Absent counts as "not current": silence, rather than a guess.
+   */
+  priceStoreCurrent?: boolean
 }
 
 /** Everything one portfolio has to say tonight. Pure. */
@@ -157,11 +179,18 @@ export function evaluatePortfolio(input: PortfolioEvaluationInput): Notification
   for (const symbol of Object.keys(input.units)) {
     const bars = input.closes[symbol]
     if (!bars || bars.length === 0) {
-      // Nothing has ever priced this one. Said only when the rest of the book
-      // is priced: a night where no holding has history is the provider's
-      // problem, and blaming every symbol for it would be six notices for one
-      // outage.
-      if (anyPriced && input.units[symbol] > 0) {
+      // Nothing has ever priced this one — not a stale price, no price at all.
+      //
+      // Said when something else proves the pricing works: another holding in
+      // this book has closes, or the stored history as a whole is current. A
+      // night when neither is true is the provider's problem, and blaming every
+      // symbol for it would turn one outage into a notice per holding.
+      //
+      // The store test is what reaches a book with a single holding. The
+      // per-book test cannot: with nothing to compare against, the only
+      // portfolio in production whose one position is unpriceable was the one
+      // case that stayed silent — the owner most needing to be told.
+      if ((anyPriced || input.priceStoreCurrent === true) && input.units[symbol] > 0) {
         out.push(unpricedSymbolNotification(input.userId, input.portfolioId, symbol, input.portfolioName))
       }
       continue
@@ -221,9 +250,11 @@ export async function runNightlyNotifications(admin: SupabaseClient, asOf: Date 
     .select('id, user_id, name, base_currency')
     .is('deleted_at', null)
 
+  const priceStoreCurrent = priceStoreIsCurrent(await newestStoredClose(admin), asOf)
+
   for (const portfolio of portfolios ?? []) {
     try {
-      inputs.push(...(await evaluateStoredPortfolio(admin, portfolio, asOf)))
+      inputs.push(...(await evaluateStoredPortfolio(admin, portfolio, asOf, priceStoreCurrent)))
     } catch (err) {
       errors++
       console.error(`[notifications] portfolio ${portfolio.id} failed:`, err instanceof Error ? err.message : err)
@@ -263,6 +294,7 @@ async function evaluateStoredPortfolio(
   admin: SupabaseClient,
   portfolio: { id: string; user_id: string; name: string; base_currency: string | null },
   asOf: Date,
+  priceStoreCurrent = false,
 ): Promise<NotificationInput[]> {
   const { data: positions } = await admin
     .from('positions')
@@ -312,7 +344,22 @@ async function evaluateStoredPortfolio(
     factor: conversion.factor,
     concentration,
     asOf,
+    priceStoreCurrent,
   })
+}
+
+/**
+ * The newest close in the store, for priceStoreIsCurrent. One row, read once a
+ * night: every portfolio in the run is judged against the same answer.
+ */
+async function newestStoredClose(admin: SupabaseClient): Promise<string | null> {
+  const { data } = await admin
+    .from('price_history')
+    .select('date')
+    .order('date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return (data?.date as string | undefined) ?? null
 }
 
 /**

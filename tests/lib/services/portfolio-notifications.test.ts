@@ -5,6 +5,7 @@ import {
   extraordinaryMove,
   historyAgeDays,
   evaluatePortfolio,
+  priceStoreIsCurrent,
   priceAlertFires,
   STALE_HISTORY_DAYS,
   type PriceAlertRow,
@@ -93,6 +94,25 @@ describe('extraordinaryMove', () => {
   })
 })
 
+describe('priceStoreIsCurrent', () => {
+  const asOf = new Date('2026-09-28T02:00:00Z') // a Monday evening
+
+  it('accepts the newest close a long weekend can leave', () => {
+    // Friday's close is the newest there is until Monday evening.
+    expect(priceStoreIsCurrent('2026-09-25', asOf)).toBe(true)
+    expect(priceStoreIsCurrent('2026-09-24', asOf)).toBe(true)
+  })
+
+  it('calls the store stale once nothing has been stored for days', () => {
+    expect(priceStoreIsCurrent('2026-09-23', asOf)).toBe(false)
+    expect(priceStoreIsCurrent('2026-09-01', asOf)).toBe(false)
+  })
+
+  it('treats an empty store as no evidence at all', () => {
+    expect(priceStoreIsCurrent(null, asOf)).toBe(false)
+  })
+})
+
 describe('evaluatePortfolio', () => {
   const base = {
     userId: 'u',
@@ -150,9 +170,24 @@ describe('evaluatePortfolio', () => {
     expect(out.some((n) => n.kind === 'no_price:OK')).toBe(false)
   })
 
-  it('blames no symbol on a night when the whole book has no history', () => {
+  it('blames no symbol when neither the book nor the store proves pricing works', () => {
     // A provider outage is not six broken symbols.
     const out = evaluatePortfolio({ ...base, closes: {}, units: { A: 1, B: 2 } })
+
+    expect(out.filter((n) => n.kind.startsWith('no_price:'))).toEqual([])
+  })
+
+  it('reaches a book whose only holding is the unpriced one', () => {
+    // Production has exactly one of these, and it was the only case the
+    // per-book comparison could never see: with nothing else in the book, the
+    // stored history as a whole is what says the pricing works.
+    const out = evaluatePortfolio({ ...base, closes: {}, units: { ALONE: 308.75 }, priceStoreCurrent: true })
+
+    expect(out.map((n) => n.kind)).toEqual(['no_price:ALONE'])
+  })
+
+  it('stays silent about that same holding when the store itself has stopped', () => {
+    const out = evaluatePortfolio({ ...base, closes: {}, units: { ALONE: 308.75 }, priceStoreCurrent: false })
 
     expect(out.filter((n) => n.kind.startsWith('no_price:'))).toEqual([])
   })
