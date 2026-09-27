@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/nextjs'
+import { reportException } from '@/lib/observability/sentry'
 import { error } from '@/lib/api/response'
 import { recordApiError } from '@/lib/analytics/errors'
 
@@ -10,7 +10,9 @@ import { recordApiError } from '@/lib/analytics/errors'
  *
  * The exception is reported to Sentry and to our own error_events table on the
  * way through. Neither changes the response: the frontend keeps receiving the
- * same { data: null, error } shape from lib/api/response.
+ * same { data: null, error } shape from lib/api/response. The report is awaited
+ * because this instance can be frozen as soon as the response is returned, and
+ * it costs nothing when no DSN is configured (observability/sentry.ts).
  *
  * Generic over the handler's own arguments so a dynamic route keeps its typed
  * context (e.g. { params: Promise<{ id: string }> }) instead of widening it.
@@ -30,7 +32,7 @@ export function apiHandler<Args extends unknown[]>(
 
       // Pathname only, never the query string or body: those carry portfolio
       // ids and user input, and this project sends no PII to Sentry.
-      Sentry.captureException(err, {
+      await reportException(err, {
         tags: { area: 'api', method: req.method },
         extra: { route: pathname },
       })

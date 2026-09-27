@@ -13,6 +13,11 @@ vi.mock('@sentry/nextjs', () => ({
   },
 }))
 
+// The SDK is now loaded on demand and only when there is a DSN to send to, so
+// that a cold start does not pay for it (lib/observability/sentry.ts). The
+// route awaits the report, which is what lets these assertions stay as they are.
+process.env.SENTRY_DSN = 'https://public@example.ingest.sentry.io/1'
+
 const { POST } = await import('@/app/api/csp-report/route')
 
 const post = (body: unknown) =>

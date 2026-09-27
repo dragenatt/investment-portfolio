@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/nextjs'
+import { reportMessage } from '@/lib/observability/sentry'
 
 /**
  * Where the browser posts a Content-Security-Policy violation.
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     console.warn(
       `[csp] ${violation.effectiveDirective} blocked ${violation.blockedUri ?? 'something'} on ${violation.documentUri ?? 'a page'}`,
     )
-    Sentry.captureMessage('CSP violation', {
+    await reportMessage('CSP violation', {
       level: 'warning',
       tags: { area: 'security', directive: violation.effectiveDirective },
       extra: { ...violation },

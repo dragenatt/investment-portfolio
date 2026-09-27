@@ -10,7 +10,7 @@
 // exactly as it did when the calculation ran inside the request.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import * as Sentry from '@sentry/nextjs'
+import { reportMessage } from '@/lib/observability/sentry'
 import {
   JOB_POLICY,
   JOB_MIN_ATTEMPT_MS,
@@ -326,7 +326,7 @@ async function recordFailure(
     .select('id')
 
   if (errorKind === 'timeout') {
-    Sentry.captureMessage('Background job ran out of its invocation budget', {
+    await reportMessage('Background job ran out of its invocation budget', {
       level: next.status === 'failed' ? 'error' : 'warning',
       extra: {
         kind: job.kind,

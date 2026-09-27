@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import * as Sentry from '@sentry/nextjs'
+import { reportMessage } from '@/lib/observability/sentry'
 import { sanitizeFinancialPayload } from '@/lib/services/validation'
 
 export type ApiResponse<T = unknown> = {
@@ -52,7 +52,9 @@ export function success<T>(data: T, meta?: ApiResponse['meta'], status = 200) {
       `[api] non-finite value(s) blocked before the client: ${summary}` +
         (replaced.length > 10 ? ` (+${replaced.length - 10} more)` : ''),
     )
-    Sentry.captureMessage('Non-finite value in API payload', {
+    // Not awaited: success() is synchronous and its caller is returning a
+    // response, not handling a failure.
+    void reportMessage('Non-finite value in API payload', {
       level: 'warning',
       extra: { paths: replaced.slice(0, 50) },
     })
