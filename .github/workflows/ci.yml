@@ -55,6 +55,12 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
+      # The worker is deployed to production and the root tsconfig excludes it,
+      # so nothing checked it. @cloudflare/workers-types is a root
+      # devDependency, which is why this needs no install of its own.
+      - name: TypeScript check (the Cloudflare worker)
+        run: npm run typecheck:worker
+
       - name: Lint
         run: npm run lint -- --ignore-pattern ".claude/"
 

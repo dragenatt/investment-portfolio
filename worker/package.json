@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
