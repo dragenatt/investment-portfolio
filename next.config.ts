@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from "@sentry/nextjs";
+// From @sentry/nextjs/config since v10: the re-export from the package root
+// stops working in v11.
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 // The service worker is registered as /sw.js?v=<this>, so each deploy installs a
 // new worker that drops the previous build's saved files (C4). Vercel provides
@@ -46,12 +48,16 @@ const nextConfig: NextConfig = {
 // Uploading source maps needs SENTRY_AUTH_TOKEN. Without it the upload is
 // disabled rather than failing the build, so a deploy that has no Sentry
 // secrets still builds exactly as before.
+//
+// `disableLogger` is gone: it is deprecated in favour of
+// `webpack.treeshake.removeDebugLogging`, and neither applies here — Next 16
+// builds with Turbopack unless `--webpack` is passed, which this project does
+// not. It was printing a deprecation warning on every build and doing nothing.
 export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
   widenClientFileUpload: true,
-  disableLogger: true,
   sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
 });
