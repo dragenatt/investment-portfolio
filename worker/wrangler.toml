@@ -5,6 +5,16 @@ main = "src/index.ts"
 compatibility_date = "2024-12-16"
 account_id = "8b18281e7f5efd3d2dceef34f64184e4"
 
+# Reachable at price-engine.investtracker-mx.workers.dev, which is where /health
+# answers. Stated rather than left to the default: the deploy warns about both of
+# these on every run while they are absent.
+workers_dev = true
+
+# Every version uploaded would otherwise get its own public address,
+# <version>-price-engine.<subdomain>.workers.dev. A worker that only answers a
+# cron has no use for them, and "public" means anyone holding the URL.
+preview_urls = false
+
 [triggers]
 crons = ["*/5 * * * *"]
 
