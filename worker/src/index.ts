@@ -73,13 +73,14 @@ function appUrl(env: Env, path: string): string {
 }
 
 /**
- * What an HTTP header value may contain: visible ASCII, no spaces at either end.
- * A secret pasted with a trailing newline, a tab or a smart quote makes the
- * request itself malformed, and the rejection then comes from whatever sits in
- * front of the app — with a status that has nothing to do with the secret being
- * wrong.
+ * What an HTTP header value may contain, once its ends are trimmed: printable
+ * ASCII, space included. A space inside the value is legal — a passphrase sends
+ * fine — so refusing one would refuse a working secret. Anything outside this
+ * range makes the request itself malformed, and the rejection then comes from
+ * whatever sits in front of the app, with a status that has nothing to do with
+ * the secret being wrong.
  */
-const HEADER_SAFE = /^[!-~]+$/
+const HEADER_SAFE = /^[ -~]+$/
 
 async function checkAlerts(env: Env): Promise<void> {
   if (!env.CRON_SECRET) {
@@ -103,14 +104,17 @@ async function checkAlerts(env: Env): Promise<void> {
     )
   }
   if (!HEADER_SAFE.test(secret)) {
-    // Never the value: only that it cannot be sent as written. Whitespace is
-    // already handled above, so what is left is a character that should not be
-    // in a secret: a smart quote from a document, an accent, a control code.
+    // Which characters, never where or how many. A code point names the thing
+    // to delete — U+200B is a zero-width space and U+00A0 a non-breaking one,
+    // both of which a copy taken from a web page carries invisibly — and says
+    // nothing about the secret itself.
+    const offenders = [...new Set([...secret].filter((c) => c < ' ' || c > '~'))]
+      .map((c) => 'U+' + (c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0'))
+      .join(', ')
     console.error(
-      'CRON_SECRET contains a character outside visible ASCII, and it is not ' +
-        'whitespace — a smart quote, an accented letter or an invisible control ' +
-        'code. Set it again from the Cloudflare dashboard: Workers & Pages → ' +
-        'price-engine → Settings → Variables and Secrets.',
+      `CRON_SECRET contains ${offenders}, which cannot travel in an HTTP header. ` +
+        'A copy taken from a web page carries those invisibly, so pasting it again ' +
+        'will not help: type the value by hand into npx wrangler secret put CRON_SECRET',
     )
     return
   }
