@@ -72,9 +72,27 @@ function appUrl(env: Env, path: string): string {
   return `${env.APP_URL.replace(/\/$/, '')}${path}`
 }
 
+/**
+ * What an HTTP header value may contain: visible ASCII, no spaces at either end.
+ * A secret pasted with a trailing newline, a tab or a smart quote makes the
+ * request itself malformed, and the rejection then comes from whatever sits in
+ * front of the app — with a status that has nothing to do with the secret being
+ * wrong.
+ */
+const HEADER_SAFE = /^[!-~]+$/
+
 async function checkAlerts(env: Env): Promise<void> {
   if (!env.CRON_SECRET) {
     console.error('CRON_SECRET is not set. Run: npx wrangler secret put CRON_SECRET')
+    return
+  }
+  if (!HEADER_SAFE.test(env.CRON_SECRET)) {
+    // Never the value: only that it cannot be sent as written.
+    console.error(
+      'CRON_SECRET contains characters that cannot go in an HTTP header ' +
+        '(whitespace at either end, a newline, or something outside visible ASCII). ' +
+        'Set it again with: npx wrangler secret put CRON_SECRET',
+    )
     return
   }
 
@@ -83,8 +101,17 @@ async function checkAlerts(env: Env): Promise<void> {
     headers: { Authorization: `Bearer ${env.CRON_SECRET}` },
   })
   const body = (await response.text()).slice(0, 300)
-  if (response.ok) console.log(`alerts ${response.status}: ${body}`)
-  else console.error(`alerts ${response.status}: ${body}`)
+  if (response.ok) {
+    console.log(`alerts ${response.status}: ${body}`)
+    return
+  }
+  // Which layer refused it. A 401 is the app saying the secret is wrong; a 400
+  // with an x-vercel-error is the platform saying the request never got that
+  // far, and the two need opposite fixes.
+  const from = ['x-vercel-error', 'x-vercel-id', 'content-type']
+    .map((header) => `${header}=${response.headers.get(header) ?? '-'}`)
+    .join(' ')
+  console.error(`alerts ${response.status} [${from}]: ${body}`)
 }
 
 /**
