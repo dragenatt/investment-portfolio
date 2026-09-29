@@ -86,19 +86,38 @@ async function checkAlerts(env: Env): Promise<void> {
     console.error('CRON_SECRET is not set. Run: npx wrangler secret put CRON_SECRET')
     return
   }
-  if (!HEADER_SAFE.test(env.CRON_SECRET)) {
-    // Never the value: only that it cannot be sent as written.
+
+  // Whitespace at either end is trimmed rather than refused. A secret pasted
+  // into a terminal on Windows keeps the carriage return of the copied line —
+  // the newline acts as Enter and the carriage return stays glued to the value — and the result
+  // is a request that HTTP itself calls malformed, which the platform in front
+  // of the app rejects with a status that says nothing about secrets. Nothing
+  // is lost by trimming: a value with an end space could never be sent as a
+  // header at all. It is said out loud, because the stored value is still wrong.
+  const secret = env.CRON_SECRET.trim()
+  if (secret !== env.CRON_SECRET) {
+    console.warn(
+      'CRON_SECRET has whitespace at one end and was trimmed for this call. ' +
+        'Store it cleanly when convenient: the Cloudflare dashboard is a form field, ' +
+        'which cannot pick up the line break a terminal paste does.',
+    )
+  }
+  if (!HEADER_SAFE.test(secret)) {
+    // Never the value: only that it cannot be sent as written. Whitespace is
+    // already handled above, so what is left is a character that should not be
+    // in a secret: a smart quote from a document, an accent, a control code.
     console.error(
-      'CRON_SECRET contains characters that cannot go in an HTTP header ' +
-        '(whitespace at either end, a newline, or something outside visible ASCII). ' +
-        'Set it again with: npx wrangler secret put CRON_SECRET',
+      'CRON_SECRET contains a character outside visible ASCII, and it is not ' +
+        'whitespace — a smart quote, an accented letter or an invisible control ' +
+        'code. Set it again from the Cloudflare dashboard: Workers & Pages → ' +
+        'price-engine → Settings → Variables and Secrets.',
     )
     return
   }
 
   const response = await fetch(appUrl(env, '/api/cron/alerts'), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${env.CRON_SECRET}` },
+    headers: { Authorization: `Bearer ${secret}` },
   })
   const body = (await response.text()).slice(0, 300)
   if (response.ok) {
