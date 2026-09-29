@@ -213,7 +213,7 @@
   "alerts": {
     "title": "Alertas",
     "no_alerts": "Sin alertas configuradas",
-    "no_alerts_desc": "Crea una con el botón de arriba. Revisamos los precios una vez al día, después del cierre, y te avisamos en tus notificaciones cuando se cumpla.",
+    "no_alerts_desc": "Crea una con el botón de arriba. Revisamos los precios cada 5 minutos y te avisamos en tus notificaciones en cuanto se cumpla.",
     "above": "sube a",
     "below": "baja a",
     "change": "cambia",

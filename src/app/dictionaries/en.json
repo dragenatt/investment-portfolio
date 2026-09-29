@@ -213,7 +213,7 @@
   "alerts": {
     "title": "Alerts",
     "no_alerts": "No configured alerts",
-    "no_alerts_desc": "Create one with the button above. Prices are checked once a day, after the close, and you are told in your notifications when one is met.",
+    "no_alerts_desc": "Create one with the button above. Prices are checked every 5 minutes and you are told in your notifications as soon as one is met.",
     "above": "goes above",
     "below": "goes below",
     "change": "changes",
