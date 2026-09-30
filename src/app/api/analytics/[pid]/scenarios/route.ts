@@ -121,7 +121,7 @@ async function getHandler(req: Request, { params }: { params: Promise<{ pid: str
     if (frontier) {
       candidates.push({
         id: 'minVariance',
-        name: 'Minima varianza',
+        name: 'Mínima varianza',
         rationale:
           'El punto de menor volatilidad de la frontera eficiente. No usa ninguna estimación de rendimiento, solo la covarianza.',
         weights: byWeights(frontier.minimumVariance.weights),

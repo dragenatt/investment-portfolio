@@ -38,7 +38,7 @@ type Row = {
 }
 
 function rowsFor(horizonYears: number): Row[] {
-  const years = `${horizonYears} ${horizonYears === 1 ? 'ano' : 'anos'}`
+  const years = `${horizonYears} ${horizonYears === 1 ? 'año' : 'años'}`
   return [
     { group: 'Riesgo', label: 'Volatilidad anual', value: (s) => pct(s.volatilityPct) },
     // Two conventions, labelled as such. The first sums the average daily return
@@ -54,17 +54,17 @@ function rowsFor(horizonYears: number): Row[] {
       label: `Peor 5% de los futuros a ${years}`,
       value: (s) => (s.var95Pct >= 0 ? `pierde ${pct(s.var95Pct)}` : `gana ${pct(-s.var95Pct)}`),
     },
-    { group: 'Drawdown', label: 'Caida máxima típica', value: (s) => pct(s.maxDrawdownMedianPct) },
-    { group: 'Drawdown', label: 'Caida en un camino malo (P90)', value: (s) => pct(s.maxDrawdownBadPct) },
+    { group: 'Drawdown', label: 'Caída máxima típica', value: (s) => pct(s.maxDrawdownMedianPct) },
+    { group: 'Drawdown', label: 'Caída en un camino malo (P90)', value: (s) => pct(s.maxDrawdownBadPct) },
     { group: 'Probabilidad', label: `Terminar con pérdida a ${years}`, value: (s) => pct(s.probabilityOfLoss * 100) },
     { group: 'Probabilidad', label: 'Superar la tasa libre de riesgo', value: (s) => pct(s.probabilityBeatRiskFree * 100) },
     {
-      group: 'Concentracion',
+      group: 'Concentración',
       label: 'HHI · posiciones equivalentes',
       value: (s) => `${s.hhi.toFixed(2)} · ${s.effectiveHoldings.toFixed(1)}`,
     },
     {
-      group: 'Concentracion',
+      group: 'Concentración',
       label: 'Mayor fuente de riesgo',
       value: (s) => `${s.largestRiskShare.symbol} ${pct(s.largestRiskShare.pct, 0)}`,
     },
@@ -149,7 +149,7 @@ export function ScenarioComparisonCard({ pid }: { pid: string }) {
                     horizon === h ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-secondary',
                   )}
                 >
-                  {h} {h === 1 ? 'ano' : 'anos'}
+                  {h} {h === 1 ? 'año' : 'años'}
                 </button>
               ))}
             </div>
@@ -273,7 +273,7 @@ function ComparisonTable({ scenarios, horizonYears }: { scenarios: ScenarioMetri
       <table className="w-full text-xs">
         <thead>
           <tr className="text-[11px] text-muted-foreground">
-            <th className="text-left font-normal py-1.5 pr-3 min-w-44">Metrica</th>
+            <th className="text-left font-normal py-1.5 pr-3 min-w-44">Métrica</th>
             {scenarios.map((s, i) => (
               <th key={s.id} className="text-right font-medium py-1.5 px-2 min-w-28 text-foreground" title={s.rationale ?? undefined}>
                 {s.name}
@@ -285,7 +285,7 @@ function ComparisonTable({ scenarios, horizonYears }: { scenarios: ScenarioMetri
         <tbody className="divide-y divide-border">
           <tr>
             <td className="py-1.5 pr-3 text-muted-foreground">
-              <span className="text-[10px] uppercase tracking-wide block">Composicion</span>
+              <span className="text-[10px] uppercase tracking-wide block">Composición</span>
               Pesos principales
             </td>
             {scenarios.map((s) => (

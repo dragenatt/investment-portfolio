@@ -82,7 +82,7 @@ export function FactorExposure({ data, isLoading }: Props) {
     <CardHeader>
       <CardTitle className="text-sm font-medium flex items-center gap-2">
         <Layers className="h-4 w-4" />
-        Exposicion factorial
+        Exposición factorial
       </CardTitle>
       {data?.regression && data.from_date && (
         <CardDescription className="text-xs font-financial">
@@ -197,7 +197,7 @@ export function FactorExposure({ data, isLoading }: Props) {
               className="inline-block h-2.5 w-2.5 rounded-sm"
               style={{ background: SERIES_PALETTE[0] }}
             />
-            Inclinacion real
+            Inclinación real
           </span>
           <span className="flex items-center gap-1.5">
             <span
