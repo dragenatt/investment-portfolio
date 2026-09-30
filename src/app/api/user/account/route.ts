@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { serviceRoleClient } from '@/lib/supabase/admin'
+import { supabasePublicEnv } from '@/lib/supabase/env'
 import { success, error } from '@/lib/api/response'
 import { rateLimit } from '@/lib/api/rate-limit'
 import { apiHandler } from '@/lib/api/handler'
@@ -39,7 +40,8 @@ async function deleteHandler(req: Request) {
   const parsed = BodySchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return error('Falta la contraseña', 400)
 
-  const verifier = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+  const { url, anonKey } = supabasePublicEnv()
+  const verifier = createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
   const { data: check, error: checkError } = await verifier.auth.signInWithPassword({
