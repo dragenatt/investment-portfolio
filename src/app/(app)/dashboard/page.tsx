@@ -7,6 +7,7 @@ import { KpiCards } from '@/components/dashboard/kpi-cards'
 import { TopMovers } from '@/components/dashboard/top-movers'
 import { WelcomeEmptyState } from '@/components/dashboard/welcome-empty-state'
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist'
+import { OnboardingTour } from '@/components/shared/onboarding-tour'
 import { SkeletonCard } from '@/components/shared/skeleton-card'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
@@ -97,6 +98,21 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/*
+        The tour lives here, not on the settings page where its button is.
+
+        It was mounted only by settings, so two things followed. A new user
+        never saw it at all: the component auto-starts when the completion flag
+        is missing, and it was never on screen to run that check. And restarting
+        it from settings ran it over the settings page, where the hero and the
+        chart it narrates do not exist — so it dimmed the screen and described
+        things that were not on it.
+
+        Settings now clears the flag and sends the reader here; this mount picks
+        that up and runs the tour where its anchors are.
+      */}
+      <OnboardingTour />
+
       {/* Onboarding checklist — visible until all steps complete or dismissed */}
       <OnboardingChecklist
         hasPortfolio={hasPortfolio}
@@ -105,7 +121,11 @@ export default function DashboardPage() {
       />
 
       {/* KPI hero */}
+      {/* data-tour: the onboarding tour spotlights this block by that attribute.
+          Without it querySelector finds nothing, the spotlight goes null, and
+          the step describes the hero over a dimmed screen showing none of it. */}
       <ErrorBoundary>
+        <div data-tour="hero-section">
         <KpiCards
           totalValue={stats.totalValue}
           totalReturn={stats.totalReturn}
@@ -118,12 +138,14 @@ export default function DashboardPage() {
           unconverted={stats.unconverted}
         />
         <LiveStatus quotes={livePrices} />
+        </div>
       </ErrorBoundary>
 
       {/* Chart */}
       {/* A failed history load used to say "Agrega transacciones para ver el rendimiento" (C9). */}
       <DataGate error={chartError} hasData={!!chartData} what="la evolución del portafolio">
         <ErrorBoundary>
+          <div data-tour="portfolio-chart">
           <PortfolioChart
             data={chartSeries}
             isLoading={chartLoading}
@@ -131,6 +153,7 @@ export default function DashboardPage() {
             currency={chartCurrency}
             unconverted={unconverted}
           />
+          </div>
         </ErrorBoundary>
       </DataGate>
 

@@ -11,7 +11,13 @@ type TourStep = {
   position: 'center' | 'bottom' | 'top' | 'left' | 'right'
 }
 
-const TOUR_STEPS: TourStep[] = [
+/**
+ * Exported so a test can check that every selector here still matches something
+ * the app renders. The coupling is silent: remove a `data-tour` attribute and
+ * nothing breaks, the tour just stops pointing at anything and narrates a dimmed
+ * screen. That is exactly how the hero and chart steps came to be broken.
+ */
+export const TOUR_STEPS: TourStep[] = [
   {
     title: '¡Bienvenido a InvestTracker!',
     description:

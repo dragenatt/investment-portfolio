@@ -48,28 +48,54 @@ export function AdvisorAllocationDonut({
     rows: donutData.map((d) => [d.name, `${d.value}%`]),
   }
   return (
-    <ChartFigure summary={summary} table={table}>
-      <ResponsiveContainer width="100%" height={250}>
-        <PieChart accessibilityLayer={false}>
-          <Pie
-            rootTabIndex={-1}
-            data={donutData}
-            cx="50%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={90}
-            paddingAngle={3}
-            dataKey="value"
-          >
-            {donutData.map((_, idx) => (
-              <Cell key={idx} fill={DONUT_COLORS[idx % DONUT_COLORS.length]} />
-            ))}
-          </Pie>
-          <Tooltip content={<ChartTooltipContent valueFormatter={(value) => `${Number(value).toFixed(0)}%`} />} />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
-    </ChartFigure>
+    <div className="w-full">
+      <ChartFigure summary={summary} table={table}>
+        <ResponsiveContainer width="100%" height={250}>
+          <PieChart accessibilityLayer={false}>
+            {/* Radii are percentages of the plot area, not pixels. With fixed
+                radii the ring kept its 90px whatever the column it landed in,
+                so in the advisor's two-column layout on a narrow screen it
+                overflowed its own chart area. */}
+            <Pie
+              rootTabIndex={-1}
+              data={donutData}
+              cx="50%"
+              cy="50%"
+              innerRadius="55%"
+              outerRadius="80%"
+              paddingAngle={3}
+              dataKey="value"
+            >
+              {donutData.map((_, idx) => (
+                <Cell key={idx} fill={DONUT_COLORS[idx % DONUT_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip content={<ChartTooltipContent valueFormatter={(value) => `${Number(value).toFixed(0)}%`} />} />
+          </PieChart>
+        </ResponsiveContainer>
+      </ChartFigure>
+
+      {/*
+        The colour key used to be a Recharts <Legend> inside the chart. Recharts
+        lays the legend out within the same 250px box as the pie, so five names
+        as long as "ETF S&P500" wrapped onto three or four lines, the legend
+        claimed that height, and the ring — sized in absolute pixels — was drawn
+        straight over it. Outside the chart it takes the room it needs and
+        nothing overlaps, which is how the dashboard's donut has always done it.
+      */}
+      <ul className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1.5" aria-label="Clases de activo">
+        {donutData.map((item, idx) => (
+          <li key={item.name} className="flex items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+              style={{ backgroundColor: DONUT_COLORS[idx % DONUT_COLORS.length] }}
+            />
+            <span className="text-xs text-muted-foreground">{item.name}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

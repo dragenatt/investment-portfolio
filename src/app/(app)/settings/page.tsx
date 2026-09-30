@@ -7,9 +7,9 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useTheme } from 'next-themes'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import useSWR from 'swr'
-import { OnboardingTour } from '@/components/shared/onboarding-tour'
 import { useTranslation } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n'
 import { setLocaleCookie } from '@/lib/i18n/locale-client'
@@ -31,7 +31,7 @@ export default function SettingsPage() {
   // Initialize from profile if available, otherwise empty string
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
   const [baseCurrency, setBaseCurrency] = useState(profile?.base_currency || 'MXN')
-  const [showTour, setShowTour] = useState(false)
+  const router = useRouter()
   const shortcutsEnabled = useKeyboardShortcutsEnabled()
 
   async function saveProfile() {
@@ -169,18 +169,18 @@ export default function SettingsPage() {
             className="rounded-xl"
             variant="outline"
             onClick={() => {
+              // Clearing the flag is what restarts the tour; the dashboard
+              // mounts it and starts it when the flag is gone. Running it here
+              // showed the steps over this page, which holds none of what they
+              // point at.
               try { localStorage.removeItem('onboarding_completed') } catch {}
-              setShowTour(true)
+              router.push('/dashboard')
             }}
           >
             {t.settings.view_tutorial}
           </Button>
         </CardContent>
       </Card>
-
-      {showTour && (
-        <OnboardingTour forceOpen onClose={() => setShowTour(false)} />
-      )}
     </div>
   )
 }
