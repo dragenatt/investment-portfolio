@@ -24,6 +24,10 @@ import {
  * channel only carries what polls write, so that was also how often prices
  * moved (live-prices.ts).
  *
+ * A channel that keeps failing is given up after MAX_REALTIME_FAILURES tries in
+ * a row, socket included, and polling carries on alone; coming back online
+ * starts the tries over.
+ *
  * The subscription is filtered to these symbols. current_prices is shared market
  * data every signed-in user may read, so the filter — not RLS — is what keeps a
  * user from receiving every price anyone else is looking at. Anonymous visitors
@@ -64,11 +68,20 @@ export function useLivePrices(symbols: string[]) {
     const supabase = createClient()
     let channel: ReturnType<typeof supabase.channel> | null = null
     let retryTimer: ReturnType<typeof setTimeout> | undefined
-    let attempt = 0
+    let failures = 0
     let disposed = false
+    // The last failed channel's removal. A channel is looked up by topic, so
+    // subscribing again before the old one has left would get the old one back.
+    let removal: Promise<unknown> = Promise.resolve()
+
+    const resubscribe = () => {
+      void removal.then(() => {
+        if (!disposed && !channel) subscribe()
+      })
+    }
 
     const subscribe = () => {
-      channel = supabase
+      const attempt = supabase
         .channel(`live-prices:${key}`)
         .on(
           'postgres_changes',
@@ -88,31 +101,55 @@ export function useLivePrices(symbols: string[]) {
             )
           },
         )
-        .subscribe((status) => {
-          if (disposed) return
-          setChannelState(status as ChannelState)
-          if (status === 'SUBSCRIBED') {
-            attempt = 0
+      channel = attempt
+      attempt.subscribe((status) => {
+        // A channel already dropped still reports its own closing; only the
+        // live one speaks for the screen.
+        if (disposed || channel !== attempt) return
+        setChannelState(status as ChannelState)
+        if (status === 'SUBSCRIBED') {
+          failures = 0
+          return
+        }
+        // supabase-js rejoins on its own after a dropped socket; an errored or
+        // timed-out join is torn down and retried with backoff instead — until
+        // it has failed often enough to say it will keep failing.
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          channel = null
+          removal = supabase.removeChannel(attempt)
+          const delay = reconnectDelayMs(++failures)
+          if (delay !== null) {
+            retryTimer = setTimeout(resubscribe, delay)
             return
           }
-          // supabase-js rejoins on its own after a dropped socket; an errored or
-          // timed-out join is torn down and retried with backoff instead.
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            const failed = channel
-            channel = null
-            if (failed) supabase.removeChannel(failed)
-            retryTimer = setTimeout(() => {
-              if (!disposed) subscribe()
-            }, reconnectDelayMs(attempt++))
-          }
-        })
+          setChannelState('CLOSED')
+          // Giving up has to reach the socket too. Phoenix redials one that
+          // never opened every ten seconds on its own, and the client only
+          // disconnects an idle socket fifty seconds after its last channel
+          // leaves: a refused upgrade every ten seconds until then.
+          void removal.then(() => {
+            if (supabase.getChannels().length === 0) void supabase.realtime.disconnect()
+          })
+        }
+      })
     }
+
+    // A network that comes back is a new situation, not a sixth failure: start
+    // over with a full set of attempts.
+    const onOnline = () => {
+      if (disposed || channel) return
+      clearTimeout(retryTimer)
+      failures = 0
+      resubscribe()
+    }
+    window.addEventListener('online', onOnline)
 
     subscribe()
 
     return () => {
       disposed = true
       clearTimeout(retryTimer)
+      window.removeEventListener('online', onOnline)
       if (channel) supabase.removeChannel(channel)
     }
   }, [key, mutate])
