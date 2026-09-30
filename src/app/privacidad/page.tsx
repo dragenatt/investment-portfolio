@@ -41,18 +41,30 @@ const RESPONSABLES = [
 ]
 
 /**
- * Datos que el equipo debe fijar antes de publicar. Se renderizan como un
- * marcador visible en vez de un valor inventado: un domicilio o un correo
- * falsos en un aviso de privacidad son peores que un hueco señalado.
+ * Domicilio para oír y recibir notificaciones (art. 16, fracción I LFPDPPP).
+ *
+ * Es el campus de la Universidad Politécnica de Pachuca, transcrito literalmente
+ * del aviso de privacidad institucional para alumnado que la propia UPP publica
+ * (última actualización 13/07/2023) — no de la página índice, que omite "Rancho
+ * Luna". Se usa porque es donde los responsables son localizables como
+ * estudiantes del programa; no convierte a la Universidad en responsable del
+ * tratamiento, y la sección 1 lo dice expresamente.
  */
-const PENDIENTE_DOMICILIO = 'domicilio para oír y recibir notificaciones'
-const PENDIENTE_CORREO = 'privacidad@investtracker.mx'
+const DOMICILIO =
+  'Carretera Pachuca – Cd. Sahagún, km 20, Ex Hacienda de Santa Bárbara, Rancho Luna, Zempoala, Hidalgo, C. P. 43830'
 
-function Pendiente({ children }: { children: React.ReactNode }) {
+/** Buzón único para solicitudes ARCO y cualquier asunto de privacidad. */
+const CORREO_PRIVACIDAD = 'rolandobrito1105@micorreo.upp.edu.mx'
+
+/** El buzón de la sección 1, como enlace accionable donde se le menciona. */
+function CorreoPrivacidad() {
   return (
-    <span className="mx-0.5 rounded bg-yellow-200 px-1.5 py-0.5 font-mono text-[0.85em] text-yellow-950 dark:bg-yellow-900/70 dark:text-yellow-100">
-      [POR CONFIRMAR: {children}]
-    </span>
+    <a
+      href={`mailto:${CORREO_PRIVACIDAD}`}
+      className="break-all font-mono text-[0.9em] text-primary underline underline-offset-4"
+    >
+      {CORREO_PRIVACIDAD}
+    </a>
   )
 }
 
@@ -160,12 +172,13 @@ export default function AvisoDePrivacidadPage() {
           ))}
         </UL>
         <P>
-          Domicilio para oír y recibir notificaciones:{' '}
-          <Pendiente>{PENDIENTE_DOMICILIO}</Pendiente>
+          <T>Domicilio para oír y recibir notificaciones:</T> {DOMICILIO}. Corresponde al campus
+          de la Universidad Politécnica de Pachuca, donde los responsables son localizables
+          como estudiantes del programa de Ingeniería Financiera.
         </P>
         <P>
-          Correo electrónico para asuntos de privacidad:{' '}
-          <Pendiente>{PENDIENTE_CORREO}</Pendiente>
+          <T>Correo electrónico para asuntos de privacidad y solicitudes ARCO:</T>{' '}
+          <CorreoPrivacidad />
         </P>
         <P>
           InvestTracker es un proyecto académico desarrollado en el programa de{' '}
@@ -321,7 +334,7 @@ export default function AvisoDePrivacidadPage() {
           </li>
         </UL>
         <P>
-          Para negarte a cualquiera de estas finalidades, escríbenos al correo de la sección 1
+          Para negarte a cualquiera de estas finalidades, escríbenos a <CorreoPrivacidad />{' '}
           indicando a cuál te opones, o desactiva las funciones sociales desde{' '}
           <span className="font-mono text-sm">Configuración › Privacidad</span>. Tu negativa no
           es motivo para negarte el servicio.
@@ -407,8 +420,8 @@ export default function AvisoDePrivacidadPage() {
 
         <H3>Cómo presentar tu solicitud</H3>
         <P>
-          Envíala al correo de la sección 1. Conforme al artículo 29 de la LFPDPPP, tu
-          solicitud debe contener:
+          Envíala a <CorreoPrivacidad />. Conforme al artículo 29 de la LFPDPPP, tu solicitud
+          debe contener:
         </P>
         <UL>
           <li>Tu nombre y un medio para comunicarte la respuesta.</li>
@@ -459,7 +472,7 @@ export default function AvisoDePrivacidadPage() {
         <H2 id="s7" n="7">Revocar tu consentimiento</H2>
         <P>
           Puedes revocar en cualquier momento el consentimiento que nos otorgaste, así como
-          limitar el uso o divulgación de tus datos, escribiéndonos al correo de la sección 1.
+          limitar el uso o divulgación de tus datos, escribiéndonos a <CorreoPrivacidad />.
         </P>
         <P>
           Ten en cuenta que revocar el consentimiento para las finalidades{' '}
