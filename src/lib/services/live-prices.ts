@@ -180,7 +180,23 @@ export function realtimeSymbolFilter(symbols: string[]): string | null {
 
 export type ChannelState = 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED' | 'CONNECTING'
 
-/** 1s, 2s, 4s … capped at 30s between resubscription attempts. */
-export function reconnectDelayMs(attempt: number): number {
-  return Math.min(30_000, 1000 * 2 ** Math.max(0, attempt))
+/**
+ * Failed subscriptions in a row after which a screen stops trying.
+ *
+ * The browser does not say why a socket closed: a refused key and a dropped
+ * network both end in code 1006, the 401 behind the first never exposed. So
+ * persistence is the only sign that trying again is pointless. It used to retry
+ * every thirty seconds for as long as the tab was open, and with the key refused
+ * that was every open tab, all day. Prices do not depend on the stream — polling
+ * carries them either way — so giving up costs only their early arrival.
+ */
+export const MAX_REALTIME_FAILURES = 6
+
+/**
+ * The wait before subscribing again after `failures` failed attempts in a row —
+ * 1s, 2s, 4s, 8s, 16s — or null once there have been MAX_REALTIME_FAILURES.
+ */
+export function reconnectDelayMs(failures: number): number | null {
+  if (failures >= MAX_REALTIME_FAILURES) return null
+  return 1000 * 2 ** Math.max(0, failures - 1)
 }

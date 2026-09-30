@@ -6,6 +6,7 @@ import {
   mergePriceUpdate,
   realtimeSymbolFilter,
   reconnectDelayMs,
+  MAX_REALTIME_FAILURES,
   LIVE_POLL_MS,
   LIVE_QUOTE_TTL_MS,
   QUOTE_TTL_MS,
@@ -190,10 +191,14 @@ describe('polling and reconnection', () => {
     expect(LIVE_POLL_MS).toBeLessThanOrEqual(15_000)
   })
 
-  it('backs off reconnection attempts and caps the wait', () => {
-    expect(reconnectDelayMs(0)).toBe(1000)
-    expect(reconnectDelayMs(1)).toBe(2000)
-    expect(reconnectDelayMs(3)).toBe(8000)
-    expect(reconnectDelayMs(20)).toBe(30_000)
+  it('backs off between attempts, then stops', () => {
+    // A browser cannot see why a socket closed: a refused key and a dropped
+    // network both end in code 1006. Failing this many times in a row is the
+    // only sign that trying again is pointless.
+    expect(reconnectDelayMs(1)).toBe(1000)
+    expect(reconnectDelayMs(2)).toBe(2000)
+    expect(reconnectDelayMs(MAX_REALTIME_FAILURES - 1)).toBe(16_000)
+    expect(reconnectDelayMs(MAX_REALTIME_FAILURES)).toBeNull()
+    expect(reconnectDelayMs(50)).toBeNull()
   })
 })

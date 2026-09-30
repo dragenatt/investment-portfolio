@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { isAuthApiError } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 import { safeNextPath, loginUrlFor } from '@/lib/utils/safe-redirect'
+import { supabasePublicEnv } from './env'
 
 /**
  * Pages anyone may open without a session. `/offline` is what the service
@@ -140,9 +141,10 @@ export async function updateSession(
   }
   let supabaseResponse = next()
 
+  const { url, anonKey } = supabasePublicEnv()
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll() {
