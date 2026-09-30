@@ -854,7 +854,7 @@ export default function AdvisorPage() {
             ))}
           </div>
           <p className="text-xs text-muted-foreground mt-3">
-            La simulacion proyecta {results.plan.modelo.simulaciones.toLocaleString('es-MX')}{' '}
+            La simulación proyecta {results.plan.modelo.simulaciones.toLocaleString('es-MX')}{' '}
             escenarios bajo los supuestos actuales:{' '}
             {(results.plan.modelo.rendimientoAnual * 100).toFixed(0)}% de rendimiento esperado y{' '}
             {(results.plan.modelo.volatilidadAnual * 100).toFixed(0)}% de volatilidad anual. Son
@@ -904,8 +904,8 @@ export default function AdvisorPage() {
           )}
           {results.aporteNec === null && (
             <p className="text-sm mt-2 text-muted-foreground">
-              Ningun aporte razonable alcanza {PROBABILIDAD_OBJETIVO}% de probabilidad con esta
-              meta y este plazo. Amplia el horizonte o ajusta la meta.
+              Ningún aporte razonable alcanza {PROBABILIDAD_OBJETIVO}% de probabilidad con esta
+              meta y este plazo. Amplía el horizonte o ajusta la meta.
             </p>
           )}
         </div>

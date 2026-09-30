@@ -276,7 +276,7 @@ export function StrategyBuilder({ symbol }: { symbol: string }) {
           Laboratorio de estrategias
         </CardTitle>
         <CardDescription className="text-xs">
-          Arma una regla sin escribir codigo y pruebala sobre el historial real de {symbol}.
+          Arma una regla sin escribir código y pruébala sobre el historial real de {symbol}.
         </CardDescription>
       </CardHeader>
 

@@ -3,7 +3,9 @@
  *
  * Quotes: Yahoo's spark endpoint first (every symbol, twenty per request, no
  * key), then Twelve Data → Finnhub → Yahoo's per-symbol chart for whatever it
- * did not answer. History: Twelve Data → Finnhub → Yahoo.
+ * did not answer. History: Twelve Data → Finnhub → Yahoo. Search: Twelve Data
+ * → Finnhub → Yahoo, then the local dictionary when none of them answers (see
+ * searchSymbols).
  *
  * Quotes used to start with Twelve Data. On the key this app runs with (basic
  * plan: 8 credits a minute, 800 a day, one credit per symbol) a batch of more
@@ -24,6 +26,7 @@ import * as twelveData from './twelve-data'
 import * as finnhub from './finnhub'
 import { CircuitBreaker, withRetry } from './resilience'
 import { cachePrice, cacheBatchPrices, getCachedPriceEntries, cacheGet, cacheSet, CACHE_KEYS, type CachedPriceEntry } from '@/lib/cache/redis'
+import { ASSET_UNIVERSE } from '@/lib/data/asset-universe'
 import { LIVE_QUOTE_TTL_MS } from './live-prices'
 
 // ─── Symbol normalization ───────────────────────────────────────────────────
@@ -362,58 +365,236 @@ async function yahooHistory(symbol: string, range: string = '1mo') {
 
 // ─── Public API (with automatic fallback + caching) ──────────────────────
 
-// ─── Search aliases for common terms people use ─────────────────────────
+// ─── Search: the local dictionary ───────────────────────────────────────────
+//
+// What search answers from when no provider does. All three can fail at once,
+// and from a datacenter they do: Yahoo's search answers some clients with a 429
+// outright, Finnhub needs a key, and a keyed Twelve Data search spends the
+// credits the history charts live on. A search that then comes back empty
+// reads as "this app does not know Apple", so every asset the app already
+// offers can be found without them: the universe the sector browser shows
+// (asset-universe.ts, the one list of them), plus the indices and the
+// cryptocurrencies below, which the universe — companies and funds by sector —
+// does not hold.
 
-const SEARCH_ALIASES: Array<{
-  keywords: string[]
-  result: { symbol: string; name: string; type: string; exchange: string; exchDisp: string }
-}> = [
+type SearchResult = { symbol: string; name: string; type: string; exchange: string; exchDisp: string }
+
+/** Names people type for a universe asset that are not in its own: its brands, and plain Spanish. */
+const SEARCH_NICKNAMES: Record<string, string[]> = {
+  'FEMSAUBD.MX': ['oxxo'],
+  'WALMEX.MX': ['bodega aurrera', 'sams club'],
+  'AMXB.MX': ['telcel', 'claro'],
+  'TLEVISACPO.MX': ['izzi', 'sky méxico'],
+  'GRUMAB.MX': ['maseca'],
+  'GAPB.MX': ['aeropuertos del pacífico'],
+  'ASURB.MX': ['aeropuertos del sureste'],
+  'OMAB.MX': ['aeropuertos centro norte'],
+  'GOOGL': ['youtube'],
+  'META': ['facebook', 'instagram', 'whatsapp'],
+  'BRK.B': ['buffett'],
+  'GLD': ['oro'],
+  'TLT': ['bonos del tesoro'],
+  'AGG': ['bonos'],
+}
+
+const SEARCH_ALIASES: Array<{ keywords: string[]; result: SearchResult }> = [
   { keywords: ['syp500', 'sp500', 's&p500', 's&p 500', 'snp500', 'spy500', 'standard poor'],
     result: { symbol: '^GSPC', name: 'S&P 500', type: 'index', exchange: 'SNP', exchDisp: 'SNP' } },
   { keywords: ['nasdaq', 'nasaq', 'nasdac', 'ixic'],
     result: { symbol: '^IXIC', name: 'Nasdaq Composite', type: 'index', exchange: 'NASDAQ', exchDisp: 'NASDAQ' } },
   { keywords: ['dow jones', 'dow', 'djia', 'dji'],
     result: { symbol: '^DJI', name: 'Dow Jones Industrial', type: 'index', exchange: 'DJI', exchDisp: 'DJI' } },
-  { keywords: ['nikkei', 'n225', 'japon', 'japan'],
+  { keywords: ['ipc', 'ipc méxico', 'bolsa mexicana', 'mexbol', 'índice de precios y cotizaciones'],
+    result: { symbol: '^MXX', name: 'S&P/BMV IPC', type: 'index', exchange: 'BMV', exchDisp: 'BMV' } },
+  { keywords: ['nikkei', 'n225', 'japón', 'japan'],
     result: { symbol: '^N225', name: 'Nikkei 225', type: 'index', exchange: 'OSA', exchDisp: 'Osaka' } },
   { keywords: ['ftse', 'london', 'londres'],
     result: { symbol: '^FTSE', name: 'FTSE 100', type: 'index', exchange: 'LSE', exchDisp: 'London' } },
   { keywords: ['russell', 'rut', 'russell2000'],
     result: { symbol: '^RUT', name: 'Russell 2000', type: 'index', exchange: 'RUS', exchDisp: 'Russell' } },
-  { keywords: ['femsa', 'femsaubd', 'oxxo'],
-    result: { symbol: 'FEMSAUBD.MX', name: 'FEMSA UBD', type: 'stock', exchange: 'BMV', exchDisp: 'BMV' } },
+  { keywords: ['bitcoin', 'btc'],
+    result: { symbol: 'BTC-USD', name: 'Bitcoin', type: 'crypto', exchange: 'CCC', exchDisp: 'Cripto' } },
+  { keywords: ['ethereum', 'ether', 'eth'],
+    result: { symbol: 'ETH-USD', name: 'Ethereum', type: 'crypto', exchange: 'CCC', exchDisp: 'Cripto' } },
+  ...ASSET_UNIVERSE.map((asset) => {
+    const market = asset.symbol.endsWith('.MX') ? 'BMV' : 'US'
+    return {
+      keywords: SEARCH_NICKNAMES[asset.symbol] ?? [],
+      result: {
+        symbol: asset.symbol,
+        name: asset.name,
+        type: asset.sector === 'ETFs' ? 'etf' : 'stock',
+        exchange: market,
+        exchDisp: market,
+      },
+    }
+  }),
 ]
 
-function matchAliases(query: string): typeof SEARCH_ALIASES[number]['result'][] {
-  const q = query.toLowerCase().trim()
-  return SEARCH_ALIASES
-    .filter(a => a.keywords.some(k => q.includes(k) || k.includes(q)))
-    .map(a => a.result)
+/** Lowercase, without accents, every run of spaces or punctuation one space: "Coca-Cola" → "coca cola". */
+function searchText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
 }
 
-export async function searchSymbols(query: string) {
-  // Check local aliases first
-  const aliasMatches = matchAliases(query)
+/** Without the spaces too, so "cocacola" finds Coca-Cola and "jp morgan" JPMorgan. */
+function compact(text: string): string {
+  return text.replace(/ /g, '')
+}
 
-  try {
-    const results = await withTimeout(twelveData.searchSymbols(query))
-    if (results.length > 0) {
-      // Prepend alias matches that aren't already in results
-      const existing = new Set(results.map((r: { symbol: string }) => r.symbol))
-      const unique = aliasMatches.filter(a => !existing.has(a.symbol))
-      return [...unique, ...results]
-    }
-  } catch { /* fall through */ }
+type DictionaryEntry = {
+  result: SearchResult
+  /** The symbol, and the ticker alone — WALMEX for WALMEX.MX, BRK for BRK.B — compacted. */
+  symbols: string[]
+  /** The name and the keywords, as searchText writes them. */
+  names: string[]
+}
 
-  const yahooResults = await yahooSearch(query)
-  if (yahooResults.length > 0) {
-    const existing = new Set(yahooResults.map((r: { symbol: string }) => r.symbol))
-    const unique = aliasMatches.filter(a => !existing.has(a.symbol))
-    return [...unique, ...yahooResults]
+/** The ticker without what marks its market or kind: WALMEX for WALMEX.MX, GSPC for ^GSPC, BTC for BTC-USD. */
+function tickerOf(symbol: string): string {
+  return symbol.replace(/^\^/, '').replace(/-USD$/, '').replace(/\.[A-Z]{1,2}$/, '')
+}
+
+/** The symbol and its ticker as a query is compared with them: "BRK.B" → brkb, brk. */
+function symbolKeys(symbol: string): string[] {
+  return [...new Set([symbol, tickerOf(symbol)].map((s) => compact(searchText(s))))]
+}
+
+const DICTIONARY: DictionaryEntry[] = SEARCH_ALIASES.map(({ keywords, result }) => ({
+  result,
+  symbols: symbolKeys(result.symbol),
+  names: [...new Set([result.name, ...keywords].map(searchText).filter(Boolean))],
+}))
+
+type Rank = 0 | 1 | 2 | 3
+
+/**
+ * How well an entry matches a query already written by searchText, or null.
+ *
+ * 0 — the symbol, the ticker, the name or a keyword, exactly.
+ * 1 — every word of the query is a whole word of the name or a keyword:
+ *     "gold" is SPDR Gold Shares before it is Goldman Sachs.
+ * 2 — a start: of the symbol, of the name typed without spaces ("cocacol"), of
+ *     a word of the name ("app" for Apple), or of one word of the name for each
+ *     word of the query ("walmart mex", "banco bajio").
+ * 3 — the query holds the whole name ("apple inc"), or a word of the name holds
+ *     the query ("morgan" in JPMorgan Chase), from four letters: "oro" is not
+ *     the end of "tesoro". Last, because the words ignored may be the ones that
+ *     tell two names apart: "walmart mexico" holds "Walmart", and asks for
+ *     Walmart de México.
+ *
+ * A one-letter query only matches exactly: "V" is Visa, not every name with a
+ * v; and a one-letter word in a longer query must sit where it is typed, so
+ * "s&p" finds S&P Global and not United Parcel Service.
+ */
+function matchRank(entry: DictionaryEntry, query: string): Rank | null {
+  const q = compact(query)
+  if (!q) return null
+  if (entry.symbols.includes(q) || entry.names.some((name) => compact(name) === q)) return 0
+  if (q.length < 2) return null
+
+  const words = query.split(' ')
+  const nameWords = entry.names.map((name) => name.split(' '))
+  if (nameWords.some((ofName) => words.every((word) => ofName.includes(word)))) return 1
+
+  if (
+    entry.symbols.some((symbol) => symbol.startsWith(q)) ||
+    entry.names.some((name) => compact(name).startsWith(q) || ` ${name}`.includes(` ${query}`)) ||
+    nameWords.some((ofName) => words.every((word) => word.length > 1 && ofName.some((w) => w.startsWith(word))))
+  ) {
+    return 2
   }
 
-  // If APIs returned nothing, return alias matches only
-  return aliasMatches
+  if (
+    entry.names.some((name) => ` ${query} `.includes(` ${name} `)) ||
+    (q.length >= 4 && entry.names.some((name) => name.includes(query)))
+  ) {
+    return 3
+  }
+  return null
+}
+
+/** Every dictionary entry the query matches, the best first, then in catalog order. */
+function searchDictionary(query: string): Array<{ result: SearchResult; rank: Rank }> {
+  const q = searchText(query)
+  const matches: Array<{ result: SearchResult; rank: Rank; index: number }> = []
+  DICTIONARY.forEach((entry, index) => {
+    const rank = matchRank(entry, q)
+    if (rank !== null) matches.push({ result: entry.result, rank, index })
+  })
+  return matches.sort((a, b) => a.rank - b.rank || a.index - b.index)
+}
+
+/** One row per symbol, the first kept: every list here renders keyed by symbol. */
+function uniqueBySymbol(results: SearchResult[]): SearchResult[] {
+  const seen = new Set<string>()
+  return results.filter((result) => {
+    if (!result?.symbol || seen.has(result.symbol)) return false
+    seen.add(result.symbol)
+    return true
+  })
+}
+
+/** How many dictionary matches go above a provider's answer, and how many answer alone. */
+const DICTIONARY_ON_TOP = 5
+const DICTIONARY_ALONE = 10
+
+// ─── Search ─────────────────────────────────────────────────────────────────
+
+/**
+ * Twelve Data, then Finnhub, then Yahoo: the first that answers, with the
+ * dictionary's exact, whole-word and prefix matches on top — the indices and
+ * brands the providers do not know by those words ("sp500", "oxxo"). What the
+ * provider has under exactly the symbol typed goes between the dictionary's
+ * exact matches and the rest of them: "ipc" is the IPC index before London's
+ * IPC, and "gold" the ticker GOLD before SPDR Gold Shares. When none answers,
+ * the dictionary alone.
+ *
+ * Each provider gets FETCH_TIMEOUT_MS and a failure of its own. Yahoo's used to
+ * have neither: a network error there threw out of this function, so the route
+ * answered 500 instead of the matches it already had, and a Yahoo that hung
+ * held the search for as long as it did.
+ */
+export async function searchSymbols(rawQuery: string): Promise<SearchResult[]> {
+  // "  aapl  " is "aapl": one cache entry, and one keyed Twelve Data credit, not
+  // one per way of typing the spaces. A query of spaces alone is no query —
+  // Twelve Data answers an empty one with whatever it likes.
+  const query = rawQuery.trim().replace(/\s+/g, ' ')
+  if (!query) return []
+
+  const dictionary = searchDictionary(query)
+
+  const providers: Array<(q: string) => Promise<SearchResult[]>> = [
+    twelveData.searchSymbols,
+    finnhub.searchSymbols,
+    yahooSearch,
+  ]
+  const typed = compact(searchText(query))
+  for (const search of providers) {
+    try {
+      const answer = await withTimeout(search(query))
+      const results = Array.isArray(answer) ? uniqueBySymbol(answer) : []
+      if (results.length === 0) continue
+
+      // A match the provider also answered keeps the provider's row, which
+      // names the listing more fully ("Walmart de México, S.A.B. de C.V.").
+      const answered = new Map(results.map((r) => [r.symbol, r]))
+      const onTop = dictionary.filter((match) => match.rank <= 2).slice(0, DICTIONARY_ON_TOP)
+      const row = (match: (typeof onTop)[number]) => answered.get(match.result.symbol) ?? match.result
+      return uniqueBySymbol([
+        ...onTop.filter((match) => match.rank === 0).map(row),
+        ...results.filter((r) => compact(searchText(r.symbol)) === typed),
+        ...onTop.map(row),
+        ...results,
+      ])
+    } catch { /* the next provider */ }
+  }
+
+  return dictionary.slice(0, DICTIONARY_ALONE).map((match) => match.result)
 }
 
 export async function getQuote(symbol: string): Promise<QuoteResult | null> {

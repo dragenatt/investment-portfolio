@@ -5,7 +5,10 @@
  * Free tier: 800 credits/day, 8 credits/min
  * - /quote = 1 credit
  * - /time_series = 1 credit
- * - /symbol_search = no credit needed
+ * - /symbol_search = 1 credit per the documentation, which also asks for the
+ *   key. Checked on 2026-09-30, the endpoint still answers without a key — and
+ *   with a wrong one — which /quote and /time_series refuse with a 401. See
+ *   searchSymbols.
  */
 
 const BASE = 'https://api.twelvedata.com'
@@ -40,29 +43,88 @@ export async function isAvailable(): Promise<boolean> {
   return !!getApiKey()
 }
 
-export async function searchSymbols(query: string): Promise<Array<{
+export type SymbolSearchResult = {
   symbol: string
   name: string
   type: string
   exchange: string
   exchDisp: string
-}>> {
-  // symbol_search doesn't require API key
-  const res = await fetch(
-    `${BASE}/symbol_search?symbol=${encodeURIComponent(query)}&outputsize=10`,
-    { next: { revalidate: 60 } } as RequestInit
-  )
-  if (!res.ok) return []
-  const data = await res.json()
-  if (!data.data) return []
+}
 
-  return data.data.map((item: Record<string, string>) => ({
-    symbol: item.symbol,
-    name: item.instrument_name,
+/**
+ * The suffix a market's listings carry in the spelling the app stores, which is
+ * Yahoo's — its first quote source. Twelve Data names the market in a separate
+ * field and gives every listing a bare ticker: WALMEX on the BMV, AAPL on the
+ * BMV's SIC, PETR4 on B3. Stored bare, WALMEX is a symbol no provider prices
+ * (symbol-check.ts), and AAPL is the Nasdaq listing in dollars, not the one in
+ * pesos the reader picked. Keyed by MIC, the ISO 10383 code Twelve Data sends
+ * with each listing; the markets are the ones company-profiles.ts places.
+ */
+const SUFFIX_BY_MIC: Record<string, string> = {
+  XMEX: '.MX', // Bolsa Mexicana de Valores, the SIC included
+  BVMF: '.SA', // B3, São Paulo
+  XTSE: '.TO', // Toronto
+  XLON: '.L', // London
+  AIMX: '.L', // London, AIM
+  XETR: '.DE', // Xetra
+}
+
+/** Listings of a search per request; filtered down to MAX_SEARCH_RESULTS. Same credit either way. */
+const SEARCH_OUTPUT_SIZE = 30
+const MAX_SEARCH_RESULTS = 10
+
+/**
+ * One listing in the app's spelling, or null for a market it cannot address.
+ *
+ * A United States listing keeps its bare ticker. A listing anywhere else that
+ * SUFFIX_BY_MIC does not name is left out: under its bare ticker it would be a
+ * different instrument — GLD on Johannesburg is NewGold, not SPDR Gold Shares —
+ * or no instrument at all. Before a suffix, a dot in the ticker is a dash, as
+ * Yahoo writes a series: LIVEPOLC.1 on the BMV is LIVEPOLC-1.MX.
+ */
+function toSearchResult(item: Record<string, string>): SymbolSearchResult | null {
+  if (!item.symbol) return null
+  const suffix = item.country === 'United States' ? '' : SUFFIX_BY_MIC[item.mic_code]
+  if (suffix === undefined) return null
+  return {
+    symbol: suffix ? `${item.symbol.replace(/\./g, '-')}${suffix}` : item.symbol,
+    name: item.instrument_name || item.symbol,
     type: item.instrument_type,
     exchange: item.exchange,
     exchDisp: item.exchange,
-  }))
+  }
+}
+
+export async function searchSymbols(query: string): Promise<SymbolSearchResult[]> {
+  // The key goes with the call when there is one, as for every other endpoint
+  // here: the documentation requires it, and an unkeyed call rides on an
+  // allowance nobody promised to keep. Without one — a local checkout — the
+  // endpoint still answers today, so search keeps working there.
+  const apiKey = getApiKey()
+  const res = await fetch(
+    `${BASE}/symbol_search?symbol=${encodeURIComponent(query)}&outputsize=${SEARCH_OUTPUT_SIZE}${apiKey ? `&apikey=${apiKey}` : ''}`,
+    // A keyed search costs one of the credits the history charts live on, and
+    // the listings that match a query do not change from one minute to the
+    // next, so an answer is kept for an hour. Only a 200 is kept, and Twelve
+    // Data answers a refusal with its own status (a /quote with a bad key is a
+    // 401), so a minute out of credits is not served from here for an hour.
+    { next: { revalidate: 3600 } } as RequestInit
+  )
+  if (!res.ok) return []
+  const data = await res.json()
+  if (!Array.isArray(data.data)) return []
+
+  // One row per symbol: the same ticker comes back once per market that lists
+  // it — AAPL on Nasdaq and again on IEX — and the most relevant comes first.
+  const seen = new Set<string>()
+  const results: SymbolSearchResult[] = []
+  for (const item of data.data as Array<Record<string, string>>) {
+    const result = toSearchResult(item)
+    if (!result || seen.has(result.symbol)) continue
+    seen.add(result.symbol)
+    results.push(result)
+  }
+  return results.slice(0, MAX_SEARCH_RESULTS)
 }
 
 export async function getQuote(symbol: string): Promise<TwelveDataQuote | null> {

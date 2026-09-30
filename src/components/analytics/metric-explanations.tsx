@@ -1,15 +1,18 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { SkeletonChart } from '@/components/shared/skeleton-chart'
 import { useRisk, useReturns } from '@/lib/hooks/use-analytics'
+import { cn } from '@/lib/utils'
 import {
   explainMetric,
   type MetricContext,
   type MetricExplanation,
   type MetricId,
 } from '@/lib/services/metric-explanations'
-import { Sigma, BookOpen, User } from 'lucide-react'
+import { Sigma, User } from 'lucide-react'
 
 /**
  * E3 — every important metric with its definition, formula, a worked example,
@@ -19,14 +22,18 @@ import { Sigma, BookOpen, User } from 'lucide-react'
  * formula and example are marked as explanation. Same separation as D3 and the
  * lab: the explanation is true of the metric, the result is true of this book
  * over this window, and blending them makes the second read like the first.
+ *
+ * One category at a time, and each card shows only the metric and the reader's
+ * number until they open the rest: fifteen cards with every definition, formula
+ * and reading on screen at once were more text than anyone reads.
  */
 
-const GROUPS: Array<{ title: string; ids: MetricId[] }> = [
-  { title: 'Rendimiento', ids: ['return', 'twr', 'xirr'] },
-  { title: 'Riesgo', ids: ['volatility', 'maxDrawdown', 'var', 'cvar'] },
-  { title: 'Rendimiento ajustado por riesgo', ids: ['sharpe', 'sortino'] },
-  { title: 'Frente al índice de referencia', ids: ['beta', 'alpha', 'trackingError', 'informationRatio'] },
-  { title: 'Concentración y diversificación', ids: ['hhi', 'effectiveBets'] },
+const GROUPS: Array<{ id: string; title: string; ids: MetricId[] }> = [
+  { id: 'returns', title: 'Rendimiento', ids: ['return', 'twr', 'xirr'] },
+  { id: 'risk', title: 'Riesgo', ids: ['volatility', 'maxDrawdown', 'var', 'cvar'] },
+  { id: 'risk-adjusted', title: 'Rendimiento ajustado por riesgo', ids: ['sharpe', 'sortino'] },
+  { id: 'benchmark', title: 'Frente al índice de referencia', ids: ['beta', 'alpha', 'trackingError', 'informationRatio'] },
+  { id: 'diversification', title: 'Concentración y diversificación', ids: ['hhi', 'effectiveBets'] },
 ]
 
 export function MetricExplanationsCard({ pid }: { pid: string }) {
@@ -88,17 +95,25 @@ export function MetricExplanationsCard({ pid }: { pid: string }) {
         </CardHeader>
       </Card>
 
-      {GROUPS.map((group) => (
-        <section key={group.title} className="space-y-3">
-          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{group.title}</h3>
-          <div className="grid gap-4 lg:grid-cols-2">
-            {group.ids.map((id) => {
-              const explanation = explainMetric(id, values[id], context)
-              return explanation ? <MetricCard key={id} explanation={explanation} /> : null
-            })}
-          </div>
-        </section>
-      ))}
+      <Tabs defaultValue={GROUPS[0].id}>
+        <TabsList variant="line" aria-label="Categorías de métricas" className="w-full flex-wrap justify-start gap-x-1 gap-y-2 group-data-horizontal/tabs:h-auto">
+          {GROUPS.map((group) => (
+            <TabsTrigger key={group.id} value={group.id} className="flex-none px-2.5">
+              {group.title}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {GROUPS.map((group) => (
+          <TabsContent key={group.id} value={group.id} className="mt-4">
+            <div className="grid gap-4 lg:grid-cols-2">
+              {group.ids.map((id) => {
+                const explanation = explainMetric(id, values[id], context)
+                return explanation ? <MetricCard key={id} explanation={explanation} /> : null
+              })}
+            </div>
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   )
 }
@@ -124,37 +139,49 @@ function MetricCard({ explanation }: { explanation: MetricExplanation }) {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-            <BookOpen className="h-3 w-3" />
-            Definicion
-          </p>
-          <p className="text-xs text-muted-foreground leading-relaxed">{explanation.definition}</p>
+        <Disclosure title="Definición y fórmula">
+          <p className="text-xs text-muted-foreground">{explanation.definition}</p>
           <pre className="text-[11px] font-mono bg-muted/50 rounded-lg px-3 py-2 whitespace-pre-wrap break-words text-foreground">
             {explanation.formula}
           </pre>
-        </div>
+        </Disclosure>
 
-        <details className="group rounded-lg border border-border px-3 py-2">
-          <summary className="cursor-pointer list-none text-[11px] font-medium text-foreground">
-            Ejemplo
-          </summary>
-          <div className="mt-2 space-y-1.5 text-[11px] leading-relaxed">
-            <p className="text-muted-foreground">{explanation.example.setup}</p>
-            <p className="font-financial text-foreground">{explanation.example.steps}</p>
-            <p className="text-foreground">{explanation.example.result}</p>
-          </div>
-        </details>
+        <Disclosure title="Ejemplo">
+          <p className="text-muted-foreground">{explanation.example.setup}</p>
+          <p className="font-financial text-foreground">{explanation.example.steps}</p>
+          <p className="text-foreground">{explanation.example.result}</p>
+        </Disclosure>
 
-        <div className="rounded-lg bg-primary/5 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-primary mb-1">Qué significa tu número</p>
-          <p className="text-xs text-foreground leading-relaxed">{explanation.interpretation}</p>
-        </div>
-
-        {explanation.source && (
-          <p className="text-[10px] text-muted-foreground">Fuente: {explanation.source}</p>
-        )}
+        {/* The reading is the reader's, so it keeps the "Tu resultado" colour. */}
+        <Disclosure title="Qué significa tu número" yours>
+          <p className="text-xs text-foreground">{explanation.interpretation}</p>
+          {explanation.source && (
+            <p className="text-[10px] text-muted-foreground">Fuente: {explanation.source}</p>
+          )}
+        </Disclosure>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * The card's collapsed sections: the <details> the worked example has always
+ * been behind, with the turning › of advisor-education.tsx so a closed one
+ * reads as something to open.
+ */
+function Disclosure({ title, yours = false, children }: { title: string; yours?: boolean; children: ReactNode }) {
+  return (
+    <details className={cn('group rounded-lg px-3 py-2', yours ? 'bg-primary/5' : 'border border-border')}>
+      <summary
+        className={cn(
+          'cursor-pointer list-none text-[11px] font-medium flex items-center gap-1.5',
+          yours ? 'text-primary' : 'text-foreground',
+        )}
+      >
+        <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-90">›</span>
+        {title}
+      </summary>
+      <div className="mt-2 space-y-1.5 text-[11px] leading-relaxed">{children}</div>
+    </details>
   )
 }

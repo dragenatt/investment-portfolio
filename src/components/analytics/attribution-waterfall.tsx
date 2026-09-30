@@ -108,7 +108,7 @@ function CustomTooltip({
       <div className="space-y-1 text-xs font-financial">
         {d.allocation_effect != null && (
           <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Asignacion</span>
+            <span className="text-muted-foreground">Asignación</span>
             <span className={d.allocation_effect >= 0 ? 'text-gain' : 'text-loss'}>
               {formatNumber(d.allocation_effect)}%
             </span>
@@ -116,7 +116,7 @@ function CustomTooltip({
         )}
         {d.selection_effect != null && (
           <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Seleccion</span>
+            <span className="text-muted-foreground">Selección</span>
             <span className={d.selection_effect >= 0 ? 'text-gain' : 'text-loss'}>
               {formatNumber(d.selection_effect)}%
             </span>
@@ -124,7 +124,7 @@ function CustomTooltip({
         )}
         {d.interaction_effect != null && (
           <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Interaccion</span>
+            <span className="text-muted-foreground">Interacción</span>
             <span className={d.interaction_effect >= 0 ? 'text-gain' : 'text-loss'}>
               {formatNumber(d.interaction_effect)}%
             </span>
@@ -257,9 +257,9 @@ export function AttributionWaterfall({ sectors, total, isLoading }: Props) {
                 <th scope="col" className="text-right py-2 px-2 font-medium">Peso Bench.</th>
                 <th scope="col" className="text-right py-2 px-2 font-medium">Ret. Port.</th>
                 <th scope="col" className="text-right py-2 px-2 font-medium">Ret. Bench.</th>
-                <th scope="col" className="text-right py-2 px-2 font-medium">Asignacion</th>
-                <th scope="col" className="text-right py-2 px-2 font-medium">Seleccion</th>
-                <th scope="col" className="text-right py-2 px-2 font-medium">Interaccion</th>
+                <th scope="col" className="text-right py-2 px-2 font-medium">Asignación</th>
+                <th scope="col" className="text-right py-2 px-2 font-medium">Selección</th>
+                <th scope="col" className="text-right py-2 px-2 font-medium">Interacción</th>
                 <th scope="col" className="text-right py-2 pl-2 font-medium">Total</th>
               </tr>
             </thead>
@@ -319,21 +319,21 @@ export function AttributionWaterfall({ sectors, total, isLoading }: Props) {
           <div className="flex items-start gap-2">
             <div aria-hidden="true" className="mt-1 h-2 w-2 rounded-full bg-amber-600 shrink-0" />
             <p>
-              <span className="font-medium text-foreground">Asignacion:</span>{' '}
+              <span className="font-medium text-foreground">Asignación:</span>{' '}
               Efecto de tus decisiones de peso por sector
             </p>
           </div>
           <div className="flex items-start gap-2">
             <div aria-hidden="true" className="mt-1 h-2 w-2 rounded-full bg-blue-600 shrink-0" />
             <p>
-              <span className="font-medium text-foreground">Seleccion:</span>{' '}
+              <span className="font-medium text-foreground">Selección:</span>{' '}
               Efecto de elegir acciones dentro del sector
             </p>
           </div>
           <div className="flex items-start gap-2">
             <div aria-hidden="true" className="mt-1 h-2 w-2 rounded-full bg-zinc-500 shrink-0" />
             <p>
-              <span className="font-medium text-foreground">Interaccion:</span>{' '}
+              <span className="font-medium text-foreground">Interacción:</span>{' '}
               Efecto combinado
             </p>
           </div>

@@ -308,11 +308,17 @@ describe('searchSymbols', () => {
     expect(results[1].name).toBe('Apple Fund')
   })
 
-  it('returns empty array when Yahoo search fails', async () => {
+  it('answers from the local dictionary when Yahoo search fails', async () => {
     mockFetch.mockResolvedValueOnce({ ok: false })
 
     const results = await searchSymbols('AAPL')
-    expect(results).toEqual([])
+    expect(results[0]).toMatchObject({ symbol: 'AAPL', name: 'Apple' })
+  })
+
+  it('returns an empty array when Yahoo fails and nothing in the dictionary matches', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false })
+
+    expect(await searchSymbols('ZZQX')).toEqual([])
   })
 })
 

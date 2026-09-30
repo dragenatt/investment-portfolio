@@ -67,7 +67,7 @@ const METRICS: Array<{
   },
   {
     id: 'correlation',
-    label: 'Correlacion',
+    label: 'Correlación',
     key: 'correlation',
     suffix: '',
     digits: 2,
@@ -122,7 +122,7 @@ export function RollingRiskChart({ rolling, isLoading }: Props) {
           </CardTitle>
           {rolling && (
             <CardDescription className="text-xs">
-              Ventana movil de {rolling.window_label} · {rolling.observations_used} puntos
+              Ventana móvil de {rolling.window_label} · {rolling.observations_used} puntos
               {rolling.benchmark_symbol ? ` · vs ${rolling.benchmark_symbol}` : ''}
             </CardDescription>
           )}

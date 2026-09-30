@@ -52,7 +52,7 @@ export function ModoEducativo({ educacion }: { educacion: Educacion | null }) {
         <details className="group">
           <summary className="cursor-pointer text-xs text-foreground/80 hover:text-foreground list-none flex items-center gap-1.5">
             <span className="inline-block transition-transform group-open:rotate-90">›</span>
-            Ver los {educacion.conceptos.length} conceptos que usa esta proyeccion
+            Ver los {educacion.conceptos.length} conceptos que usa esta proyección
           </summary>
 
           <ul className="mt-3 space-y-2">
@@ -88,7 +88,7 @@ export function ModoEducativo({ educacion }: { educacion: Educacion | null }) {
                 {/* The teaching side, behind the roadmap's own heading. */}
                 <details className="mt-2">
                   <summary className="cursor-pointer text-[11px] text-muted-foreground hover:text-foreground">
-                    Explicacion educativa
+                    Explicación educativa
                   </summary>
                   <div className="mt-2 space-y-2 border-l-2 border-border pl-3">
                     <p className="text-[11px] text-muted-foreground leading-relaxed">

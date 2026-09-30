@@ -51,7 +51,7 @@ export function ExperimentView({
 
       <Step
         n={3}
-        title="Parametros"
+        title="Parámetros"
         kind="inputs"
         action={
           <Button variant="ghost" size="sm" onClick={onReset} className="h-7 text-xs gap-1.5">
@@ -75,7 +75,7 @@ export function ExperimentView({
         </p>
       </Step>
 
-      <Step n={4} title="Simulacion" kind="model">
+      <Step n={4} title="Simulación" kind="model">
         <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">{experiment.simulation}</p>
         {error ? (
           <p className="text-sm text-loss">No se pudo correr el experimento: {error}</p>
@@ -103,7 +103,7 @@ export function ExperimentView({
         )}
       </Step>
 
-      <Step n={6} title="Interpretacion" kind="teaching">
+      <Step n={6} title="Interpretación" kind="teaching">
         {result ? (
           <p className={cn('text-sm text-foreground leading-relaxed', isLoading && 'opacity-60')}>
             {result.interpretation}
@@ -127,7 +127,7 @@ export function ExperimentView({
 }
 
 const KIND_LABEL = {
-  teaching: { text: 'Explicacion educativa', icon: BookOpen },
+  teaching: { text: 'Explicación educativa', icon: BookOpen },
   inputs: { text: 'Tus supuestos', icon: null },
   model: { text: 'Resultado del modelo', icon: FlaskConical },
 } as const

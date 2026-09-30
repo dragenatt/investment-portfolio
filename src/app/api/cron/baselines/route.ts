@@ -52,7 +52,7 @@ async function getHandler(req: Request) {
       ...new Set([
         ...(positions ?? []).map((p) => p.symbol as string),
         ...(watched ?? []).map((w) => w.symbol as string),
-        ...UNIVERSE_SYMBOLS, // keep the curated ~100 warm for the sector breakdown
+        ...UNIVERSE_SYMBOLS, // keep the curated ~190 warm for the sector breakdown
       ]),
     ].filter(Boolean)
 

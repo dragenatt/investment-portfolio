@@ -33,10 +33,10 @@ export function EventsTimeline({ events }: { events: MarketEvent[] }) {
     return (
       <Card className="rounded-2xl border-border shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Proximos Eventos</CardTitle>
+          <CardTitle className="text-sm font-medium">Próximos Eventos</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-4">Sin eventos proximos</p>
+          <p className="text-sm text-muted-foreground text-center py-4">Sin eventos próximos</p>
         </CardContent>
       </Card>
     )
@@ -45,7 +45,7 @@ export function EventsTimeline({ events }: { events: MarketEvent[] }) {
   return (
     <Card className="rounded-2xl border-border shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">Proximos Eventos</CardTitle>
+        <CardTitle className="text-sm font-medium">Próximos Eventos</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">

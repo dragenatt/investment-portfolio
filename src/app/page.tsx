@@ -34,7 +34,7 @@ export default function LandingPage() {
         <span className="font-bold text-xl text-foreground">InvestTracker</span>
         <div className="flex gap-3">
           <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), 'text-foreground/70 hover:text-foreground hover:bg-secondary')}>
-            Iniciar sesion
+            Iniciar sesión
           </Link>
           <Link href="/register" className={cn(buttonVariants(), 'bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl')}>
             Registrarse
@@ -131,7 +131,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">
-        <p>InvestTracker — Hecho en Mexico</p>
+        <p>InvestTracker — Hecho en México</p>
         <p className="mt-2">
           <Link href="/privacidad" className="underline underline-offset-4 hover:text-foreground">
             Aviso de Privacidad

@@ -254,7 +254,7 @@ export function RiskDashboard({
               {formatNumber(var95)}%
             </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Con 95% de confianza, perdida maxima diaria:{' '}
+              Con 95% de confianza, pérdida máxima diaria:{' '}
               {formatNumber(Math.abs(var95))}%
             </p>
           </div>
