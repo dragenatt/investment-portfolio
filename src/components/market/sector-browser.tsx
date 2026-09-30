@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { assetsBySector } from '@/lib/data/asset-universe'
 
 /**
- * Browse the curated ~100-asset universe grouped by sector. Each asset links to
+ * Browse the curated ~190-asset universe grouped by sector. Each asset links to
  * its detail page (chart + technical signal + fundamentals). Static list — no
  * price fetch here, so it renders instantly.
  */
@@ -25,7 +25,7 @@ export function SectorBrowser() {
               <Link key={a.symbol} href={`/market/${encodeURIComponent(a.symbol)}`}>
                 <Card className="card-hover cursor-pointer h-full">
                   <CardContent className="p-3">
-                    <p className="font-mono font-semibold text-sm">{a.symbol}</p>
+                    <p className="font-mono font-semibold text-sm truncate">{a.symbol}</p>
                     <p className="text-xs text-muted-foreground truncate">{a.name}</p>
                   </CardContent>
                 </Card>

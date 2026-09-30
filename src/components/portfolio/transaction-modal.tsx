@@ -224,7 +224,7 @@ export function TransactionModal({ portfolioId }: Props) {
               id="tx-symbol"
               value={symbol}
               onChange={e => { setSymbol(e.target.value); setSearchQuery(e.target.value) }}
-              placeholder="AAPL, BTC-USD, AMXL.MX..."
+              placeholder="AAPL, BTC-USD, AMXB.MX..."
               required
             />
             {searchResults && searchResults.length > 0 && searchQuery.length > 0 && symbol !== searchQuery && (

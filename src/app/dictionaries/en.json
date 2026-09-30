@@ -429,7 +429,7 @@
     "forex": "Forex",
     "commodity": "Commodity",
     "symbol": "Symbol",
-    "symbol_placeholder": "AAPL, BTC-USD, AMXL.MX...",
+    "symbol_placeholder": "AAPL, BTC-USD, AMXB.MX...",
     "price_per_unit": "Price per unit",
     "price_placeholder": "Price per share/unit",
     "fetching_price": "Fetching market price...",
