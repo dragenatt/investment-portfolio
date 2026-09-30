@@ -264,7 +264,10 @@
     "create_account": "Create Account",
     "creating_account": "Creating account...",
     "have_account": "Already have an account?",
-    "login_link": "Sign in"
+    "login_link": "Sign in",
+    "privacy_consent_before": "By creating an account you accept the",
+    "privacy_consent_link": "Privacy Notice",
+    "privacy_consent_after": "and the processing of your financial data for the purposes described there."
   },
   "account": {
     "security_title": "Account & security",

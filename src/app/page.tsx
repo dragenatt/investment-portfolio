@@ -132,6 +132,11 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">
         <p>InvestTracker — Hecho en Mexico</p>
+        <p className="mt-2">
+          <Link href="/privacidad" className="underline underline-offset-4 hover:text-foreground">
+            Aviso de Privacidad
+          </Link>
+        </p>
       </footer>
     </div>
   )

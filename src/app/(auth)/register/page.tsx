@@ -97,6 +97,18 @@ export default function RegisterPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? t.auth.creating_account : t.auth.create_account}
             </Button>
+            {/* The notice has to be reachable where the data is collected, and
+                before the account exists — that is what makes the consent for
+                patrimonial data informed. /privacidad is a top-level route for
+                this reason: session gating lives in (app)/layout.tsx, so it
+                opens without an account. */}
+            <p className="text-center text-xs leading-relaxed text-muted-foreground">
+              {t.auth.privacy_consent_before}{' '}
+              <Link href="/privacidad" className="text-primary underline underline-offset-4">
+                {t.auth.privacy_consent_link}
+              </Link>{' '}
+              {t.auth.privacy_consent_after}
+            </p>
           </form>
           <p className="text-sm text-muted-foreground text-center mt-4">
             {t.auth.have_account} <Link href="/login" className="text-primary underline underline-offset-4">{t.auth.login_link}</Link>

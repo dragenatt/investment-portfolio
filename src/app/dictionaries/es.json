@@ -264,7 +264,10 @@
     "create_account": "Crear Cuenta",
     "creating_account": "Creando cuenta...",
     "have_account": "¿Ya tienes cuenta?",
-    "login_link": "Inicia sesión"
+    "login_link": "Inicia sesión",
+    "privacy_consent_before": "Al crear una cuenta aceptas el",
+    "privacy_consent_link": "Aviso de Privacidad",
+    "privacy_consent_after": "y el tratamiento de tus datos patrimoniales para las finalidades que ahí se describen."
   },
   "account": {
     "security_title": "Cuenta y seguridad",
