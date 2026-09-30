@@ -35,4 +35,44 @@ describe('PortfolioChart', () => {
     expect(glow!.getAttribute('filterUnits')).toBe('userSpaceOnUse')
     expect(Number.parseFloat(glow!.getAttribute('height') ?? '0')).toBeGreaterThan(0)
   })
+
+  // The axis was `hide`, so a week of trading was a shape with no time under
+  // it: a reader could see a vertical step and had no way to tell whether it
+  // happened across a weekend or inside a morning.
+  // Not scoped under .recharts-xAxis: recharts draws the ticks in their own
+  // layer rather than inside the axis group, so that descendant selector
+  // matches nothing. This chart's Y axis is hidden, so the tick values on the
+  // page are the X axis's and no scoping is needed.
+  const tickTexts = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('.recharts-cartesian-axis-tick-value'))
+      .map((node) => node.textContent?.trim() ?? '')
+      .filter(Boolean)
+
+  it('draws the time axis for a series of closes', () => {
+    const closes = [
+      { date: '2026-09-01', value: 1000 },
+      { date: '2026-09-02', value: 1100 },
+      { date: '2026-09-03', value: 1050 },
+    ]
+    const { container } = render(<PortfolioChart data={closes} currency="MXN" />)
+    expect(tickTexts(container).length).toBeGreaterThan(0)
+  })
+
+  it('marks each session once on a multi-day intraday window, at the point that opens it', () => {
+    const week = [
+      { date: '2026-09-25T13:30:00Z', value: 16700 },
+      { date: '2026-09-25T14:00:00Z', value: 16750 },
+      { date: '2026-09-25T19:30:00Z', value: 16758 },
+      // Adjacent by index, 65 hours apart in fact: the axis is a category axis.
+      { date: '2026-09-28T13:30:00Z', value: 18890 },
+      { date: '2026-09-28T14:00:00Z', value: 18896 },
+    ]
+    const { container } = render(<PortfolioChart data={week} currency="MXN" />)
+
+    const ticks = tickTexts(container)
+    // Two sessions, two marks — not one per point, and not the same date over
+    // and over, which is what formatting every value on its own would give.
+    expect(ticks).toHaveLength(2)
+    expect(ticks[0]).not.toBe(ticks[1])
+  })
 })

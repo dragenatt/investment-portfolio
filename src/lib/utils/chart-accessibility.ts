@@ -117,3 +117,55 @@ export function seriesTable<T>(
   const { rows } = sampleEvenly(points, max)
   return { caption, columns, rows: rows.map(toRow), note: sampledNote(rows.length, points.length) }
 }
+
+/**
+ * The labels for a time axis, one per point, blank where none should be drawn.
+ *
+ * A portfolio series is plotted on a category axis, which spaces points evenly
+ * by index. That is deliberate for intraday data — collapsing the hours the
+ * market is shut is what every trading chart does — but it means consecutive
+ * points can be thirty minutes or a whole weekend apart, so the axis cannot be
+ * labelled by formatting each value on its own: a multi-day window would repeat
+ * one date a dozen times and then skip two days with nothing to mark it.
+ *
+ * So a multi-day intraday series is labelled only where the day changes. One
+ * mark per session, sitting exactly where a gap is, which is what lets a reader
+ * see that a step happened across a weekend rather than within a morning.
+ * A window inside one session is labelled by the clock, and a series of closing
+ * prices by its dates.
+ */
+export function timeAxisLabels(points: Array<{ date: string }>): string[] {
+  if (points.length === 0) return []
+
+  const intraday = isIntradaySeries(points)
+  const day = (value: string) => value.slice(0, 10)
+  const singleDay = intraday && points.every((p) => day(p.date) === day(points[0].date))
+
+  return points.map((point, index) => {
+    const value = point.date
+    if (typeof value !== 'string') return ''
+
+    if (singleDay) {
+      const at = new Date(value)
+      // The same clock the tooltip reads on, deliberately: an axis saying
+      // "13:30" under a tooltip saying "1:30 p.m." makes the reader work out
+      // that they are the same instant. `numeric` rather than `2-digit` because
+      // es-MX renders the latter as "01:30 p.m.", too wide for a tick.
+      return Number.isNaN(at.getTime())
+        ? ''
+        : at.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })
+    }
+
+    if (intraday && index > 0 && day(points[index - 1].date) === day(value)) return ''
+
+    // A plain date carries no time, so it is read in UTC: shifting it into the
+    // reader's zone would move "1 sep" to the previous evening west of London.
+    const at = new Date(intraday ? value : `${day(value)}T00:00:00Z`)
+    if (Number.isNaN(at.getTime())) return ''
+    return at.toLocaleDateString('es-MX', {
+      day: 'numeric',
+      month: 'short',
+      ...(intraday ? {} : { timeZone: 'UTC' }),
+    })
+  })
+}

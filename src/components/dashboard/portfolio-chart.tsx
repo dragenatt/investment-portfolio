@@ -1,10 +1,10 @@
 'use client'
 
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { getChartTheme } from '@/lib/utils/chart-config'
 import { ChartFigure } from '@/components/charts/chart-figure'
-import { describeChange, formatChartMoment, formatChartMoney, isIntradaySeries, seriesTable } from '@/lib/utils/chart-accessibility'
+import { describeChange, formatChartMoment, formatChartMoney, isIntradaySeries, seriesTable, timeAxisLabels } from '@/lib/utils/chart-accessibility'
 import { ChartEmpty, ChartLoading } from '@/components/charts/chart-state'
 
 type DataPoint = { date: string; value: number }
@@ -117,6 +117,21 @@ export function PortfolioChart({ data, isLoading, onPeriodChange, currency, unco
 
   // 1D and 1W come back as instants within the session; the rest as closes.
   const intraday = isIntradaySeries(data)
+
+  /**
+   * The axis was hidden, so the line had no time reference at all: the reader
+   * could see a shape, and a cliff in it, but not when either happened.
+   *
+   * timeAxisLabels decides what each tick says; see it for why the labels
+   * cannot simply be each value formatted on its own.
+   */
+  const singleDay =
+    intraday && data.length > 0 && data.every((d) => d.date.slice(0, 10) === data[0].date.slice(0, 10))
+  const axisLabels = useMemo(() => timeAxisLabels(data), [data])
+  const tickFormatter = useCallback(
+    (_value: string, index: number) => axisLabels[index] ?? '',
+    [axisLabels],
+  )
   const summary =
     data.length >= 2
       ? `Valor del portafolio, ${PERIOD_NAMES[period] ?? period}${intraday ? ' (precios durante la sesión)' : ''}: ${describeChange(
@@ -164,7 +179,13 @@ export function PortfolioChart({ data, isLoading, onPeriodChange, currency, unco
               <XAxis
                 dataKey="date"
                 {...theme.xAxis}
-                hide
+                tickFormatter={tickFormatter}
+                // A session label sits at the point that opens it, so the ticks
+                // must not be thinned or re-chosen: interval={0} keeps every
+                // one and the formatter blanks the rest.
+                interval={intraday && !singleDay ? 0 : 'preserveStartEnd'}
+                minTickGap={intraday && !singleDay ? 0 : 48}
+                height={22}
               />
               <YAxis {...theme.yAxis} domain={domain ?? [0, 'auto']} hide />
               <Tooltip
