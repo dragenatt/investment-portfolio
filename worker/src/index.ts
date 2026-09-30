@@ -36,13 +36,32 @@ export interface Env {
  * irrelevant, the function starting is what matters. No provider is called and
  * no quota is spent, because the auth check comes first.
  *
- * A page cannot be warmed this way. The proxy redirects a request with no
- * session to /login before the page's function runs, so pinging /dashboard
- * would only warm the middleware. What the page's own start-up costs is a
- * matter for the app's own code — see lib/observability/sentry.ts — and for
- * Vercel's Fluid Compute setting.
+ * A page BEHIND the session cannot be warmed this way: the proxy redirects a
+ * request without one to /login before the page's function runs, so pinging
+ * /dashboard would only warm the middleware.
+ *
+ * The public pages are a different case, and they were being left cold. Real
+ * user timings over a fortnight (web_vitals) put TTFB on the landing page at
+ * 288ms median against 1,983ms at p75, and /login at 756ms against 1,531ms —
+ * the split shape of a function that is fast when it is up and slow when it is
+ * not, on pages that do no session work at all. A third of all page views were
+ * waiting more than two seconds for the first byte. Those two pages are also
+ * exactly what someone meets when they open the app, which is where the delay
+ * was reported.
+ *
+ * Nothing static is served here to absorb this: the root layout reads the CSP
+ * nonce off the request, which makes every route in the app render on demand,
+ * so there is no prerendered HTML on a CDN anywhere. Until that changes these
+ * pings are what stands between a visitor and a cold start.
  */
-const WARM_PATHS = ['/api/portfolio', '/api/portfolio/history?range=30', '/api/market/batch?symbols=AAPL']
+const WARM_PATHS = [
+  '/api/portfolio',
+  '/api/portfolio/history?range=30',
+  '/api/market/batch?symbols=AAPL',
+  // Public pages: these run the renderer through to the end.
+  '/',
+  '/login',
+]
 
 /** A ping is worth no more than this; the alerts run must not wait on it. */
 const WARM_TIMEOUT_MS = 8000
