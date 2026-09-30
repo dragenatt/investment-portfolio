@@ -29,6 +29,9 @@ import { cn } from '@/lib/utils'
 export default function AnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [tab, setTab] = useState('overview')
+  // Kept here, not in the risk tab, so leaving the tab and coming back returns
+  // to the section the reader was on.
+  const [riskSection, setRiskSection] = useState('summary')
   const [horizonWeeks, setHorizonWeeks] = useState(52)
   const { currency } = useCurrency()
 
@@ -72,14 +75,16 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
 
       <Tabs value={tab} onValueChange={setTab}>
         {/* flex-wrap, not a 5-column grid: there are more tabs than columns, and the
-            grid wrapped them into two misaligned rows. */}
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
+            grid wrapped them into two misaligned rows. The height is set under the
+            same variant as the list's own h-8, so cn() replaces it: a plain h-auto
+            lost to it, and the rows that wrapped spilled under the tab's content. */}
+        <TabsList className="flex w-full flex-wrap justify-start gap-1 group-data-horizontal/tabs:h-auto">
           <TabsTrigger value="overview">General</TabsTrigger>
           <TabsTrigger value="risk">Riesgo</TabsTrigger>
-          <TabsTrigger value="attribution">Atribucion</TabsTrigger>
+          <TabsTrigger value="attribution">Atribución</TabsTrigger>
           <TabsTrigger value="factors">Factores</TabsTrigger>
           <TabsTrigger value="income">Ingresos</TabsTrigger>
-          <TabsTrigger value="allocation">Asignacion</TabsTrigger>
+          <TabsTrigger value="allocation">Asignación</TabsTrigger>
           <TabsTrigger value="scenarios">Escenarios</TabsTrigger>
           <TabsTrigger value="backtesting">Backtesting</TabsTrigger>
           <TabsTrigger value="whatif">¿Qué pasaría si?</TabsTrigger>
@@ -134,93 +139,116 @@ export default function AnalyticsPage({ params }: { params: Promise<{ id: string
           </DataGate>
         </TabsContent>
 
-        {/* Risk Tab */}
-        <TabsContent value="risk" className="space-y-6 mt-6">
-          {/* The question first (P2-5): where the risk comes from, before how much of it there is. */}
-          <ErrorBoundary>
-            <RiskSources portfolioId={id} />
-          </ErrorBoundary>
+        {/* Risk Tab. Six panels stacked one under another were a wall to read
+            through; each question is now one section, the summary first. */}
+        <TabsContent value="risk" className="mt-6">
+          <Tabs value={riskSection} onValueChange={setRiskSection}>
+            <TabsList variant="line" aria-label="Secciones de riesgo" className="w-full flex-wrap justify-start gap-x-1 gap-y-2 group-data-horizontal/tabs:h-auto">
+              <TabsTrigger value="summary" className="flex-none px-2.5">Resumen</TabsTrigger>
+              <TabsTrigger value="sources" className="flex-none px-2.5">Fuentes de riesgo</TabsTrigger>
+              <TabsTrigger value="stress" className="flex-none px-2.5">Estrés histórico</TabsTrigger>
+              <TabsTrigger value="rolling" className="flex-none px-2.5">Riesgo en el tiempo</TabsTrigger>
+              <TabsTrigger value="simulation" className="flex-none px-2.5">Simulación</TabsTrigger>
+            </TabsList>
 
-          {/* P1-30: dated crises applied to the book as it stands. */}
-          <ErrorBoundary>
-            <StressPanel portfolioId={id} />
-          </ErrorBoundary>
+            <TabsContent value="summary" className="space-y-6 mt-4">
+              <DataGate error={riskError} hasData={!!risk} what="el análisis de riesgo">
+              <ErrorBoundary>
+                {riskLoading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[1, 2, 3, 4, 5, 6].map(i => <SkeletonCard key={i} />)}
+                  </div>
+                ) : risk?.message ? (
+                  <Card>
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                      {risk.message}
+                    </CardContent>
+                  </Card>
+                ) : risk?.current ? (
+                  <RiskDashboard
+                    riskScore={risk.current.risk_score}
+                    sharpeRatio={risk.current.sharpe_ratio}
+                    sortinoRatio={risk.current.sortino_ratio}
+                    maxDrawdown={risk.current.max_drawdown}
+                    maxDrawdownDate={risk.current.max_drawdown_date}
+                    volatility={risk.current.volatility}
+                    beta={risk.current.beta}
+                    alpha={risk.current.alpha}
+                    calmarRatio={risk.current.calmar_ratio}
+                    var95={risk.current.var_95}
+                    trackingError={risk.current.tracking_error}
+                    informationRatio={risk.current.information_ratio}
+                  />
+                ) : null}
+                <AuditTrail meta={risk?._meta} className="mt-2" />
+              </ErrorBoundary>
 
-          {/* Risk over time comes first: one number for the whole history
-              hides whether it is getting worse, which is the real question. */}
-          <DataGate error={riskError} hasData={!!risk} what="el análisis de riesgo">
-          <ErrorBoundary>
-            <RollingRiskChart
-              rolling={risk?.rolling_risk ?? null}
-              isLoading={riskLoading}
-            />
-          </ErrorBoundary>
+              <ErrorBoundary>
+                <DrawdownChart
+                  dates={risk?.drawdown_series?.dates ?? []}
+                  values={risk?.drawdown_series?.values ?? []}
+                  maxDrawdown={risk?.current?.max_drawdown ?? 0}
+                  maxDrawdownDate={risk?.current?.max_drawdown_date ?? ''}
+                  isLoading={riskLoading}
+                />
+              </ErrorBoundary>
+              </DataGate>
+            </TabsContent>
 
-          <ErrorBoundary>
-            {riskLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3, 4, 5, 6].map(i => <SkeletonCard key={i} />)}
-              </div>
-            ) : risk?.message ? (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  {risk.message}
-                </CardContent>
-              </Card>
-            ) : risk?.current ? (
-              <RiskDashboard
-                riskScore={risk.current.risk_score}
-                sharpeRatio={risk.current.sharpe_ratio}
-                sortinoRatio={risk.current.sortino_ratio}
-                maxDrawdown={risk.current.max_drawdown}
-                maxDrawdownDate={risk.current.max_drawdown_date}
-                volatility={risk.current.volatility}
-                beta={risk.current.beta}
-                alpha={risk.current.alpha}
-                calmarRatio={risk.current.calmar_ratio}
-                var95={risk.current.var_95}
-                trackingError={risk.current.tracking_error}
-                informationRatio={risk.current.information_ratio}
-              />
-            ) : null}
-            <AuditTrail meta={risk?._meta} className="mt-2" />
-          </ErrorBoundary>
+            {/* P2-5: where the risk comes from, beside how much of it there is. */}
+            <TabsContent value="sources" className="space-y-6 mt-4">
+              <ErrorBoundary>
+                <RiskSources portfolioId={id} />
+              </ErrorBoundary>
+            </TabsContent>
 
-          <ErrorBoundary>
-            <DrawdownChart
-              dates={risk?.drawdown_series?.dates ?? []}
-              values={risk?.drawdown_series?.values ?? []}
-              maxDrawdown={risk?.current?.max_drawdown ?? 0}
-              maxDrawdownDate={risk?.current?.max_drawdown_date ?? ''}
-              isLoading={riskLoading}
-            />
-          </ErrorBoundary>
-          </DataGate>
+            {/* P1-30: dated crises applied to the book as it stands. */}
+            <TabsContent value="stress" className="space-y-6 mt-4">
+              <ErrorBoundary>
+                <StressPanel portfolioId={id} />
+              </ErrorBoundary>
+            </TabsContent>
 
-          <DataGate error={monteCarloError} hasData={!!monteCarlo} what="la simulación Monte Carlo">
-          <ErrorBoundary>
-            {monteCarlo?.message ? (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  {monteCarlo.message}
-                </CardContent>
-              </Card>
-            ) : (
-              <MonteCarloChart
-                bands={monteCarlo?.bands ?? []}
-                currentValue={monteCarlo?.current_value ?? 0}
-                // The cone is in the portfolio's currency, which the job states.
-                currency={monteCarlo?.currency ?? currency}
-                var95={monteCarlo?.var_95}
-                simulations={monteCarlo?.simulations}
-                horizonWeeks={horizonWeeks}
-                onHorizonChange={setHorizonWeeks}
-                isLoading={monteCarloLoading}
-              />
-            )}
-            <AuditTrail meta={monteCarlo?._meta} className="mt-2" />
-          </ErrorBoundary>
-          </DataGate>
+            {/* One number for the whole history hides whether risk is getting
+                worse, which is the real question. */}
+            <TabsContent value="rolling" className="space-y-6 mt-4">
+              <DataGate error={riskError} hasData={!!risk} what="el riesgo en el tiempo">
+              <ErrorBoundary>
+                <RollingRiskChart
+                  rolling={risk?.rolling_risk ?? null}
+                  isLoading={riskLoading}
+                />
+              </ErrorBoundary>
+              </DataGate>
+            </TabsContent>
+
+            <TabsContent value="simulation" className="space-y-6 mt-4">
+              <DataGate error={monteCarloError} hasData={!!monteCarlo} what="la simulación Monte Carlo">
+              <ErrorBoundary>
+                {monteCarlo?.message ? (
+                  <Card>
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                      {monteCarlo.message}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <MonteCarloChart
+                    bands={monteCarlo?.bands ?? []}
+                    currentValue={monteCarlo?.current_value ?? 0}
+                    // The cone is in the portfolio's currency, which the job states.
+                    currency={monteCarlo?.currency ?? currency}
+                    var95={monteCarlo?.var_95}
+                    simulations={monteCarlo?.simulations}
+                    horizonWeeks={horizonWeeks}
+                    onHorizonChange={setHorizonWeeks}
+                    isLoading={monteCarloLoading}
+                  />
+                )}
+                <AuditTrail meta={monteCarlo?._meta} className="mt-2" />
+              </ErrorBoundary>
+              </DataGate>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         {/* Attribution Tab */}

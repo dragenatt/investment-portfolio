@@ -184,7 +184,7 @@ test.describe('analytics', () => {
     }
   })
 
-  for (const tab of ['Asignacion', 'Backtesting', '¿Qué pasaría si?']) {
+  for (const tab of ['Asignación', 'Backtesting', '¿Qué pasaría si?']) {
     test(`the ${tab} tab renders without broken values`, async ({ page }) => {
       await page.goto(`/portfolio/${portfolioId}/analytics`)
       await page.getByRole('tab', { name: tab }).click()
