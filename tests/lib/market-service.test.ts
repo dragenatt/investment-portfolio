@@ -20,6 +20,7 @@ vi.mock('@/lib/services/finnhub', () => ({
   isAvailable: vi.fn().mockResolvedValue(true),
   getQuote: vi.fn(),
   getHistory: vi.fn(),
+  searchSymbols: vi.fn().mockResolvedValue([]),
 }))
 
 // Mock Redis cache
@@ -462,14 +463,16 @@ describe('Market Service', () => {
       expect(twelveData.searchSymbols).toHaveBeenCalledWith('Apple')
     })
 
-    it('falls back to Yahoo when primary fails', async () => {
+    it('falls back to Finnhub, then Yahoo, then the local dictionary when the primary fails', async () => {
       vi.mocked(twelveData.searchSymbols).mockRejectedValueOnce(new Error('Failed'))
 
       const result = await searchSymbols('Apple')
 
       expect(twelveData.searchSymbols).toHaveBeenCalled()
-      // Yahoo fallback returns [] because fetch mock returns !ok
-      expect(result).toEqual([])
+      expect(finnhub.searchSymbols).toHaveBeenCalledWith('Apple')
+      // Yahoo was asked too, and answered !ok (the fetch mock).
+      expect(String(mockFetch.mock.calls[0][0])).toContain('/v1/finance/search?q=Apple')
+      expect(result[0]).toMatchObject({ symbol: 'AAPL', name: 'Apple' })
     })
 
     it('returns empty array when all sources fail', async () => {

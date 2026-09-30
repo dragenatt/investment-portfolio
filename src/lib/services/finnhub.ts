@@ -88,6 +88,11 @@ export async function getCompanyProfile(symbol: string): Promise<FinnhubProfile 
  * Search for symbols using Finnhub
  * GET /search?q={query}&token={key}
  * Note: Finnhub search is limited compared to Twelve Data
+ *
+ * Answers { count, result: [{ description, displaySymbol, symbol, type }] },
+ * where type is the kind of instrument ("Common Stock", "ETP") and the market
+ * is only in the symbol's suffix — the same suffixes the app and Yahoo use
+ * (WALMEX.MX, APC.DE); a US listing has none.
  */
 export async function searchSymbols(query: string): Promise<Array<{
   symbol: string
@@ -106,15 +111,25 @@ export async function searchSymbols(query: string): Promise<Array<{
   if (!res.ok) return []
 
   const data = await res.json()
-  if (!data.result) return []
+  if (!Array.isArray(data.result)) return []
 
-  return data.result.slice(0, 10).map((item: Record<string, unknown>) => ({
-    symbol: item.symbol as string,
-    name: item.description as string || (item.symbol as string),
-    type: 'stock',
-    exchange: item.type as string || 'UNKNOWN',
-    exchDisp: item.type as string || 'UNKNOWN',
-  }))
+  return (data.result as Array<Record<string, unknown>>)
+    .filter((item) => typeof item.symbol === 'string' && item.symbol.length > 0)
+    .slice(0, 10)
+    .map((item) => {
+      const symbol = item.symbol as string
+      const suffix = symbol.includes('.') ? symbol.slice(symbol.lastIndexOf('.') + 1) : ''
+      // A share class (BRK.B) is a dot too, but not a market: that is a US
+      // listing. Only A, B and C, as in market.ts — London's ".L" is a market.
+      const market = !suffix || /^[ABC]$/.test(suffix) ? 'US' : suffix === 'MX' ? 'BMV' : suffix
+      return {
+        symbol,
+        name: (item.description as string) || symbol,
+        type: (item.type as string) || 'stock',
+        exchange: market,
+        exchDisp: market,
+      }
+    })
 }
 
 /**
